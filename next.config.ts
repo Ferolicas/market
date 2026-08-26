@@ -2,6 +2,10 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  allowedDevOrigins: (process.env.LOCAL_DEV_ORIGINS ?? "")
+    .split(",")
+    .map((origin) => origin.trim().replace(/^https?:\/\//, ""))
+    .filter(Boolean),
   experimental: {
     optimizePackageImports: ["@react-three/drei"],
   },

@@ -1,13 +1,13 @@
 # Mini Market — mapa vivo
 
-Actualizado: 2026-08-26 · Commit: `4300831`
+Actualizado: 2026-08-26 · Base local: `c96fc1d`
 
 ## Identidad y stack
 
 Simulador empresarial 3D individual y privado para la familia, jugable en navegador e instalable como PWA. Combina trabajo manual por proximidad, automatización mediante empleados, proveedores, contabilidad educativa por país y expansión con caja global. Producción: `market.olcas.app`, PM2 `market`, puerto `4010`, PostgreSQL `market_db`.
 
 - Next.js 16.3.3, React 19.2.8 y TypeScript 5.
-- React Three Fiber 9, Drei 10 y Three.js 0.185 para la escena procedural low-poly.
+- React Three Fiber 9, Drei 10 y Three.js 0.185 para la escena low-poly y los personajes GLB animados.
 - Zustand 5 para estado y recuperación local; Vitest 4 para el motor económico puro.
 - Prisma 7 con adaptador `pg` y PostgreSQL 17.
 - Better Auth 1.7 con correo, contraseña y username; Resend para magic links.
@@ -44,8 +44,8 @@ El esquema vive en `prisma/schema.prisma`; las migraciones están en `prisma/mig
 - `Session`: cookie/sesión revocable con caducidad, IP y agente.
 - `Account`: credencial del proveedor; password cifrado por Better Auth y unicidad `issuer + accountId`.
 - `Verification`: tokens temporales de recuperación.
-- `PlayerProfile`: país, moneda, piel, camisa y sombrero seleccionados.
-- `GameSave`: estado JSONB, ranura única por usuario, revisión y checksum SHA-256.
+- `PlayerProfile`: país, moneda y copia rápida de piel, camisa y sombrero seleccionados.
+- `GameSave`: estado JSONB, ranura única por usuario, revisión y checksum SHA-256. El esquema de partida v2 conserva cuerpo, peinado, color del cabello, piel, camisa y gorro; las partidas v1 se normalizan al cargar.
 - `LedgerEntry`: movimiento en unidades monetarias menores, día, franquicia, categoría y revisión.
 
 Las relaciones dependientes usan borrado en cascada. El dinero nunca usa decimales flotantes persistidos.
@@ -71,10 +71,11 @@ Las relaciones dependientes usan borrado en cascada. El dinero nunca usa decimal
 ### Simulación y expansión
 
 1. `MarketScene.tsx` traduce teclado, táctil, mando y proximidad a acciones, detecta cuándo el jugador se mueve y no altera economía directamente.
-2. `Avatar.tsx` dibuja un trabajador humano articulado, mantiene los pies a ras de suelo, anima la marcha real y monta el animal seleccionado como un gorro separado.
-3. `engine.ts` procesa cosecha, maquinaria, stock, caja, empleados, pedidos, tiempo y cierre diario.
-4. `catalog.ts` es la fuente única de países, escalas monetarias, productos, proveedores, roles, sombreros y seis franquicias.
-5. Cambiar de franquicia modifica la ubicación activa, no la caja global ni los recursos compartidos.
+2. `Avatar.tsx` clona uno de los cuatro GLB con esqueleto (hombre, mujer, niño o niña), mantiene los pies a ras de suelo, mezcla animaciones reales y monta peinado y animal en el hueso `Head`.
+3. `AvatarCustomizer.tsx` permite cambiar en cualquier momento cuerpo, 16 peinados, color de pelo, piel, camisa y 14 gorros animales opcionales; la vista previa es 3D y gira 360°.
+4. `engine.ts` procesa cosecha, maquinaria, stock, caja, empleados, pedidos, tiempo y cierre diario.
+5. `catalog.ts` es la fuente única de países, escalas monetarias, productos, proveedores, roles, sombreros y seis franquicias.
+6. Cambiar de franquicia modifica la ubicación activa, no la caja global ni los recursos compartidos.
 
 ## Dependencias compartidas
 
@@ -85,7 +86,8 @@ Las relaciones dependientes usan borrado en cascada. El dinero nunca usa decimal
 - `src/lib/game-validation.ts`: frontera de confianza para partidas recibidas por API.
 - `src/components/game/GameShell.tsx`: orquesta HUD, paneles, escena y ciclo de autosave.
 - `src/components/game/MarketScene.tsx`: render, controles 3D y estado caminar/parado; no debe duplicar lógica económica.
-- `src/components/game/Avatar.tsx`: rig visual compartido por jugador, empleados y clientes; el animal siempre se representa como gorro y no sustituye la cabeza humana.
+- `src/components/game/Avatar.tsx`: rig visual compartido por jugador, empleados y clientes; usa los GLB de `public/models/`, sus 15 clips y accesorios anclados al hueso de la cabeza. El animal siempre es gorro y no sustituye la cabeza humana.
+- `src/components/game/AvatarCustomizer.tsx`: vestuario reutilizado en la creación de empresa y en el panel Avatar durante la partida.
 - `src/app/globals.css`: sistema visual global y adaptación móvil.
 - `src/lib/auth.ts` y `src/lib/db.ts`: autenticación y conexión compartidas por todas las APIs.
 
@@ -99,6 +101,7 @@ Las relaciones dependientes usan borrado en cascada. El dinero nunca usa decimal
 | `RESEND_API_KEY` | Envío de recuperación de contraseña |
 | `PORT` | Puerto de `next start`; producción usa `4010` |
 | `NODE_ENV` | Comportamiento desarrollo/producción |
+| `LOCAL_DEV_ORIGINS` | Orígenes adicionales separados por coma para probar `next dev` y Better Auth desde la LAN |
 | `STRIPE_*`, `HUBSPOT_ACCESS_TOKEN` | Reservadas y vacías; no se usan en esta versión |
 
 Los valores solo existen en `.env` local, secretos de Actions y `/var/www/market/.env`; nunca se versionan.
@@ -117,4 +120,6 @@ Los valores solo existen en `.env` local, secretos de Actions y `/var/www/market
 - 2026-08-26: la clave Resend es de solo envío; enviar funciona aunque consultar la API administrativa de dominios responda 401.
 - 2026-08-26: los mensajes `Server Reference ID` observados coincidieron con el reemplazo del build durante deploy; PM2 quedó con cero reinicios inestables.
 - 2026-08-26: `walking` no puede estar activo permanentemente; debe seguir el input real y animar articulaciones para evitar el efecto de avatar flotante.
+- 2026-08-26: los cuatro GLB comparten los clips `Idle`, `Walk`, `Run`, `Enter`, `Wave`, `ReceiveOrder`, `LiftBox`, `CarryBox`, `StockLow`, `StockHigh`, `ScanItem`, `Pay`, `Plant`, `Harvest` y `Happy`.
+- 2026-08-26: el guardado debe rechazar cuerpos vacíos o JSON roto con 400; una petición interrumpida no puede convertirse en un 500.
 - 2026-08-26: fiscalidad y licencias son una simulación educativa, no asesoría fiscal ni contable.

@@ -5,13 +5,20 @@ import { Resend } from "resend";
 import { db } from "@/lib/db";
 
 const appUrl = process.env.APP_URL ?? process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
+const trustedOrigins = [
+  appUrl,
+  ...(process.env.LOCAL_DEV_ORIGINS ?? "")
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean),
+];
 
 export const auth = betterAuth({
   appName: "Mini Market",
   baseURL: appUrl,
   secret: process.env.AUTH_SECRET ?? process.env.BETTER_AUTH_SECRET,
   database: prismaAdapter(db, { provider: "postgresql" }),
-  trustedOrigins: [appUrl],
+  trustedOrigins,
   emailAndPassword: {
     enabled: true,
     minPasswordLength: 10,

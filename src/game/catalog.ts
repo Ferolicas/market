@@ -1,4 +1,4 @@
-import type { CountryCode, CountryDefinition, EmployeeRole, HatId, ProductId } from "./types";
+import type { CharacterId, CountryCode, CountryDefinition, EmployeeRole, HairId, HatId, ProductId } from "./types";
 
 export const COUNTRIES: Record<CountryCode, CountryDefinition> = {
   ES: { code: "ES", name: "España", currency: "EUR", locale: "es-ES", corporateTaxRate: 0.25, salesTaxRate: 0.21, payrollBurdenRate: 0.31, startingCapitalMinor: 220000 },
@@ -45,10 +45,40 @@ export const HATS: { id: HatId; name: string; emoji: string; color: string }[] =
   { id: "frog", name: "Sapo", emoji: "🐸", color: "#70b85d" },
   { id: "mouse", name: "Ratón", emoji: "🐭", color: "#9c91a8" },
   { id: "elephant", name: "Elefante", emoji: "🐘", color: "#84a2ad" },
+  { id: "rhino", name: "Rinoceronte", emoji: "🦏", color: "#8f9699" },
   { id: "giraffe", name: "Jirafa", emoji: "🦒", color: "#e3a945" },
+  { id: "panda", name: "Panda", emoji: "🐼", color: "#f4f0df" },
   { id: "owl", name: "Búho", emoji: "🦉", color: "#7d5d42" },
+  { id: "cow", name: "Vaca", emoji: "🐮", color: "#f5efe1" },
+  { id: "rabbit", name: "Conejo", emoji: "🐰", color: "#f2eee6" },
   { id: "axolotl", name: "Ajolote", emoji: "🩷", color: "#f18eb6" },
   { id: "capybara", name: "Capibara", emoji: "🤎", color: "#9a6d4d" },
+];
+
+export const CHARACTERS: { id: CharacterId; name: string; description: string }[] = [
+  { id: "adult-man", name: "Hombre", description: "Adulto" },
+  { id: "adult-woman", name: "Mujer", description: "Adulta" },
+  { id: "boy", name: "Niño", description: "Joven" },
+  { id: "girl", name: "Niña", description: "Joven" },
+];
+
+export const HAIRSTYLES: { id: HairId; name: string }[] = [
+  { id: "side-part", name: "Raya lateral" },
+  { id: "fade", name: "Degradado" },
+  { id: "waves", name: "Ondulado" },
+  { id: "swept", name: "Peinado atrás" },
+  { id: "bob", name: "Bob" },
+  { id: "ponytail", name: "Coleta" },
+  { id: "long-wavy", name: "Largo ondulado" },
+  { id: "bun", name: "Moño" },
+  { id: "messy", name: "Despeinado" },
+  { id: "curls", name: "Rizos" },
+  { id: "short-fringe", name: "Flequillo corto" },
+  { id: "quiff", name: "Tupé" },
+  { id: "blunt-bob", name: "Bob recto" },
+  { id: "pigtails", name: "Dos coletas" },
+  { id: "braid", name: "Trenza" },
+  { id: "high-ponytail", name: "Coleta alta" },
 ];
 
 export const FRANCHISE_TEMPLATES = [

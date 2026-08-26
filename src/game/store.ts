@@ -1,7 +1,7 @@
 "use client";
 
 import { create } from "zustand";
-import { advanceSimulation, applyGameAction } from "./engine";
+import { advanceSimulation, applyGameAction, normalizeGameState } from "./engine";
 import type { ActionResult, GameAction, GameEvent, GameState } from "./types";
 
 type SaveStatus = "idle" | "loading" | "dirty" | "saving" | "saved" | "offline" | "conflict" | "error";
@@ -34,14 +34,14 @@ export const useMarketStore = create<MarketStore>((set, get) => ({
       const response = await fetch("/api/game/save", { cache: "no-store" });
       if (!response.ok) throw new Error(`Carga ${response.status}`);
       const payload = await response.json();
-      const state = payload.state as GameState;
+      const state = normalizeGameState(payload.state);
       localStorage.setItem(LOCAL_KEY, JSON.stringify({ state, saveRevision: payload.saveRevision }));
       set({ game: state, saveRevision: payload.saveRevision, saveStatus: "saved", message: "Progreso sincronizado" });
     } catch {
       const recovery = localStorage.getItem(LOCAL_KEY);
       if (recovery) {
         const parsed = JSON.parse(recovery) as { state: GameState; saveRevision: number };
-        set({ game: parsed.state, saveRevision: parsed.saveRevision, saveStatus: "offline", message: "Modo sin conexión: progreso protegido localmente" });
+        set({ game: normalizeGameState(parsed.state), saveRevision: parsed.saveRevision, saveStatus: "offline", message: "Modo sin conexión: progreso protegido localmente" });
       } else {
         set({ saveStatus: "error", message: "No se pudo cargar la partida" });
       }
@@ -83,7 +83,7 @@ export const useMarketStore = create<MarketStore>((set, get) => ({
       const payload = await response.json();
       if (response.status === 409) {
         localStorage.setItem(`mini-market-conflict-${Date.now()}`, JSON.stringify({ state, saveRevision }));
-        const serverState = payload.state as GameState;
+        const serverState = normalizeGameState(payload.state);
         localStorage.setItem(LOCAL_KEY, JSON.stringify({ state: serverState, saveRevision: payload.saveRevision }));
         set({ game: serverState, saveRevision: payload.saveRevision, saveStatus: "conflict", pendingEvents: [], message: "Otra sesión guardó primero; cargué la versión más reciente y conservé una copia local" });
         return;

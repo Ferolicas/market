@@ -1,7 +1,8 @@
 import { COUNTRIES, EMPLOYEE_NAMES, FRANCHISE_TEMPLATES, HATS, PRODUCTS, ROLE_INFO, SUPPLIERS } from "./catalog";
-import type { ActionResult, CountryCode, Employee, FranchiseState, GameAction, GameEvent, GameState, Inventory, Mission, ProductId } from "./types";
+import type { ActionResult, AvatarConfig, CountryCode, Employee, FranchiseState, GameAction, GameEvent, GameState, Inventory, Mission, ProductId } from "./types";
 
 const EMPTY_INVENTORY = (): Inventory => ({ wheat: 0, flour: 0, bread: 0, milk: 0, eggs: 0, apples: 0, tomatoes: 0, coffee: 0, juice: 0 });
+export const DEFAULT_AVATAR: AvatarConfig = { body: "adult-man", hair: "side-part", hairColor: "#332b27", skin: "#bd815f", shirt: "#76aee5", hat: "red-panda" };
 
 export function createInitialGame(countryCode: CountryCode = "ES"): GameState {
   const country = COUNTRIES[countryCode];
@@ -27,7 +28,7 @@ export function createInitialGame(countryCode: CountryCode = "ES"): GameState {
   }));
 
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     revision: 0,
     countryCode,
     currency: country.currency,
@@ -38,7 +39,7 @@ export function createInitialGame(countryCode: CountryCode = "ES"): GameState {
     day: 1,
     minuteOfDay: 7 * 60 + 30,
     currentFranchiseId: franchises[0].id,
-    avatar: { skin: "#bd815f", shirt: "#54b99a", hat: "red-panda" },
+    avatar: { ...DEFAULT_AVATAR },
     franchises,
     missions: missionsForDay(1, moneyScale),
     pendingOrders: [],
@@ -46,6 +47,17 @@ export function createInitialGame(countryCode: CountryCode = "ES"): GameState {
     tutorialStep: 0,
     lastSavedAt: new Date(0).toISOString(),
   };
+}
+
+export function normalizeGameState(input: unknown): GameState {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return createInitialGame();
+  const state = structuredClone(input) as Omit<GameState, "schemaVersion" | "avatar"> & {
+    schemaVersion?: number;
+    avatar?: Partial<AvatarConfig>;
+  };
+  state.schemaVersion = 2;
+  state.avatar = { ...DEFAULT_AVATAR, ...state.avatar };
+  return state as GameState;
 }
 
 export function applyGameAction(input: GameState, action: GameAction): ActionResult {
@@ -73,10 +85,15 @@ export function applyGameAction(input: GameState, action: GameAction): ActionRes
       state.tutorialStep = 1;
       return success(`Empresa registrada en ${country.name}.`);
     }
-    case "SET_AVATAR":
-      state.avatar = { ...state.avatar, ...action };
-      delete (state.avatar as Record<string, unknown>).type;
+    case "SET_AVATAR": {
+      if (action.body !== undefined) state.avatar.body = action.body;
+      if (action.hair !== undefined) state.avatar.hair = action.hair;
+      if (action.hairColor !== undefined) state.avatar.hairColor = action.hairColor;
+      if (action.skin !== undefined) state.avatar.skin = action.skin;
+      if (action.shirt !== undefined) state.avatar.shirt = action.shirt;
+      if (action.hat !== undefined) state.avatar.hat = action.hat;
       return success("Avatar actualizado.");
+    }
     case "TOGGLE_STORE":
       if (!franchise.licenseActive) return fail("Necesitas una licencia comercial activa.");
       franchise.open = !franchise.open;

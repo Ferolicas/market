@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { advanceSimulation, applyGameAction, createInitialGame } from "./engine";
+import { advanceSimulation, applyGameAction, createInitialGame, normalizeGameState } from "./engine";
 
 describe("motor económico", () => {
   it("mantiene una caja global al viajar entre franquicias", () => {
@@ -43,5 +43,18 @@ describe("motor económico", () => {
     expect(colombia.balanceMinor).toBeGreaterThan(spain.balanceMinor * 1000);
     expect(colombia.franchises[1].purchaseCostMinor).toBeGreaterThan(spain.franchises[1].purchaseCostMinor * 1000);
     expect(colombia.missions[0].rewardMinor).toBeGreaterThan(spain.missions[0].rewardMinor * 1000);
+  });
+
+  it("migra partidas antiguas y permite cambiar por completo el personaje", () => {
+    const legacy = createInitialGame("ES") as unknown as { schemaVersion: number; avatar: Record<string, unknown> };
+    legacy.schemaVersion = 1;
+    delete legacy.avatar.body;
+    delete legacy.avatar.hair;
+    delete legacy.avatar.hairColor;
+    const migrated = normalizeGameState(legacy);
+    expect(migrated.schemaVersion).toBe(2);
+    expect(migrated.avatar.body).toBe("adult-man");
+    const changed = applyGameAction(migrated, { type: "SET_AVATAR", body: "adult-woman", hair: "long-wavy", hairColor: "#7a3f22", hat: "none" });
+    expect(changed.state.avatar).toMatchObject({ body: "adult-woman", hair: "long-wavy", hairColor: "#7a3f22", hat: "none" });
   });
 });

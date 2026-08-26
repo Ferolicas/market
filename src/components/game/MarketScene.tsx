@@ -4,10 +4,10 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { ContactShadows, Environment, Float, RoundedBox, Text } from "@react-three/drei";
 import { Suspense, useEffect, useRef, useState } from "react";
 import * as THREE from "three";
-import { Avatar } from "./Avatar";
+import { Avatar, type CharacterAnimation } from "./Avatar";
 import { mobileInput } from "./input";
 import { useMarketStore } from "@/game/store";
-import type { EmployeeRole, HatId } from "@/game/types";
+import type { AvatarConfig, CharacterId, EmployeeRole, HairId, HatId } from "@/game/types";
 
 export type InteractionId = "farm" | "mill" | "bakery" | "shelf" | "checkout" | "supplier" | "office" | "door";
 export interface InteractionPrompt { id: InteractionId; label: string; }
@@ -23,7 +23,7 @@ const ZONES: { id: InteractionId; label: string; position: [number, number, numb
   { id: "door", label: "Abrir / cerrar tienda", position: [0, 0, 5.8] },
 ];
 
-export function MarketScene({ onPrompt, onInteract }: { onPrompt: (prompt: InteractionPrompt | null) => void; onInteract: (id: InteractionId) => void }) {
+export function MarketScene({ onPrompt, onInteract, lastInteraction }: { onPrompt: (prompt: InteractionPrompt | null) => void; onInteract: (id: InteractionId) => void; lastInteraction: { id: InteractionId; sequence: number } | null }) {
   const game = useMarketStore((state) => state.game);
   const franchise = game?.franchises.find((item) => item.id === game.currentFranchiseId);
   if (!game || !franchise) return null;
@@ -39,7 +39,7 @@ export function MarketScene({ onPrompt, onInteract }: { onPrompt: (prompt: Inter
         <Farm />
         <Employees employees={franchise.employees} />
         {franchise.open && <Customers count={Math.min(4, 1 + franchise.checkoutLevel)} />}
-        <Player avatar={game.avatar} onPrompt={onPrompt} onInteract={onInteract} />
+        <Player avatar={game.avatar} onPrompt={onPrompt} onInteract={onInteract} lastInteraction={lastInteraction} />
         <Environment preset="city" environmentIntensity={0.28} />
       </Suspense>
       <ContactShadows position={[0, 0.015, 0]} opacity={0.25} scale={24} blur={2.5} far={8} />
@@ -47,13 +47,14 @@ export function MarketScene({ onPrompt, onInteract }: { onPrompt: (prompt: Inter
   );
 }
 
-function Player({ avatar, onPrompt, onInteract }: { avatar: { skin: string; shirt: string; hat: HatId }; onPrompt: (prompt: InteractionPrompt | null) => void; onInteract: (id: InteractionId) => void }) {
+function Player({ avatar, onPrompt, onInteract, lastInteraction }: { avatar: AvatarConfig; onPrompt: (prompt: InteractionPrompt | null) => void; onInteract: (id: InteractionId) => void; lastInteraction: { id: InteractionId; sequence: number } | null }) {
   const group = useRef<THREE.Group>(null);
   const keys = useRef(new Set<string>());
   const nearest = useRef<InteractionPrompt | null>(null);
   const moving = useRef(false);
   const [walking, setWalking] = useState(false);
   const { camera } = useThree();
+  const interactionAnimation: Record<InteractionId, CharacterAnimation> = { farm: "Harvest", mill: "LiftBox", bakery: "StockHigh", shelf: "StockLow", checkout: "ScanItem", supplier: "ReceiveOrder", office: "Wave", door: "Enter" };
 
   useEffect(() => {
     const down = (event: KeyboardEvent) => {
@@ -104,7 +105,7 @@ function Player({ avatar, onPrompt, onInteract }: { avatar: { skin: string; shir
     }
   });
 
-  return <group ref={group} position={[0, 0, 4.2]}><Avatar {...avatar} walking={walking} /></group>;
+  return <group ref={group} position={[0, 0, 4.2]}><Avatar {...avatar} walking={walking} animation={lastInteraction ? interactionAnimation[lastInteraction.id] : undefined} /></group>;
 }
 
 function MarketBuilding({ open }: { open: boolean }) {
@@ -158,16 +159,21 @@ function Farm() {
 
 function Employees({ employees }: { employees: { id: string; role: EmployeeRole; hat: HatId }[] }) {
   const rolePositions: Record<EmployeeRole, [number, number, number]> = { farmer: [-5.3, 0, 3.6], operator: [-4.8, 0, -1.5], stocker: [0, 0, -2.2], cashier: [4.7, 0, 2.2], builder: [2.9, 0, -4.5], manager: [5.4, 0, -3.6] };
-  return <>{employees.map((employee, index) => <Npc key={employee.id} position={rolePositions[employee.role]} offset={index * 0.7} hat={employee.hat} color={["#e7a959", "#6b9fc8", "#b56fa6", "#70a85d"][index % 4]} />)}</>;
+  const bodies: CharacterId[] = ["adult-woman", "adult-man", "adult-woman", "adult-man"];
+  const hair: HairId[] = ["ponytail", "fade", "bun", "waves"];
+  return <>{employees.map((employee, index) => <Npc key={employee.id} position={rolePositions[employee.role]} offset={index * 0.7} hat={employee.hat} color={["#e7a959", "#6b9fc8", "#b56fa6", "#70a85d"][index % 4]} body={bodies[index % bodies.length]} hair={hair[index % hair.length]} role={employee.role} />)}</>;
 }
 
-function Npc({ position, offset, hat, color }: { position: [number, number, number]; offset: number; hat: HatId; color: string }) {
+function Npc({ position, offset, hat, color, body = "adult-man", hair = "side-part", role }: { position: [number, number, number]; offset: number; hat: HatId; color: string; body?: CharacterId; hair?: HairId; role?: EmployeeRole }) {
   const ref = useRef<THREE.Group>(null);
-  useFrame(({ clock }) => { if (ref.current) { ref.current.position.x = position[0] + Math.sin(clock.elapsedTime * 0.65 + offset) * 0.55; ref.current.position.z = position[2] + Math.cos(clock.elapsedTime * 0.55 + offset) * 0.35; ref.current.rotation.y = Math.sin(clock.elapsedTime * 0.4 + offset); } });
-  return <group ref={ref} position={position}><Avatar skin="#a96f50" shirt={color} hat={hat} scale={0.86} walking /></group>;
+  const roleAnimation: Record<EmployeeRole, CharacterAnimation> = { farmer: "Harvest", operator: "LiftBox", stocker: "StockHigh", cashier: "ScanItem", builder: "CarryBox", manager: "Wave" };
+  useFrame(({ clock }) => { if (ref.current && !role) { ref.current.position.x = position[0] + Math.sin(clock.elapsedTime * 0.65 + offset) * 0.55; ref.current.position.z = position[2] + Math.cos(clock.elapsedTime * 0.55 + offset) * 0.35; ref.current.rotation.y = Math.sin(clock.elapsedTime * 0.4 + offset); } });
+  return <group ref={ref} position={position}><Avatar skin="#a96f50" shirt={color} hairColor="#3b2820" hat={hat} body={body} hair={hair} scale={0.86} walking={!role} animation={role ? roleAnimation[role] : undefined} /></group>;
 }
 
 function Customers({ count }: { count: number }) {
   const hats: HatId[] = ["mouse", "owl", "frog", "capybara"];
-  return <>{Array.from({ length: count }, (_, index) => <Npc key={index} position={[3.6 - index * 0.7, 0, 4.1]} offset={index * 1.3} hat={hats[index]} color="#d48771" />)}</>;
+  const bodies: CharacterId[] = ["adult-woman", "adult-man", "girl", "boy"];
+  const hair: HairId[] = ["long-wavy", "quiff", "pigtails", "messy"];
+  return <>{Array.from({ length: count }, (_, index) => <Npc key={index} position={[3.6 - index * 0.7, 0, 4.1]} offset={index * 1.3} hat={hats[index]} color="#d48771" body={bodies[index]} hair={hair[index]} />)}</>;
 }

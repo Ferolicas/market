@@ -1,7 +1,19 @@
 export type CountryCode = "ES" | "US" | "CO" | "MX" | "AR" | "CL" | "PE";
 export type EmployeeRole = "farmer" | "operator" | "stocker" | "cashier" | "builder" | "manager";
-export type HatId = "red-panda" | "red-fox" | "chicken" | "frog" | "mouse" | "elephant" | "giraffe" | "owl" | "axolotl" | "capybara";
+export type HatId = "red-panda" | "red-fox" | "chicken" | "frog" | "mouse" | "elephant" | "rhino" | "giraffe" | "panda" | "owl" | "cow" | "rabbit" | "axolotl" | "capybara";
+export type AvatarHatId = HatId | "none";
+export type CharacterId = "adult-man" | "adult-woman" | "boy" | "girl";
+export type HairId = "side-part" | "fade" | "waves" | "swept" | "bob" | "ponytail" | "long-wavy" | "bun" | "messy" | "curls" | "short-fringe" | "quiff" | "blunt-bob" | "pigtails" | "braid" | "high-ponytail";
 export type ProductId = "wheat" | "flour" | "bread" | "milk" | "eggs" | "apples" | "tomatoes" | "coffee" | "juice";
+
+export interface AvatarConfig {
+  body: CharacterId;
+  hair: HairId;
+  hairColor: string;
+  skin: string;
+  shirt: string;
+  hat: AvatarHatId;
+}
 
 export type Inventory = Record<ProductId, number>;
 
@@ -87,7 +99,7 @@ export interface FinancialTotals {
 }
 
 export interface GameState {
-  schemaVersion: 1;
+  schemaVersion: 2;
   revision: number;
   countryCode: CountryCode;
   currency: string;
@@ -98,7 +110,7 @@ export interface GameState {
   day: number;
   minuteOfDay: number;
   currentFranchiseId: string;
-  avatar: { skin: string; shirt: string; hat: HatId };
+  avatar: AvatarConfig;
   franchises: FranchiseState[];
   missions: Mission[];
   pendingOrders: PendingOrder[];
@@ -109,7 +121,7 @@ export interface GameState {
 
 export type GameAction =
   | { type: "SET_COUNTRY"; countryCode: CountryCode }
-  | { type: "SET_AVATAR"; skin?: string; shirt?: string; hat?: HatId }
+  | { type: "SET_AVATAR"; body?: CharacterId; hair?: HairId; hairColor?: string; skin?: string; shirt?: string; hat?: AvatarHatId }
   | { type: "TOGGLE_STORE" }
   | { type: "HARVEST" }
   | { type: "LOAD_FLOUR_MILL" }

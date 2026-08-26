@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { createInitialGame } from "@/game/engine";
+import { createInitialGame, normalizeGameState } from "@/game/engine";
 import { savePayloadSchema, type ValidSavePayload } from "@/lib/game-validation";
 import type { GameState } from "@/game/types";
 
@@ -12,7 +12,7 @@ export async function GET(request: Request) {
   if (!session) return Response.json({ error: "UNAUTHORIZED" }, { status: 401 });
 
   const existing = await db.gameSave.findUnique({ where: { userId_slot: { userId: session.user.id, slot: 1 } } });
-  if (existing) return Response.json({ state: existing.state, saveRevision: existing.revision, savedAt: existing.updatedAt });
+  if (existing) return Response.json({ state: normalizeGameState(existing.state), saveRevision: existing.revision, savedAt: existing.updatedAt });
 
   const initial = createInitialGame("ES");
   const saved = await db.$transaction(async (tx) => {
@@ -35,7 +35,17 @@ export async function PUT(request: Request) {
   const contentLength = Number(request.headers.get("content-length") ?? 0);
   if (contentLength > 600_000) return Response.json({ error: "SAVE_TOO_LARGE" }, { status: 413 });
 
-  const parsed = savePayloadSchema.safeParse(await request.json());
+  let body: unknown;
+  try {
+    const rawBody = await request.text();
+    if (!rawBody) return Response.json({ error: "EMPTY_SAVE" }, { status: 400 });
+    if (new TextEncoder().encode(rawBody).byteLength > 600_000) return Response.json({ error: "SAVE_TOO_LARGE" }, { status: 413 });
+    body = JSON.parse(rawBody);
+  } catch {
+    return Response.json({ error: "INVALID_JSON" }, { status: 400 });
+  }
+
+  const parsed = savePayloadSchema.safeParse(body);
   if (!parsed.success) return Response.json({ error: "INVALID_SAVE", issues: parsed.error.issues.slice(0, 4) }, { status: 400 });
   const payload = parsed.data as unknown as ValidSavePayload;
   const stateJson = JSON.parse(JSON.stringify(payload.state));

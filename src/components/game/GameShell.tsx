@@ -1,14 +1,15 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { authClient } from "@/lib/auth-client";
 import { COUNTRIES, HATS, PRODUCTS, ROLE_INFO, SUPPLIERS } from "@/game/catalog";
 import { countryMoneyScale, formatMoney } from "@/game/engine";
 import { useMarketStore } from "@/game/store";
-import type { CountryCode, EmployeeRole, HatId, ProductId } from "@/game/types";
+import type { AvatarConfig, CountryCode, EmployeeRole, ProductId } from "@/game/types";
 import { MarketScene, type InteractionId, type InteractionPrompt } from "./MarketScene";
 import { GameRuntime } from "./GameRuntime";
 import { setMobileInput } from "./input";
+import { AvatarCustomizer } from "./AvatarCustomizer";
 
 type Panel = "stock" | "suppliers" | "team" | "map" | "finance" | "build" | "avatar" | "help" | null;
 
@@ -20,8 +21,17 @@ export function GameShell({ playerName }: { playerName: string }) {
   const saveGame = useMarketStore((state) => state.saveGame);
   const [panel, setPanel] = useState<Panel>(null);
   const [prompt, setPrompt] = useState<InteractionPrompt | null>(null);
+  const [lastInteraction, setLastInteraction] = useState<{ id: InteractionId; sequence: number } | null>(null);
+  const interactionSequence = useRef(0);
+  const interactionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => { if (interactionTimer.current) clearTimeout(interactionTimer.current); }, []);
 
   const interact = useCallback((id: InteractionId) => {
+    interactionSequence.current += 1;
+    setLastInteraction({ id, sequence: interactionSequence.current });
+    if (interactionTimer.current) clearTimeout(interactionTimer.current);
+    interactionTimer.current = setTimeout(() => setLastInteraction(null), 1050);
     if (id === "farm") dispatch({ type: "HARVEST" });
     if (id === "mill") dispatch({ type: "LOAD_FLOUR_MILL" });
     if (id === "bakery") dispatch({ type: "BAKE_BREAD" });
@@ -36,12 +46,12 @@ export function GameShell({ playerName }: { playerName: string }) {
   const franchise = game.franchises.find((item) => item.id === game.currentFranchiseId) ?? game.franchises[0];
   const hour = `${String(Math.floor(game.minuteOfDay / 60) % 24).padStart(2, "0")}:${String(game.minuteOfDay % 60).padStart(2, "0")}`;
   const progress = ((game.xp % Math.max(120, game.level * game.level * 120)) / Math.max(120, game.level * 120)) * 100;
-  const avatarHat = HATS.find((item) => item.id === game.avatar.hat) ?? HATS[0];
+  const avatarHat = HATS.find((item) => item.id === game.avatar.hat);
 
   return (
     <main className="game-shell">
       <GameRuntime />
-      <div className="world"><MarketScene onPrompt={setPrompt} onInteract={interact} /></div>
+      <div className="world"><MarketScene onPrompt={setPrompt} onInteract={interact} lastInteraction={lastInteraction} /></div>
       <header className="hud-top glass-panel">
         <div className="hud-brand"><span>🏪</span><div><strong>{franchise.name}</strong><small>{franchise.city}</small></div></div>
         <div className="hud-stat money"><small>Caja global</small><strong>{formatMoney(game.balanceMinor, game)}</strong></div>
@@ -69,13 +79,13 @@ export function GameShell({ playerName }: { playerName: string }) {
 
       <footer className="game-bottom">
         <div className={`save-chip ${status}`}><i/>{status === "saving" ? "Guardando…" : status === "offline" ? "Copia local" : status === "dirty" ? "Cambios pendientes" : "Guardado"}</div>
-        <div className="player-chip"><span title={`Gorro ${avatarHat.name}`}>{avatarHat.emoji}</span><div><strong>{playerName}</strong><small>Reputación {game.reputation}</small></div><button onClick={() => void saveGame()}>☁</button></div>
+        <div className="player-chip"><span title={avatarHat ? `Gorro ${avatarHat.name}` : "Sin gorro"}>{avatarHat?.emoji ?? "👤"}</span><div><strong>{playerName}</strong><small>Reputación {game.reputation}</small></div><button onClick={() => void saveGame()}>☁</button></div>
       </footer>
 
       {prompt && <button className="interaction-prompt" onClick={() => interact(prompt.id)}><kbd>E</kbd><span>{prompt.label}</span><small>Acércate y pulsa</small></button>}
       <MobileControls onAction={() => prompt && interact(prompt.id)} />
       {message && <div className="toast">{message}</div>}
-      {game.tutorialStep === 0 && <SetupPanel gameCountry={game.countryCode} gameHat={game.avatar.hat} onCountry={(countryCode) => dispatch({ type: "SET_COUNTRY", countryCode })} onHat={(hat) => dispatch({ type: "SET_AVATAR", hat })} />}
+      {game.tutorialStep === 0 && <SetupPanel gameCountry={game.countryCode} gameAvatar={game.avatar} onCountry={(countryCode) => dispatch({ type: "SET_COUNTRY", countryCode })} onAvatar={(avatar) => dispatch({ type: "SET_AVATAR", ...avatar })} />}
       {panel && <ManagementPanel panel={panel} close={() => setPanel(null)} />}
       <button className="help-button" onClick={() => setPanel("help")}>?</button>
     </main>
@@ -99,9 +109,9 @@ function MobileControls({ onAction }: { onAction: () => void }) {
   return <div className="mobile-controls"><div ref={base} className="joystick" onPointerDown={(event) => { event.currentTarget.setPointerCapture(event.pointerId); move(event.clientX, event.clientY); }} onPointerMove={(event) => event.currentTarget.hasPointerCapture(event.pointerId) && move(event.clientX, event.clientY)} onPointerUp={stop} onPointerCancel={stop}><i style={{ transform: `translate(${knob.x}px, ${knob.y}px)` }}/></div><button className="action-button" onPointerDown={onAction}><strong>A</strong><small>ACCIÓN</small></button></div>;
 }
 
-function SetupPanel({ gameCountry, gameHat, onCountry, onHat }: { gameCountry: CountryCode; gameHat: HatId; onCountry: (country: CountryCode) => void; onHat: (hat: HatId) => void }) {
-  const [country, setCountry] = useState(gameCountry); const [hat, setHat] = useState(gameHat);
-  return <div className="modal-backdrop"><section className="setup-panel"><div className="setup-copy"><span className="eyebrow">BIENVENIDO, FUNDADOR</span><h2>Crea tu empresa</h2><p>El país determina la moneda, la fiscalidad y los costes. Después no podrá cambiarse en esta partida.</p><div className="country-grid">{Object.values(COUNTRIES).map((item) => <button key={item.code} className={country === item.code ? "selected" : ""} onClick={() => setCountry(item.code)}><strong>{flag(item.code)} {item.name}</strong><small>{item.currency} · renta {Math.round(item.corporateTaxRate * 1000) / 10}%</small></button>)}</div></div><div className="avatar-setup"><div className="avatar-preview"><span>{HATS.find((item) => item.id === hat)?.emoji}</span><strong>{HATS.find((item) => item.id === hat)?.name}</strong></div><p>Elige tu primer sombrero</p><div className="hat-row">{HATS.map((item) => <button key={item.id} className={hat === item.id ? "selected" : ""} onClick={() => setHat(item.id)} title={item.name}>{item.emoji}</button>)}</div><button className="primary-button" onClick={() => { onHat(hat); onCountry(country); }}>Abrir mi primer Mini Market</button></div></section></div>;
+function SetupPanel({ gameCountry, gameAvatar, onCountry, onAvatar }: { gameCountry: CountryCode; gameAvatar: AvatarConfig; onCountry: (country: CountryCode) => void; onAvatar: (avatar: AvatarConfig) => void }) {
+  const [country, setCountry] = useState(gameCountry); const [avatar, setAvatar] = useState(gameAvatar);
+  return <div className="modal-backdrop"><section className="setup-panel setup-panel-expanded"><div className="setup-copy"><span className="eyebrow">BIENVENIDO, FUNDADOR</span><h2>Crea tu empresa</h2><p>El país determina la moneda, la fiscalidad y los costes. Después no podrá cambiarse en esta partida.</p><div className="country-grid">{Object.values(COUNTRIES).map((item) => <button key={item.code} className={country === item.code ? "selected" : ""} onClick={() => setCountry(item.code)}><strong>{flag(item.code)} {item.name}</strong><small>{item.currency} · renta {Math.round(item.corporateTaxRate * 1000) / 10}%</small></button>)}</div></div><div className="avatar-setup"><AvatarCustomizer avatar={avatar} compact onChange={(change) => setAvatar((current) => ({ ...current, ...change }))} /><button className="primary-button" onClick={() => { onAvatar(avatar); onCountry(country); }}>Abrir mi primer Mini Market</button></div></section></div>;
 }
 
 function ManagementPanel({ panel, close }: { panel: Exclude<Panel, null>; close: () => void }) {
@@ -115,7 +125,7 @@ function ManagementPanel({ panel, close }: { panel: Exclude<Panel, null>; close:
       {panel === "map" && <div className="franchise-map"><div className="map-line"/>{game.franchises.map((item, index) => <article key={item.id} className={`${item.owned ? "owned" : ""} ${item.id === game.currentFranchiseId ? "current" : ""}`}><span>{index === game.franchises.length - 1 ? "🏙️" : "🏪"}</span><div><small>NIVEL {item.unlockLevel}</small><strong>{item.name}</strong><p>{item.city}</p><b>{item.owned ? `${item.employees.length} empleados · ★ ${item.rating.toFixed(1)}` : formatMoney(item.purchaseCostMinor, game)}</b></div>{item.owned ? <button disabled={item.id === game.currentFranchiseId} onClick={() => { dispatch({ type: "TRAVEL", franchiseId: item.id }); close(); }}>{item.id === game.currentFranchiseId ? "Estás aquí" : "Viajar"}</button> : <button disabled={game.level < item.unlockLevel} onClick={() => dispatch({ type: "BUY_FRANCHISE", franchiseId: item.id })}>Comprar</button>}</article>)}</div>}
       {panel === "finance" && <FinancePanel />}
       {panel === "build" && <div className="upgrade-grid">{(["shelves", "checkout", "expansion", "mill", "bakery"] as const).map((upgrade) => <article key={upgrade}><span>{upgradeIcon(upgrade)}</span><div><strong>{upgradeName(upgrade)}</strong><p>{upgradeDescription(upgrade)}</p></div><button onClick={() => dispatch({ type: "UPGRADE", upgrade })}>Mejorar</button></article>)}<article><span>📜</span><div><strong>Licencia comercial</strong><p>{franchise.licenseDaysLeft} días restantes. Obligatoria para abrir.</p></div><button onClick={() => dispatch({ type: "BUY_LICENSE" })}>Renovar 14 días</button></article></div>}
-      {panel === "avatar" && <div className="wardrobe"><div className="avatar-big">{HATS.find((item) => item.id === game.avatar.hat)?.emoji}</div><div className="hat-catalog">{HATS.map((hat) => <button key={hat.id} className={game.avatar.hat === hat.id ? "selected" : ""} onClick={() => dispatch({ type: "SET_AVATAR", hat: hat.id })}><span>{hat.emoji}</span><strong>{hat.name}</strong></button>)}</div><div className="color-pickers"><label>Camiseta<input type="color" value={game.avatar.shirt} onChange={(event) => dispatch({ type: "SET_AVATAR", shirt: event.target.value })} /></label><label>Piel<input type="color" value={game.avatar.skin} onChange={(event) => dispatch({ type: "SET_AVATAR", skin: event.target.value })} /></label></div></div>}
+      {panel === "avatar" && <AvatarCustomizer avatar={game.avatar} onChange={(change) => dispatch({ type: "SET_AVATAR", ...change })} />}
       {panel === "help" && <div className="help-grid"><article><kbd>WASD</kbd><kbd>↑↓←→</kbd><strong>Moverse</strong><p>Camina hasta cada estación. La cámara te sigue automáticamente.</p></article><article><kbd>E</kbd><kbd>ESPACIO</kbd><strong>Interactuar</strong><p>Cosecha, carga máquinas, repón y cobra al estar cerca.</p></article><article><kbd>🎮 A</kbd><strong>Mando</strong><p>Stick izquierdo para moverte y botón A para actuar.</p></article><article><kbd>◎</kbd><strong>Móvil</strong><p>Joystick izquierdo y botón Acción. Los menús son táctiles.</p></article><div className="tutorial-flow"><b>1. Cosecha trigo</b><span>→</span><b>2. Haz harina y pan</b><span>→</span><b>3. Surte</b><span>→</span><b>4. Abre y cobra</b><span>→</span><b>5. Contrata</b></div></div>}
     </div>
     <footer className="panel-footer"><span>Empresa: {COUNTRIES[game.countryCode].name} · {game.currency}</span><div className="panel-actions"><button className="danger-soft" onClick={() => dispatch({ type: "CLOSE_DAY" })}>Cerrar jornada y contabilizar</button><button className="danger-soft" onClick={async () => { await authClient.signOut(); window.location.reload(); }}>Cerrar sesión</button></div></footer>
