@@ -36,6 +36,7 @@ export function GameShell({ playerName }: { playerName: string }) {
   const franchise = game.franchises.find((item) => item.id === game.currentFranchiseId) ?? game.franchises[0];
   const hour = `${String(Math.floor(game.minuteOfDay / 60) % 24).padStart(2, "0")}:${String(game.minuteOfDay % 60).padStart(2, "0")}`;
   const progress = ((game.xp % Math.max(120, game.level * game.level * 120)) / Math.max(120, game.level * 120)) * 100;
+  const avatarHat = HATS.find((item) => item.id === game.avatar.hat) ?? HATS[0];
 
   return (
     <main className="game-shell">
@@ -68,7 +69,7 @@ export function GameShell({ playerName }: { playerName: string }) {
 
       <footer className="game-bottom">
         <div className={`save-chip ${status}`}><i/>{status === "saving" ? "Guardando…" : status === "offline" ? "Copia local" : status === "dirty" ? "Cambios pendientes" : "Guardado"}</div>
-        <div className="player-chip"><span>{game.avatar.hat === "frog" ? "🐸" : "🦊"}</span><div><strong>{playerName}</strong><small>Reputación {game.reputation}</small></div><button onClick={() => void saveGame()}>☁</button></div>
+        <div className="player-chip"><span title={`Gorro ${avatarHat.name}`}>{avatarHat.emoji}</span><div><strong>{playerName}</strong><small>Reputación {game.reputation}</small></div><button onClick={() => void saveGame()}>☁</button></div>
       </footer>
 
       {prompt && <button className="interaction-prompt" onClick={() => interact(prompt.id)}><kbd>E</kbd><span>{prompt.label}</span><small>Acércate y pulsa</small></button>}

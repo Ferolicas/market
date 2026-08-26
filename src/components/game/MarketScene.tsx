@@ -2,7 +2,7 @@
 
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { ContactShadows, Environment, Float, RoundedBox, Text } from "@react-three/drei";
-import { Suspense, useEffect, useRef } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { Avatar } from "./Avatar";
 import { mobileInput } from "./input";
@@ -51,6 +51,8 @@ function Player({ avatar, onPrompt, onInteract }: { avatar: { skin: string; shir
   const group = useRef<THREE.Group>(null);
   const keys = useRef(new Set<string>());
   const nearest = useRef<InteractionPrompt | null>(null);
+  const moving = useRef(false);
+  const [walking, setWalking] = useState(false);
   const { camera } = useThree();
 
   useEffect(() => {
@@ -71,12 +73,18 @@ function Player({ avatar, onPrompt, onInteract }: { avatar: { skin: string; shir
     const gamepad = navigator.getGamepads?.()[0];
     if (gamepad) { x += Math.abs(gamepad.axes[0] ?? 0) > 0.15 ? gamepad.axes[0] : 0; z += Math.abs(gamepad.axes[1] ?? 0) > 0.15 ? gamepad.axes[1] : 0; }
     const length = Math.hypot(x, z);
-    if (length > 0.08) {
+    const isMoving = length > 0.08;
+    if (isMoving !== moving.current) {
+      moving.current = isMoving;
+      setWalking(isMoving);
+    }
+    if (isMoving) {
       x /= Math.max(1, length); z /= Math.max(1, length);
       group.current.position.x = THREE.MathUtils.clamp(group.current.position.x + x * delta * 4.1, -7.6, 7.6);
       group.current.position.z = THREE.MathUtils.clamp(group.current.position.z + z * delta * 4.1, -5.8, 5.8);
       group.current.rotation.y = THREE.MathUtils.lerp(group.current.rotation.y, Math.atan2(x, z), Math.min(1, delta * 10));
     }
+    group.current.position.y = 0;
     const targetCamera = new THREE.Vector3(group.current.position.x, 6.2, group.current.position.z + 7.6);
     camera.position.lerp(targetCamera, 1 - Math.pow(0.001, delta));
     camera.lookAt(group.current.position.x, 1.15, group.current.position.z - 0.5);
@@ -96,7 +104,7 @@ function Player({ avatar, onPrompt, onInteract }: { avatar: { skin: string; shir
     }
   });
 
-  return <group ref={group} position={[0, 0, 4.2]}><Avatar {...avatar} walking /></group>;
+  return <group ref={group} position={[0, 0, 4.2]}><Avatar {...avatar} walking={walking} /></group>;
 }
 
 function MarketBuilding({ open }: { open: boolean }) {

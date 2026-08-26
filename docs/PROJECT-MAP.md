@@ -70,10 +70,11 @@ Las relaciones dependientes usan borrado en cascada. El dinero nunca usa decimal
 
 ### Simulación y expansión
 
-1. `MarketScene.tsx` traduce teclado, táctil, mando y proximidad a acciones, sin alterar economía directamente.
-2. `engine.ts` procesa cosecha, maquinaria, stock, caja, empleados, pedidos, tiempo y cierre diario.
-3. `catalog.ts` es la fuente única de países, escalas monetarias, productos, proveedores, roles, sombreros y seis franquicias.
-4. Cambiar de franquicia modifica la ubicación activa, no la caja global ni los recursos compartidos.
+1. `MarketScene.tsx` traduce teclado, táctil, mando y proximidad a acciones, detecta cuándo el jugador se mueve y no altera economía directamente.
+2. `Avatar.tsx` dibuja un trabajador humano articulado, mantiene los pies a ras de suelo, anima la marcha real y monta el animal seleccionado como un gorro separado.
+3. `engine.ts` procesa cosecha, maquinaria, stock, caja, empleados, pedidos, tiempo y cierre diario.
+4. `catalog.ts` es la fuente única de países, escalas monetarias, productos, proveedores, roles, sombreros y seis franquicias.
+5. Cambiar de franquicia modifica la ubicación activa, no la caja global ni los recursos compartidos.
 
 ## Dependencias compartidas
 
@@ -83,7 +84,8 @@ Las relaciones dependientes usan borrado en cascada. El dinero nunca usa decimal
 - `src/game/store.ts`: sincronización cliente-servidor, autosave, offline y conflictos.
 - `src/lib/game-validation.ts`: frontera de confianza para partidas recibidas por API.
 - `src/components/game/GameShell.tsx`: orquesta HUD, paneles, escena y ciclo de autosave.
-- `src/components/game/MarketScene.tsx`: render y controles 3D; no debe duplicar lógica económica.
+- `src/components/game/MarketScene.tsx`: render, controles 3D y estado caminar/parado; no debe duplicar lógica económica.
+- `src/components/game/Avatar.tsx`: rig visual compartido por jugador, empleados y clientes; el animal siempre se representa como gorro y no sustituye la cabeza humana.
 - `src/app/globals.css`: sistema visual global y adaptación móvil.
 - `src/lib/auth.ts` y `src/lib/db.ts`: autenticación y conexión compartidas por todas las APIs.
 
@@ -114,4 +116,5 @@ Los valores solo existen en `.env` local, secretos de Actions y `/var/www/market
 - 2026-08-26: el desarrollo local depende de un túnel SSH a PostgreSQL antes de iniciar Next.js.
 - 2026-08-26: la clave Resend es de solo envío; enviar funciona aunque consultar la API administrativa de dominios responda 401.
 - 2026-08-26: los mensajes `Server Reference ID` observados coincidieron con el reemplazo del build durante deploy; PM2 quedó con cero reinicios inestables.
+- 2026-08-26: `walking` no puede estar activo permanentemente; debe seguir el input real y animar articulaciones para evitar el efecto de avatar flotante.
 - 2026-08-26: fiscalidad y licencias son una simulación educativa, no asesoría fiscal ni contable.
