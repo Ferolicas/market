@@ -1,6 +1,6 @@
 # Mini Market — mapa vivo
 
-Actualizado: 2026-08-26 · Base local: `c96fc1d`
+Actualizado: 2026-08-26 · Base local: cambios visuales sin publicar
 
 ## Identidad y stack
 
@@ -71,11 +71,13 @@ Las relaciones dependientes usan borrado en cascada. El dinero nunca usa decimal
 ### Simulación y expansión
 
 1. `MarketScene.tsx` traduce teclado, táctil, mando y proximidad a acciones, detecta cuándo el jugador se mueve y no altera economía directamente.
-2. `Avatar.tsx` clona uno de los cuatro GLB con esqueleto (hombre, mujer, niño o niña), mantiene los pies a ras de suelo, mezcla animaciones reales y monta peinado y animal en el hueso `Head`.
-3. `AvatarCustomizer.tsx` permite cambiar en cualquier momento cuerpo, 16 peinados, color de pelo, piel, camisa y 14 gorros animales opcionales; la vista previa es 3D y gira 360°.
-4. `engine.ts` procesa cosecha, maquinaria, stock, caja, empleados, pedidos, tiempo y cierre diario.
-5. `catalog.ts` es la fuente única de países, escalas monetarias, productos, proveedores, roles, sombreros y seis franquicias.
-6. Cambiar de franquicia modifica la ubicación activa, no la caja global ni los recursos compartidos.
+2. `Avatar.tsx` clona uno de los cuatro GLB reconstruidos desde las vistas PNG: `owner_kit_v1.glb`, `woman_kit_v1.glb`, `boy_kit_v1.glb` o `girl_kit_v1.glb`. Todos usan malla soldada, esqueleto deformable y escalas por edad. Los gorros se montan sobre `Head` con la corrección de altura del nuevo rig.
+3. `Customer.tsx` instancia los seis clientes del kit y ejecuta su ciclo autónomo de 36 segundos: entrada, compra, cola, pago, bolsa y salida. La cantidad crece con el nivel de caja hasta un máximo de seis.
+4. `MarketKit.tsx` compone el mobiliario, maquinaria, accesorios, señalización y huerta; `MarketScene.tsx` mantiene las zonas de interacción y colisiones correspondientes.
+5. `AvatarCustomizer.tsx` permite cambiar en cualquier momento cuerpo, 16 peinados, color de pelo, piel, camisa y 14 gorros animales opcionales; la vista previa es 3D y gira 360°.
+6. `engine.ts` procesa cosecha, maquinaria, stock, caja, empleados, pedidos, tiempo y cierre diario.
+7. `catalog.ts` es la fuente única de países, escalas monetarias, productos, proveedores, roles, sombreros y seis franquicias.
+8. Cambiar de franquicia modifica la ubicación activa, no la caja global ni los recursos compartidos.
 
 ## Dependencias compartidas
 
@@ -86,7 +88,10 @@ Las relaciones dependientes usan borrado en cascada. El dinero nunca usa decimal
 - `src/lib/game-validation.ts`: frontera de confianza para partidas recibidas por API.
 - `src/components/game/GameShell.tsx`: orquesta HUD, paneles, escena y ciclo de autosave.
 - `src/components/game/MarketScene.tsx`: render, controles 3D y estado caminar/parado; no debe duplicar lógica económica.
-- `src/components/game/Avatar.tsx`: rig visual compartido por jugador, empleados y clientes; usa los GLB de `public/models/`, sus 15 clips y accesorios anclados al hueso de la cabeza. El animal siempre es gorro y no sustituye la cabeza humana.
+- `src/components/game/Avatar.tsx`: rig visual compartido por jugador, empleados y clientes. Reproduce los clips incluidos en cada GLB, sin balanceo procedural ni elevación artificial. El animal siempre es gorro y no sustituye la cabeza humana.
+- `public/models/*_kit_v1.glb`: los cuatro cuerpos del kit retopologizados con texturas derivadas de sus vistas PNG y clips `Idle`, `Walk`, `Run`, `Enter`, `Wave`, `ReceiveOrder`, `LiftBox`, `CarryBox`, `StockLow`, `StockHigh`, `ScanItem`, `Pay`, `Plant`, `Harvest` y `Happy`.
+- `src/components/game/Customer.tsx` y `public/models/customer[1-6]_kit_v1.glb`: clientes independientes reconstruidos desde `cliente1.png`–`cliente6.png`, con 24 clips y accesorios de cesta/bolsa sincronizados con el recorrido.
+- `src/components/game/MarketKit.tsx`: catálogo visual de estanterías, góndolas, refrigeración, caja, carros, panadería, molino, proveedores, almacén, servicios y huerta completa.
 - `src/components/game/AvatarCustomizer.tsx`: vestuario reutilizado en la creación de empresa y en el panel Avatar durante la partida.
 - `src/app/globals.css`: sistema visual global y adaptación móvil.
 - `src/lib/auth.ts` y `src/lib/db.ts`: autenticación y conexión compartidas por todas las APIs.
@@ -120,6 +125,12 @@ Los valores solo existen en `.env` local, secretos de Actions y `/var/www/market
 - 2026-08-26: la clave Resend es de solo envío; enviar funciona aunque consultar la API administrativa de dominios responda 401.
 - 2026-08-26: los mensajes `Server Reference ID` observados coincidieron con el reemplazo del build durante deploy; PM2 quedó con cero reinicios inestables.
 - 2026-08-26: `walking` no puede estar activo permanentemente; debe seguir el input real y animar articulaciones para evitar el efecto de avatar flotante.
-- 2026-08-26: los cuatro GLB comparten los clips `Idle`, `Walk`, `Run`, `Enter`, `Wave`, `ReceiveOrder`, `LiftBox`, `CarryBox`, `StockLow`, `StockHigh`, `ScanItem`, `Pay`, `Plant`, `Harvest` y `Happy`.
+- 2026-08-26: el dueño adulto incluye los clips `Idle`, `Walk`, `Run`, `Enter`, `Wave`, `ReceiveOrder`, `LiftBox`, `CarryBox`, `StockLow`, `StockHigh`, `ScanItem`, `Pay`, `Plant`, `Harvest` y `Happy`, tomados de la intención corporal de las hojas PNG del kit.
+- 2026-08-26: una malla triangulada con vértices UV separados se rompe al deformarse; el dueño debe conservar la retopología soldada antes de calcular pesos automáticos del esqueleto.
+- 2026-08-26: `supermarket_characters_glb_pack.zip` no es fuente del juego. Las vistas y hojas de poses PNG son la especificación visual y de movimiento obligatoria.
+- 2026-08-26: al optimizar GLB, cada acción debe conservar `fake user` antes de purgar datos huérfanos; de lo contrario Blender elimina los clips aunque el modelo se vea correctamente.
+- 2026-08-26: los clientes usan rutas escalonadas y carriles de entrada alternos para no aparecer sobre el jugador; los objetos que llevan se muestran solo durante los clips correspondientes.
+- 2026-08-26: Better Auth debe usar `http://localhost:3000` como `baseURL` durante `next dev`, aunque `.env` contenga la URL HTTPS de producción. Además, `localhost`, `127.0.0.1` y los valores explícitos de `LOCAL_DEV_ORIGINS` deben estar en `trustedOrigins`; de lo contrario el login local devuelve 403 o emite una cookie `Secure` inutilizable por HTTP.
+- 2026-08-26: React puede solicitar dos veces la partida inicial durante el montaje en desarrollo. La creación de `GameSave` debe ser un `upsert` atómico por `userId + slot`, no una secuencia `findUnique` seguida de `create`, para evitar un 500 por carrera de unicidad en perfiles nuevos.
 - 2026-08-26: el guardado debe rechazar cuerpos vacíos o JSON roto con 400; una petición interrumpida no puede convertirse en un 500.
 - 2026-08-26: fiscalidad y licencias son una simulación educativa, no asesoría fiscal ni contable.

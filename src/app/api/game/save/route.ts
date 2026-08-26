@@ -15,16 +15,25 @@ export async function GET(request: Request) {
   if (existing) return Response.json({ state: normalizeGameState(existing.state), saveRevision: existing.revision, savedAt: existing.updatedAt });
 
   const initial = createInitialGame("ES");
-  const saved = await db.$transaction(async (tx) => {
-    await tx.playerProfile.upsert({
-      where: { userId: session.user.id },
-      update: {},
-      create: { userId: session.user.id },
+  let saved;
+  try {
+    saved = await db.$transaction(async (tx) => {
+      await tx.playerProfile.upsert({
+        where: { userId: session.user.id },
+        update: {},
+        create: { userId: session.user.id },
+      });
+      return tx.gameSave.upsert({
+        where: { userId_slot: { userId: session.user.id, slot: 1 } },
+        update: {},
+        create: { userId: session.user.id, slot: 1, revision: 1, state: JSON.parse(JSON.stringify(initial)), checksum: checksum(initial) },
+      });
     });
-    return tx.gameSave.create({
-      data: { userId: session.user.id, slot: 1, revision: 1, state: JSON.parse(JSON.stringify(initial)), checksum: checksum(initial) },
-    });
-  });
+  } catch (cause) {
+    if (!isUniqueConstraintError(cause)) throw cause;
+    saved = await db.gameSave.findUnique({ where: { userId_slot: { userId: session.user.id, slot: 1 } } });
+    if (!saved) throw cause;
+  }
   return Response.json({ state: saved.state, saveRevision: saved.revision, savedAt: saved.updatedAt }, { status: 201 });
 }
 
@@ -88,4 +97,8 @@ export async function PUT(request: Request) {
 
 function checksum(state: GameState) {
   return createHash("sha256").update(JSON.stringify(state)).digest("hex");
+}
+
+function isUniqueConstraintError(cause: unknown) {
+  return typeof cause === "object" && cause !== null && "code" in cause && cause.code === "P2002";
 }

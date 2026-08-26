@@ -4,14 +4,17 @@ import { username } from "better-auth/plugins";
 import { Resend } from "resend";
 import { db } from "@/lib/db";
 
-const appUrl = process.env.APP_URL ?? process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
-const trustedOrigins = [
-  appUrl,
-  ...(process.env.LOCAL_DEV_ORIGINS ?? "")
-    .split(",")
-    .map((origin) => origin.trim())
-    .filter(Boolean),
-];
+const configuredAppUrl = process.env.APP_URL ?? process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
+const isDevelopment = process.env.NODE_ENV === "development";
+const appUrl = isDevelopment ? "http://localhost:3000" : configuredAppUrl;
+const configuredOrigins = (process.env.LOCAL_DEV_ORIGINS ?? "")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+const developmentOrigins = isDevelopment
+  ? ["http://localhost:3000", "http://127.0.0.1:3000"]
+  : [];
+const trustedOrigins = [...new Set([appUrl, ...developmentOrigins, ...configuredOrigins])];
 
 export const auth = betterAuth({
   appName: "Mini Market",

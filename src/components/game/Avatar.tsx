@@ -1,8 +1,8 @@
 "use client";
 
-import { createPortal } from "@react-three/fiber";
+import { createPortal, useFrame } from "@react-three/fiber";
 import { useAnimations, useGLTF } from "@react-three/drei";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { clone } from "three/examples/jsm/utils/SkeletonUtils.js";
 import { HATS } from "@/game/catalog";
@@ -23,10 +23,31 @@ interface AvatarProps {
 export type CharacterAnimation = "Idle" | "Walk" | "Run" | "Enter" | "Wave" | "ReceiveOrder" | "LiftBox" | "CarryBox" | "StockLow" | "StockHigh" | "ScanItem" | "Pay" | "Plant" | "Harvest" | "Happy";
 
 const MODEL_PATHS: Record<CharacterId, string> = {
-  "adult-man": "/models/store_owner_man.glb",
-  "adult-woman": "/models/store_owner_woman.glb",
-  boy: "/models/store_owner_boy.glb",
-  girl: "/models/store_owner_girl.glb",
+  "adult-man": "/models/owner_kit_v1.glb",
+  "adult-woman": "/models/woman_kit_v1.glb",
+  boy: "/models/boy_kit_v1.glb",
+  girl: "/models/girl_kit_v1.glb",
+};
+
+const BODY_SCALE: Record<CharacterId, number> = {
+  "adult-man": 0.88,
+  "adult-woman": 0.88,
+  boy: 0.69,
+  girl: 0.64,
+};
+
+const HAT_FIT: Record<CharacterId, { y: number; scale: number }> = {
+  "adult-man": { y: 0.42, scale: 0.82 },
+  "adult-woman": { y: 0.40, scale: 1 },
+  boy: { y: 0.40, scale: 1.1 },
+  girl: { y: 0.40, scale: 1.1 },
+};
+
+const FACE_FIT: Record<CharacterId, { x: number; y: number; z: number; width: number; height: number }> = {
+  "adult-man": { x: 0.115, y: 0.335, z: 0.395, width: 0.16, height: 0.052 },
+  "adult-woman": { x: 0.125, y: 0.33, z: 0.4, width: 0.17, height: 0.054 },
+  boy: { x: 0.13, y: 0.325, z: 0.4, width: 0.18, height: 0.056 },
+  girl: { x: 0.13, y: 0.325, z: 0.4, width: 0.18, height: 0.056 },
 };
 
 export function Avatar({
@@ -44,17 +65,19 @@ export function Avatar({
   const model = useMemo(() => {
     const copy = clone(gltf.scene) as THREE.Group;
     copy.traverse((object) => {
-      if (object.name.startsWith("Hair_")) object.visible = false;
+      if (body !== "adult-man" && object.name.startsWith("Hair_")) object.visible = false;
       if (!(object instanceof THREE.Mesh)) return;
       object.castShadow = true;
       object.receiveShadow = true;
       object.material = Array.isArray(object.material) ? object.material.map((material) => material.clone()) : object.material.clone();
     });
     return copy;
-  }, [gltf.scene]);
+  }, [body, gltf.scene]);
   const { actions } = useAnimations(gltf.animations, model);
   const clip = animation ?? (walking ? "Walk" : "Idle");
   const head = model.getObjectByName("Head");
+  const showProceduralHair = hair !== "side-part";
+  const hatFit = HAT_FIT[body];
 
   useEffect(() => {
     const action = actions[clip];
@@ -71,11 +94,11 @@ export function Avatar({
       const materials = Array.isArray(object.material) ? object.material : [object.material];
       for (const material of materials) {
         if (!(material instanceof THREE.MeshStandardMaterial)) continue;
-        if (material.name === "skin") material.color.copy(skinColor);
-        if (material.name === "skinLight") material.color.copy(skinColor).offsetHSL(0, -0.02, 0.09);
-        if (material.name === "shirt") material.color.copy(shirtColor);
+        if (material.name === "skin" || material.name === "Skin warm") material.color.copy(skinColor);
+        if (material.name === "skinLight" || material.name === "Skin highlight") material.color.copy(skinColor).offsetHSL(0, -0.02, 0.09);
+        if (material.name === "shirt" || material.name === "Shirt powder blue" || material.name === "Shirt cuff") material.color.copy(shirtColor);
         if (material.name === "shirtDark") material.color.copy(shirtColor).multiplyScalar(0.72);
-        if (material.name === "hair" || material.name === "hairBrown" || material.name === "beard") material.color.copy(hair);
+        if (material.name === "hair" || material.name === "hairBrown" || material.name === "beard" || material.name === "Graphite hair") material.color.copy(hair);
       }
     });
   }, [hairColor, model, shirt, skin]);
@@ -89,11 +112,33 @@ export function Avatar({
   }, [model]);
 
   return (
-    <group scale={scale} rotation={[0, Math.PI, 0]} position={[0, 0.055, 0]}>
+    <group scale={scale * BODY_SCALE[body]} position={[0, 0, 0]}>
       <primitive object={model} dispose={null} />
-      {head && createPortal(<group rotation={[0, Math.PI, 0]} scale={0.82}><Hair style={hair} color={hairColor} wearingHat={hat !== "none"} /><AnimalHat hat={hat} /></group>, head)}
+      {head && createPortal(<><BlinkingEyelids color={skin} fit={FACE_FIT[body]} /><group position={[0, hatFit.y, 0]} scale={hatFit.scale}>{showProceduralHair && <Hair style={hair} color={hairColor} wearingHat={hat !== "none"} />}<AnimalHat hat={hat} /></group></>, head)}
     </group>
   );
+}
+
+function BlinkingEyelids({ color, fit }: { color: string; fit: { x: number; y: number; z: number; width: number; height: number } }) {
+  const lids = useRef<THREE.Group>(null);
+  useFrame(({ clock }) => {
+    if (!lids.current) return;
+    const moment = (clock.elapsedTime + 1.15) % 4.7;
+    const blink = moment < 0.22 ? Math.sin((moment / 0.22) * Math.PI) : 0;
+    lids.current.children.forEach((lid) => { lid.scale.y = Math.max(0.012, blink); });
+  });
+  return <group ref={lids}>
+    {[-fit.x, fit.x].map((x) => <group key={x} position={[x, fit.y, fit.z]}>
+      <mesh scale={[fit.width / 2, fit.height / 2, 1]}>
+        <circleGeometry args={[1, 18]} />
+        <meshStandardMaterial color={color} roughness={0.9} polygonOffset polygonOffsetFactor={-2} />
+      </mesh>
+      <mesh position={[0, 0, 0.002]}>
+        <planeGeometry args={[fit.width * 0.78, 0.007]} />
+        <meshBasicMaterial color="#4a3028" />
+      </mesh>
+    </group>)}
+  </group>;
 }
 
 function Hair({ style, color, wearingHat }: { style: HairId; color: string; wearingHat: boolean }) {
@@ -113,7 +158,7 @@ function HairFront({ style, color }: { style: HairId; color: string }) {
   if (style === "waves") return <HairClusters color={color} positions={[[-0.24,0.2,0.19],[-0.12,0.29,0.27],[0.02,0.31,0.28],[0.16,0.27,0.25],[0.26,0.17,0.18]]} radius={0.115} />;
   if (style === "short-fringe" || style === "blunt-bob") return <>{[-0.22,-0.11,0,0.11,0.22].map((x) => <mesh key={x} position={[x, 0.12 + Math.abs(x) * 0.18, 0.3]} rotation={[0,0,x * -0.3]}><capsuleGeometry args={[0.055, 0.16, 4, 7]} /><meshStandardMaterial color={color} /></mesh>)}</>;
   const sweptLeft = style === "side-part" || style === "swept" || style === "bob" || style === "long-wavy" || style === "braid";
-  return <>{[-0.22,-0.1,0.02,0.14,0.24].map((x, index) => <mesh key={x} position={[x, 0.19 + (index % 2) * 0.035, 0.28]} rotation={[0.08,0,sweptLeft ? -0.5 : 0.5]}><capsuleGeometry args={[0.055, 0.19, 4, 7]} /><meshStandardMaterial color={color} roughness={0.92} /></mesh>)}</>;
+  return <>{[-0.22,-0.1,0.02,0.14,0.24].map((x, index) => <mesh key={x} position={[x, 0.19 + (index % 2) * 0.03, 0.29]} rotation={[0.04,0,sweptLeft ? -0.38 : 0.38]} scale={[1.3, 0.72, 0.55]}><sphereGeometry args={[0.078, 10, 8]} /><meshStandardMaterial color={index % 2 ? darken(color, 0.88) : color} roughness={0.92} /></mesh>)}</>;
 }
 
 function HairBack({ style, color, wearingHat }: { style: HairId; color: string; wearingHat: boolean }) {
