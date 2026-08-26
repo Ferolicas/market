@@ -29,6 +29,18 @@ describe("motor económico", () => {
     expect(applyGameAction(state, { type: "ORDER", supplierId: "campo", productId: "wheat", quantity: 20 }).ok).toBe(false);
   });
 
+  it("registra cobros manuales por efectivo y tarjeta", () => {
+    const state = createInitialGame("ES");
+    state.franchises[0].open = true;
+    state.franchises[0].shelves.apples = 2;
+    const cash = applyGameAction(state, { type: "CHECKOUT", paymentMethod: "cash" });
+    expect(cash.ok).toBe(true);
+    expect(cash.events[0].description).toContain("efectivo");
+    const card = applyGameAction(cash.state, { type: "CHECKOUT", paymentMethod: "card" });
+    expect(card.ok).toBe(true);
+    expect(card.events[0].description).toContain("tarjeta");
+  });
+
   it("contabiliza impuestos solamente sobre beneficio positivo", () => {
     const state = createInitialGame("CO");
     state.franchises[0].revenueTodayMinor = state.balanceMinor * 3;

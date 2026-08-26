@@ -70,9 +70,9 @@ Las relaciones dependientes usan borrado en cascada. El dinero nunca usa decimal
 
 ### Simulación y expansión
 
-1. `MarketScene.tsx` traduce teclado, táctil, mando y proximidad a acciones, detecta cuándo el jugador se mueve y no altera economía directamente.
+1. `MarketScene.tsx` traduce teclado, táctil, mando y proximidad a acciones. Usa una cámara ortográfica isométrica de plano general y una transición específica de caja; también centraliza límites, fachada y colisiones de todo el mobiliario.
 2. `Avatar.tsx` clona uno de los cuatro GLB reconstruidos desde las vistas PNG: `owner_kit_v1.glb`, `woman_kit_v1.glb`, `boy_kit_v1.glb` o `girl_kit_v1.glb`. Todos usan malla soldada, esqueleto deformable y escalas por edad. Los gorros se montan sobre `Head` con la corrección de altura del nuevo rig.
-3. `Customer.tsx` instancia los seis clientes del kit y ejecuta su ciclo autónomo de 36 segundos: entrada, compra, cola, pago, bolsa y salida. La cantidad crece con el nivel de caja hasta un máximo de seis.
+3. `Customer.tsx` instancia los seis clientes del kit y ejecuta su ciclo autónomo de 47 segundos: recorrido desde la calle, entrada, compra, cola, pago, bolsa y ocho pasos de salida exterior. Cesta y bolsa son portales unidos a `Hand_R`; la cantidad crece con el nivel de caja hasta un máximo de seis.
 4. `MarketKit.tsx` compone el mobiliario, maquinaria, accesorios, señalización y huerta; `MarketScene.tsx` mantiene las zonas de interacción y colisiones correspondientes.
 5. `AvatarCustomizer.tsx` permite cambiar en cualquier momento cuerpo, 16 peinados, color de pelo, piel, camisa y 14 gorros animales opcionales; la vista previa es 3D y gira 360°.
 6. `engine.ts` procesa cosecha, maquinaria, stock, caja, empleados, pedidos, tiempo y cierre diario.
@@ -88,6 +88,7 @@ Las relaciones dependientes usan borrado en cascada. El dinero nunca usa decimal
 - `src/lib/game-validation.ts`: frontera de confianza para partidas recibidas por API.
 - `src/components/game/GameShell.tsx`: orquesta HUD, paneles, escena y ciclo de autosave.
 - `src/components/game/MarketScene.tsx`: render, controles 3D y estado caminar/parado; no debe duplicar lógica económica.
+- `src/components/game/GameShell.tsx`: además del HUD y paneles, posee el modo de caja bloqueado, calcula la presentación del recibo y despacha `CHECKOUT` con el método elegido por el cliente.
 - `src/components/game/Avatar.tsx`: rig visual compartido por jugador, empleados y clientes. Reproduce los clips incluidos en cada GLB, sin balanceo procedural ni elevación artificial. El animal siempre es gorro y no sustituye la cabeza humana.
 - `public/models/*_kit_v1.glb`: los cuatro cuerpos del kit retopologizados con texturas derivadas de sus vistas PNG y clips `Idle`, `Walk`, `Run`, `Enter`, `Wave`, `ReceiveOrder`, `LiftBox`, `CarryBox`, `StockLow`, `StockHigh`, `ScanItem`, `Pay`, `Plant`, `Harvest` y `Happy`.
 - `src/components/game/Customer.tsx` y `public/models/customer[1-6]_kit_v1.glb`: clientes independientes reconstruidos desde `cliente1.png`–`cliente6.png`, con 24 clips y accesorios de cesta/bolsa sincronizados con el recorrido.
@@ -130,6 +131,8 @@ Los valores solo existen en `.env` local, secretos de Actions y `/var/www/market
 - 2026-08-26: `supermarket_characters_glb_pack.zip` no es fuente del juego. Las vistas y hojas de poses PNG son la especificación visual y de movimiento obligatoria.
 - 2026-08-26: al optimizar GLB, cada acción debe conservar `fake user` antes de purgar datos huérfanos; de lo contrario Blender elimina los clips aunque el modelo se vea correctamente.
 - 2026-08-26: los clientes usan rutas escalonadas y carriles de entrada alternos para no aparecer sobre el jugador; los objetos que llevan se muestran solo durante los clips correspondientes.
+- 2026-08-26: una cámara perseguidora cercana impide leer un simulador de gestión. La escena usa proyección ortográfica isométrica para mantener tienda, entrada y exterior en cuadro; solo la caja cambia temporalmente a un encuadre cercano.
+- 2026-08-26: `CHECKOUT` exige `paymentMethod` (`cash` o `card`). La venta y el libro contable conservan el método de pago, mientras los cobros automatizados se identifican como caja automática.
 - 2026-08-26: Better Auth debe usar `http://localhost:3000` como `baseURL` durante `next dev`, aunque `.env` contenga la URL HTTPS de producción. Además, `localhost`, `127.0.0.1` y los valores explícitos de `LOCAL_DEV_ORIGINS` deben estar en `trustedOrigins`; de lo contrario el login local devuelve 403 o emite una cookie `Secure` inutilizable por HTTP.
 - 2026-08-26: React puede solicitar dos veces la partida inicial durante el montaje en desarrollo. La creación de `GameSave` debe ser un `upsert` atómico por `userId + slot`, no una secuencia `findUnique` seguida de `create`, para evitar un 500 por carrera de unicidad en perfiles nuevos.
 - 2026-08-26: el guardado debe rechazar cuerpos vacíos o JSON roto con 400; una petición interrumpida no puede convertirse en un 500.

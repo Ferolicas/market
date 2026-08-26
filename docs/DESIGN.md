@@ -22,10 +22,14 @@ Mini Market usa un 3D estilizado premium, cálido, legible y familiar: fondos cr
 - La zona operativa incluye caja con cinta, registradora, datáfono y recibo; horno y mesa de panadería; molino con tolva; terminal de proveedores, paquetes, palé y terminal de mapa.
 - La huerta incluye parcelas con cultivos diferenciados, invernadero, compost, espantapájaros, vallas, herramientas, regadera, semillas y cajas de cosecha.
 - El edificio añade fachada acristalada, puertas automáticas, señalización suspendida, luminarias, reloj y cámaras. Los muebles principales bloquean físicamente al jugador para evitar que los atraviese.
+- El terreno de juego mide 23 unidades de ancho y continúa desde el fondo del comercio hasta una zona exterior con huerta, acera y calle. Los pasillos separan claramente producción, exposición, refrigeración, caja y servicios.
+- La cámara principal es ortográfica, isométrica y fija: encuadra simultáneamente el local completo, la entrada y el recorrido exterior de los clientes. Al bloquearse en la caja hace una transición suave al mostrador y vuelve al plano general al salir.
+- La caja registradora es una estación operable. Presenta producto escaneado, subtotal, impuesto y total; el cliente solicita efectivo o tarjeta. Efectivo calcula entrega y cambio, mientras tarjeta usa el datáfono. El jugador queda inmóvil en el puesto hasta pulsar “Salir de caja” o `Esc`.
+- Los clientes cruzan la entrada, compran, pagan, reciben su bolsa en el hueso de la mano y caminan aproximadamente ocho pasos por el exterior antes de desaparecer.
 
 ## Interacción y responsive
 
-- Ordenador: WASD, flechas, ratón y mando.
+- Ordenador: WASD, flechas, ratón y mando; `Esc` abandona el puesto de caja.
 - Móvil: joystick táctil, botones de acción grandes y áreas seguras del dispositivo.
 - Los botones seleccionables conservan borde coral, fondo claro y `aria-pressed`; el color nunca es la única señal.
 - El vestuario usa una vista 3D con arrastre 360°, sin zoom accidental, y reorganiza sus columnas en una sola a 820 px.

@@ -127,9 +127,9 @@ export function applyGameAction(input: GameState, action: GameAction): ActionRes
       if (!franchise.open) return fail("Abre la tienda antes de cobrar.");
       const productId = firstStocked(franchise.shelves);
       if (!productId) return fail("Las estanterías están vacías.");
-      sellOne(state, franchise, productId, events);
+      sellOne(state, franchise, productId, events, action.paymentMethod);
       gain(state, 20, "customers", 1);
-      return success(`Venta cobrada: ${PRODUCTS[productId].name}.`);
+      return success(`Venta cobrada con ${action.paymentMethod === "cash" ? "efectivo" : "tarjeta"}: ${PRODUCTS[productId].name}.`);
     }
     case "ORDER": {
       const product = PRODUCTS[action.productId];
@@ -302,7 +302,7 @@ function firstStocked(inventory: Inventory): ProductId | undefined {
   return (Object.keys(inventory) as ProductId[]).find((productId) => inventory[productId] > 0);
 }
 
-function sellOne(state: GameState, franchise: FranchiseState, productId: ProductId, events: GameEvent[]) {
+function sellOne(state: GameState, franchise: FranchiseState, productId: ProductId, events: GameEvent[], paymentMethod?: "cash" | "card") {
   const product = PRODUCTS[productId];
   const salePrice = Math.round(product.saleMinor * countryMoneyScale(state.countryCode));
   const salesTax = Math.round(salePrice * COUNTRIES[state.countryCode].salesTaxRate);
@@ -314,7 +314,8 @@ function sellOne(state: GameState, franchise: FranchiseState, productId: Product
   state.finances.grossRevenueMinor += salePrice;
   state.reputation += 1;
   gain(state, 8, "sales", salePrice);
-  events.push({ category: "sales", description: `Venta de ${product.name}`, amountMinor: gross });
+  const paymentLabel = paymentMethod ? ` · ${paymentMethod === "cash" ? "efectivo" : "tarjeta"}` : " · caja automática";
+  events.push({ category: "sales", description: `Venta de ${product.name}${paymentLabel}`, amountMinor: gross });
 }
 
 function deliverOrders(state: GameState) {

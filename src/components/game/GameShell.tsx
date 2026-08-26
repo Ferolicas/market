@@ -20,12 +20,19 @@ export function GameShell({ playerName }: { playerName: string }) {
   const dispatch = useMarketStore((state) => state.dispatch);
   const saveGame = useMarketStore((state) => state.saveGame);
   const [panel, setPanel] = useState<Panel>(null);
+  const [checkoutLocked, setCheckoutLocked] = useState(false);
   const [prompt, setPrompt] = useState<InteractionPrompt | null>(null);
   const [lastInteraction, setLastInteraction] = useState<{ id: InteractionId; sequence: number } | null>(null);
   const interactionSequence = useRef(0);
   const interactionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => () => { if (interactionTimer.current) clearTimeout(interactionTimer.current); }, []);
+  useEffect(() => {
+    if (!checkoutLocked) return;
+    const leaveRegister = (event: KeyboardEvent) => { if (event.code === "Escape") setCheckoutLocked(false); };
+    window.addEventListener("keydown", leaveRegister);
+    return () => window.removeEventListener("keydown", leaveRegister);
+  }, [checkoutLocked]);
 
   const interact = useCallback((id: InteractionId) => {
     interactionSequence.current += 1;
@@ -36,7 +43,7 @@ export function GameShell({ playerName }: { playerName: string }) {
     if (id === "mill") dispatch({ type: "LOAD_FLOUR_MILL" });
     if (id === "bakery") dispatch({ type: "BAKE_BREAD" });
     if (id === "shelf") setPanel("stock");
-    if (id === "checkout") dispatch({ type: "CHECKOUT" });
+    if (id === "checkout") setCheckoutLocked(true);
     if (id === "supplier") setPanel("suppliers");
     if (id === "office") setPanel("map");
     if (id === "door") dispatch({ type: "TOGGLE_STORE" });
@@ -51,7 +58,7 @@ export function GameShell({ playerName }: { playerName: string }) {
   return (
     <main className="game-shell">
       <GameRuntime />
-      <div className="world"><MarketScene onPrompt={setPrompt} onInteract={interact} lastInteraction={lastInteraction} /></div>
+      <div className="world"><MarketScene onPrompt={setPrompt} onInteract={interact} lastInteraction={lastInteraction} checkoutLocked={checkoutLocked} /></div>
       <header className="hud-top glass-panel">
         <div className="hud-brand"><span>🏪</span><div><strong>{franchise.name}</strong><small>{franchise.city}</small></div></div>
         <div className="hud-stat money"><small>Caja global</small><strong>{formatMoney(game.balanceMinor, game)}</strong></div>
@@ -82,14 +89,64 @@ export function GameShell({ playerName }: { playerName: string }) {
         <div className="player-chip"><span title={avatarHat ? `Gorro ${avatarHat.name}` : "Sin gorro"}>{avatarHat?.emoji ?? "👤"}</span><div><strong>{playerName}</strong><small>Reputación {game.reputation}</small></div><button onClick={() => void saveGame()}>☁</button></div>
       </footer>
 
-      {prompt && <button className="interaction-prompt" onClick={() => interact(prompt.id)}><kbd>E</kbd><span>{prompt.label}</span><small>Acércate y pulsa</small></button>}
-      <MobileControls onAction={() => prompt && interact(prompt.id)} />
+      {prompt && !checkoutLocked && <button className="interaction-prompt" onClick={() => interact(prompt.id)}><kbd>E</kbd><span>{prompt.label}</span><small>Acércate y pulsa</small></button>}
+      {!checkoutLocked && <MobileControls onAction={() => prompt && interact(prompt.id)} />}
+      {checkoutLocked && <CheckoutRegister onLeave={() => setCheckoutLocked(false)} />}
       {message && <div className="toast">{message}</div>}
       {game.tutorialStep === 0 && <SetupPanel gameCountry={game.countryCode} gameAvatar={game.avatar} onCountry={(countryCode) => dispatch({ type: "SET_COUNTRY", countryCode })} onAvatar={(avatar) => dispatch({ type: "SET_AVATAR", ...avatar })} />}
       {panel && <ManagementPanel panel={panel} close={() => setPanel(null)} />}
       <button className="help-button" onClick={() => setPanel("help")}>?</button>
     </main>
   );
+}
+
+function CheckoutRegister({ onLeave }: { onLeave: () => void }) {
+  const game = useMarketStore((state) => state.game)!;
+  const dispatch = useMarketStore((state) => state.dispatch);
+  const franchise = game.franchises.find((item) => item.id === game.currentFranchiseId)!;
+  const productId = (Object.keys(PRODUCTS) as ProductId[]).find((id) => franchise.shelves[id] > 0);
+  const product = productId ? PRODUCTS[productId] : null;
+  const subtotal = product ? Math.round(product.saleMinor * countryMoneyScale(game.countryCode)) : 0;
+  const tax = Math.round(subtotal * COUNTRIES[game.countryCode].salesTaxRate);
+  const total = subtotal + tax;
+  const paymentMethod = (game.day + franchise.customersToday) % 2 === 0 ? "card" : "cash";
+  const tendered = paymentMethod === "cash" && total ? cashTendered(total) : total;
+  const change = Math.max(0, tendered - total);
+  const canCharge = franchise.open && Boolean(productId);
+
+  function charge() {
+    if (!canCharge) return;
+    dispatch({ type: "CHECKOUT", paymentMethod });
+  }
+
+  return <section className="checkout-console" aria-label="Caja registradora">
+    <header>
+      <div><small>PUESTO BLOQUEADO</small><strong>Caja registradora 01</strong></div>
+      <button onClick={onLeave}>Salir de caja <kbd>ESC</kbd></button>
+    </header>
+    <div className="checkout-workspace">
+      <div className="register-screen">
+        <div className="register-status"><i className={canCharge ? "ready" : "waiting"}/><span>{!franchise.open ? "Tienda cerrada" : product ? "Cliente listo para pagar" : "Esperando productos con stock"}</span></div>
+        {product ? <>
+          <div className="scanned-product"><span>{product.emoji}</span><div><strong>{product.name}</strong><small>1 unidad escaneada</small></div><b>{formatMoney(subtotal, game)}</b></div>
+          <div className="receipt-totals"><span>Subtotal <b>{formatMoney(subtotal, game)}</b></span><span>Impuesto de venta <b>{formatMoney(tax, game)}</b></span><strong>Total <b>{formatMoney(total, game)}</b></strong></div>
+        </> : <div className="register-empty"><span>▦</span><strong>No hay artículos disponibles</strong><small>Surte las estanterías para atender al siguiente cliente.</small></div>}
+      </div>
+      <div className={`payment-terminal ${paymentMethod}`}>
+        <small>EL CLIENTE HA ELEGIDO</small>
+        <div className="payment-method-icon">{paymentMethod === "cash" ? "€" : "▣"}</div>
+        <h3>{paymentMethod === "cash" ? "Pago en efectivo" : "Pago con tarjeta"}</h3>
+        {paymentMethod === "cash" ? <div className="cash-breakdown"><span>Entrega <b>{formatMoney(tendered, game)}</b></span><span>Cambio <b>{formatMoney(change, game)}</b></span></div> : <p>El cliente acerca su tarjeta al datáfono. Comprueba el total y confirma el cobro.</p>}
+        <button className="charge-button" disabled={!canCharge} onClick={charge}>{paymentMethod === "cash" ? `Entregar cambio y cobrar` : "Aceptar pago con tarjeta"}</button>
+      </div>
+    </div>
+  </section>;
+}
+
+function cashTendered(totalMinor: number) {
+  const magnitude = 10 ** Math.max(0, Math.floor(Math.log10(Math.max(1, totalMinor))) - 1);
+  const step = magnitude * 5;
+  return Math.ceil(totalMinor / step) * step;
 }
 
 function QuickButton({ icon, label, onClick }: { icon: string; label: string; onClick: () => void }) {
@@ -126,7 +183,7 @@ function ManagementPanel({ panel, close }: { panel: Exclude<Panel, null>; close:
       {panel === "finance" && <FinancePanel />}
       {panel === "build" && <div className="upgrade-grid">{(["shelves", "checkout", "expansion", "mill", "bakery"] as const).map((upgrade) => <article key={upgrade}><span>{upgradeIcon(upgrade)}</span><div><strong>{upgradeName(upgrade)}</strong><p>{upgradeDescription(upgrade)}</p></div><button onClick={() => dispatch({ type: "UPGRADE", upgrade })}>Mejorar</button></article>)}<article><span>📜</span><div><strong>Licencia comercial</strong><p>{franchise.licenseDaysLeft} días restantes. Obligatoria para abrir.</p></div><button onClick={() => dispatch({ type: "BUY_LICENSE" })}>Renovar 14 días</button></article></div>}
       {panel === "avatar" && <AvatarCustomizer avatar={game.avatar} onChange={(change) => dispatch({ type: "SET_AVATAR", ...change })} />}
-      {panel === "help" && <div className="help-grid"><article><kbd>WASD</kbd><kbd>↑↓←→</kbd><strong>Moverse</strong><p>Camina hasta cada estación. La cámara te sigue automáticamente.</p></article><article><kbd>E</kbd><kbd>ESPACIO</kbd><strong>Interactuar</strong><p>Cosecha, carga máquinas, repón y cobra al estar cerca.</p></article><article><kbd>🎮 A</kbd><strong>Mando</strong><p>Stick izquierdo para moverte y botón A para actuar.</p></article><article><kbd>◎</kbd><strong>Móvil</strong><p>Joystick izquierdo y botón Acción. Los menús son táctiles.</p></article><div className="tutorial-flow"><b>1. Cosecha trigo</b><span>→</span><b>2. Haz harina y pan</b><span>→</span><b>3. Surte</b><span>→</span><b>4. Abre y cobra</b><span>→</span><b>5. Contrata</b></div></div>}
+      {panel === "help" && <div className="help-grid"><article><kbd>WASD</kbd><kbd>↑↓←→</kbd><strong>Moverse</strong><p>Camina por el local y el exterior. La vista elevada mantiene toda la tienda visible.</p></article><article><kbd>E</kbd><kbd>ESPACIO</kbd><strong>Interactuar</strong><p>Cosecha, carga máquinas, repón o bloquéate en la caja al estar cerca.</p></article><article><kbd>🎮 A</kbd><strong>Mando</strong><p>Stick izquierdo para moverte y botón A para actuar.</p></article><article><kbd>◎</kbd><strong>Móvil</strong><p>Joystick izquierdo y botón Acción. Los menús son táctiles.</p></article><div className="tutorial-flow"><b>1. Cosecha trigo</b><span>→</span><b>2. Haz harina y pan</b><span>→</span><b>3. Surte</b><span>→</span><b>4. Abre y cobra</b><span>→</span><b>5. Contrata</b></div></div>}
     </div>
     <footer className="panel-footer"><span>Empresa: {COUNTRIES[game.countryCode].name} · {game.currency}</span><div className="panel-actions"><button className="danger-soft" onClick={() => dispatch({ type: "CLOSE_DAY" })}>Cerrar jornada y contabilizar</button><button className="danger-soft" onClick={async () => { await authClient.signOut(); window.location.reload(); }}>Cerrar sesión</button></div></footer>
   </section></div>;

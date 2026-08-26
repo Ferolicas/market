@@ -32,25 +32,26 @@ function ProductRow({ y, z = 0.36, colors = ["#d76a4d", "#e5b84d", "#77a85d", "#
 
 export function KitFurniture() {
   return <group>
-    <WallShelf position={[-2.75, 0, -5.85]} width={2.05} />
-    <WallShelf position={[-0.5, 0, -5.85]} width={2.05} />
-    <WallShelf position={[1.75, 0, -5.85]} width={2.05} />
-    <GlassFridge position={[4.1, 0, -5.8]} />
-    <MetalRack position={[6.55, 0, -5.65]} />
+    <WallShelf position={[-5.2, 0, -8.05]} width={2.05} />
+    <WallShelf position={[-2.8, 0, -8.05]} width={2.05} />
+    <WallShelf position={[-0.4, 0, -8.05]} width={2.05} />
+    <WallShelf position={[2.0, 0, -8.05]} width={2.05} />
+    <GlassFridge position={[5.25, 0, -8.0]} />
+    <MetalRack position={[8.65, 0, -7.85]} />
 
-    <Gondola position={[-2.5, 0, -1.25]} accent="#8d9c73" />
-    <Gondola position={[0, 0, -1.25]} accent="#c0a05d" />
-    <Gondola position={[2.5, 0, -1.25]} accent="#799d8b" />
-    <ProduceTable position={[-2.4, 0, 2.0]} />
-    <ChilledDisplay position={[0.25, 0, 2.05]} />
-    <LowFreezer position={[2.65, 0, 2.0]} />
+    <Gondola position={[-4.0, 0, -2.2]} accent="#8d9c73" />
+    <Gondola position={[0, 0, -2.2]} accent="#c0a05d" />
+    <Gondola position={[4.0, 0, -2.2]} accent="#799d8b" />
+    <ProduceTable position={[-4.1, 0, 2.45]} />
+    <ChilledDisplay position={[0, 0, 2.45]} />
+    <LowFreezer position={[4.05, 0, 2.45]} />
 
-    <CheckoutKit position={[5.35, 0, 3.55]} />
-    <CartBay position={[7.05, 0, 4.55]} />
-    <BakeryKit position={[-6.25, 0, -0.2]} />
-    <MillMachine position={[-6.2, 0, -2.8]} />
-    <SupplierCorner position={[6.35, 0, -1.8]} />
-    <TerminalModel position={[6.35, 0, -4.2]} label="MAPA" />
+    <CheckoutKit position={[7.55, 0, 3.95]} />
+    <CartBay position={[9.6, 0, 6.25]} />
+    <BakeryKit position={[-8.75, 0, -0.45]} />
+    <MillMachine position={[-8.75, 0, -4.05]} />
+    <SupplierCorner position={[8.8, 0, -2.15]} />
+    <TerminalModel position={[8.8, 0, -5.35]} label="MAPA" />
     <StoreUtilities />
   </group>;
 }
@@ -199,12 +200,12 @@ function Parcel({ position, small = false }: { position: Position; small?: boole
 
 function StoreUtilities() {
   return <group>
-    <WallClock position={[6.8, 2.2, -6.14]} />
-    <SecurityCamera position={[-7.75, 2.55, -5.85]} />
-    <SecurityCamera position={[7.7, 2.55, 5.5]} rotationY={Math.PI} />
-    <HangingSign position={[4.8, 2.45, 1.4]} label="CAJAS" />
-    <HangingSign position={[-2.2, 2.45, -2.3]} label="DESPENSA" />
-    {[-4.5, 0, 4.5].map((x) => <CeilingLamp key={x} position={[x, 2.85, -0.4]} />)}
+    <WallClock position={[9.2, 2.2, -8.34]} />
+    <SecurityCamera position={[-10.75, 2.55, -8.05]} />
+    <SecurityCamera position={[10.65, 2.55, 7.2]} rotationY={Math.PI} />
+    <HangingSign position={[7.25, 2.45, 1.65]} label="CAJAS" />
+    <HangingSign position={[-3.8, 2.45, -3.35]} label="DESPENSA" />
+    {[-7.2, -2.4, 2.4, 7.2].map((x) => <CeilingLamp key={x} position={[x, 2.85, -0.6]} />)}
   </group>;
 }
 
@@ -226,21 +227,21 @@ function CeilingLamp({ position }: { position: Position }) {
 
 export function KitFarm() {
   const plots: { position: Position; crop: "wheat" | "carrot" | "tomato" | "lettuce" | "pumpkin" | "corn"; stage: number }[] = [
-    { position: [-7.0, 0, 3.8], crop: "wheat", stage: 3 },
-    { position: [-5.65, 0, 3.8], crop: "carrot", stage: 2 },
-    { position: [-7.0, 0, 5.05], crop: "tomato", stage: 3 },
-    { position: [-5.65, 0, 5.05], crop: "lettuce", stage: 3 },
+    { position: [-9.3, 0, 10.0], crop: "wheat", stage: 3 },
+    { position: [-7.95, 0, 10.0], crop: "carrot", stage: 2 },
+    { position: [-9.3, 0, 11.25], crop: "tomato", stage: 3 },
+    { position: [-7.95, 0, 11.25], crop: "lettuce", stage: 3 },
   ];
   return <group>
-    <Box args={[3.55, 0.08, 3.1]} position={[-6.35, 0.02, 4.45]} color="#d6bd84" radius={0.06} />
+    <Box args={[3.55, 0.08, 3.1]} position={[-8.65, 0.02, 10.65]} color="#d6bd84" radius={0.06} />
     {plots.map((plot) => <CropPlot key={`${plot.position[0]}-${plot.position[2]}`} {...plot} />)}
-    <FenceLine position={[-8.0, 0, 4.45]} length={3.0} vertical />
-    <FenceLine position={[-6.35, 0, 5.95]} length={3.3} />
-    <FenceLine position={[-6.35, 0, 2.95]} length={3.3} />
-    <FarmTools position={[-4.65, 0, 4.65]} />
-    <CompostBin position={[-4.8, 0, 3.45]} />
-    <MiniGreenhouse position={[-4.85, 0, 5.5]} />
-    <Scarecrow position={[-6.35, 0, 4.45]} />
+    <FenceLine position={[-10.3, 0, 10.65]} length={3.0} vertical />
+    <FenceLine position={[-8.65, 0, 12.15]} length={3.3} />
+    <FenceLine position={[-8.65, 0, 9.15]} length={3.3} />
+    <FarmTools position={[-6.95, 0, 10.85]} />
+    <CompostBin position={[-7.1, 0, 9.65]} />
+    <MiniGreenhouse position={[-7.15, 0, 11.7]} />
+    <Scarecrow position={[-8.65, 0, 10.65]} />
   </group>;
 }
 

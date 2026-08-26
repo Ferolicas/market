@@ -5,6 +5,7 @@ export type AvatarHatId = HatId | "none";
 export type CharacterId = "adult-man" | "adult-woman" | "boy" | "girl";
 export type HairId = "side-part" | "fade" | "waves" | "swept" | "bob" | "ponytail" | "long-wavy" | "bun" | "messy" | "curls" | "short-fringe" | "quiff" | "blunt-bob" | "pigtails" | "braid" | "high-ponytail";
 export type ProductId = "wheat" | "flour" | "bread" | "milk" | "eggs" | "apples" | "tomatoes" | "coffee" | "juice";
+export type PaymentMethod = "cash" | "card";
 
 export interface AvatarConfig {
   body: CharacterId;
@@ -127,7 +128,7 @@ export type GameAction =
   | { type: "LOAD_FLOUR_MILL" }
   | { type: "BAKE_BREAD" }
   | { type: "STOCK"; productId: ProductId; quantity?: number }
-  | { type: "CHECKOUT" }
+  | { type: "CHECKOUT"; paymentMethod: PaymentMethod }
   | { type: "ORDER"; supplierId: string; productId: ProductId; quantity: number }
   | { type: "HIRE"; role: EmployeeRole }
   | { type: "UPGRADE"; upgrade: "shelves" | "checkout" | "expansion" | "mill" | "bakery" }

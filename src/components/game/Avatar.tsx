@@ -17,6 +17,7 @@ interface AvatarProps {
   hairColor?: string;
   walking?: boolean;
   animation?: CharacterAnimation;
+  animationSpeed?: number;
   scale?: number;
 }
 
@@ -59,6 +60,7 @@ export function Avatar({
   hairColor = "#332b27",
   walking = false,
   animation,
+  animationSpeed,
   scale = 1,
 }: AvatarProps) {
   const gltf = useGLTF(MODEL_PATHS[body]);
@@ -81,9 +83,9 @@ export function Avatar({
 
   useEffect(() => {
     const action = actions[clip];
-    action?.reset().fadeIn(0.16).play();
+    action?.reset().setEffectiveTimeScale(animationSpeed ?? (clip === "Walk" ? 1.3 : clip === "Run" ? 1.4 : 1)).fadeIn(0.16).play();
     return () => { action?.fadeOut(0.16); };
-  }, [actions, clip]);
+  }, [actions, animationSpeed, clip]);
 
   useEffect(() => {
     const skinColor = new THREE.Color(skin);
