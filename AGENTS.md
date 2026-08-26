@@ -20,3 +20,4 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Every API route authenticates with Better Auth unless explicitly public (`/api/health`).
 - Update `docs/PROJECT-MAP.md` when routes, models, game systems or deployment change.
 - Before push: `pnpm typecheck && pnpm lint && pnpm test && pnpm build`.
+- Local development uses the VPS PostgreSQL through an SSH tunnel on `127.0.0.1:5432`; start the tunnel before `pnpm dev`.
