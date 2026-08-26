@@ -8,6 +8,11 @@ concurrency:
 jobs:
   quality:
     runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql://build:build@127.0.0.1:5432/build
+      AUTH_SECRET: build-only-secret-build-only-secret
+      BETTER_AUTH_SECRET: build-only-secret-build-only-secret
+      APP_URL: http://localhost:3000
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -22,11 +27,6 @@ jobs:
       - run: pnpm lint
       - run: pnpm test
       - run: pnpm build
-        env:
-          DATABASE_URL: postgresql://build:build@127.0.0.1:5432/build
-          AUTH_SECRET: build-only-secret-build-only-secret
-          BETTER_AUTH_SECRET: build-only-secret-build-only-secret
-          APP_URL: http://localhost:3000
   deploy:
     needs: quality
     runs-on: ubuntu-latest
