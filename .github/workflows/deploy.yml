@@ -1,0 +1,39 @@
+name: Verificar y desplegar
+on:
+  push:
+    branches: [main]
+concurrency:
+  group: deploy-market
+  cancel-in-progress: false
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.5.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm test
+      - run: pnpm build
+        env:
+          DATABASE_URL: postgresql://build:build@127.0.0.1:5432/build
+          AUTH_SECRET: build-only-secret-build-only-secret
+          BETTER_AUTH_SECRET: build-only-secret-build-only-secret
+          APP_URL: http://localhost:3000
+  deploy:
+    needs: quality
+    runs-on: ubuntu-latest
+    steps:
+      - name: Cargar llave SSH
+        uses: webfactory/ssh-agent@v0.9.1
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_KEY }}
+      - name: Desplegar en VPS
+        run: ssh -o StrictHostKeyChecking=accept-new ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "bash /var/www/market/deploy.sh"
