@@ -22,8 +22,8 @@ export interface MarketAssetDefinition {
   boundingVolume?: string;
 }
 
-const referenceRoot = "/home/ferney_oliveros/Descargas/KIT MARKET";
-const ref = (name: string) => `${referenceRoot}/${name}`;
+export const MARKET_REFERENCE_ROOT = "/home/ferney_oliveros/Descargas/KIT MARKET";
+const ref = (name: string) => `${MARKET_REFERENCE_ROOT}/${name}`;
 const characterClips = [
   "Idle", "Walk", "Run", "TurnLeft", "TurnRight", "CarryIdle", "CarryWalk",
   "HarvestLow", "HarvestHigh", "PickupLow", "PickupHigh", "StockLow", "StockMid", "StockHigh",
