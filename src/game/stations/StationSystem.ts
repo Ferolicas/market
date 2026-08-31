@@ -1,0 +1,95 @@
+import type { Inventory, ProductId } from "../types";
+import { PRODUCT_CONFIG } from "../economy/products";
+import { stationTierModifiers } from "../progression/levels";
+
+export type CropStatus = "LOCKED" | "EMPTY" | "GROWING" | "READY" | "HARVESTING";
+export type MachineStatus = "LOCKED" | "IDLE" | "WAITING_INPUT" | "PROCESSING" | "OUTPUT_READY" | "FULL";
+
+export interface CropStation {
+  id: string;
+  productId: "tomatoes" | "wheat" | "corn";
+  status: CropStatus;
+  plantedAt: number;
+  readyAt: number;
+  available: number;
+  tier: number;
+}
+
+export interface MachineStation {
+  id: string;
+  productId: "flour" | "bread" | "cheese" | "juice" | "eggs" | "milk";
+  status: MachineStatus;
+  input: Partial<Inventory>;
+  output: number;
+  outputCapacity: number;
+  startedAt: number | null;
+  completesAt: number | null;
+  tier: number;
+}
+
+export function createCrop(id: string, productId: CropStation["productId"], nowMs: number, tier = 1): CropStation {
+  const growMs = PRODUCT_CONFIG[productId]?.growMs ?? 4_000;
+  return { id, productId, status: "GROWING", plantedAt: nowMs, readyAt: nowMs + growMs / stationTierModifiers(tier).speed, available: 0, tier };
+}
+
+export function createEmptyCrop(id: string, productId: CropStation["productId"], tier = 1): CropStation {
+  return { id, productId, status: "EMPTY", plantedAt: 0, readyAt: 0, available: 0, tier };
+}
+
+export function plantCrop(crop: CropStation, nowMs: number) {
+  if (crop.status !== "EMPTY") return { crop, planted: false };
+  return { crop: createCrop(crop.id, crop.productId, nowMs, crop.tier), planted: true };
+}
+
+export function updateCrop(crop: CropStation, nowMs: number): CropStation {
+  if (crop.status !== "GROWING" || nowMs < crop.readyAt) return crop;
+  return { ...crop, status: "READY", available: Math.max(1, Math.round((PRODUCT_CONFIG[crop.productId]?.yield ?? 1) * stationTierModifiers(crop.tier).capacity)) };
+}
+
+export function cropProgress(crop: CropStation, nowMs: number) {
+  if (crop.status === "READY" || crop.status === "HARVESTING") return 1;
+  if (crop.status !== "GROWING") return 0;
+  return Math.min(1, Math.max(0, (nowMs - crop.plantedAt) / Math.max(1, crop.readyAt - crop.plantedAt)));
+}
+
+export function harvestCrop(cropInput: CropStation, nowMs: number) {
+  const crop = updateCrop(cropInput, nowMs);
+  if (crop.status !== "READY" || crop.available < 1) return { crop, harvested: 0 };
+  const remaining = crop.available - 1;
+  if (remaining > 0) return { crop: { ...crop, status: "READY" as const, available: remaining }, harvested: 1 };
+  return { crop: createEmptyCrop(crop.id, crop.productId, crop.tier), harvested: 1 };
+}
+
+export function createMachine(id: string, productId: MachineStation["productId"], tier = 1): MachineStation {
+  return { id, productId, status: "WAITING_INPUT", input: {}, output: 0, outputCapacity: Math.round((PRODUCT_CONFIG[productId]?.shelfCapacity ?? 8) * stationTierModifiers(tier).capacity), startedAt: null, completesAt: null, tier };
+}
+
+export function loadMachine(machine: MachineStation, inventory: Inventory, nowMs: number) {
+  const config = PRODUCT_CONFIG[machine.productId];
+  const recipe = config?.recipe ?? {};
+  if (machine.status === "PROCESSING" || machine.output >= machine.outputCapacity) return { machine, inventory, loaded: false };
+  for (const [productId, amount] of Object.entries(recipe) as [ProductId, number][]) {
+    if ((inventory[productId] ?? 0) < amount) return { machine: { ...machine, status: "WAITING_INPUT" as const }, inventory, loaded: false };
+  }
+  const nextInventory = { ...inventory };
+  for (const [productId, amount] of Object.entries(recipe) as [ProductId, number][]) nextInventory[productId] -= amount;
+  return {
+    machine: { ...machine, status: "PROCESSING" as const, startedAt: nowMs, completesAt: nowMs + (config?.cycleMs ?? 1_000) / stationTierModifiers(machine.tier).speed },
+    inventory: nextInventory,
+    loaded: true,
+  };
+}
+
+export function updateMachine(machine: MachineStation, nowMs: number): MachineStation {
+  if (machine.status !== "PROCESSING" || machine.completesAt === null || nowMs < machine.completesAt) return machine;
+  const produced = PRODUCT_CONFIG[machine.productId]?.yield ?? 1;
+  const output = Math.min(machine.outputCapacity, machine.output + produced);
+  return { ...machine, output, status: output >= machine.outputCapacity ? "FULL" : "OUTPUT_READY", startedAt: null, completesAt: null };
+}
+
+export function collectMachineOutput(machineInput: MachineStation, nowMs: number) {
+  const machine = updateMachine(machineInput, nowMs);
+  if (machine.output < 1) return { machine, collected: 0 };
+  const output = machine.output - 1;
+  return { machine: { ...machine, output, status: output ? "OUTPUT_READY" as const : "WAITING_INPUT" as const }, collected: 1 };
+}

@@ -5,61 +5,137 @@ import { authClient } from "@/lib/auth-client";
 import { COUNTRIES, HATS, PRODUCTS, ROLE_INFO, SUPPLIERS } from "@/game/catalog";
 import { countryMoneyScale, formatMoney } from "@/game/engine";
 import { useMarketStore } from "@/game/store";
-import type { AvatarConfig, CountryCode, EmployeeRole, ProductId } from "@/game/types";
+import type { AvatarConfig, CountryCode, EmployeeRole, FranchiseState, GameState, ProductId } from "@/game/types";
 import { MarketScene, type InteractionId, type InteractionPrompt } from "./MarketScene";
 import { GameRuntime } from "./GameRuntime";
-import { setMobileInput } from "./input";
 import { AvatarCustomizer } from "./AvatarCustomizer";
+import { GameInputSurface } from "./GameInputSurface";
+import { feedbackBus, type FeedbackCue } from "@/game/feedback/FeedbackBus";
+import type { RendererMetrics } from "@/game/debug/PerformanceMonitor";
 
 type Panel = "stock" | "suppliers" | "team" | "map" | "finance" | "build" | "avatar" | "help" | null;
 
 export function GameShell({ playerName }: { playerName: string }) {
   const game = useMarketStore((state) => state.game);
   const status = useMarketStore((state) => state.saveStatus);
+  const saveRevision = useMarketStore((state) => state.saveRevision);
   const message = useMarketStore((state) => state.message);
   const dispatch = useMarketStore((state) => state.dispatch);
+  const recordPlayerDistance = useMarketStore((state) => state.recordPlayerDistance);
+  const queueInteraction = useMarketStore((state) => state.queueInteraction);
   const saveGame = useMarketStore((state) => state.saveGame);
   const [panel, setPanel] = useState<Panel>(null);
-  const [checkoutLocked, setCheckoutLocked] = useState(false);
   const [prompt, setPrompt] = useState<InteractionPrompt | null>(null);
   const [lastInteraction, setLastInteraction] = useState<{ id: InteractionId; sequence: number } | null>(null);
+  const [debug] = useState(() => typeof window !== "undefined" && new URLSearchParams(window.location.search).has("debug"));
+  const [metrics, setMetrics] = useState<RendererMetrics | null>(null);
+  const [worldReady, setWorldReady] = useState(false);
+  const tutorialStep = game?.tutorialStep ?? 0;
   const interactionSequence = useRef(0);
+  const activeInteractionId = useRef<InteractionId | null>(null);
   const interactionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => () => { if (interactionTimer.current) clearTimeout(interactionTimer.current); }, []);
   useEffect(() => {
-    if (!checkoutLocked) return;
-    const leaveRegister = (event: KeyboardEvent) => { if (event.code === "Escape") setCheckoutLocked(false); };
-    window.addEventListener("keydown", leaveRegister);
-    return () => window.removeEventListener("keydown", leaveRegister);
-  }, [checkoutLocked]);
-
+    if (tutorialStep === 0) return;
+    let secondFrame = 0;
+    const firstFrame = requestAnimationFrame(() => {
+      secondFrame = requestAnimationFrame(() => setWorldReady(true));
+    });
+    return () => {
+      cancelAnimationFrame(firstFrame);
+      if (secondFrame) cancelAnimationFrame(secondFrame);
+    };
+  }, [tutorialStep]);
+  useEffect(() => {
+    if (!debug) return;
+    const receiveMetrics = (event: Event) => setMetrics((event as CustomEvent<RendererMetrics>).detail);
+    window.addEventListener("market-debug-metrics", receiveMetrics);
+    return () => window.removeEventListener("market-debug-metrics", receiveMetrics);
+  }, [debug]);
+  useEffect(() => {
+    if (!debug || !game) return;
+    const qaWindow = window as typeof window & { __MARKET_QA__?: Record<string, unknown> };
+    qaWindow.__MARKET_QA__ ??= {};
+    qaWindow.__MARKET_QA__.state = game;
+    qaWindow.__MARKET_QA__.saveRevision = saveRevision;
+    qaWindow.__MARKET_QA__.saveStatus = status;
+    qaWindow.__MARKET_QA__.metrics = metrics;
+  }, [debug, game, metrics, saveRevision, status]);
   const interact = useCallback((id: InteractionId) => {
-    interactionSequence.current += 1;
-    setLastInteraction({ id, sequence: interactionSequence.current });
-    if (interactionTimer.current) clearTimeout(interactionTimer.current);
-    interactionTimer.current = setTimeout(() => setLastInteraction(null), 1050);
-    if (id === "farm") dispatch({ type: "HARVEST" });
-    if (id === "mill") dispatch({ type: "LOAD_FLOUR_MILL" });
-    if (id === "bakery") dispatch({ type: "BAKE_BREAD" });
-    if (id === "shelf") setPanel("stock");
-    if (id === "checkout") setCheckoutLocked(true);
-    if (id === "supplier") setPanel("suppliers");
-    if (id === "office") setPanel("map");
-    if (id === "door") dispatch({ type: "TOGGLE_STORE" });
-  }, [dispatch]);
+    let performed = true;
+    if (id === "farm") {
+      const current = useMarketStore.getState().game;
+      const currentFranchise = current?.franchises.find((item) => item.id === current.currentFranchiseId);
+      const crop = currentFranchise?.crops.find((candidate) => candidate.status !== "LOCKED" && (!currentFranchise.carry.item || candidate.productId === currentFranchise.carry.item.productId))
+        ?? currentFranchise?.crops.find((candidate) => candidate.status !== "LOCKED");
+      if (crop && (crop.status === "EMPTY" || crop.status === "READY")) queueInteraction({ type: "TEND_CROP", productId: crop.productId });
+      else performed = false;
+    }
+    if (id === "mill") queueInteraction({ type: "LOAD_FLOUR_MILL" });
+    if (id === "bakery") queueInteraction({ type: "BAKE_BREAD" });
+    if (id === "chicken") queueInteraction({ type: "OPERATE_MACHINE", machineId: "chicken-coop-1" });
+    if (id === "cow") queueInteraction({ type: "OPERATE_MACHINE", machineId: "cow-station-1" });
+    if (id === "cheese") queueInteraction({ type: "OPERATE_MACHINE", machineId: "cheese-maker-1" });
+    if (id === "juice") queueInteraction({ type: "OPERATE_MACHINE", machineId: "juice-machine-1" });
+    if (id === "shelf") {
+      const current = useMarketStore.getState().game;
+      const currentFranchise = current?.franchises.find((item) => item.id === current.currentFranchiseId);
+      const carriedProduct = currentFranchise?.carry.item?.productId;
+      if (carriedProduct) queueInteraction({ type: "STOCK", productId: carriedProduct, quantity: 1, source: "carry" });
+      else performed = false;
+    }
+    if (id === "checkout") {
+      const current = useMarketStore.getState().game;
+      const currentFranchise = current?.franchises.find((item) => item.id === current.currentFranchiseId);
+      if (currentFranchise?.open) queueInteraction({ type: "CHECKOUT", paymentMethod: currentFranchise.customersToday % 2 ? "card" : "cash" });
+      else performed = false;
+    }
+    if (id === "office") queueInteraction({ type: "CONTRIBUTE_BUILD" });
+    if (id === "upgrade-station") queueInteraction({ type: "CONTRIBUTE_UPGRADE", upgrade: "station" });
+    if (id === "upgrade-speed") queueInteraction({ type: "CONTRIBUTE_UPGRADE", upgrade: "player-speed" });
+    if (id === "upgrade-capacity") queueInteraction({ type: "CONTRIBUTE_UPGRADE", upgrade: "player-capacity" });
+    if (id === "upgrade-employee") queueInteraction({ type: "CONTRIBUTE_UPGRADE", upgrade: "employee" });
+    if (id === "supplier" || id === "door") performed = false;
+    // Keep a work gesture active only when a real station action was queued.
+    // Locomotion owns the body again as soon as the player leaves its pad.
+    if (performed) {
+      if (activeInteractionId.current !== id) {
+        activeInteractionId.current = id;
+        interactionSequence.current += 1;
+        setLastInteraction({ id, sequence: interactionSequence.current });
+      }
+      if (interactionTimer.current) clearTimeout(interactionTimer.current);
+      interactionTimer.current = setTimeout(() => {
+        activeInteractionId.current = null;
+        setLastInteraction(null);
+      }, 1050);
+    }
+    const cue: Partial<Record<InteractionId, FeedbackCue>> = { farm: "harvest", mill: "machine", bakery: "machine", chicken: "pickup", cow: "pickup", cheese: "machine", juice: "machine", shelf: "stock", checkout: "scanner", office: "upgrade", "upgrade-station": "upgrade", "upgrade-speed": "upgrade", "upgrade-capacity": "upgrade", "upgrade-employee": "upgrade", door: "door" };
+    if (cue[id] && performed) feedbackBus.emit(cue[id], { source: "player", actorId: "player" });
+  }, [queueInteraction]);
+  const recordDistance = useCallback((meters: number) => { recordPlayerDistance(meters); }, [recordPlayerDistance]);
+  const setDoorPresence = useCallback((active: boolean) => {
+    // Persistence QA reloads with the simulation frozen so the restored
+    // snapshot can be inspected before any live-world input mutates it.  The
+    // player respawns beside the entrance, so the door sensor must observe the
+    // same freeze as the timers and store ticks.
+    if (debug && sessionStorage.getItem("mini-market-qa-freeze") === "1") return;
+    dispatch({ type: "DOOR_SENSOR", active });
+  }, [debug, dispatch]);
 
   if (!game) return <><GameRuntime/><div className="game-loading"><div className="loading-shop">🏪</div><strong>Preparando tu mercado…</strong><span>Sincronizando caja, empleados e inventario</span></div></>;
   const franchise = game.franchises.find((item) => item.id === game.currentFranchiseId) ?? game.franchises[0];
   const hour = `${String(Math.floor(game.minuteOfDay / 60) % 24).padStart(2, "0")}:${String(game.minuteOfDay % 60).padStart(2, "0")}`;
   const progress = ((game.xp % Math.max(120, game.level * game.level * 120)) / Math.max(120, game.level * 120)) * 100;
   const avatarHat = HATS.find((item) => item.id === game.avatar.hat);
+  const buildProject = franchise.buildProjects.find((project) => project.level === game.level + 1);
 
-  return (
+  return (<>
+    <GameRuntime />
     <main className="game-shell">
-      <GameRuntime />
-      <div className="world"><MarketScene onPrompt={setPrompt} onInteract={interact} lastInteraction={lastInteraction} checkoutLocked={checkoutLocked} /></div>
-      <header className="hud-top glass-panel">
+      {worldReady && <div className="world"><MarketScene avatar={game.avatar} carry={franchise.carry} checkoutLevel={franchise.checkoutLevel} playerSpeedTier={franchise.playerSpeedTier} stationTiers={franchise.stationTiers} customers={franchise.customers} checkoutTransactions={franchise.checkoutTransactions} returnsBin={franchise.returnsBin} returnedCartCount={franchise.returnedCartCount} buildProject={buildProject} objectiveComplete={game.progression.objectiveComplete} crops={franchise.crops} productionMachines={franchise.productionMachines} shelves={franchise.shelves} unlockedAreas={franchise.unlockedAreas} lightsOn={franchise.lightsOn} simulationTimeMs={game.simulationTimeMs} employees={franchise.employees} open={franchise.open} doorState={franchise.doorState} doorProgress={franchise.doorProgress} onPrompt={setPrompt} onInteract={interact} onDistance={recordDistance} onDoorPresence={setDoorPresence} lastInteraction={lastInteraction} debug={debug} /><GameInputSurface /></div>}
+      <header className="hud-top glass-panel" data-game-ui-interactive="true">
         <div className="hud-brand"><span>🏪</span><div><strong>{franchise.name}</strong><small>{franchise.city}</small></div></div>
         <div className="hud-stat money"><small>Caja global</small><strong>{formatMoney(game.balanceMinor, game)}</strong></div>
         <div className="hud-stat"><small>Día {game.day}</small><strong>{hour}</strong></div>
@@ -67,14 +143,16 @@ export function GameShell({ playerName }: { playerName: string }) {
         <button className={`store-status ${franchise.open ? "open" : "closed"}`} onClick={() => dispatch({ type: "TOGGLE_STORE" })}><i/>{franchise.open ? "ABIERTO" : "CERRADO"}</button>
       </header>
 
-      <aside className="mission-card glass-panel">
+      <aside className="mission-card glass-panel" data-game-ui-interactive="true">
         <div className="panel-heading"><span>🎯</span><div><strong>Objetivos del día</strong><small>Reinician al cerrar</small></div></div>
         {game.missions.map((mission) => <button key={mission.id} className={`mission ${mission.completed ? "done" : ""}`} onClick={() => mission.completed && !mission.claimed && dispatch({ type: "CLAIM_MISSION", missionId: mission.id })}>
           <span>{mission.completed ? mission.claimed ? "✓" : "🎁" : "○"}</span><div><strong>{mission.label}</strong><div className="mission-track"><i style={{ width: `${mission.progress / mission.target * 100}%` }}/></div><small>{mission.progress}/{mission.target} · {mission.claimed ? "Cobrada" : mission.completed ? "Toca para cobrar" : formatMoney(mission.rewardMinor, game)}</small></div>
         </button>)}
       </aside>
 
-      <aside className="quick-menu glass-panel">
+      {game.level === 1 && game.tutorialStep > 0 && <LevelOneGuide game={game} franchise={franchise} nearFarm={prompt?.id === "farm"} />}
+
+      <aside className="quick-menu glass-panel" data-game-ui-interactive="true">
         <QuickButton icon="📦" label="Inventario" onClick={() => setPanel("stock")} />
         <QuickButton icon="🚚" label="Proveedores" onClick={() => setPanel("suppliers")} />
         <QuickButton icon="👥" label="Equipo" onClick={() => setPanel("team")} />
@@ -84,91 +162,92 @@ export function GameShell({ playerName }: { playerName: string }) {
         <QuickButton icon="🦊" label="Avatar" onClick={() => setPanel("avatar")} />
       </aside>
 
-      <footer className="game-bottom">
+      <footer className="game-bottom" data-game-ui-interactive="true">
         <div className={`save-chip ${status}`}><i/>{status === "saving" ? "Guardando…" : status === "offline" ? "Copia local" : status === "dirty" ? "Cambios pendientes" : "Guardado"}</div>
+        {franchise.carry.item && <div className="carry-chip"><span>{PRODUCTS[franchise.carry.item.productId].emoji}</span><strong>{franchise.carry.item.quantity}/{franchise.carry.capacity}</strong></div>}
         <div className="player-chip"><span title={avatarHat ? `Gorro ${avatarHat.name}` : "Sin gorro"}>{avatarHat?.emoji ?? "👤"}</span><div><strong>{playerName}</strong><small>Reputación {game.reputation}</small></div><button onClick={() => void saveGame()}>☁</button></div>
       </footer>
 
-      {prompt && !checkoutLocked && <button className="interaction-prompt" onClick={() => interact(prompt.id)}><kbd>E</kbd><span>{prompt.label}</span><small>Acércate y pulsa</small></button>}
-      {!checkoutLocked && <MobileControls onAction={() => prompt && interact(prompt.id)} />}
-      {checkoutLocked && <CheckoutRegister onLeave={() => setCheckoutLocked(false)} />}
+      {prompt && <div className="interaction-prompt" aria-live="polite"><kbd>◎</kbd><span>{prompt.label}</span><small>{prompt.id === "door" ? "Sensor automático de la puerta" : prompt.id === "farm" && prompt.label.includes("creciendo") ? "Permanece en el recuadro o muévete de nuevo para salir" : "Acción dentro del recuadro · muévete de nuevo para salir"}</small></div>}
       {message && <div className="toast">{message}</div>}
-      {game.tutorialStep === 0 && <SetupPanel gameCountry={game.countryCode} gameAvatar={game.avatar} onCountry={(countryCode) => dispatch({ type: "SET_COUNTRY", countryCode })} onAvatar={(avatar) => dispatch({ type: "SET_AVATAR", ...avatar })} />}
+      {debug && <aside className="debug-overlay" data-game-ui-interactive="true"><strong>QA 3D EN VIVO</strong><span>FPS {metrics?.fps ?? "—"} · p95 {metrics?.p95FrameMs ?? "—"} ms</span><span>Draw calls {metrics?.drawCalls ?? "—"} · triángulos {metrics?.triangles.toLocaleString() ?? "—"}</span><span>Texturas {metrics?.textures ?? "—"} · programas {metrics?.programs ?? "—"}</span><span>Clientes {franchise.customers.length} · rutas {franchise.customers.filter((customer) => customer.path.length > customer.pathIndex).length}</span><span>NavMesh rev. {franchise.structureRevision} · colisiones/sensores visibles</span></aside>}
+      {game.tutorialStep === 0 && <SetupPanel gameCountry={game.countryCode} gameAvatar={game.avatar} onComplete={(avatar, countryCode) => {
+        dispatch({ type: "SET_AVATAR", ...avatar });
+        dispatch({ type: "SET_COUNTRY", countryCode });
+        void saveGame();
+      }} />}
       {panel && <ManagementPanel panel={panel} close={() => setPanel(null)} />}
       <button className="help-button" onClick={() => setPanel("help")}>?</button>
     </main>
+  </>
   );
-}
-
-function CheckoutRegister({ onLeave }: { onLeave: () => void }) {
-  const game = useMarketStore((state) => state.game)!;
-  const dispatch = useMarketStore((state) => state.dispatch);
-  const franchise = game.franchises.find((item) => item.id === game.currentFranchiseId)!;
-  const productId = (Object.keys(PRODUCTS) as ProductId[]).find((id) => franchise.shelves[id] > 0);
-  const product = productId ? PRODUCTS[productId] : null;
-  const subtotal = product ? Math.round(product.saleMinor * countryMoneyScale(game.countryCode)) : 0;
-  const tax = Math.round(subtotal * COUNTRIES[game.countryCode].salesTaxRate);
-  const total = subtotal + tax;
-  const paymentMethod = (game.day + franchise.customersToday) % 2 === 0 ? "card" : "cash";
-  const tendered = paymentMethod === "cash" && total ? cashTendered(total) : total;
-  const change = Math.max(0, tendered - total);
-  const canCharge = franchise.open && Boolean(productId);
-
-  function charge() {
-    if (!canCharge) return;
-    dispatch({ type: "CHECKOUT", paymentMethod });
-  }
-
-  return <section className="checkout-console" aria-label="Caja registradora">
-    <header>
-      <div><small>PUESTO BLOQUEADO</small><strong>Caja registradora 01</strong></div>
-      <button onClick={onLeave}>Salir de caja <kbd>ESC</kbd></button>
-    </header>
-    <div className="checkout-workspace">
-      <div className="register-screen">
-        <div className="register-status"><i className={canCharge ? "ready" : "waiting"}/><span>{!franchise.open ? "Tienda cerrada" : product ? "Cliente listo para pagar" : "Esperando productos con stock"}</span></div>
-        {product ? <>
-          <div className="scanned-product"><span>{product.emoji}</span><div><strong>{product.name}</strong><small>1 unidad escaneada</small></div><b>{formatMoney(subtotal, game)}</b></div>
-          <div className="receipt-totals"><span>Subtotal <b>{formatMoney(subtotal, game)}</b></span><span>Impuesto de venta <b>{formatMoney(tax, game)}</b></span><strong>Total <b>{formatMoney(total, game)}</b></strong></div>
-        </> : <div className="register-empty"><span>▦</span><strong>No hay artículos disponibles</strong><small>Surte las estanterías para atender al siguiente cliente.</small></div>}
-      </div>
-      <div className={`payment-terminal ${paymentMethod}`}>
-        <small>EL CLIENTE HA ELEGIDO</small>
-        <div className="payment-method-icon">{paymentMethod === "cash" ? "€" : "▣"}</div>
-        <h3>{paymentMethod === "cash" ? "Pago en efectivo" : "Pago con tarjeta"}</h3>
-        {paymentMethod === "cash" ? <div className="cash-breakdown"><span>Entrega <b>{formatMoney(tendered, game)}</b></span><span>Cambio <b>{formatMoney(change, game)}</b></span></div> : <p>El cliente acerca su tarjeta al datáfono. Comprueba el total y confirma el cobro.</p>}
-        <button className="charge-button" disabled={!canCharge} onClick={charge}>{paymentMethod === "cash" ? `Entregar cambio y cobrar` : "Aceptar pago con tarjeta"}</button>
-      </div>
-    </div>
-  </section>;
-}
-
-function cashTendered(totalMinor: number) {
-  const magnitude = 10 ** Math.max(0, Math.floor(Math.log10(Math.max(1, totalMinor))) - 1);
-  const step = magnitude * 5;
-  return Math.ceil(totalMinor / step) * step;
 }
 
 function QuickButton({ icon, label, onClick }: { icon: string; label: string; onClick: () => void }) {
   return <button onClick={onClick}><span>{icon}</span><small>{label}</small></button>;
 }
 
-function MobileControls({ onAction }: { onAction: () => void }) {
-  const base = useRef<HTMLDivElement>(null);
-  const [knob, setKnob] = useState({ x: 0, y: 0 });
-  function move(clientX: number, clientY: number) {
-    const rect = base.current?.getBoundingClientRect(); if (!rect) return;
-    const x = clientX - (rect.left + rect.width / 2); const y = clientY - (rect.top + rect.height / 2);
-    const length = Math.hypot(x, y); const limit = rect.width * 0.31; const scale = length > limit ? limit / length : 1;
-    const next = { x: x * scale, y: y * scale }; setKnob(next); setMobileInput(next.x / limit, next.y / limit);
+function LevelOneGuide({ game, franchise, nearFarm }: { game: GameState; franchise: FranchiseState; nearFarm: boolean }) {
+  const crop = franchise.crops.find((candidate) => candidate.productId === "tomatoes" && candidate.status !== "LOCKED");
+  const harvested = game.progression.counters["harvest:tomatoes"] ?? 0;
+  const stocked = game.progression.counters["stock:tomatoes"] ?? 0;
+  const sales = game.progression.counters.customers ?? 0;
+  const growingProgress = crop?.status === "GROWING"
+    ? Math.round(Math.min(1, Math.max(0, (game.simulationTimeMs - crop.plantedAt) / Math.max(1, crop.readyAt - crop.plantedAt))) * 100)
+    : 0;
+
+  let activeStep = 1;
+  let eyebrow = "PASO 1 DE 5";
+  let title = "Siembra tomates";
+  let description = "Camina hasta el portón HUERTA y párate dentro del recuadro verde para sembrar tomates.";
+  let progress = 0;
+
+  if (crop?.status === "EMPTY" && harvested < 3 && !franchise.carry.item) {
+    progress = harvested / 3 * 100;
+  } else if (crop?.status === "GROWING" && harvested < 3 && !franchise.carry.item) {
+    title = `Tomates creciendo · ${growingProgress}%`;
+    description = "La parcela mostrará brotes, plantas y frutos. Puedes permanecer en el recuadro o moverte para salir.";
+    progress = growingProgress;
+  } else if (crop?.status === "READY" && harvested < 3 && !franchise.carry.item) {
+    activeStep = 2; eyebrow = "PASO 2 DE 5"; title = "Cosecha los tomates";
+    description = `Párate en el recuadro HUERTA para cosechar. Llevas ${harvested}/3 tomates para el objetivo.`;
+    progress = harvested / 3 * 100;
+  } else if (franchise.carry.item?.productId === "tomatoes") {
+    activeStep = 3; eyebrow = "PASO 3 DE 5"; title = "Surte la verdulería";
+    description = "Entra y párate en el recuadro SURTIR TOMATES frente al expositor verde FRUTAS Y VERDURAS.";
+    progress = stocked / 3 * 100;
+  } else if (stocked < 3) {
+    activeStep = harvested >= 3 ? 3 : 1; eyebrow = `PASO ${activeStep} DE 5`;
+    title = harvested >= 3 ? "Lleva producto al expositor" : "Continúa la cosecha";
+    description = harvested >= 3 ? "Vuelve a la huerta, recoge la carga pendiente y llévala al expositor de tomates." : "Siembra y cosecha hasta completar tres tomates.";
+    progress = Math.max(harvested, stocked) / 3 * 100;
+  } else if (!franchise.open) {
+    activeStep = 4; eyebrow = "PASO 4 DE 5"; title = "Abre el supermercado";
+    description = "Ya hay tomates reales en el expositor. Pulsa CERRADO en la barra superior para dejar entrar clientes.";
+    progress = 100;
+  } else if (sales < 1) {
+    activeStep = 5; eyebrow = "PASO 5 DE 5";
+    const waiting = franchise.customers.some((customer) => ["NAVIGATE_TO_QUEUE", "QUEUE_WAIT", "MOVE_QUEUE", "UNLOAD", "WAIT_CHECKOUT", "PAY"].includes(customer.state));
+    title = waiting ? "Ve a la caja y cobra" : "Espera al primer comprador";
+    description = waiting ? "Párate dentro del rectángulo del trabajador. El cliente descargará, tú escanearás y después pagará." : "El cliente tomará un carro, buscará tomates y formará fila. No se cobrará solo.";
+    progress = waiting ? 75 : 35;
+  } else {
+    activeStep = 5; eyebrow = "NIVEL 1 COMPLETADO"; title = "Tu primera venta está lista";
+    description = "Has cerrado el ciclo campo → estante → cliente → caja. Financia la ampliación cuando quieras avanzar.";
+    progress = 100;
   }
-  function stop() { setKnob({ x: 0, y: 0 }); setMobileInput(0, 0); }
-  return <div className="mobile-controls"><div ref={base} className="joystick" onPointerDown={(event) => { event.currentTarget.setPointerCapture(event.pointerId); move(event.clientX, event.clientY); }} onPointerMove={(event) => event.currentTarget.hasPointerCapture(event.pointerId) && move(event.clientX, event.clientY)} onPointerUp={stop} onPointerCancel={stop}><i style={{ transform: `translate(${knob.x}px, ${knob.y}px)` }}/></div><button className="action-button" onPointerDown={onAction}><strong>A</strong><small>ACCIÓN</small></button></div>;
+
+  return <aside className={`level-one-guide glass-panel${nearFarm ? " near-farm" : ""}`} data-game-ui-interactive="true" aria-label="Guía del nivel 1">
+    <header><span>{activeStep}</span><div><small>{eyebrow}</small><strong>{title}</strong></div></header>
+    <p>{description}</p>
+    <div className="level-one-progress"><i style={{ width: `${Math.min(100, progress)}%` }} /></div>
+    <ol>{[1, 2, 3, 4, 5].map((step) => <li key={step} className={step < activeStep ? "done" : step === activeStep ? "active" : ""} aria-current={step === activeStep ? "step" : undefined}>{step}</li>)}</ol>
+  </aside>;
 }
 
-function SetupPanel({ gameCountry, gameAvatar, onCountry, onAvatar }: { gameCountry: CountryCode; gameAvatar: AvatarConfig; onCountry: (country: CountryCode) => void; onAvatar: (avatar: AvatarConfig) => void }) {
+function SetupPanel({ gameCountry, gameAvatar, onComplete }: { gameCountry: CountryCode; gameAvatar: AvatarConfig; onComplete: (avatar: AvatarConfig, country: CountryCode) => void }) {
   const [country, setCountry] = useState(gameCountry); const [avatar, setAvatar] = useState(gameAvatar);
-  return <div className="modal-backdrop"><section className="setup-panel setup-panel-expanded"><div className="setup-copy"><span className="eyebrow">BIENVENIDO, FUNDADOR</span><h2>Crea tu empresa</h2><p>El país determina la moneda, la fiscalidad y los costes. Después no podrá cambiarse en esta partida.</p><div className="country-grid">{Object.values(COUNTRIES).map((item) => <button key={item.code} className={country === item.code ? "selected" : ""} onClick={() => setCountry(item.code)}><strong>{flag(item.code)} {item.name}</strong><small>{item.currency} · renta {Math.round(item.corporateTaxRate * 1000) / 10}%</small></button>)}</div></div><div className="avatar-setup"><AvatarCustomizer avatar={avatar} compact onChange={(change) => setAvatar((current) => ({ ...current, ...change }))} /><button className="primary-button" onClick={() => { onAvatar(avatar); onCountry(country); }}>Abrir mi primer Mini Market</button></div></section></div>;
+  return <div className="modal-backdrop"><section className="setup-panel setup-panel-expanded"><div className="setup-copy"><span className="eyebrow">BIENVENIDO, FUNDADOR</span><h2>Crea tu empresa</h2><p>El país determina la moneda, la fiscalidad y los costes. Después no podrá cambiarse en esta partida.</p><div className="country-grid">{Object.values(COUNTRIES).map((item) => <button key={item.code} className={country === item.code ? "selected" : ""} onClick={() => setCountry(item.code)}><strong>{flag(item.code)} {item.name}</strong><small>{item.currency} · renta {Math.round(item.corporateTaxRate * 1000) / 10}%</small></button>)}</div></div><div className="avatar-setup"><AvatarCustomizer avatar={avatar} compact onChange={(change) => setAvatar((current) => ({ ...current, ...change }))} /><button className="primary-button" onClick={() => onComplete(avatar, country)}>Abrir mi primer Mini Market</button></div></section></div>;
 }
 
 function ManagementPanel({ panel, close }: { panel: Exclude<Panel, null>; close: () => void }) {
@@ -176,16 +255,16 @@ function ManagementPanel({ panel, close }: { panel: Exclude<Panel, null>; close:
   const title = { stock: "Inventario y estanterías", suppliers: "Central de proveedores", team: "Equipo y delegación", map: "Mapa de franquicias", finance: "Dirección financiera", build: "Obras y mobiliario", avatar: "Vestuario del fundador", help: "Cómo jugar" }[panel];
   return <div className="management-wrap" onMouseDown={(event) => event.target === event.currentTarget && close()}><section className="management-panel"><header><div><span className="eyebrow">MINI MARKET OS</span><h2>{title}</h2></div><button className="close-button" onClick={close}>×</button></header>
     <div className="management-body">
-      {panel === "stock" && <div className="product-grid">{(Object.keys(PRODUCTS) as ProductId[]).map((id) => <article className="product-card" key={id}><span>{PRODUCTS[id].emoji}</span><div><strong>{PRODUCTS[id].name}</strong><small>Almacén {franchise.warehouse[id]} · Tienda {franchise.shelves[id]}</small></div><button disabled={!franchise.warehouse[id]} onClick={() => dispatch({ type: "STOCK", productId: id, quantity: 3 })}>Surtir 3</button></article>)}</div>}
+      {panel === "stock" && <div className="product-grid">{(Object.keys(PRODUCTS) as ProductId[]).map((id) => <article className="product-card" key={id}><span>{PRODUCTS[id].emoji}</span><div><strong>{PRODUCTS[id].name}</strong><small>Almacén {franchise.warehouse[id]} · Tienda {franchise.shelves[id]}</small></div><b>Repón acercándote al estante con la carga</b></article>)}</div>}
       {panel === "suppliers" && <div className="supplier-list">{SUPPLIERS.map((supplier) => <article key={supplier.id} className={game.level < supplier.unlockLevel ? "locked" : ""}><div className="supplier-head"><div><strong>{supplier.name}</strong><small>{supplier.leadMinutes} min · descuento {Math.round(supplier.discount * 100)}%</small></div>{game.level < supplier.unlockLevel && <b>Nivel {supplier.unlockLevel}</b>}</div><div className="supplier-products">{(Object.keys(PRODUCTS) as ProductId[]).filter((id) => PRODUCTS[id].supplier === supplier.id).map((id) => <button key={id} disabled={game.level < supplier.unlockLevel} onClick={() => dispatch({ type: "ORDER", supplierId: supplier.id, productId: id, quantity: 10 })}><span>{PRODUCTS[id].emoji}</span><strong>{PRODUCTS[id].name}</strong><small>10 × {formatMoney(PRODUCTS[id].wholesaleMinor * countryMoneyScale(game.countryCode) * (1 - supplier.discount), game)}</small></button>)}</div></article>)}</div>}
-      {panel === "team" && <div className="team-grid">{(Object.keys(ROLE_INFO) as EmployeeRole[]).map((role) => { const info = ROLE_INFO[role]; const hired = franchise.employees.filter((employee) => employee.role === role); return <article key={role} className={game.level < info.unlockLevel ? "locked" : ""}><span className="role-icon">{roleIcon(role)}</span><div><strong>{info.name}</strong><p>{info.description}</p><small>{hired.length ? `${hired.map((item) => item.name).join(", ")} · ` : ""}Nómina {formatMoney(info.salaryMinor * countryMoneyScale(game.countryCode), game)}/día</small></div><button disabled={game.level < info.unlockLevel} onClick={() => dispatch({ type: "HIRE", role })}>{game.level < info.unlockLevel ? `Nivel ${info.unlockLevel}` : "Contratar"}</button></article>; })}</div>}
+      {panel === "team" && <div className="team-grid">{(Object.keys(ROLE_INFO) as EmployeeRole[]).map((role) => { const info = ROLE_INFO[role]; const hired = franchise.employees.filter((employee) => employee.role === role); return <article key={role} className={game.level < info.unlockLevel ? "locked" : ""}><span className="role-icon">{roleIcon(role)}</span><div><strong>{info.name}</strong><p>{info.description}</p><small>{hired.length ? `${hired.map((item) => `${item.name} T${item.level}`).join(", ")} · ` : ""}Nómina {formatMoney(info.salaryMinor * countryMoneyScale(game.countryCode), game)}/día</small></div><b>{game.level < info.unlockLevel ? `Nivel ${info.unlockLevel}` : "Usa el pad EQUIPO"}</b></article>; })}</div>}
       {panel === "map" && <div className="franchise-map"><div className="map-line"/>{game.franchises.map((item, index) => <article key={item.id} className={`${item.owned ? "owned" : ""} ${item.id === game.currentFranchiseId ? "current" : ""}`}><span>{index === game.franchises.length - 1 ? "🏙️" : "🏪"}</span><div><small>NIVEL {item.unlockLevel}</small><strong>{item.name}</strong><p>{item.city}</p><b>{item.owned ? `${item.employees.length} empleados · ★ ${item.rating.toFixed(1)}` : formatMoney(item.purchaseCostMinor, game)}</b></div>{item.owned ? <button disabled={item.id === game.currentFranchiseId} onClick={() => { dispatch({ type: "TRAVEL", franchiseId: item.id }); close(); }}>{item.id === game.currentFranchiseId ? "Estás aquí" : "Viajar"}</button> : <button disabled={game.level < item.unlockLevel} onClick={() => dispatch({ type: "BUY_FRANCHISE", franchiseId: item.id })}>Comprar</button>}</article>)}</div>}
       {panel === "finance" && <FinancePanel />}
-      {panel === "build" && <div className="upgrade-grid">{(["shelves", "checkout", "expansion", "mill", "bakery"] as const).map((upgrade) => <article key={upgrade}><span>{upgradeIcon(upgrade)}</span><div><strong>{upgradeName(upgrade)}</strong><p>{upgradeDescription(upgrade)}</p></div><button onClick={() => dispatch({ type: "UPGRADE", upgrade })}>Mejorar</button></article>)}<article><span>📜</span><div><strong>Licencia comercial</strong><p>{franchise.licenseDaysLeft} días restantes. Obligatoria para abrir.</p></div><button onClick={() => dispatch({ type: "BUY_LICENSE" })}>Renovar 14 días</button></article></div>}
+      {panel === "build" && <div className="upgrade-grid"><article><span>🏗️</span><div><strong>Ampliación de nivel</strong><p>{buildProgress(franchise, game.level)}. Deposita dinero permaneciendo sobre el pad del mapa.</p></div><b>Automático por proximidad</b></article><article><span>⚙️</span><div><strong>Estaciones T1–T10</strong><p>Capacidad, velocidad, presentación y aspecto se aplican desde valores base, con límites.</p></div><b>Usa el pad ESTACIÓN</b></article><article><span>🏃</span><div><strong>Vendedor y carga</strong><p>Velocidad T{franchise.playerSpeedTier} · carga {franchise.carry.capacity} unidades.</p></div><b>Usa los pads físicos</b></article><article><span>📜</span><div><strong>Licencia comercial</strong><p>{franchise.licenseDaysLeft} días restantes. Obligatoria para abrir.</p></div><button onClick={() => dispatch({ type: "BUY_LICENSE" })}>Renovar 14 días</button></article></div>}
       {panel === "avatar" && <AvatarCustomizer avatar={game.avatar} onChange={(change) => dispatch({ type: "SET_AVATAR", ...change })} />}
-      {panel === "help" && <div className="help-grid"><article><kbd>WASD</kbd><kbd>↑↓←→</kbd><strong>Moverse</strong><p>Camina por el local y el exterior. La vista elevada mantiene toda la tienda visible.</p></article><article><kbd>E</kbd><kbd>ESPACIO</kbd><strong>Interactuar</strong><p>Cosecha, carga máquinas, repón o bloquéate en la caja al estar cerca.</p></article><article><kbd>🎮 A</kbd><strong>Mando</strong><p>Stick izquierdo para moverte y botón A para actuar.</p></article><article><kbd>◎</kbd><strong>Móvil</strong><p>Joystick izquierdo y botón Acción. Los menús son táctiles.</p></article><div className="tutorial-flow"><b>1. Cosecha trigo</b><span>→</span><b>2. Haz harina y pan</b><span>→</span><b>3. Surte</b><span>→</span><b>4. Abre y cobra</b><span>→</span><b>5. Contrata</b></div></div>}
+      {panel === "help" && <div className="help-grid"><article><kbd>ARRASTRA</kbd><kbd>WASD</kbd><strong>Moverse</strong><p>Arrastra desde cualquier punto libre con ratón, dedo o lápiz. El teclado sigue disponible.</p></article><article><kbd>◎</kbd><strong>Interacción automática</strong><p>Siembra, cosecha, carga máquinas, repón y cobra simplemente acercándote a cada zona.</p></article><article><kbd>🎮</kbd><strong>Mando</strong><p>El stick izquierdo controla el movimiento; las actividades se activan por proximidad.</p></article><article><kbd>↗</kbd><strong>Movimiento libre</strong><p>Salir de una zona pausa la actividad sin bloquear al personaje.</p></article><div className="tutorial-flow"><b>1. Siembra tomates</b><span>→</span><b>2. Cosecha</b><span>→</span><b>3. Surte verduras</b><span>→</span><b>4. Abre</b><span>→</span><b>5. Cobra</b></div></div>}
     </div>
-    <footer className="panel-footer"><span>Empresa: {COUNTRIES[game.countryCode].name} · {game.currency}</span><div className="panel-actions"><button className="danger-soft" onClick={() => dispatch({ type: "CLOSE_DAY" })}>Cerrar jornada y contabilizar</button><button className="danger-soft" onClick={async () => { await authClient.signOut(); window.location.reload(); }}>Cerrar sesión</button></div></footer>
+    <footer className="panel-footer"><span>Empresa: {COUNTRIES[game.countryCode].name} · {game.currency}</span><div className="panel-actions"><button className="danger-soft" onClick={() => dispatch({ type: "CLOSE_DAY" })}>Cerrar jornada y contabilizar</button><button className="danger-soft" onClick={async () => { localStorage.removeItem("mini-market-offline-player-v1"); localStorage.removeItem("mini-market-recovery-v1"); navigator.serviceWorker?.controller?.postMessage({ type: "CLEAR_PRIVATE_CACHE" }); await authClient.signOut(); window.location.reload(); }}>Cerrar sesión</button></div></footer>
   </section></div>;
 }
 
@@ -197,6 +276,7 @@ function FinancePanel() {
 
 function flag(code: CountryCode) { return ({ ES: "🇪🇸", US: "🇺🇸", CO: "🇨🇴", MX: "🇲🇽", AR: "🇦🇷", CL: "🇨🇱", PE: "🇵🇪" })[code]; }
 function roleIcon(role: EmployeeRole) { return ({ farmer: "🌾", operator: "⚙️", stocker: "📦", cashier: "🧾", builder: "🔨", manager: "📋" })[role]; }
-function upgradeIcon(id: string) { return ({ shelves: "🗄️", checkout: "💳", expansion: "🏗️", mill: "⚙️", bakery: "🥖" } as Record<string, string>)[id]; }
-function upgradeName(id: string) { return ({ shelves: "Estanterías", checkout: "Caja y pagos", expansion: "Ampliación del local", mill: "Molino de harina", bakery: "Horno industrial" } as Record<string, string>)[id]; }
-function upgradeDescription(id: string) { return ({ shelves: "Más capacidad y surtido automático.", checkout: "Atiende más clientes por ciclo.", expansion: "Espacio para equipos y producción.", mill: "Produce más harina por carga.", bakery: "Hornea más pan por tanda." } as Record<string, string>)[id]; }
+function buildProgress(franchise: { buildProjects: { level: number; costMinor: number; contributedMinor: number }[] }, level: number) {
+  const project = franchise.buildProjects.find((candidate) => candidate.level === level + 1);
+  return project ? `${Math.floor(project.contributedMinor / Math.max(1, project.costMinor) * 100)} % financiado` : "Sin ampliaciones pendientes";
+}

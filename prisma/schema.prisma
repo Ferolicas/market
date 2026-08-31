@@ -113,9 +113,17 @@ model LedgerEntry {
   description String
   amountMinor BigInt
   currency    String
+  eventId     String?
+  sessionId   String?
+  sequence    Int?
+  type        String?
+  payload     Json?
+  idempotencyKey String?
   createdAt   DateTime @default(now())
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, day])
   @@index([userId, franchiseId])
+  @@index([userId, eventId])
+  @@unique([userId, idempotencyKey])
 }

@@ -1,6 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // React 19 development StrictMode double-mounts WebGL roots. R3F disposes the
+  // first renderer asynchronously and can lose the live canvas context afterwards.
+  // Production never double-mounts; keep local development on the same lifecycle.
+  reactStrictMode: false,
   poweredByHeader: false,
   allowedDevOrigins: (process.env.LOCAL_DEV_ORIGINS ?? "")
     .split(",")

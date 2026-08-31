@@ -25,6 +25,10 @@
 # misc
 .DS_Store
 *.pem
+__pycache__/
+*.py[cod]
+*.blend1
+/--/
 
 # debug
 npm-debug.log*

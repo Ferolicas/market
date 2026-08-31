@@ -4,6 +4,8 @@ import { db } from "@/lib/db";
 import { createInitialGame, normalizeGameState } from "@/game/engine";
 import { savePayloadSchema, type ValidSavePayload } from "@/lib/game-validation";
 import type { GameState } from "@/game/types";
+import { validateSaveTransition } from "@/game/persistence/SaveAuthority";
+import { Prisma } from "@/generated/prisma/client";
 
 export const runtime = "nodejs";
 
@@ -59,13 +61,23 @@ export async function PUT(request: Request) {
   const payload = parsed.data as unknown as ValidSavePayload;
   const stateJson = JSON.parse(JSON.stringify(payload.state));
   const nextRevision = payload.expectedRevision + 1;
+  const extendedLedger = await hasExtendedLedger();
 
   const result = await db.$transaction(async (tx) => {
+    const current = await tx.gameSave.findUnique({ where: { userId_slot: { userId: session.user.id, slot: 1 } } });
+    if (!current || current.revision !== payload.expectedRevision) return { conflict: true as const, replay: false as const, invalid: null };
+    const currentState = normalizeGameState(current.state);
+    const authority = validateSaveTransition(currentState, payload.state, payload.events);
+    if (!authority.ok) return { conflict: false as const, replay: false as const, invalid: authority.code };
+    const acceptedIds = new Set(currentState.processedEventIds);
+    if (payload.events.some((event) => event.eventId && acceptedIds.has(event.eventId))) {
+      return { conflict: true as const, replay: true as const, invalid: null };
+    }
     const updated = await tx.gameSave.updateMany({
       where: { userId: session.user.id, slot: 1, revision: payload.expectedRevision },
       data: { revision: nextRevision, state: stateJson, checksum: checksum(payload.state) },
     });
-    if (updated.count !== 1) return { conflict: true as const };
+    if (updated.count !== 1) return { conflict: true as const, replay: false as const, invalid: null };
 
     if (payload.events.length) {
       await tx.ledgerEntry.createMany({
@@ -78,19 +90,30 @@ export async function PUT(request: Request) {
           description: event.description,
           amountMinor: BigInt(event.amountMinor),
           currency: payload.state.currency,
+          ...(extendedLedger ? {
+            eventId: event.eventId,
+            sessionId: payload.sessionId,
+            sequence: event.sequence,
+            type: event.type,
+            payload: event.payload ? JSON.parse(JSON.stringify(event.payload)) : undefined,
+            idempotencyKey: event.idempotencyKey,
+          } : {}),
         })),
+        skipDuplicates: true,
       });
     }
     await tx.playerProfile.update({
       where: { userId: session.user.id },
       data: { countryCode: payload.state.countryCode, currency: payload.state.currency, avatarSkin: payload.state.avatar.skin, avatarShirt: payload.state.avatar.shirt, avatarHat: payload.state.avatar.hat },
     });
-    return { conflict: false as const };
+    return { conflict: false as const, replay: false as const, invalid: null };
   });
+
+  if (result.invalid) return Response.json({ error: result.invalid }, { status: 422 });
 
   if (result.conflict) {
     const current = await db.gameSave.findUnique({ where: { userId_slot: { userId: session.user.id, slot: 1 } } });
-    return Response.json({ error: "SAVE_CONFLICT", state: current?.state, saveRevision: current?.revision }, { status: 409 });
+    return Response.json({ error: result.replay ? "EVENT_REPLAY" : "SAVE_CONFLICT", state: current?.state, saveRevision: current?.revision }, { status: 409 });
   }
   return Response.json({ ok: true, saveRevision: nextRevision, savedAt: new Date().toISOString() });
 }
@@ -101,4 +124,17 @@ function checksum(state: GameState) {
 
 function isUniqueConstraintError(cause: unknown) {
   return typeof cause === "object" && cause !== null && "code" in cause && cause.code === "P2002";
+}
+
+let extendedLedgerSupport: Promise<boolean> | null = null;
+
+function hasExtendedLedger() {
+  extendedLedgerSupport ??= db.$queryRaw<{ count: bigint }[]>(Prisma.sql`
+    SELECT COUNT(*)::bigint AS count
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'LedgerEntry'
+      AND column_name IN ('eventId', 'sessionId', 'sequence', 'type', 'payload', 'idempotencyKey')
+  `).then((rows) => Number(rows[0]?.count ?? 0) === 6).catch(() => false);
+  return extendedLedgerSupport;
 }

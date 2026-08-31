@@ -1,0 +1,3516 @@
+{
+  "schemaVersion": 3,
+  "generatedAt": "2026-08-29",
+  "referenceRoot": "/home/ferney_oliveros/Descargas/KIT MARKET",
+  "pipelines": [
+    "tools/blender/build_market_characters.py",
+    "tools/blender/build_market_environment.py"
+  ],
+  "policy": "Las PNG propias son la única fuente visual; no se importa ni reutiliza ningún GLB heredado.",
+  "validation": {
+    "command": "pnpm validate:assets",
+    "assetsChecked": 99,
+    "gltfErrors": 0,
+    "gltfWarnings": 0
+  },
+  "missing": [],
+  "assets": [
+    {
+      "id": "owner_man",
+      "category": "character",
+      "asset": "/models/market/characters/owner_man.glb",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/PERSONAJES.png",
+        "/home/ferney_oliveros/Descargas/KIT MARKET/VENDEDOR HOMBRE.png",
+        "/home/ferney_oliveros/Descargas/KIT MARKET/POSES DUEÑO.png",
+        "/home/ferney_oliveros/Descargas/KIT MARKET/ANIMACIONES.png"
+      ],
+      "status": "approved",
+      "scaleMeters": [
+        0.65,
+        1.78,
+        0.42
+      ],
+      "pivot": "centro entre plantas de los pies, Y=0",
+      "attachmentBone": null,
+      "materials": [
+        "Skin",
+        "SkinBlush",
+        "Shirt",
+        "SecondaryCloth",
+        "Eyes",
+        "Mouth"
+      ],
+      "animations": [
+        "Idle",
+        "Walk",
+        "Run",
+        "TurnLeft",
+        "TurnRight",
+        "CarryIdle",
+        "CarryWalk",
+        "HarvestLow",
+        "HarvestHigh",
+        "PickupLow",
+        "PickupHigh",
+        "StockLow",
+        "StockMid",
+        "StockHigh",
+        "CheckoutScan",
+        "CheckoutBag",
+        "Pay",
+        "ReceiveBag",
+        "Happy",
+        "Confused",
+        "Impatient",
+        "Talk",
+        "LookAround",
+        "Phone",
+        "Enter",
+        "Exit",
+        "Wave",
+        "ReceiveOrder",
+        "LiftBox",
+        "CarryBox",
+        "ScanItem",
+        "Plant",
+        "Harvest",
+        "Wait",
+        "Browse",
+        "ReachShelf",
+        "CarryBasket",
+        "Queue",
+        "CheckoutItem"
+      ],
+      "collider": "cápsula cinemática por cuerpo",
+      "interaction": "PlayerController/InteractionDirector",
+      "referenceNotes": "Silueta, rostro, ropa y proporciones provienen únicamente de las láminas propias."
+    },
+    {
+      "id": "owner_woman",
+      "category": "character",
+      "asset": "/models/market/characters/owner_woman.glb",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/PERSONAJES.png",
+        "/home/ferney_oliveros/Descargas/KIT MARKET/POSES DUEÑO.png",
+        "/home/ferney_oliveros/Descargas/KIT MARKET/ANIMACIONES.png"
+      ],
+      "status": "approved",
+      "scaleMeters": [
+        0.65,
+        1.78,
+        0.42
+      ],
+      "pivot": "centro entre plantas de los pies, Y=0",
+      "attachmentBone": null,
+      "materials": [
+        "Skin",
+        "SkinBlush",
+        "Shirt",
+        "SecondaryCloth",
+        "Eyes",
+        "Mouth"
+      ],
+      "animations": [
+        "Idle",
+        "Walk",
+        "Run",
+        "TurnLeft",
+        "TurnRight",
+        "CarryIdle",
+        "CarryWalk",
+        "HarvestLow",
+        "HarvestHigh",
+        "PickupLow",
+        "PickupHigh",
+        "StockLow",
+        "StockMid",
+        "StockHigh",
+        "CheckoutScan",
+        "CheckoutBag",
+        "Pay",
+        "ReceiveBag",
+        "Happy",
+        "Confused",
+        "Impatient",
+        "Talk",
+        "LookAround",
+        "Phone",
+        "Enter",
+        "Exit",
+        "Wave",
+        "ReceiveOrder",
+        "LiftBox",
+        "CarryBox",
+        "ScanItem",
+        "Plant",
+        "Harvest",
+        "Wait",
+        "Browse",
+        "ReachShelf",
+        "CarryBasket",
+        "Queue",
+        "CheckoutItem"
+      ],
+      "collider": "cápsula cinemática por cuerpo",
+      "interaction": "PlayerController/InteractionDirector",
+      "referenceNotes": "Silueta, rostro, ropa y proporciones provienen únicamente de las láminas propias."
+    },
+    {
+      "id": "owner_boy",
+      "category": "character",
+      "asset": "/models/market/characters/owner_boy.glb",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/PERSONAJES.png",
+        "/home/ferney_oliveros/Descargas/KIT MARKET/POSES DUEÑO.png",
+        "/home/ferney_oliveros/Descargas/KIT MARKET/ANIMACIONES.png"
+      ],
+      "status": "approved",
+      "scaleMeters": [
+        0.65,
+        1.78,
+        0.42
+      ],
+      "pivot": "centro entre plantas de los pies, Y=0",
+      "attachmentBone": null,
+      "materials": [
+        "Skin",
+        "SkinBlush",
+        "Shirt",
+        "SecondaryCloth",
+        "Eyes",
+        "Mouth"
+      ],
+      "animations": [
+        "Idle",
+        "Walk",
+        "Run",
+        "TurnLeft",
+        "TurnRight",
+        "CarryIdle",
+        "CarryWalk",
+        "HarvestLow",
+        "HarvestHigh",
+        "PickupLow",
+        "PickupHigh",
+        "StockLow",
+        "StockMid",
+        "StockHigh",
+        "CheckoutScan",
+        "CheckoutBag",
+        "Pay",
+        "ReceiveBag",
+        "Happy",
+        "Confused",
+        "Impatient",
+        "Talk",
+        "LookAround",
+        "Phone",
+        "Enter",
+        "Exit",
+        "Wave",
+        "ReceiveOrder",
+        "LiftBox",
+        "CarryBox",
+        "ScanItem",
+        "Plant",
+        "Harvest",
+        "Wait",
+        "Browse",
+        "ReachShelf",
+        "CarryBasket",
+        "Queue",
+        "CheckoutItem"
+      ],
+      "collider": "cápsula cinemática por cuerpo",
+      "interaction": "PlayerController/InteractionDirector",
+      "referenceNotes": "Silueta, rostro, ropa y proporciones provienen únicamente de las láminas propias."
+    },
+    {
+      "id": "owner_girl",
+      "category": "character",
+      "asset": "/models/market/characters/owner_girl.glb",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/PERSONAJES.png",
+        "/home/ferney_oliveros/Descargas/KIT MARKET/POSES DUEÑO.png",
+        "/home/ferney_oliveros/Descargas/KIT MARKET/ANIMACIONES.png"
+      ],
+      "status": "approved",
+      "scaleMeters": [
+        0.65,
+        1.78,
+        0.42
+      ],
+      "pivot": "centro entre plantas de los pies, Y=0",
+      "attachmentBone": null,
+      "materials": [
+        "Skin",
+        "SkinBlush",
+        "Shirt",
+        "SecondaryCloth",
+        "Eyes",
+        "Mouth"
+      ],
+      "animations": [
+        "Idle",
+        "Walk",
+        "Run",
+        "TurnLeft",
+        "TurnRight",
+        "CarryIdle",
+        "CarryWalk",
+        "HarvestLow",
+        "HarvestHigh",
+        "PickupLow",
+        "PickupHigh",
+        "StockLow",
+        "StockMid",
+        "StockHigh",
+        "CheckoutScan",
+        "CheckoutBag",
+        "Pay",
+        "ReceiveBag",
+        "Happy",
+        "Confused",
+        "Impatient",
+        "Talk",
+        "LookAround",
+        "Phone",
+        "Enter",
+        "Exit",
+        "Wave",
+        "ReceiveOrder",
+        "LiftBox",
+        "CarryBox",
+        "ScanItem",
+        "Plant",
+        "Harvest",
+        "Wait",
+        "Browse",
+        "ReachShelf",
+        "CarryBasket",
+        "Queue",
+        "CheckoutItem"
+      ],
+      "collider": "cápsula cinemática por cuerpo",
+      "interaction": "PlayerController/InteractionDirector",
+      "referenceNotes": "Silueta, rostro, ropa y proporciones provienen únicamente de las láminas propias."
+    },
+    {
+      "id": "customer_man_young",
+      "category": "customer",
+      "asset": "/models/market/customers/customer_01_man_young.glb",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/cliente1.png",
+        "/home/ferney_oliveros/Descargas/KIT MARKET/ANIMACIONES.png"
+      ],
+      "status": "approved",
+      "scaleMeters": [
+        0.65,
+        1.72,
+        0.42
+      ],
+      "pivot": "centro entre plantas de los pies, Y=0",
+      "attachmentBone": null,
+      "materials": [
+        "Skin",
+        "SkinBlush",
+        "Shirt",
+        "SecondaryCloth",
+        "Eyes",
+        "Mouth"
+      ],
+      "animations": [
+        "Idle",
+        "Walk",
+        "Run",
+        "TurnLeft",
+        "TurnRight",
+        "CarryIdle",
+        "CarryWalk",
+        "HarvestLow",
+        "HarvestHigh",
+        "PickupLow",
+        "PickupHigh",
+        "StockLow",
+        "StockMid",
+        "StockHigh",
+        "CheckoutScan",
+        "CheckoutBag",
+        "Pay",
+        "ReceiveBag",
+        "Happy",
+        "Confused",
+        "Impatient",
+        "Talk",
+        "LookAround",
+        "Phone",
+        "Enter",
+        "Exit",
+        "Wave",
+        "ReceiveOrder",
+        "LiftBox",
+        "CarryBox",
+        "ScanItem",
+        "Plant",
+        "Harvest",
+        "Wait",
+        "Browse",
+        "ReachShelf",
+        "CarryBasket",
+        "Queue",
+        "CheckoutItem"
+      ],
+      "collider": "cápsula cinemática por cuerpo",
+      "interaction": "CustomerBrain/QueueManager",
+      "referenceNotes": "Silueta, rostro, ropa y proporciones provienen únicamente de las láminas propias."
+    },
+    {
+      "id": "customer_man_senior",
+      "category": "customer",
+      "asset": "/models/market/customers/customer_02_man_senior.glb",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/cliente2.png",
+        "/home/ferney_oliveros/Descargas/KIT MARKET/ANIMACIONES.png"
+      ],
+      "status": "approved",
+      "scaleMeters": [
+        0.65,
+        1.72,
+        0.42
+      ],
+      "pivot": "centro entre plantas de los pies, Y=0",
+      "attachmentBone": null,
+      "materials": [
+        "Skin",
+        "SkinBlush",
+        "Shirt",
+        "SecondaryCloth",
+        "Eyes",
+        "Mouth"
+      ],
+      "animations": [
+        "Idle",
+        "Walk",
+        "Run",
+        "TurnLeft",
+        "TurnRight",
+        "CarryIdle",
+        "CarryWalk",
+        "HarvestLow",
+        "HarvestHigh",
+        "PickupLow",
+        "PickupHigh",
+        "StockLow",
+        "StockMid",
+        "StockHigh",
+        "CheckoutScan",
+        "CheckoutBag",
+        "Pay",
+        "ReceiveBag",
+        "Happy",
+        "Confused",
+        "Impatient",
+        "Talk",
+        "LookAround",
+        "Phone",
+        "Enter",
+        "Exit",
+        "Wave",
+        "ReceiveOrder",
+        "LiftBox",
+        "CarryBox",
+        "ScanItem",
+        "Plant",
+        "Harvest",
+        "Wait",
+        "Browse",
+        "ReachShelf",
+        "CarryBasket",
+        "Queue",
+        "CheckoutItem"
+      ],
+      "collider": "cápsula cinemática por cuerpo",
+      "interaction": "CustomerBrain/QueueManager",
+      "referenceNotes": "Silueta, rostro, ropa y proporciones provienen únicamente de las láminas propias."
+    },
+    {
+      "id": "customer_woman_young",
+      "category": "customer",
+      "asset": "/models/market/customers/customer_03_woman_young.glb",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/cliente3.png",
+        "/home/ferney_oliveros/Descargas/KIT MARKET/ANIMACIONES.png"
+      ],
+      "status": "approved",
+      "scaleMeters": [
+        0.65,
+        1.72,
+        0.42
+      ],
+      "pivot": "centro entre plantas de los pies, Y=0",
+      "attachmentBone": null,
+      "materials": [
+        "Skin",
+        "SkinBlush",
+        "Shirt",
+        "SecondaryCloth",
+        "Eyes",
+        "Mouth"
+      ],
+      "animations": [
+        "Idle",
+        "Walk",
+        "Run",
+        "TurnLeft",
+        "TurnRight",
+        "CarryIdle",
+        "CarryWalk",
+        "HarvestLow",
+        "HarvestHigh",
+        "PickupLow",
+        "PickupHigh",
+        "StockLow",
+        "StockMid",
+        "StockHigh",
+        "CheckoutScan",
+        "CheckoutBag",
+        "Pay",
+        "ReceiveBag",
+        "Happy",
+        "Confused",
+        "Impatient",
+        "Talk",
+        "LookAround",
+        "Phone",
+        "Enter",
+        "Exit",
+        "Wave",
+        "ReceiveOrder",
+        "LiftBox",
+        "CarryBox",
+        "ScanItem",
+        "Plant",
+        "Harvest",
+        "Wait",
+        "Browse",
+        "ReachShelf",
+        "CarryBasket",
+        "Queue",
+        "CheckoutItem"
+      ],
+      "collider": "cápsula cinemática por cuerpo",
+      "interaction": "CustomerBrain/QueueManager",
+      "referenceNotes": "Silueta, rostro, ropa y proporciones provienen únicamente de las láminas propias."
+    },
+    {
+      "id": "customer_woman_adult",
+      "category": "customer",
+      "asset": "/models/market/customers/customer_04_woman_adult.glb",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/cliente4.png",
+        "/home/ferney_oliveros/Descargas/KIT MARKET/ANIMACIONES.png"
+      ],
+      "status": "approved",
+      "scaleMeters": [
+        0.65,
+        1.72,
+        0.42
+      ],
+      "pivot": "centro entre plantas de los pies, Y=0",
+      "attachmentBone": null,
+      "materials": [
+        "Skin",
+        "SkinBlush",
+        "Shirt",
+        "SecondaryCloth",
+        "Eyes",
+        "Mouth"
+      ],
+      "animations": [
+        "Idle",
+        "Walk",
+        "Run",
+        "TurnLeft",
+        "TurnRight",
+        "CarryIdle",
+        "CarryWalk",
+        "HarvestLow",
+        "HarvestHigh",
+        "PickupLow",
+        "PickupHigh",
+        "StockLow",
+        "StockMid",
+        "StockHigh",
+        "CheckoutScan",
+        "CheckoutBag",
+        "Pay",
+        "ReceiveBag",
+        "Happy",
+        "Confused",
+        "Impatient",
+        "Talk",
+        "LookAround",
+        "Phone",
+        "Enter",
+        "Exit",
+        "Wave",
+        "ReceiveOrder",
+        "LiftBox",
+        "CarryBox",
+        "ScanItem",
+        "Plant",
+        "Harvest",
+        "Wait",
+        "Browse",
+        "ReachShelf",
+        "CarryBasket",
+        "Queue",
+        "CheckoutItem"
+      ],
+      "collider": "cápsula cinemática por cuerpo",
+      "interaction": "CustomerBrain/QueueManager",
+      "referenceNotes": "Silueta, rostro, ropa y proporciones provienen únicamente de las láminas propias."
+    },
+    {
+      "id": "customer_woman_mature",
+      "category": "customer",
+      "asset": "/models/market/customers/customer_05_woman_mature.glb",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/cliente5.png",
+        "/home/ferney_oliveros/Descargas/KIT MARKET/ANIMACIONES.png"
+      ],
+      "status": "approved",
+      "scaleMeters": [
+        0.65,
+        1.72,
+        0.42
+      ],
+      "pivot": "centro entre plantas de los pies, Y=0",
+      "attachmentBone": null,
+      "materials": [
+        "Skin",
+        "SkinBlush",
+        "Shirt",
+        "SecondaryCloth",
+        "Eyes",
+        "Mouth"
+      ],
+      "animations": [
+        "Idle",
+        "Walk",
+        "Run",
+        "TurnLeft",
+        "TurnRight",
+        "CarryIdle",
+        "CarryWalk",
+        "HarvestLow",
+        "HarvestHigh",
+        "PickupLow",
+        "PickupHigh",
+        "StockLow",
+        "StockMid",
+        "StockHigh",
+        "CheckoutScan",
+        "CheckoutBag",
+        "Pay",
+        "ReceiveBag",
+        "Happy",
+        "Confused",
+        "Impatient",
+        "Talk",
+        "LookAround",
+        "Phone",
+        "Enter",
+        "Exit",
+        "Wave",
+        "ReceiveOrder",
+        "LiftBox",
+        "CarryBox",
+        "ScanItem",
+        "Plant",
+        "Harvest",
+        "Wait",
+        "Browse",
+        "ReachShelf",
+        "CarryBasket",
+        "Queue",
+        "CheckoutItem"
+      ],
+      "collider": "cápsula cinemática por cuerpo",
+      "interaction": "CustomerBrain/QueueManager",
+      "referenceNotes": "Silueta, rostro, ropa y proporciones provienen únicamente de las láminas propias."
+    },
+    {
+      "id": "customer_woman_senior",
+      "category": "customer",
+      "asset": "/models/market/customers/customer_06_woman_senior.glb",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/cliente6.png",
+        "/home/ferney_oliveros/Descargas/KIT MARKET/ANIMACIONES.png"
+      ],
+      "status": "approved",
+      "scaleMeters": [
+        0.65,
+        1.72,
+        0.42
+      ],
+      "pivot": "centro entre plantas de los pies, Y=0",
+      "attachmentBone": null,
+      "materials": [
+        "Skin",
+        "SkinBlush",
+        "Shirt",
+        "SecondaryCloth",
+        "Eyes",
+        "Mouth"
+      ],
+      "animations": [
+        "Idle",
+        "Walk",
+        "Run",
+        "TurnLeft",
+        "TurnRight",
+        "CarryIdle",
+        "CarryWalk",
+        "HarvestLow",
+        "HarvestHigh",
+        "PickupLow",
+        "PickupHigh",
+        "StockLow",
+        "StockMid",
+        "StockHigh",
+        "CheckoutScan",
+        "CheckoutBag",
+        "Pay",
+        "ReceiveBag",
+        "Happy",
+        "Confused",
+        "Impatient",
+        "Talk",
+        "LookAround",
+        "Phone",
+        "Enter",
+        "Exit",
+        "Wave",
+        "ReceiveOrder",
+        "LiftBox",
+        "CarryBox",
+        "ScanItem",
+        "Plant",
+        "Harvest",
+        "Wait",
+        "Browse",
+        "ReachShelf",
+        "CarryBasket",
+        "Queue",
+        "CheckoutItem"
+      ],
+      "collider": "cápsula cinemática por cuerpo",
+      "interaction": "CustomerBrain/QueueManager",
+      "referenceNotes": "Silueta, rostro, ropa y proporciones provienen únicamente de las láminas propias."
+    },
+    {
+      "id": "hair_01_short_side_part",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/PEINADOS.png"
+      ],
+      "asset": "/models/market/hair/side-part.glb",
+      "category": "hair",
+      "status": "approved",
+      "scaleMeters": [
+        0.42,
+        0.42,
+        0.42
+      ],
+      "pivot": "HairSocket en centro de cráneo",
+      "attachmentBone": "Head",
+      "materials": [
+        "Hair"
+      ],
+      "animations": [],
+      "collider": "sin collider",
+      "interaction": "personalización",
+      "referenceNotes": "Volumen, raya, flequillo y silueta trasera siguen PEINADOS.png.",
+      "compatibleHeads": [
+        "owner_man",
+        "owner_woman",
+        "owner_boy",
+        "owner_girl"
+      ],
+      "compatibleHair": [],
+      "hidesHairParts": [],
+      "socket": "HairSocket",
+      "boundingVolume": "esfera r=0.34 m"
+    },
+    {
+      "id": "hair_02_fade",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/PEINADOS.png"
+      ],
+      "asset": "/models/market/hair/fade.glb",
+      "category": "hair",
+      "status": "approved",
+      "scaleMeters": [
+        0.42,
+        0.42,
+        0.42
+      ],
+      "pivot": "HairSocket en centro de cráneo",
+      "attachmentBone": "Head",
+      "materials": [
+        "Hair"
+      ],
+      "animations": [],
+      "collider": "sin collider",
+      "interaction": "personalización",
+      "referenceNotes": "Volumen, raya, flequillo y silueta trasera siguen PEINADOS.png.",
+      "compatibleHeads": [
+        "owner_man",
+        "owner_woman",
+        "owner_boy",
+        "owner_girl"
+      ],
+      "compatibleHair": [],
+      "hidesHairParts": [],
+      "socket": "HairSocket",
+      "boundingVolume": "esfera r=0.34 m"
+    },
+    {
+      "id": "hair_03_waves",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/PEINADOS.png"
+      ],
+      "asset": "/models/market/hair/waves.glb",
+      "category": "hair",
+      "status": "approved",
+      "scaleMeters": [
+        0.42,
+        0.42,
+        0.42
+      ],
+      "pivot": "HairSocket en centro de cráneo",
+      "attachmentBone": "Head",
+      "materials": [
+        "Hair"
+      ],
+      "animations": [],
+      "collider": "sin collider",
+      "interaction": "personalización",
+      "referenceNotes": "Volumen, raya, flequillo y silueta trasera siguen PEINADOS.png.",
+      "compatibleHeads": [
+        "owner_man",
+        "owner_woman",
+        "owner_boy",
+        "owner_girl"
+      ],
+      "compatibleHair": [],
+      "hidesHairParts": [],
+      "socket": "HairSocket",
+      "boundingVolume": "esfera r=0.34 m"
+    },
+    {
+      "id": "hair_04_swept",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/PEINADOS.png"
+      ],
+      "asset": "/models/market/hair/swept.glb",
+      "category": "hair",
+      "status": "approved",
+      "scaleMeters": [
+        0.42,
+        0.42,
+        0.42
+      ],
+      "pivot": "HairSocket en centro de cráneo",
+      "attachmentBone": "Head",
+      "materials": [
+        "Hair"
+      ],
+      "animations": [],
+      "collider": "sin collider",
+      "interaction": "personalización",
+      "referenceNotes": "Volumen, raya, flequillo y silueta trasera siguen PEINADOS.png.",
+      "compatibleHeads": [
+        "owner_man",
+        "owner_woman",
+        "owner_boy",
+        "owner_girl"
+      ],
+      "compatibleHair": [],
+      "hidesHairParts": [],
+      "socket": "HairSocket",
+      "boundingVolume": "esfera r=0.34 m"
+    },
+    {
+      "id": "hair_05_bob",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/PEINADOS.png"
+      ],
+      "asset": "/models/market/hair/bob.glb",
+      "category": "hair",
+      "status": "approved",
+      "scaleMeters": [
+        0.42,
+        0.42,
+        0.42
+      ],
+      "pivot": "HairSocket en centro de cráneo",
+      "attachmentBone": "Head",
+      "materials": [
+        "Hair"
+      ],
+      "animations": [],
+      "collider": "sin collider",
+      "interaction": "personalización",
+      "referenceNotes": "Volumen, raya, flequillo y silueta trasera siguen PEINADOS.png.",
+      "compatibleHeads": [
+        "owner_man",
+        "owner_woman",
+        "owner_boy",
+        "owner_girl"
+      ],
+      "compatibleHair": [],
+      "hidesHairParts": [],
+      "socket": "HairSocket",
+      "boundingVolume": "esfera r=0.34 m"
+    },
+    {
+      "id": "hair_06_ponytail",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/PEINADOS.png"
+      ],
+      "asset": "/models/market/hair/ponytail.glb",
+      "category": "hair",
+      "status": "approved",
+      "scaleMeters": [
+        0.42,
+        0.42,
+        0.42
+      ],
+      "pivot": "HairSocket en centro de cráneo",
+      "attachmentBone": "Head",
+      "materials": [
+        "Hair"
+      ],
+      "animations": [],
+      "collider": "sin collider",
+      "interaction": "personalización",
+      "referenceNotes": "Volumen, raya, flequillo y silueta trasera siguen PEINADOS.png.",
+      "compatibleHeads": [
+        "owner_man",
+        "owner_woman",
+        "owner_boy",
+        "owner_girl"
+      ],
+      "compatibleHair": [],
+      "hidesHairParts": [],
+      "socket": "HairSocket",
+      "boundingVolume": "esfera r=0.34 m"
+    },
+    {
+      "id": "hair_07_long_wavy",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/PEINADOS.png"
+      ],
+      "asset": "/models/market/hair/long-wavy.glb",
+      "category": "hair",
+      "status": "approved",
+      "scaleMeters": [
+        0.42,
+        0.42,
+        0.42
+      ],
+      "pivot": "HairSocket en centro de cráneo",
+      "attachmentBone": "Head",
+      "materials": [
+        "Hair"
+      ],
+      "animations": [],
+      "collider": "sin collider",
+      "interaction": "personalización",
+      "referenceNotes": "Volumen, raya, flequillo y silueta trasera siguen PEINADOS.png.",
+      "compatibleHeads": [
+        "owner_man",
+        "owner_woman",
+        "owner_boy",
+        "owner_girl"
+      ],
+      "compatibleHair": [],
+      "hidesHairParts": [],
+      "socket": "HairSocket",
+      "boundingVolume": "esfera r=0.34 m"
+    },
+    {
+      "id": "hair_08_bun",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/PEINADOS.png"
+      ],
+      "asset": "/models/market/hair/bun.glb",
+      "category": "hair",
+      "status": "approved",
+      "scaleMeters": [
+        0.42,
+        0.42,
+        0.42
+      ],
+      "pivot": "HairSocket en centro de cráneo",
+      "attachmentBone": "Head",
+      "materials": [
+        "Hair"
+      ],
+      "animations": [],
+      "collider": "sin collider",
+      "interaction": "personalización",
+      "referenceNotes": "Volumen, raya, flequillo y silueta trasera siguen PEINADOS.png.",
+      "compatibleHeads": [
+        "owner_man",
+        "owner_woman",
+        "owner_boy",
+        "owner_girl"
+      ],
+      "compatibleHair": [],
+      "hidesHairParts": [],
+      "socket": "HairSocket",
+      "boundingVolume": "esfera r=0.34 m"
+    },
+    {
+      "id": "hair_09_messy",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/PEINADOS.png"
+      ],
+      "asset": "/models/market/hair/messy.glb",
+      "category": "hair",
+      "status": "approved",
+      "scaleMeters": [
+        0.42,
+        0.42,
+        0.42
+      ],
+      "pivot": "HairSocket en centro de cráneo",
+      "attachmentBone": "Head",
+      "materials": [
+        "Hair"
+      ],
+      "animations": [],
+      "collider": "sin collider",
+      "interaction": "personalización",
+      "referenceNotes": "Volumen, raya, flequillo y silueta trasera siguen PEINADOS.png.",
+      "compatibleHeads": [
+        "owner_man",
+        "owner_woman",
+        "owner_boy",
+        "owner_girl"
+      ],
+      "compatibleHair": [],
+      "hidesHairParts": [],
+      "socket": "HairSocket",
+      "boundingVolume": "esfera r=0.34 m"
+    },
+    {
+      "id": "hair_10_curls",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/PEINADOS.png"
+      ],
+      "asset": "/models/market/hair/curls.glb",
+      "category": "hair",
+      "status": "approved",
+      "scaleMeters": [
+        0.42,
+        0.42,
+        0.42
+      ],
+      "pivot": "HairSocket en centro de cráneo",
+      "attachmentBone": "Head",
+      "materials": [
+        "Hair"
+      ],
+      "animations": [],
+      "collider": "sin collider",
+      "interaction": "personalización",
+      "referenceNotes": "Volumen, raya, flequillo y silueta trasera siguen PEINADOS.png.",
+      "compatibleHeads": [
+        "owner_man",
+        "owner_woman",
+        "owner_boy",
+        "owner_girl"
+      ],
+      "compatibleHair": [],
+      "hidesHairParts": [],
+      "socket": "HairSocket",
+      "boundingVolume": "esfera r=0.34 m"
+    },
+    {
+      "id": "hair_11_short_fringe",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/PEINADOS.png"
+      ],
+      "asset": "/models/market/hair/short-fringe.glb",
+      "category": "hair",
+      "status": "approved",
+      "scaleMeters": [
+        0.42,
+        0.42,
+        0.42
+      ],
+      "pivot": "HairSocket en centro de cráneo",
+      "attachmentBone": "Head",
+      "materials": [
+        "Hair"
+      ],
+      "animations": [],
+      "collider": "sin collider",
+      "interaction": "personalización",
+      "referenceNotes": "Volumen, raya, flequillo y silueta trasera siguen PEINADOS.png.",
+      "compatibleHeads": [
+        "owner_man",
+        "owner_woman",
+        "owner_boy",
+        "owner_girl"
+      ],
+      "compatibleHair": [],
+      "hidesHairParts": [],
+      "socket": "HairSocket",
+      "boundingVolume": "esfera r=0.34 m"
+    },
+    {
+      "id": "hair_12_quiff",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/PEINADOS.png"
+      ],
+      "asset": "/models/market/hair/quiff.glb",
+      "category": "hair",
+      "status": "approved",
+      "scaleMeters": [
+        0.42,
+        0.42,
+        0.42
+      ],
+      "pivot": "HairSocket en centro de cráneo",
+      "attachmentBone": "Head",
+      "materials": [
+        "Hair"
+      ],
+      "animations": [],
+      "collider": "sin collider",
+      "interaction": "personalización",
+      "referenceNotes": "Volumen, raya, flequillo y silueta trasera siguen PEINADOS.png.",
+      "compatibleHeads": [
+        "owner_man",
+        "owner_woman",
+        "owner_boy",
+        "owner_girl"
+      ],
+      "compatibleHair": [],
+      "hidesHairParts": [],
+      "socket": "HairSocket",
+      "boundingVolume": "esfera r=0.34 m"
+    },
+    {
+      "id": "hair_13_blunt_bob",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/PEINADOS.png"
+      ],
+      "asset": "/models/market/hair/blunt-bob.glb",
+      "category": "hair",
+      "status": "approved",
+      "scaleMeters": [
+        0.42,
+        0.42,
+        0.42
+      ],
+      "pivot": "HairSocket en centro de cráneo",
+      "attachmentBone": "Head",
+      "materials": [
+        "Hair"
+      ],
+      "animations": [],
+      "collider": "sin collider",
+      "interaction": "personalización",
+      "referenceNotes": "Volumen, raya, flequillo y silueta trasera siguen PEINADOS.png.",
+      "compatibleHeads": [
+        "owner_man",
+        "owner_woman",
+        "owner_boy",
+        "owner_girl"
+      ],
+      "compatibleHair": [],
+      "hidesHairParts": [],
+      "socket": "HairSocket",
+      "boundingVolume": "esfera r=0.34 m"
+    },
+    {
+      "id": "hair_14_pigtails",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/PEINADOS.png"
+      ],
+      "asset": "/models/market/hair/pigtails.glb",
+      "category": "hair",
+      "status": "approved",
+      "scaleMeters": [
+        0.42,
+        0.42,
+        0.42
+      ],
+      "pivot": "HairSocket en centro de cráneo",
+      "attachmentBone": "Head",
+      "materials": [
+        "Hair"
+      ],
+      "animations": [],
+      "collider": "sin collider",
+      "interaction": "personalización",
+      "referenceNotes": "Volumen, raya, flequillo y silueta trasera siguen PEINADOS.png.",
+      "compatibleHeads": [
+        "owner_man",
+        "owner_woman",
+        "owner_boy",
+        "owner_girl"
+      ],
+      "compatibleHair": [],
+      "hidesHairParts": [],
+      "socket": "HairSocket",
+      "boundingVolume": "esfera r=0.34 m"
+    },
+    {
+      "id": "hair_15_braid",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/PEINADOS.png"
+      ],
+      "asset": "/models/market/hair/braid.glb",
+      "category": "hair",
+      "status": "approved",
+      "scaleMeters": [
+        0.42,
+        0.42,
+        0.42
+      ],
+      "pivot": "HairSocket en centro de cráneo",
+      "attachmentBone": "Head",
+      "materials": [
+        "Hair"
+      ],
+      "animations": [],
+      "collider": "sin collider",
+      "interaction": "personalización",
+      "referenceNotes": "Volumen, raya, flequillo y silueta trasera siguen PEINADOS.png.",
+      "compatibleHeads": [
+        "owner_man",
+        "owner_woman",
+        "owner_boy",
+        "owner_girl"
+      ],
+      "compatibleHair": [],
+      "hidesHairParts": [],
+      "socket": "HairSocket",
+      "boundingVolume": "esfera r=0.34 m"
+    },
+    {
+      "id": "hair_16_high_ponytail",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/PEINADOS.png"
+      ],
+      "asset": "/models/market/hair/high-ponytail.glb",
+      "category": "hair",
+      "status": "approved",
+      "scaleMeters": [
+        0.42,
+        0.42,
+        0.42
+      ],
+      "pivot": "HairSocket en centro de cráneo",
+      "attachmentBone": "Head",
+      "materials": [
+        "Hair"
+      ],
+      "animations": [],
+      "collider": "sin collider",
+      "interaction": "personalización",
+      "referenceNotes": "Volumen, raya, flequillo y silueta trasera siguen PEINADOS.png.",
+      "compatibleHeads": [
+        "owner_man",
+        "owner_woman",
+        "owner_boy",
+        "owner_girl"
+      ],
+      "compatibleHair": [],
+      "hidesHairParts": [],
+      "socket": "HairSocket",
+      "boundingVolume": "esfera r=0.34 m"
+    },
+    {
+      "id": "hat_red-panda",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/GORROS.png"
+      ],
+      "asset": "/models/market/hats/red-panda.glb",
+      "category": "hat",
+      "status": "approved",
+      "scaleMeters": [
+        0.5,
+        0.48,
+        0.5
+      ],
+      "pivot": "HatSocket en centro de cráneo",
+      "attachmentBone": "Head",
+      "materials": [
+        "HatPrimary",
+        "HatSecondary",
+        "HatDetails"
+      ],
+      "animations": [],
+      "collider": "sin collider",
+      "interaction": "personalización",
+      "referenceNotes": "Animal, rasgos faciales, orejas, trompa/cuerno y paleta coinciden con GORROS.png.",
+      "compatibleHeads": [
+        "owner_man",
+        "owner_woman",
+        "owner_boy",
+        "owner_girl"
+      ],
+      "compatibleHair": [],
+      "hidesHairParts": [
+        "all"
+      ],
+      "socket": "HatSocket",
+      "boundingVolume": "caja 0.55×0.55×0.55 m"
+    },
+    {
+      "id": "hat_red-fox",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/GORROS.png"
+      ],
+      "asset": "/models/market/hats/red-fox.glb",
+      "category": "hat",
+      "status": "approved",
+      "scaleMeters": [
+        0.5,
+        0.48,
+        0.5
+      ],
+      "pivot": "HatSocket en centro de cráneo",
+      "attachmentBone": "Head",
+      "materials": [
+        "HatPrimary",
+        "HatSecondary",
+        "HatDetails"
+      ],
+      "animations": [],
+      "collider": "sin collider",
+      "interaction": "personalización",
+      "referenceNotes": "Animal, rasgos faciales, orejas, trompa/cuerno y paleta coinciden con GORROS.png.",
+      "compatibleHeads": [
+        "owner_man",
+        "owner_woman",
+        "owner_boy",
+        "owner_girl"
+      ],
+      "compatibleHair": [],
+      "hidesHairParts": [
+        "all"
+      ],
+      "socket": "HatSocket",
+      "boundingVolume": "caja 0.55×0.55×0.55 m"
+    },
+    {
+      "id": "hat_chicken",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/GORROS.png"
+      ],
+      "asset": "/models/market/hats/chicken.glb",
+      "category": "hat",
+      "status": "approved",
+      "scaleMeters": [
+        0.5,
+        0.48,
+        0.5
+      ],
+      "pivot": "HatSocket en centro de cráneo",
+      "attachmentBone": "Head",
+      "materials": [
+        "HatPrimary",
+        "HatSecondary",
+        "HatDetails"
+      ],
+      "animations": [],
+      "collider": "sin collider",
+      "interaction": "personalización",
+      "referenceNotes": "Animal, rasgos faciales, orejas, trompa/cuerno y paleta coinciden con GORROS.png.",
+      "compatibleHeads": [
+        "owner_man",
+        "owner_woman",
+        "owner_boy",
+        "owner_girl"
+      ],
+      "compatibleHair": [],
+      "hidesHairParts": [
+        "all"
+      ],
+      "socket": "HatSocket",
+      "boundingVolume": "caja 0.55×0.55×0.55 m"
+    },
+    {
+      "id": "hat_owl",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/GORROS.png"
+      ],
+      "asset": "/models/market/hats/owl.glb",
+      "category": "hat",
+      "status": "approved",
+      "scaleMeters": [
+        0.5,
+        0.48,
+        0.5
+      ],
+      "pivot": "HatSocket en centro de cráneo",
+      "attachmentBone": "Head",
+      "materials": [
+        "HatPrimary",
+        "HatSecondary",
+        "HatDetails"
+      ],
+      "animations": [],
+      "collider": "sin collider",
+      "interaction": "personalización",
+      "referenceNotes": "Animal, rasgos faciales, orejas, trompa/cuerno y paleta coinciden con GORROS.png.",
+      "compatibleHeads": [
+        "owner_man",
+        "owner_woman",
+        "owner_boy",
+        "owner_girl"
+      ],
+      "compatibleHair": [],
+      "hidesHairParts": [
+        "all"
+      ],
+      "socket": "HatSocket",
+      "boundingVolume": "caja 0.55×0.55×0.55 m"
+    },
+    {
+      "id": "hat_elephant",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/GORROS.png"
+      ],
+      "asset": "/models/market/hats/elephant.glb",
+      "category": "hat",
+      "status": "approved",
+      "scaleMeters": [
+        0.5,
+        0.48,
+        0.5
+      ],
+      "pivot": "HatSocket en centro de cráneo",
+      "attachmentBone": "Head",
+      "materials": [
+        "HatPrimary",
+        "HatSecondary",
+        "HatDetails"
+      ],
+      "animations": [],
+      "collider": "sin collider",
+      "interaction": "personalización",
+      "referenceNotes": "Animal, rasgos faciales, orejas, trompa/cuerno y paleta coinciden con GORROS.png.",
+      "compatibleHeads": [
+        "owner_man",
+        "owner_woman",
+        "owner_boy",
+        "owner_girl"
+      ],
+      "compatibleHair": [],
+      "hidesHairParts": [
+        "all"
+      ],
+      "socket": "HatSocket",
+      "boundingVolume": "caja 0.55×0.55×0.55 m"
+    },
+    {
+      "id": "hat_rhinoceros",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/GORROS.png"
+      ],
+      "asset": "/models/market/hats/rhino.glb",
+      "category": "hat",
+      "status": "approved",
+      "scaleMeters": [
+        0.5,
+        0.48,
+        0.5
+      ],
+      "pivot": "HatSocket en centro de cráneo",
+      "attachmentBone": "Head",
+      "materials": [
+        "HatPrimary",
+        "HatSecondary",
+        "HatDetails"
+      ],
+      "animations": [],
+      "collider": "sin collider",
+      "interaction": "personalización",
+      "referenceNotes": "Animal, rasgos faciales, orejas, trompa/cuerno y paleta coinciden con GORROS.png.",
+      "compatibleHeads": [
+        "owner_man",
+        "owner_woman",
+        "owner_boy",
+        "owner_girl"
+      ],
+      "compatibleHair": [],
+      "hidesHairParts": [
+        "all"
+      ],
+      "socket": "HatSocket",
+      "boundingVolume": "caja 0.55×0.55×0.55 m"
+    },
+    {
+      "id": "hat_giraffe",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/GORROS.png"
+      ],
+      "asset": "/models/market/hats/giraffe.glb",
+      "category": "hat",
+      "status": "approved",
+      "scaleMeters": [
+        0.5,
+        0.48,
+        0.5
+      ],
+      "pivot": "HatSocket en centro de cráneo",
+      "attachmentBone": "Head",
+      "materials": [
+        "HatPrimary",
+        "HatSecondary",
+        "HatDetails"
+      ],
+      "animations": [],
+      "collider": "sin collider",
+      "interaction": "personalización",
+      "referenceNotes": "Animal, rasgos faciales, orejas, trompa/cuerno y paleta coinciden con GORROS.png.",
+      "compatibleHeads": [
+        "owner_man",
+        "owner_woman",
+        "owner_boy",
+        "owner_girl"
+      ],
+      "compatibleHair": [],
+      "hidesHairParts": [
+        "all"
+      ],
+      "socket": "HatSocket",
+      "boundingVolume": "caja 0.55×0.55×0.55 m"
+    },
+    {
+      "id": "hat_panda",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/GORROS.png"
+      ],
+      "asset": "/models/market/hats/panda.glb",
+      "category": "hat",
+      "status": "approved",
+      "scaleMeters": [
+        0.5,
+        0.48,
+        0.5
+      ],
+      "pivot": "HatSocket en centro de cráneo",
+      "attachmentBone": "Head",
+      "materials": [
+        "HatPrimary",
+        "HatSecondary",
+        "HatDetails"
+      ],
+      "animations": [],
+      "collider": "sin collider",
+      "interaction": "personalización",
+      "referenceNotes": "Animal, rasgos faciales, orejas, trompa/cuerno y paleta coinciden con GORROS.png.",
+      "compatibleHeads": [
+        "owner_man",
+        "owner_woman",
+        "owner_boy",
+        "owner_girl"
+      ],
+      "compatibleHair": [],
+      "hidesHairParts": [
+        "all"
+      ],
+      "socket": "HatSocket",
+      "boundingVolume": "caja 0.55×0.55×0.55 m"
+    },
+    {
+      "id": "hat_frog",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/GORROS.png"
+      ],
+      "asset": "/models/market/hats/frog.glb",
+      "category": "hat",
+      "status": "approved",
+      "scaleMeters": [
+        0.5,
+        0.48,
+        0.5
+      ],
+      "pivot": "HatSocket en centro de cráneo",
+      "attachmentBone": "Head",
+      "materials": [
+        "HatPrimary",
+        "HatSecondary",
+        "HatDetails"
+      ],
+      "animations": [],
+      "collider": "sin collider",
+      "interaction": "personalización",
+      "referenceNotes": "Animal, rasgos faciales, orejas, trompa/cuerno y paleta coinciden con GORROS.png.",
+      "compatibleHeads": [
+        "owner_man",
+        "owner_woman",
+        "owner_boy",
+        "owner_girl"
+      ],
+      "compatibleHair": [],
+      "hidesHairParts": [
+        "all"
+      ],
+      "socket": "HatSocket",
+      "boundingVolume": "caja 0.55×0.55×0.55 m"
+    },
+    {
+      "id": "hat_cow",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/GORROS.png"
+      ],
+      "asset": "/models/market/hats/cow.glb",
+      "category": "hat",
+      "status": "approved",
+      "scaleMeters": [
+        0.5,
+        0.48,
+        0.5
+      ],
+      "pivot": "HatSocket en centro de cráneo",
+      "attachmentBone": "Head",
+      "materials": [
+        "HatPrimary",
+        "HatSecondary",
+        "HatDetails"
+      ],
+      "animations": [],
+      "collider": "sin collider",
+      "interaction": "personalización",
+      "referenceNotes": "Animal, rasgos faciales, orejas, trompa/cuerno y paleta coinciden con GORROS.png.",
+      "compatibleHeads": [
+        "owner_man",
+        "owner_woman",
+        "owner_boy",
+        "owner_girl"
+      ],
+      "compatibleHair": [],
+      "hidesHairParts": [
+        "all"
+      ],
+      "socket": "HatSocket",
+      "boundingVolume": "caja 0.55×0.55×0.55 m"
+    },
+    {
+      "id": "hat_bunny",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/GORROS.png"
+      ],
+      "asset": "/models/market/hats/rabbit.glb",
+      "category": "hat",
+      "status": "approved",
+      "scaleMeters": [
+        0.5,
+        0.48,
+        0.5
+      ],
+      "pivot": "HatSocket en centro de cráneo",
+      "attachmentBone": "Head",
+      "materials": [
+        "HatPrimary",
+        "HatSecondary",
+        "HatDetails"
+      ],
+      "animations": [],
+      "collider": "sin collider",
+      "interaction": "personalización",
+      "referenceNotes": "Animal, rasgos faciales, orejas, trompa/cuerno y paleta coinciden con GORROS.png.",
+      "compatibleHeads": [
+        "owner_man",
+        "owner_woman",
+        "owner_boy",
+        "owner_girl"
+      ],
+      "compatibleHair": [],
+      "hidesHairParts": [
+        "all"
+      ],
+      "socket": "HatSocket",
+      "boundingVolume": "caja 0.55×0.55×0.55 m"
+    },
+    {
+      "id": "hat_capybara",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/GORROS.png"
+      ],
+      "asset": "/models/market/hats/capybara.glb",
+      "category": "hat",
+      "status": "approved",
+      "scaleMeters": [
+        0.5,
+        0.48,
+        0.5
+      ],
+      "pivot": "HatSocket en centro de cráneo",
+      "attachmentBone": "Head",
+      "materials": [
+        "HatPrimary",
+        "HatSecondary",
+        "HatDetails"
+      ],
+      "animations": [],
+      "collider": "sin collider",
+      "interaction": "personalización",
+      "referenceNotes": "Animal, rasgos faciales, orejas, trompa/cuerno y paleta coinciden con GORROS.png.",
+      "compatibleHeads": [
+        "owner_man",
+        "owner_woman",
+        "owner_boy",
+        "owner_girl"
+      ],
+      "compatibleHair": [],
+      "hidesHairParts": [
+        "all"
+      ],
+      "socket": "HatSocket",
+      "boundingVolume": "caja 0.55×0.55×0.55 m"
+    },
+    {
+      "id": "shelf_gondola_single",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/MOBILIARIO2.png"
+      ],
+      "asset": "/models/market/environment/shelf_gondola_single.glb",
+      "category": "furniture",
+      "status": "approved",
+      "scaleMeters": [
+        1,
+        1,
+        1
+      ],
+      "pivot": "centro de base en Y=0",
+      "attachmentBone": null,
+      "materials": [
+        "cream",
+        "ivory",
+        "green",
+        "dark",
+        "metal",
+        "glass",
+        "wood",
+        "soil"
+      ],
+      "animations": [],
+      "collider": "cuboid simple o sin collider",
+      "interaction": "estructura o decoración",
+      "referenceNotes": "Modelo original reconstruido desde MOBILIARIO2.png; conserva formas redondeadas y paleta crema, carbón y verde."
+    },
+    {
+      "id": "shelf_gondola_double",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/MOBILIARIO2.png"
+      ],
+      "asset": "/models/market/environment/shelf_gondola_double.glb",
+      "category": "furniture",
+      "status": "approved",
+      "scaleMeters": [
+        1,
+        1,
+        1
+      ],
+      "pivot": "centro de base en Y=0",
+      "attachmentBone": null,
+      "materials": [
+        "cream",
+        "ivory",
+        "green",
+        "dark",
+        "metal",
+        "glass",
+        "wood",
+        "soil"
+      ],
+      "animations": [],
+      "collider": "cuboid simple o sin collider",
+      "interaction": "estructura o decoración",
+      "referenceNotes": "Modelo original reconstruido desde MOBILIARIO2.png; conserva formas redondeadas y paleta crema, carbón y verde."
+    },
+    {
+      "id": "shelf_wall_low",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/MOBILIARIO2.png"
+      ],
+      "asset": "/models/market/environment/shelf_wall_low.glb",
+      "category": "furniture",
+      "status": "approved",
+      "scaleMeters": [
+        1,
+        1,
+        1
+      ],
+      "pivot": "centro de base en Y=0",
+      "attachmentBone": null,
+      "materials": [
+        "cream",
+        "ivory",
+        "green",
+        "dark",
+        "metal",
+        "glass",
+        "wood",
+        "soil"
+      ],
+      "animations": [],
+      "collider": "cuboid simple o sin collider",
+      "interaction": "estructura o decoración",
+      "referenceNotes": "Modelo original reconstruido desde MOBILIARIO2.png; conserva formas redondeadas y paleta crema, carbón y verde."
+    },
+    {
+      "id": "shelf_wall_tall",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/MOBILIARIO2.png"
+      ],
+      "asset": "/models/market/environment/shelf_wall_tall.glb",
+      "category": "furniture",
+      "status": "approved",
+      "scaleMeters": [
+        1,
+        1,
+        1
+      ],
+      "pivot": "centro de base en Y=0",
+      "attachmentBone": null,
+      "materials": [
+        "cream",
+        "ivory",
+        "green",
+        "dark",
+        "metal",
+        "glass",
+        "wood",
+        "soil"
+      ],
+      "animations": [],
+      "collider": "cuboid simple o sin collider",
+      "interaction": "estructura o decoración",
+      "referenceNotes": "Modelo original reconstruido desde MOBILIARIO2.png; conserva formas redondeadas y paleta crema, carbón y verde."
+    },
+    {
+      "id": "shelf_endcap",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/MOBILIARIO2.png"
+      ],
+      "asset": "/models/market/environment/shelf_endcap.glb",
+      "category": "furniture",
+      "status": "approved",
+      "scaleMeters": [
+        1,
+        1,
+        1
+      ],
+      "pivot": "centro de base en Y=0",
+      "attachmentBone": null,
+      "materials": [
+        "cream",
+        "ivory",
+        "green",
+        "dark",
+        "metal",
+        "glass",
+        "wood",
+        "soil"
+      ],
+      "animations": [],
+      "collider": "cuboid simple o sin collider",
+      "interaction": "estructura o decoración",
+      "referenceNotes": "Modelo original reconstruido desde MOBILIARIO2.png; conserva formas redondeadas y paleta crema, carbón y verde."
+    },
+    {
+      "id": "display_produce_tomato",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/MOBILIARIO2.png"
+      ],
+      "asset": "/models/market/environment/display_produce_tomato.glb",
+      "category": "furniture",
+      "status": "approved",
+      "scaleMeters": [
+        1,
+        1,
+        1
+      ],
+      "pivot": "centro de base en Y=0",
+      "attachmentBone": null,
+      "materials": [
+        "cream",
+        "ivory",
+        "green",
+        "dark",
+        "metal",
+        "glass",
+        "wood",
+        "soil"
+      ],
+      "animations": [],
+      "collider": "cuboid compuesto documentado en StoreColliders",
+      "interaction": "estado derivado de estación/InteractionZone",
+      "referenceNotes": "Modelo original reconstruido desde MOBILIARIO2.png; conserva formas redondeadas y paleta crema, carbón y verde."
+    },
+    {
+      "id": "display_produce_mixed",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/MOBILIARIO2.png"
+      ],
+      "asset": "/models/market/environment/display_produce_mixed.glb",
+      "category": "furniture",
+      "status": "approved",
+      "scaleMeters": [
+        1,
+        1,
+        1
+      ],
+      "pivot": "centro de base en Y=0",
+      "attachmentBone": null,
+      "materials": [
+        "cream",
+        "ivory",
+        "green",
+        "dark",
+        "metal",
+        "glass",
+        "wood",
+        "soil"
+      ],
+      "animations": [],
+      "collider": "cuboid compuesto documentado en StoreColliders",
+      "interaction": "estado derivado de estación/InteractionZone",
+      "referenceNotes": "Modelo original reconstruido desde MOBILIARIO2.png; conserva formas redondeadas y paleta crema, carbón y verde."
+    },
+    {
+      "id": "display_bakery",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/MOBILIARIO2.png"
+      ],
+      "asset": "/models/market/environment/display_bakery.glb",
+      "category": "furniture",
+      "status": "approved",
+      "scaleMeters": [
+        1,
+        1,
+        1
+      ],
+      "pivot": "centro de base en Y=0",
+      "attachmentBone": null,
+      "materials": [
+        "cream",
+        "ivory",
+        "green",
+        "dark",
+        "metal",
+        "glass",
+        "wood",
+        "soil"
+      ],
+      "animations": [],
+      "collider": "cuboid compuesto documentado en StoreColliders",
+      "interaction": "estado derivado de estación/InteractionZone",
+      "referenceNotes": "Modelo original reconstruido desde MOBILIARIO2.png; conserva formas redondeadas y paleta crema, carbón y verde."
+    },
+    {
+      "id": "display_eggs",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/MOBILIARIO2.png"
+      ],
+      "asset": "/models/market/environment/display_eggs.glb",
+      "category": "furniture",
+      "status": "approved",
+      "scaleMeters": [
+        1,
+        1,
+        1
+      ],
+      "pivot": "centro de base en Y=0",
+      "attachmentBone": null,
+      "materials": [
+        "cream",
+        "ivory",
+        "green",
+        "dark",
+        "metal",
+        "glass",
+        "wood",
+        "soil"
+      ],
+      "animations": [],
+      "collider": "cuboid compuesto documentado en StoreColliders",
+      "interaction": "estado derivado de estación/InteractionZone",
+      "referenceNotes": "Modelo original reconstruido desde MOBILIARIO2.png; conserva formas redondeadas y paleta crema, carbón y verde."
+    },
+    {
+      "id": "display_refrigerated_open",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/MOBILIARIO2.png"
+      ],
+      "asset": "/models/market/environment/display_refrigerated_open.glb",
+      "category": "furniture",
+      "status": "approved",
+      "scaleMeters": [
+        1,
+        1,
+        1
+      ],
+      "pivot": "centro de base en Y=0",
+      "attachmentBone": null,
+      "materials": [
+        "cream",
+        "ivory",
+        "green",
+        "dark",
+        "metal",
+        "glass",
+        "wood",
+        "soil"
+      ],
+      "animations": [],
+      "collider": "cuboid compuesto documentado en StoreColliders",
+      "interaction": "estado derivado de estación/InteractionZone",
+      "referenceNotes": "Modelo original reconstruido desde MOBILIARIO2.png; conserva formas redondeadas y paleta crema, carbón y verde."
+    },
+    {
+      "id": "display_refrigerated_doors",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/MOBILIARIO2.png"
+      ],
+      "asset": "/models/market/environment/display_refrigerated_doors.glb",
+      "category": "furniture",
+      "status": "approved",
+      "scaleMeters": [
+        1,
+        1,
+        1
+      ],
+      "pivot": "centro de base en Y=0",
+      "attachmentBone": null,
+      "materials": [
+        "cream",
+        "ivory",
+        "green",
+        "dark",
+        "metal",
+        "glass",
+        "wood",
+        "soil"
+      ],
+      "animations": [],
+      "collider": "cuboid compuesto documentado en StoreColliders",
+      "interaction": "estado derivado de estación/InteractionZone",
+      "referenceNotes": "Modelo original reconstruido desde MOBILIARIO2.png; conserva formas redondeadas y paleta crema, carbón y verde."
+    },
+    {
+      "id": "display_freezer_chest",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/MOBILIARIO2.png"
+      ],
+      "asset": "/models/market/environment/display_freezer_chest.glb",
+      "category": "furniture",
+      "status": "approved",
+      "scaleMeters": [
+        1,
+        1,
+        1
+      ],
+      "pivot": "centro de base en Y=0",
+      "attachmentBone": null,
+      "materials": [
+        "cream",
+        "ivory",
+        "green",
+        "dark",
+        "metal",
+        "glass",
+        "wood",
+        "soil"
+      ],
+      "animations": [],
+      "collider": "cuboid compuesto documentado en StoreColliders",
+      "interaction": "estado derivado de estación/InteractionZone",
+      "referenceNotes": "Modelo original reconstruido desde MOBILIARIO2.png; conserva formas redondeadas y paleta crema, carbón y verde."
+    },
+    {
+      "id": "display_promo_basket",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/MOBILIARIO2.png"
+      ],
+      "asset": "/models/market/environment/display_promo_basket.glb",
+      "category": "furniture",
+      "status": "approved",
+      "scaleMeters": [
+        1,
+        1,
+        1
+      ],
+      "pivot": "centro de base en Y=0",
+      "attachmentBone": null,
+      "materials": [
+        "cream",
+        "ivory",
+        "green",
+        "dark",
+        "metal",
+        "glass",
+        "wood",
+        "soil"
+      ],
+      "animations": [],
+      "collider": "cuboid compuesto documentado en StoreColliders",
+      "interaction": "estado derivado de estación/InteractionZone",
+      "referenceNotes": "Modelo original reconstruido desde MOBILIARIO2.png; conserva formas redondeadas y paleta crema, carbón y verde."
+    },
+    {
+      "id": "rack_stockroom",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/MOBILIARIO2.png"
+      ],
+      "asset": "/models/market/environment/rack_stockroom.glb",
+      "category": "furniture",
+      "status": "approved",
+      "scaleMeters": [
+        1,
+        1,
+        1
+      ],
+      "pivot": "centro de base en Y=0",
+      "attachmentBone": null,
+      "materials": [
+        "cream",
+        "ivory",
+        "green",
+        "dark",
+        "metal",
+        "glass",
+        "wood",
+        "soil"
+      ],
+      "animations": [],
+      "collider": "cuboid compuesto documentado en StoreColliders",
+      "interaction": "estado derivado de estación/InteractionZone",
+      "referenceNotes": "Modelo original reconstruido desde MOBILIARIO2.png; conserva formas redondeadas y paleta crema, carbón y verde."
+    },
+    {
+      "id": "build_floor_tile",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/MOBILIARIO.png"
+      ],
+      "asset": "/models/market/environment/build_floor_tile.glb",
+      "category": "equipment",
+      "status": "approved",
+      "scaleMeters": [
+        1,
+        1,
+        1
+      ],
+      "pivot": "centro de base en Y=0",
+      "attachmentBone": null,
+      "materials": [
+        "cream",
+        "ivory",
+        "green",
+        "dark",
+        "metal",
+        "glass",
+        "wood",
+        "soil"
+      ],
+      "animations": [],
+      "collider": "cuboid simple o sin collider",
+      "interaction": "estructura o decoración",
+      "referenceNotes": "Modelo original reconstruido desde MOBILIARIO.png; conserva formas redondeadas y paleta crema, carbón y verde."
+    },
+    {
+      "id": "build_wall_straight",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/MOBILIARIO.png"
+      ],
+      "asset": "/models/market/environment/build_wall_straight.glb",
+      "category": "equipment",
+      "status": "approved",
+      "scaleMeters": [
+        1,
+        1,
+        1
+      ],
+      "pivot": "centro de base en Y=0",
+      "attachmentBone": null,
+      "materials": [
+        "cream",
+        "ivory",
+        "green",
+        "dark",
+        "metal",
+        "glass",
+        "wood",
+        "soil"
+      ],
+      "animations": [],
+      "collider": "cuboid simple o sin collider",
+      "interaction": "estructura o decoración",
+      "referenceNotes": "Modelo original reconstruido desde MOBILIARIO.png; conserva formas redondeadas y paleta crema, carbón y verde."
+    },
+    {
+      "id": "build_wall_corner",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/MOBILIARIO.png"
+      ],
+      "asset": "/models/market/environment/build_wall_corner.glb",
+      "category": "equipment",
+      "status": "approved",
+      "scaleMeters": [
+        1,
+        1,
+        1
+      ],
+      "pivot": "centro de base en Y=0",
+      "attachmentBone": null,
+      "materials": [
+        "cream",
+        "ivory",
+        "green",
+        "dark",
+        "metal",
+        "glass",
+        "wood",
+        "soil"
+      ],
+      "animations": [],
+      "collider": "cuboid simple o sin collider",
+      "interaction": "estructura o decoración",
+      "referenceNotes": "Modelo original reconstruido desde MOBILIARIO.png; conserva formas redondeadas y paleta crema, carbón y verde."
+    },
+    {
+      "id": "build_storefront_window",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/MOBILIARIO.png"
+      ],
+      "asset": "/models/market/environment/build_storefront_window.glb",
+      "category": "equipment",
+      "status": "approved",
+      "scaleMeters": [
+        1,
+        1,
+        1
+      ],
+      "pivot": "centro de base en Y=0",
+      "attachmentBone": null,
+      "materials": [
+        "cream",
+        "ivory",
+        "green",
+        "dark",
+        "metal",
+        "glass",
+        "wood",
+        "soil"
+      ],
+      "animations": [],
+      "collider": "cuboid simple o sin collider",
+      "interaction": "estructura o decoración",
+      "referenceNotes": "Modelo original reconstruido desde MOBILIARIO.png; conserva formas redondeadas y paleta crema, carbón y verde."
+    },
+    {
+      "id": "build_entrance_frame",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/MOBILIARIO.png"
+      ],
+      "asset": "/models/market/environment/build_entrance_frame.glb",
+      "category": "equipment",
+      "status": "approved",
+      "scaleMeters": [
+        1,
+        1,
+        1
+      ],
+      "pivot": "centro de base en Y=0",
+      "attachmentBone": null,
+      "materials": [
+        "cream",
+        "ivory",
+        "green",
+        "dark",
+        "metal",
+        "glass",
+        "wood",
+        "soil"
+      ],
+      "animations": [],
+      "collider": "cuboid simple o sin collider",
+      "interaction": "estructura o decoración",
+      "referenceNotes": "Modelo original reconstruido desde MOBILIARIO.png; conserva formas redondeadas y paleta crema, carbón y verde."
+    },
+    {
+      "id": "equipment_auto_door",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/MOBILIARIO.png"
+      ],
+      "asset": "/models/market/environment/equipment_auto_door.glb",
+      "category": "equipment",
+      "status": "approved",
+      "scaleMeters": [
+        1,
+        1,
+        1
+      ],
+      "pivot": "centro de base en Y=0",
+      "attachmentBone": null,
+      "materials": [
+        "cream",
+        "ivory",
+        "green",
+        "dark",
+        "metal",
+        "glass",
+        "wood",
+        "soil"
+      ],
+      "animations": [],
+      "collider": "cuboid compuesto documentado en StoreColliders",
+      "interaction": "estado derivado de estación/InteractionZone",
+      "referenceNotes": "Modelo original reconstruido desde MOBILIARIO.png; conserva formas redondeadas y paleta crema, carbón y verde."
+    },
+    {
+      "id": "equipment_ceiling_light",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/MOBILIARIO.png"
+      ],
+      "asset": "/models/market/environment/equipment_ceiling_light.glb",
+      "category": "equipment",
+      "status": "approved",
+      "scaleMeters": [
+        1,
+        1,
+        1
+      ],
+      "pivot": "centro de base en Y=0",
+      "attachmentBone": null,
+      "materials": [
+        "cream",
+        "ivory",
+        "green",
+        "dark",
+        "metal",
+        "glass",
+        "wood",
+        "soil"
+      ],
+      "animations": [],
+      "collider": "cuboid compuesto documentado en StoreColliders",
+      "interaction": "estado derivado de estación/InteractionZone",
+      "referenceNotes": "Modelo original reconstruido desde MOBILIARIO.png; conserva formas redondeadas y paleta crema, carbón y verde."
+    },
+    {
+      "id": "equipment_checkout_counter",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/MOBILIARIO.png"
+      ],
+      "asset": "/models/market/environment/equipment_checkout_counter.glb",
+      "category": "equipment",
+      "status": "approved",
+      "scaleMeters": [
+        1,
+        1,
+        1
+      ],
+      "pivot": "centro de base en Y=0",
+      "attachmentBone": null,
+      "materials": [
+        "cream",
+        "ivory",
+        "green",
+        "dark",
+        "metal",
+        "glass",
+        "wood",
+        "soil"
+      ],
+      "animations": [],
+      "collider": "cuboid compuesto documentado en StoreColliders",
+      "interaction": "estado derivado de estación/InteractionZone",
+      "referenceNotes": "Modelo original reconstruido desde MOBILIARIO.png; conserva formas redondeadas y paleta crema, carbón y verde."
+    },
+    {
+      "id": "equipment_cash_register",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/MOBILIARIO.png"
+      ],
+      "asset": "/models/market/environment/equipment_cash_register.glb",
+      "category": "equipment",
+      "status": "approved",
+      "scaleMeters": [
+        1,
+        1,
+        1
+      ],
+      "pivot": "centro de base en Y=0",
+      "attachmentBone": null,
+      "materials": [
+        "cream",
+        "ivory",
+        "green",
+        "dark",
+        "metal",
+        "glass",
+        "wood",
+        "soil"
+      ],
+      "animations": [],
+      "collider": "cuboid compuesto documentado en StoreColliders",
+      "interaction": "estado derivado de estación/InteractionZone",
+      "referenceNotes": "Modelo original reconstruido desde MOBILIARIO.png; conserva formas redondeadas y paleta crema, carbón y verde."
+    },
+    {
+      "id": "equipment_conveyor",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/MOBILIARIO.png"
+      ],
+      "asset": "/models/market/environment/equipment_conveyor.glb",
+      "category": "equipment",
+      "status": "approved",
+      "scaleMeters": [
+        1,
+        1,
+        1
+      ],
+      "pivot": "centro de base en Y=0",
+      "attachmentBone": null,
+      "materials": [
+        "cream",
+        "ivory",
+        "green",
+        "dark",
+        "metal",
+        "glass",
+        "wood",
+        "soil"
+      ],
+      "animations": [],
+      "collider": "cuboid compuesto documentado en StoreColliders",
+      "interaction": "estado derivado de estación/InteractionZone",
+      "referenceNotes": "Modelo original reconstruido desde MOBILIARIO.png; conserva formas redondeadas y paleta crema, carbón y verde."
+    },
+    {
+      "id": "equipment_scanner",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/MOBILIARIO.png"
+      ],
+      "asset": "/models/market/environment/equipment_scanner.glb",
+      "category": "equipment",
+      "status": "approved",
+      "scaleMeters": [
+        1,
+        1,
+        1
+      ],
+      "pivot": "centro de base en Y=0",
+      "attachmentBone": null,
+      "materials": [
+        "cream",
+        "ivory",
+        "green",
+        "dark",
+        "metal",
+        "glass",
+        "wood",
+        "soil"
+      ],
+      "animations": [],
+      "collider": "cuboid compuesto documentado en StoreColliders",
+      "interaction": "estado derivado de estación/InteractionZone",
+      "referenceNotes": "Modelo original reconstruido desde MOBILIARIO.png; conserva formas redondeadas y paleta crema, carbón y verde."
+    },
+    {
+      "id": "equipment_cash_drawer",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/MOBILIARIO.png"
+      ],
+      "asset": "/models/market/environment/equipment_cash_drawer.glb",
+      "category": "equipment",
+      "status": "approved",
+      "scaleMeters": [
+        1,
+        1,
+        1
+      ],
+      "pivot": "centro de base en Y=0",
+      "attachmentBone": null,
+      "materials": [
+        "cream",
+        "ivory",
+        "green",
+        "dark",
+        "metal",
+        "glass",
+        "wood",
+        "soil"
+      ],
+      "animations": [],
+      "collider": "cuboid compuesto documentado en StoreColliders",
+      "interaction": "estado derivado de estación/InteractionZone",
+      "referenceNotes": "Modelo original reconstruido desde MOBILIARIO.png; conserva formas redondeadas y paleta crema, carbón y verde."
+    },
+    {
+      "id": "equipment_card_terminal",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/MOBILIARIO.png"
+      ],
+      "asset": "/models/market/environment/equipment_card_terminal.glb",
+      "category": "equipment",
+      "status": "approved",
+      "scaleMeters": [
+        1,
+        1,
+        1
+      ],
+      "pivot": "centro de base en Y=0",
+      "attachmentBone": null,
+      "materials": [
+        "cream",
+        "ivory",
+        "green",
+        "dark",
+        "metal",
+        "glass",
+        "wood",
+        "soil"
+      ],
+      "animations": [],
+      "collider": "cuboid compuesto documentado en StoreColliders",
+      "interaction": "estado derivado de estación/InteractionZone",
+      "referenceNotes": "Modelo original reconstruido desde MOBILIARIO.png; conserva formas redondeadas y paleta crema, carbón y verde."
+    },
+    {
+      "id": "equipment_bagging_area",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/MOBILIARIO.png"
+      ],
+      "asset": "/models/market/environment/equipment_bagging_area.glb",
+      "category": "equipment",
+      "status": "approved",
+      "scaleMeters": [
+        1,
+        1,
+        1
+      ],
+      "pivot": "centro de base en Y=0",
+      "attachmentBone": null,
+      "materials": [
+        "cream",
+        "ivory",
+        "green",
+        "dark",
+        "metal",
+        "glass",
+        "wood",
+        "soil"
+      ],
+      "animations": [],
+      "collider": "cuboid compuesto documentado en StoreColliders",
+      "interaction": "estado derivado de estación/InteractionZone",
+      "referenceNotes": "Modelo original reconstruido desde MOBILIARIO.png; conserva formas redondeadas y paleta crema, carbón y verde."
+    },
+    {
+      "id": "equipment_basket_stack",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/MOBILIARIO.png"
+      ],
+      "asset": "/models/market/environment/equipment_basket_stack.glb",
+      "category": "equipment",
+      "status": "approved",
+      "scaleMeters": [
+        1,
+        1,
+        1
+      ],
+      "pivot": "centro de base en Y=0",
+      "attachmentBone": null,
+      "materials": [
+        "cream",
+        "ivory",
+        "green",
+        "dark",
+        "metal",
+        "glass",
+        "wood",
+        "soil"
+      ],
+      "animations": [],
+      "collider": "cuboid compuesto documentado en StoreColliders",
+      "interaction": "estado derivado de estación/InteractionZone",
+      "referenceNotes": "Modelo original reconstruido desde MOBILIARIO.png; conserva formas redondeadas y paleta crema, carbón y verde."
+    },
+    {
+      "id": "equipment_bread_oven",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/MOBILIARIO.png"
+      ],
+      "asset": "/models/market/environment/equipment_bread_oven.glb",
+      "category": "equipment",
+      "status": "approved",
+      "scaleMeters": [
+        1,
+        1,
+        1
+      ],
+      "pivot": "centro de base en Y=0",
+      "attachmentBone": null,
+      "materials": [
+        "cream",
+        "ivory",
+        "green",
+        "dark",
+        "metal",
+        "glass",
+        "wood",
+        "soil"
+      ],
+      "animations": [],
+      "collider": "cuboid compuesto documentado en StoreColliders",
+      "interaction": "estado derivado de estación/InteractionZone",
+      "referenceNotes": "Modelo original reconstruido desde MOBILIARIO.png; conserva formas redondeadas y paleta crema, carbón y verde."
+    },
+    {
+      "id": "equipment_flour_mill",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/MOBILIARIO.png"
+      ],
+      "asset": "/models/market/environment/equipment_flour_mill.glb",
+      "category": "equipment",
+      "status": "approved",
+      "scaleMeters": [
+        1,
+        1,
+        1
+      ],
+      "pivot": "centro de base en Y=0",
+      "attachmentBone": null,
+      "materials": [
+        "cream",
+        "ivory",
+        "green",
+        "dark",
+        "metal",
+        "glass",
+        "wood",
+        "soil"
+      ],
+      "animations": [],
+      "collider": "cuboid compuesto documentado en StoreColliders",
+      "interaction": "estado derivado de estación/InteractionZone",
+      "referenceNotes": "Modelo original reconstruido desde MOBILIARIO.png; conserva formas redondeadas y paleta crema, carbón y verde."
+    },
+    {
+      "id": "equipment_juice_machine",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/MOBILIARIO.png"
+      ],
+      "asset": "/models/market/environment/equipment_juice_machine.glb",
+      "category": "equipment",
+      "status": "approved",
+      "scaleMeters": [
+        1,
+        1,
+        1
+      ],
+      "pivot": "centro de base en Y=0",
+      "attachmentBone": null,
+      "materials": [
+        "cream",
+        "ivory",
+        "green",
+        "dark",
+        "metal",
+        "glass",
+        "wood",
+        "soil"
+      ],
+      "animations": [],
+      "collider": "cuboid compuesto documentado en StoreColliders",
+      "interaction": "estado derivado de estación/InteractionZone",
+      "referenceNotes": "Modelo original reconstruido desde MOBILIARIO.png; conserva formas redondeadas y paleta crema, carbón y verde."
+    },
+    {
+      "id": "equipment_cheese_maker",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/MOBILIARIO.png"
+      ],
+      "asset": "/models/market/environment/equipment_cheese_maker.glb",
+      "category": "equipment",
+      "status": "approved",
+      "scaleMeters": [
+        1,
+        1,
+        1
+      ],
+      "pivot": "centro de base en Y=0",
+      "attachmentBone": null,
+      "materials": [
+        "cream",
+        "ivory",
+        "green",
+        "dark",
+        "metal",
+        "glass",
+        "wood",
+        "soil"
+      ],
+      "animations": [],
+      "collider": "cuboid compuesto documentado en StoreColliders",
+      "interaction": "estado derivado de estación/InteractionZone",
+      "referenceNotes": "Modelo original reconstruido desde MOBILIARIO.png; conserva formas redondeadas y paleta crema, carbón y verde."
+    },
+    {
+      "id": "equipment_delivery_dock",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/MOBILIARIO.png"
+      ],
+      "asset": "/models/market/environment/equipment_delivery_dock.glb",
+      "category": "equipment",
+      "status": "approved",
+      "scaleMeters": [
+        1,
+        1,
+        1
+      ],
+      "pivot": "centro de base en Y=0",
+      "attachmentBone": null,
+      "materials": [
+        "cream",
+        "ivory",
+        "green",
+        "dark",
+        "metal",
+        "glass",
+        "wood",
+        "soil"
+      ],
+      "animations": [],
+      "collider": "cuboid compuesto documentado en StoreColliders",
+      "interaction": "estado derivado de estación/InteractionZone",
+      "referenceNotes": "Modelo original reconstruido desde MOBILIARIO.png; conserva formas redondeadas y paleta crema, carbón y verde."
+    },
+    {
+      "id": "equipment_upgrade_pad",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/MOBILIARIO.png"
+      ],
+      "asset": "/models/market/environment/equipment_upgrade_pad.glb",
+      "category": "equipment",
+      "status": "approved",
+      "scaleMeters": [
+        1,
+        1,
+        1
+      ],
+      "pivot": "centro de base en Y=0",
+      "attachmentBone": null,
+      "materials": [
+        "cream",
+        "ivory",
+        "green",
+        "dark",
+        "metal",
+        "glass",
+        "wood",
+        "soil"
+      ],
+      "animations": [],
+      "collider": "cuboid compuesto documentado en StoreColliders",
+      "interaction": "estado derivado de estación/InteractionZone",
+      "referenceNotes": "Modelo original reconstruido desde MOBILIARIO.png; conserva formas redondeadas y paleta crema, carbón y verde."
+    },
+    {
+      "id": "equipment_hire_pad",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/MOBILIARIO.png"
+      ],
+      "asset": "/models/market/environment/equipment_hire_pad.glb",
+      "category": "equipment",
+      "status": "approved",
+      "scaleMeters": [
+        1,
+        1,
+        1
+      ],
+      "pivot": "centro de base en Y=0",
+      "attachmentBone": null,
+      "materials": [
+        "cream",
+        "ivory",
+        "green",
+        "dark",
+        "metal",
+        "glass",
+        "wood",
+        "soil"
+      ],
+      "animations": [],
+      "collider": "cuboid compuesto documentado en StoreColliders",
+      "interaction": "estado derivado de estación/InteractionZone",
+      "referenceNotes": "Modelo original reconstruido desde MOBILIARIO.png; conserva formas redondeadas y paleta crema, carbón y verde."
+    },
+    {
+      "id": "farm_plot_empty",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/HUERTA.png"
+      ],
+      "asset": "/models/market/environment/farm_plot_empty.glb",
+      "category": "crop",
+      "status": "approved",
+      "scaleMeters": [
+        1,
+        1,
+        1
+      ],
+      "pivot": "centro de base en Y=0",
+      "attachmentBone": null,
+      "materials": [
+        "cream",
+        "ivory",
+        "green",
+        "dark",
+        "metal",
+        "glass",
+        "wood",
+        "soil"
+      ],
+      "animations": [],
+      "collider": "cuboid compuesto documentado en StoreColliders",
+      "interaction": "estado derivado de estación/InteractionZone",
+      "referenceNotes": "Modelo original reconstruido desde HUERTA.png; conserva formas redondeadas y paleta crema, carbón y verde."
+    },
+    {
+      "id": "farm_plot_seeded",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/HUERTA.png"
+      ],
+      "asset": "/models/market/environment/farm_plot_seeded.glb",
+      "category": "crop",
+      "status": "approved",
+      "scaleMeters": [
+        1,
+        1,
+        1
+      ],
+      "pivot": "centro de base en Y=0",
+      "attachmentBone": null,
+      "materials": [
+        "cream",
+        "ivory",
+        "green",
+        "dark",
+        "metal",
+        "glass",
+        "wood",
+        "soil"
+      ],
+      "animations": [],
+      "collider": "cuboid compuesto documentado en StoreColliders",
+      "interaction": "estado derivado de estación/InteractionZone",
+      "referenceNotes": "Modelo original reconstruido desde HUERTA.png; conserva formas redondeadas y paleta crema, carbón y verde."
+    },
+    {
+      "id": "farm_plot_watered",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/HUERTA.png"
+      ],
+      "asset": "/models/market/environment/farm_plot_watered.glb",
+      "category": "crop",
+      "status": "approved",
+      "scaleMeters": [
+        1,
+        1,
+        1
+      ],
+      "pivot": "centro de base en Y=0",
+      "attachmentBone": null,
+      "materials": [
+        "cream",
+        "ivory",
+        "green",
+        "dark",
+        "metal",
+        "glass",
+        "wood",
+        "soil"
+      ],
+      "animations": [],
+      "collider": "cuboid compuesto documentado en StoreColliders",
+      "interaction": "estado derivado de estación/InteractionZone",
+      "referenceNotes": "Modelo original reconstruido desde HUERTA.png; conserva formas redondeadas y paleta crema, carbón y verde."
+    },
+    {
+      "id": "tomato_sprout",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/HUERTA.png"
+      ],
+      "asset": "/models/market/environment/tomato_sprout.glb",
+      "category": "crop",
+      "status": "approved",
+      "scaleMeters": [
+        1,
+        1,
+        1
+      ],
+      "pivot": "centro de base en Y=0",
+      "attachmentBone": null,
+      "materials": [
+        "cream",
+        "ivory",
+        "green",
+        "dark",
+        "metal",
+        "glass",
+        "wood",
+        "soil"
+      ],
+      "animations": [],
+      "collider": "cuboid simple o sin collider",
+      "interaction": "estructura o decoración",
+      "referenceNotes": "Modelo original reconstruido desde HUERTA.png; conserva formas redondeadas y paleta crema, carbón y verde."
+    },
+    {
+      "id": "tomato_small",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/HUERTA.png"
+      ],
+      "asset": "/models/market/environment/tomato_small.glb",
+      "category": "crop",
+      "status": "approved",
+      "scaleMeters": [
+        1,
+        1,
+        1
+      ],
+      "pivot": "centro de base en Y=0",
+      "attachmentBone": null,
+      "materials": [
+        "cream",
+        "ivory",
+        "green",
+        "dark",
+        "metal",
+        "glass",
+        "wood",
+        "soil"
+      ],
+      "animations": [],
+      "collider": "cuboid simple o sin collider",
+      "interaction": "estructura o decoración",
+      "referenceNotes": "Modelo original reconstruido desde HUERTA.png; conserva formas redondeadas y paleta crema, carbón y verde."
+    },
+    {
+      "id": "tomato_growing",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/HUERTA.png"
+      ],
+      "asset": "/models/market/environment/tomato_growing.glb",
+      "category": "crop",
+      "status": "approved",
+      "scaleMeters": [
+        1,
+        1,
+        1
+      ],
+      "pivot": "centro de base en Y=0",
+      "attachmentBone": null,
+      "materials": [
+        "cream",
+        "ivory",
+        "green",
+        "dark",
+        "metal",
+        "glass",
+        "wood",
+        "soil"
+      ],
+      "animations": [],
+      "collider": "cuboid simple o sin collider",
+      "interaction": "estructura o decoración",
+      "referenceNotes": "Modelo original reconstruido desde HUERTA.png; conserva formas redondeadas y paleta crema, carbón y verde."
+    },
+    {
+      "id": "tomato_ripe",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/HUERTA.png"
+      ],
+      "asset": "/models/market/environment/tomato_ripe.glb",
+      "category": "crop",
+      "status": "approved",
+      "scaleMeters": [
+        1,
+        1,
+        1
+      ],
+      "pivot": "centro de base en Y=0",
+      "attachmentBone": null,
+      "materials": [
+        "cream",
+        "ivory",
+        "green",
+        "dark",
+        "metal",
+        "glass",
+        "wood",
+        "soil"
+      ],
+      "animations": [],
+      "collider": "cuboid simple o sin collider",
+      "interaction": "estructura o decoración",
+      "referenceNotes": "Modelo original reconstruido desde HUERTA.png; conserva formas redondeadas y paleta crema, carbón y verde."
+    },
+    {
+      "id": "tomato_harvest_item",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/HUERTA.png"
+      ],
+      "asset": "/models/market/environment/tomato_harvest_item.glb",
+      "category": "crop",
+      "status": "approved",
+      "scaleMeters": [
+        1,
+        1,
+        1
+      ],
+      "pivot": "centro de base en Y=0",
+      "attachmentBone": null,
+      "materials": [
+        "cream",
+        "ivory",
+        "green",
+        "dark",
+        "metal",
+        "glass",
+        "wood",
+        "soil"
+      ],
+      "animations": [],
+      "collider": "cuboid simple o sin collider",
+      "interaction": "estructura o decoración",
+      "referenceNotes": "Modelo original reconstruido desde HUERTA.png; conserva formas redondeadas y paleta crema, carbón y verde."
+    },
+    {
+      "id": "wheat_sprout",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/HUERTA.png"
+      ],
+      "asset": "/models/market/environment/wheat_sprout.glb",
+      "category": "crop",
+      "status": "approved",
+      "scaleMeters": [
+        1,
+        1,
+        1
+      ],
+      "pivot": "centro de base en Y=0",
+      "attachmentBone": null,
+      "materials": [
+        "cream",
+        "ivory",
+        "green",
+        "dark",
+        "metal",
+        "glass",
+        "wood",
+        "soil"
+      ],
+      "animations": [],
+      "collider": "cuboid simple o sin collider",
+      "interaction": "estructura o decoración",
+      "referenceNotes": "Modelo original reconstruido desde HUERTA.png; conserva formas redondeadas y paleta crema, carbón y verde."
+    },
+    {
+      "id": "wheat_small",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/HUERTA.png"
+      ],
+      "asset": "/models/market/environment/wheat_small.glb",
+      "category": "crop",
+      "status": "approved",
+      "scaleMeters": [
+        1,
+        1,
+        1
+      ],
+      "pivot": "centro de base en Y=0",
+      "attachmentBone": null,
+      "materials": [
+        "cream",
+        "ivory",
+        "green",
+        "dark",
+        "metal",
+        "glass",
+        "wood",
+        "soil"
+      ],
+      "animations": [],
+      "collider": "cuboid simple o sin collider",
+      "interaction": "estructura o decoración",
+      "referenceNotes": "Modelo original reconstruido desde HUERTA.png; conserva formas redondeadas y paleta crema, carbón y verde."
+    },
+    {
+      "id": "wheat_growing",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/HUERTA.png"
+      ],
+      "asset": "/models/market/environment/wheat_growing.glb",
+      "category": "crop",
+      "status": "approved",
+      "scaleMeters": [
+        1,
+        1,
+        1
+      ],
+      "pivot": "centro de base en Y=0",
+      "attachmentBone": null,
+      "materials": [
+        "cream",
+        "ivory",
+        "green",
+        "dark",
+        "metal",
+        "glass",
+        "wood",
+        "soil"
+      ],
+      "animations": [],
+      "collider": "cuboid simple o sin collider",
+      "interaction": "estructura o decoración",
+      "referenceNotes": "Modelo original reconstruido desde HUERTA.png; conserva formas redondeadas y paleta crema, carbón y verde."
+    },
+    {
+      "id": "wheat_ripe",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/HUERTA.png"
+      ],
+      "asset": "/models/market/environment/wheat_ripe.glb",
+      "category": "crop",
+      "status": "approved",
+      "scaleMeters": [
+        1,
+        1,
+        1
+      ],
+      "pivot": "centro de base en Y=0",
+      "attachmentBone": null,
+      "materials": [
+        "cream",
+        "ivory",
+        "green",
+        "dark",
+        "metal",
+        "glass",
+        "wood",
+        "soil"
+      ],
+      "animations": [],
+      "collider": "cuboid simple o sin collider",
+      "interaction": "estructura o decoración",
+      "referenceNotes": "Modelo original reconstruido desde HUERTA.png; conserva formas redondeadas y paleta crema, carbón y verde."
+    },
+    {
+      "id": "wheat_harvest_item",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/HUERTA.png"
+      ],
+      "asset": "/models/market/environment/wheat_harvest_item.glb",
+      "category": "crop",
+      "status": "approved",
+      "scaleMeters": [
+        1,
+        1,
+        1
+      ],
+      "pivot": "centro de base en Y=0",
+      "attachmentBone": null,
+      "materials": [
+        "cream",
+        "ivory",
+        "green",
+        "dark",
+        "metal",
+        "glass",
+        "wood",
+        "soil"
+      ],
+      "animations": [],
+      "collider": "cuboid simple o sin collider",
+      "interaction": "estructura o decoración",
+      "referenceNotes": "Modelo original reconstruido desde HUERTA.png; conserva formas redondeadas y paleta crema, carbón y verde."
+    },
+    {
+      "id": "corn_sprout",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/HUERTA.png"
+      ],
+      "asset": "/models/market/environment/corn_sprout.glb",
+      "category": "crop",
+      "status": "approved",
+      "scaleMeters": [
+        1,
+        1,
+        1
+      ],
+      "pivot": "centro de base en Y=0",
+      "attachmentBone": null,
+      "materials": [
+        "cream",
+        "ivory",
+        "green",
+        "dark",
+        "metal",
+        "glass",
+        "wood",
+        "soil"
+      ],
+      "animations": [],
+      "collider": "cuboid simple o sin collider",
+      "interaction": "estructura o decoración",
+      "referenceNotes": "Modelo original reconstruido desde HUERTA.png; conserva formas redondeadas y paleta crema, carbón y verde."
+    },
+    {
+      "id": "corn_small",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/HUERTA.png"
+      ],
+      "asset": "/models/market/environment/corn_small.glb",
+      "category": "crop",
+      "status": "approved",
+      "scaleMeters": [
+        1,
+        1,
+        1
+      ],
+      "pivot": "centro de base en Y=0",
+      "attachmentBone": null,
+      "materials": [
+        "cream",
+        "ivory",
+        "green",
+        "dark",
+        "metal",
+        "glass",
+        "wood",
+        "soil"
+      ],
+      "animations": [],
+      "collider": "cuboid simple o sin collider",
+      "interaction": "estructura o decoración",
+      "referenceNotes": "Modelo original reconstruido desde HUERTA.png; conserva formas redondeadas y paleta crema, carbón y verde."
+    },
+    {
+      "id": "corn_growing",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/HUERTA.png"
+      ],
+      "asset": "/models/market/environment/corn_growing.glb",
+      "category": "crop",
+      "status": "approved",
+      "scaleMeters": [
+        1,
+        1,
+        1
+      ],
+      "pivot": "centro de base en Y=0",
+      "attachmentBone": null,
+      "materials": [
+        "cream",
+        "ivory",
+        "green",
+        "dark",
+        "metal",
+        "glass",
+        "wood",
+        "soil"
+      ],
+      "animations": [],
+      "collider": "cuboid simple o sin collider",
+      "interaction": "estructura o decoración",
+      "referenceNotes": "Modelo original reconstruido desde HUERTA.png; conserva formas redondeadas y paleta crema, carbón y verde."
+    },
+    {
+      "id": "corn_ripe",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/HUERTA.png"
+      ],
+      "asset": "/models/market/environment/corn_ripe.glb",
+      "category": "crop",
+      "status": "approved",
+      "scaleMeters": [
+        1,
+        1,
+        1
+      ],
+      "pivot": "centro de base en Y=0",
+      "attachmentBone": null,
+      "materials": [
+        "cream",
+        "ivory",
+        "green",
+        "dark",
+        "metal",
+        "glass",
+        "wood",
+        "soil"
+      ],
+      "animations": [],
+      "collider": "cuboid simple o sin collider",
+      "interaction": "estructura o decoración",
+      "referenceNotes": "Modelo original reconstruido desde HUERTA.png; conserva formas redondeadas y paleta crema, carbón y verde."
+    },
+    {
+      "id": "corn_harvest_item",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/HUERTA.png"
+      ],
+      "asset": "/models/market/environment/corn_harvest_item.glb",
+      "category": "crop",
+      "status": "approved",
+      "scaleMeters": [
+        1,
+        1,
+        1
+      ],
+      "pivot": "centro de base en Y=0",
+      "attachmentBone": null,
+      "materials": [
+        "cream",
+        "ivory",
+        "green",
+        "dark",
+        "metal",
+        "glass",
+        "wood",
+        "soil"
+      ],
+      "animations": [],
+      "collider": "cuboid simple o sin collider",
+      "interaction": "estructura o decoración",
+      "referenceNotes": "Modelo original reconstruido desde HUERTA.png; conserva formas redondeadas y paleta crema, carbón y verde."
+    },
+    {
+      "id": "chicken_coop",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/HUERTA.png"
+      ],
+      "asset": "/models/market/environment/chicken_coop.glb",
+      "category": "crop",
+      "status": "approved",
+      "scaleMeters": [
+        1,
+        1,
+        1
+      ],
+      "pivot": "centro de base en Y=0",
+      "attachmentBone": null,
+      "materials": [
+        "cream",
+        "ivory",
+        "green",
+        "dark",
+        "metal",
+        "glass",
+        "wood",
+        "soil"
+      ],
+      "animations": [],
+      "collider": "cuboid compuesto documentado en StoreColliders",
+      "interaction": "estado derivado de estación/InteractionZone",
+      "referenceNotes": "Modelo original reconstruido desde HUERTA.png; conserva formas redondeadas y paleta crema, carbón y verde."
+    },
+    {
+      "id": "chicken_character",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/HUERTA.png"
+      ],
+      "asset": "/models/market/environment/chicken_character.glb",
+      "category": "crop",
+      "status": "approved",
+      "scaleMeters": [
+        1,
+        1,
+        1
+      ],
+      "pivot": "centro de base en Y=0",
+      "attachmentBone": null,
+      "materials": [
+        "cream",
+        "ivory",
+        "green",
+        "dark",
+        "metal",
+        "glass",
+        "wood",
+        "soil"
+      ],
+      "animations": [],
+      "collider": "cuboid simple o sin collider",
+      "interaction": "estructura o decoración",
+      "referenceNotes": "Modelo original reconstruido desde HUERTA.png; conserva formas redondeadas y paleta crema, carbón y verde."
+    },
+    {
+      "id": "egg_output_tray",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/HUERTA.png"
+      ],
+      "asset": "/models/market/environment/egg_output_tray.glb",
+      "category": "crop",
+      "status": "approved",
+      "scaleMeters": [
+        1,
+        1,
+        1
+      ],
+      "pivot": "centro de base en Y=0",
+      "attachmentBone": null,
+      "materials": [
+        "cream",
+        "ivory",
+        "green",
+        "dark",
+        "metal",
+        "glass",
+        "wood",
+        "soil"
+      ],
+      "animations": [],
+      "collider": "cuboid simple o sin collider",
+      "interaction": "estructura o decoración",
+      "referenceNotes": "Modelo original reconstruido desde HUERTA.png; conserva formas redondeadas y paleta crema, carbón y verde."
+    },
+    {
+      "id": "cow_station",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/HUERTA.png"
+      ],
+      "asset": "/models/market/environment/cow_station.glb",
+      "category": "crop",
+      "status": "approved",
+      "scaleMeters": [
+        1,
+        1,
+        1
+      ],
+      "pivot": "centro de base en Y=0",
+      "attachmentBone": null,
+      "materials": [
+        "cream",
+        "ivory",
+        "green",
+        "dark",
+        "metal",
+        "glass",
+        "wood",
+        "soil"
+      ],
+      "animations": [],
+      "collider": "cuboid compuesto documentado en StoreColliders",
+      "interaction": "estado derivado de estación/InteractionZone",
+      "referenceNotes": "Modelo original reconstruido desde HUERTA.png; conserva formas redondeadas y paleta crema, carbón y verde."
+    },
+    {
+      "id": "cow_character",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/HUERTA.png"
+      ],
+      "asset": "/models/market/environment/cow_character.glb",
+      "category": "crop",
+      "status": "approved",
+      "scaleMeters": [
+        1,
+        1,
+        1
+      ],
+      "pivot": "centro de base en Y=0",
+      "attachmentBone": null,
+      "materials": [
+        "cream",
+        "ivory",
+        "green",
+        "dark",
+        "metal",
+        "glass",
+        "wood",
+        "soil"
+      ],
+      "animations": [],
+      "collider": "cuboid simple o sin collider",
+      "interaction": "estructura o decoración",
+      "referenceNotes": "Modelo original reconstruido desde HUERTA.png; conserva formas redondeadas y paleta crema, carbón y verde."
+    },
+    {
+      "id": "milk_output_can",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/HUERTA.png"
+      ],
+      "asset": "/models/market/environment/milk_output_can.glb",
+      "category": "crop",
+      "status": "approved",
+      "scaleMeters": [
+        1,
+        1,
+        1
+      ],
+      "pivot": "centro de base en Y=0",
+      "attachmentBone": null,
+      "materials": [
+        "cream",
+        "ivory",
+        "green",
+        "dark",
+        "metal",
+        "glass",
+        "wood",
+        "soil"
+      ],
+      "animations": [],
+      "collider": "cuboid simple o sin collider",
+      "interaction": "estructura o decoración",
+      "referenceNotes": "Modelo original reconstruido desde HUERTA.png; conserva formas redondeadas y paleta crema, carbón y verde."
+    },
+    {
+      "id": "farm_tool_set",
+      "referenceImages": [
+        "/home/ferney_oliveros/Descargas/KIT MARKET/HUERTA.png"
+      ],
+      "asset": "/models/market/environment/farm_tool_set.glb",
+      "category": "crop",
+      "status": "approved",
+      "scaleMeters": [
+        1,
+        1,
+        1
+      ],
+      "pivot": "centro de base en Y=0",
+      "attachmentBone": null,
+      "materials": [
+        "cream",
+        "ivory",
+        "green",
+        "dark",
+        "metal",
+        "glass",
+        "wood",
+        "soil"
+      ],
+      "animations": [],
+      "collider": "cuboid simple o sin collider",
+      "interaction": "estructura o decoración",
+      "referenceNotes": "Modelo original reconstruido desde HUERTA.png; conserva formas redondeadas y paleta crema, carbón y verde."
+    }
+  ]
+}

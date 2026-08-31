@@ -6,11 +6,12 @@ import { Suspense, type CSSProperties, type ReactNode } from "react";
 import { CHARACTERS, HAIRSTYLES, HATS } from "@/game/catalog";
 import type { AvatarConfig, AvatarHatId } from "@/game/types";
 import { Avatar } from "./Avatar";
+import { safeCanvasEvents } from "./safeCanvasEvents";
 
 export function AvatarCustomizer({ avatar, onChange, compact = false }: { avatar: AvatarConfig; onChange: (change: Partial<AvatarConfig>) => void; compact?: boolean }) {
   return <div className={`avatar-customizer ${compact ? "compact" : ""}`}>
     <div className="avatar-preview-3d" aria-label="Vista previa tridimensional del personaje">
-      <Canvas shadows dpr={[1, 1.5]} camera={{ position: [0, 1.42, 5.2], fov: 34 }} gl={{ antialias: true, alpha: true }}>
+      <Canvas events={safeCanvasEvents} shadows="percentage" dpr={[1, 1.5]} camera={{ position: [0, 1.42, 6.3], fov: 34 }} gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}>
         <ambientLight intensity={1.45} />
         <directionalLight position={[3, 5, 4]} intensity={2.2} castShadow />
         <Suspense fallback={null}>

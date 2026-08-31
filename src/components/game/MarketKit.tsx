@@ -1,7 +1,15 @@
 "use client";
 
-import { Float, RoundedBox, Text } from "@react-three/drei";
-import type { ReactNode } from "react";
+import { Float, RoundedBox, Text, useGLTF, useTexture } from "@react-three/drei";
+import { useFrame } from "@react-three/fiber";
+import { useCallback, useEffect, useMemo, useRef, type ReactNode } from "react";
+import * as THREE from "three";
+import { scaleStorePosition, STORE_ELEMENT_SCALE } from "@/game/world-scale";
+import type { CheckoutTransaction, CropState, CustomerRuntimeState, Inventory, ProductId, ProductionMachineState } from "@/game/types";
+import { cropProgress } from "@/game/stations/StationSystem";
+import { CHECKOUT_LANES } from "@/game/stations/checkout-layout";
+import { RETAIL_DEPARTMENTS, retailDisplayPosition } from "@/game/stations/retail-layout";
+import { marketAsset } from "@/game/assets/AssetRegistry";
 
 type Position = [number, number, number];
 
@@ -16,13 +24,44 @@ const palette = {
   metal: "#87928e",
 };
 
+type KitSurface = "charcoal" | "cream" | "olive" | "wood";
+const preparedSurfaceTextures = new WeakSet<THREE.Texture>();
+
 function Box({ args, position, color, children, rotation, radius = 0.035 }: { args: [number, number, number]; position?: Position; color: string; children?: ReactNode; rotation?: Position; radius?: number }) {
-  return <RoundedBox args={args} position={position} rotation={rotation} radius={radius} smoothness={2} castShadow receiveShadow><meshStandardMaterial color={color} roughness={0.72} />{children}</RoundedBox>;
+  const surface = surfaceForColor(color);
+  return <RoundedBox args={args} position={position} rotation={rotation} radius={radius} smoothness={2} receiveShadow>
+    {surface ? <SurfaceMaterial surface={surface} /> : <meshStandardMaterial color={color} roughness={0.72} />}
+    {children}
+  </RoundedBox>;
+}
+
+function SurfaceMaterial({ surface }: { surface: KitSurface }) {
+  // useTexture already shares one texture per URL. Cloning it for every box
+  // created hundreds of identical GPU uploads during scene start-up.
+  const preparedTexture = useTexture(`/textures/market-kit/${surface}.webp`, prepareSurfaceTexture);
+  const roughness = surface === "charcoal" ? 0.68 : surface === "wood" ? 0.78 : 0.82;
+  return <meshStandardMaterial map={preparedTexture} bumpMap={preparedTexture} bumpScale={surface === "wood" ? 0.012 : 0.008} roughness={roughness} metalness={surface === "charcoal" ? 0.06 : 0.01} />;
+}
+
+function prepareSurfaceTexture(texture: THREE.Texture) {
+  if (preparedSurfaceTextures.has(texture)) return;
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 4;
+  texture.needsUpdate = true;
+  preparedSurfaceTextures.add(texture);
+}
+
+function surfaceForColor(color: string): KitSurface | null {
+  if (color === palette.cream || color === palette.light) return "cream";
+  if (color === palette.frame) return "charcoal";
+  if (color === palette.green) return "olive";
+  if (color === palette.wood) return "wood";
+  return null;
 }
 
 function Product({ position, color, shape = "box", scale = 1 }: { position: Position; color: string; shape?: "box" | "bottle" | "produce"; scale?: number }) {
-  if (shape === "bottle") return <group position={position} scale={scale}><mesh castShadow><cylinderGeometry args={[0.055, 0.06, 0.22, 8]} /><meshStandardMaterial color={color} /></mesh><mesh position={[0, 0.14, 0]}><cylinderGeometry args={[0.025, 0.035, 0.07, 7]} /><meshStandardMaterial color="#f1e5c8" /></mesh></group>;
-  if (shape === "produce") return <mesh position={position} scale={scale} castShadow><dodecahedronGeometry args={[0.09, 1]} /><meshStandardMaterial color={color} roughness={0.9} /></mesh>;
+  if (shape === "bottle") return <group position={position} scale={scale}><mesh><cylinderGeometry args={[0.055, 0.06, 0.22, 8]} /><meshStandardMaterial color={color} /></mesh><mesh position={[0, 0.14, 0]}><cylinderGeometry args={[0.025, 0.035, 0.07, 7]} /><meshStandardMaterial color="#f1e5c8" /></mesh></group>;
+  if (shape === "produce") return <mesh position={position} scale={scale}><dodecahedronGeometry args={[0.09, 1]} /><meshStandardMaterial color={color} roughness={0.9} /></mesh>;
   return <Box args={[0.15 * scale, 0.23 * scale, 0.12 * scale]} position={position} color={color} radius={0.018} />;
 }
 
@@ -30,155 +69,377 @@ function ProductRow({ y, z = 0.36, colors = ["#d76a4d", "#e5b84d", "#77a85d", "#
   return <>{Array.from({ length: count }, (_, index) => <Product key={index} position={[(index - (count - 1) / 2) * 0.19, y, z]} color={colors[index % colors.length]} shape={shape} scale={0.9} />)}</>;
 }
 
-export function KitFurniture() {
+function DepartmentSign({ label, color, position = [0, 1.82, 0.03], width = 1.72 }: { label: string; color: string; position?: Position; width?: number }) {
+  return <group position={position}>
+    <Box args={[width, 0.34, 0.09]} color={color} radius={0.045} />
+    <Text position={[0, 0, 0.052]} fontSize={0.135} color="#fffaf0" anchorX="center" anchorY="middle" fontWeight={800}>{label}</Text>
+  </group>;
+}
+
+function RetailProduct({ productId, position, scale = 1 }: { productId: ProductId; position: Position; scale?: number }) {
+  if (productId === "tomatoes") return <group position={position} scale={scale}>
+    <mesh castShadow scale={[1, 0.86, 1]}><sphereGeometry args={[0.09, 14, 10]} /><meshStandardMaterial color="#d94838" roughness={0.78} /></mesh>
+    <mesh position={[0, 0.078, 0]} rotation={[0, 0, Math.PI]}><coneGeometry args={[0.052, 0.045, 5]} /><meshStandardMaterial color="#37743e" roughness={0.9} /></mesh>
+  </group>;
+  if (productId === "apples") return <group position={position} scale={scale}>
+    <mesh castShadow scale={[0.92, 1, 0.92]}><sphereGeometry args={[0.085, 14, 10]} /><meshStandardMaterial color="#bd3432" roughness={0.72} /></mesh>
+    <mesh position={[0, 0.102, 0]}><cylinderGeometry args={[0.009, 0.012, 0.065, 6]} /><meshStandardMaterial color="#5b3c27" /></mesh>
+    <mesh position={[0.045, 0.112, 0]} rotation={[0, 0, -0.55]} scale={[1, 0.35, 0.55]}><sphereGeometry args={[0.045, 8, 5]} /><meshStandardMaterial color="#4e873f" roughness={0.9} /></mesh>
+  </group>;
+  if (productId === "corn") return <group position={position} scale={scale}>
+    <mesh castShadow scale={[0.62, 1.22, 0.62]}><sphereGeometry args={[0.075, 12, 8]} /><meshStandardMaterial color="#f0bf36" roughness={0.85} /></mesh>
+    {[-1, 1].map((side) => <mesh key={side} position={[side * 0.048, -0.02, 0]} rotation={[0, 0, side * 0.38]} scale={[0.45, 1, 0.35]}><sphereGeometry args={[0.082, 9, 6]} /><meshStandardMaterial color="#5d9348" roughness={0.95} /></mesh>)}
+  </group>;
+  if (productId === "eggs") return <mesh castShadow position={position} scale={[0.78 * scale, 1.08 * scale, 0.78 * scale]}><sphereGeometry args={[0.073, 12, 9]} /><meshStandardMaterial color="#f4e9d0" roughness={0.93} /></mesh>;
+  if (productId === "milk" || productId === "juice") return <group position={position} scale={scale}>
+    <mesh castShadow><cylinderGeometry args={[0.055, 0.064, 0.22, 10]} /><meshStandardMaterial color={productId === "milk" ? "#f7f3e9" : "#ee8643"} roughness={0.58} /></mesh>
+    <mesh position={[0, 0.135, 0]}><cylinderGeometry args={[0.03, 0.034, 0.055, 9]} /><meshStandardMaterial color={productId === "milk" ? "#4e91bc" : "#438653"} roughness={0.6} /></mesh>
+    <mesh position={[0, 0, 0.061]}><planeGeometry args={[0.075, 0.09]} /><meshStandardMaterial color={productId === "milk" ? "#5a9ec8" : "#fff0c6"} /></mesh>
+  </group>;
+  if (productId === "cheese") return <mesh castShadow position={position} rotation={[0, Math.PI / 2, 0]} scale={scale}><cylinderGeometry args={[0.105, 0.105, 0.14, 3]} /><meshStandardMaterial color="#edbd3e" roughness={0.78} /></mesh>;
+  if (productId === "bread") return <group position={position} scale={scale}>
+    <RoundedBox args={[0.22, 0.16, 0.15]} radius={0.065} smoothness={3} castShadow><meshStandardMaterial color="#b97336" roughness={0.9} /></RoundedBox>
+    {[-0.05, 0.02, 0.085].map((x) => <mesh key={x} position={[x, 0.073, 0]} rotation={[0, 0, -0.3]}><boxGeometry args={[0.012, 0.06, 0.158]} /><meshStandardMaterial color="#e7bd75" /></mesh>)}
+  </group>;
+  const packageColor = productId === "coffee" ? "#6b3d2d" : productId === "flour" ? "#eee4cc" : "#d5ab42";
+  const label = productId === "coffee" ? "CAFÉ" : productId === "flour" ? "HARINA" : "TRIGO";
+  return <group position={position} scale={scale}>
+    <Box args={[0.17, 0.24, 0.12]} color={packageColor} radius={0.022} />
+    <Text position={[0, 0, 0.064]} fontSize={0.037} color={productId === "coffee" ? "#fff1d0" : "#59462d"} anchorX="center" anchorY="middle" fontWeight={800}>{label}</Text>
+  </group>;
+}
+
+function RetailProductRow({ productId, count, y, z = 0.36, spacing = 0.19 }: { productId: ProductId; count: number; y: number; z?: number; spacing?: number }) {
+  return <>{Array.from({ length: count }, (_, index) => <RetailProduct key={`${productId}-${index}`} productId={productId} position={[(index - (count - 1) / 2) * spacing, y, z]} scale={0.92} />)}</>;
+}
+
+function StoreElement({ position, children }: { position: Position; children: ReactNode }) {
+  return <group position={scaleStorePosition(position)} scale={STORE_ELEMENT_SCALE}>{children}</group>;
+}
+
+type EnvironmentFrameHandler = (model: THREE.Group, delta: number, elapsed: number) => void;
+type EnvironmentUpdateHandler = (model: THREE.Group) => void;
+
+export function EnvironmentModel({ id, onFrame, onUpdate, isolateMaterials = false }: { id: string; onFrame?: EnvironmentFrameHandler; onUpdate?: EnvironmentUpdateHandler; isolateMaterials?: boolean }) {
+  const gltf = useGLTF(marketAsset(id).asset);
+  const model = useMemo(() => {
+    const copy = gltf.scene.clone(true);
+    copy.traverse((object) => {
+      if (!(object instanceof THREE.Mesh)) return;
+      object.castShadow = true;
+      object.receiveShadow = true;
+      if (isolateMaterials) {
+        object.material = Array.isArray(object.material)
+          ? object.material.map((material) => material.clone())
+          : object.material.clone();
+      }
+    });
+    return copy;
+  }, [gltf.scene, isolateMaterials]);
+  useEffect(() => {
+    if (!isolateMaterials) return;
+    return () => model.traverse((object) => {
+      if (!(object instanceof THREE.Mesh)) return;
+      const materials = Array.isArray(object.material) ? object.material : [object.material];
+      materials.forEach((material) => material.dispose());
+    });
+  }, [isolateMaterials, model]);
+  useEffect(() => onUpdate?.(model), [model, onUpdate]);
+  return <>{onFrame && <EnvironmentFrameDriver model={model} onFrame={onFrame} />}<primitive object={model} dispose={null} /></>;
+}
+
+function EnvironmentFrameDriver({ model, onFrame }: { model: THREE.Group; onFrame: EnvironmentFrameHandler }) {
+  useFrame(({ clock }, delta) => onFrame(model, delta, clock.elapsedTime));
+  return null;
+}
+
+export function KitFurniture({ shelves, machines, customers, checkoutTransactions, returnsBin, returnedCartCount, lightsOn, unlockedAreas }: { shelves: Inventory; machines: ProductionMachineState[]; customers: CustomerRuntimeState[]; checkoutTransactions: CheckoutTransaction[]; returnsBin: Inventory; returnedCartCount: number; lightsOn: boolean; unlockedAreas: string[] }) {
+  const machine = (id: string) => machines.find((candidate) => candidate.id === id);
+  const coldDoorActive = customers.some((customer) => ["WAIT_FOR_ACCESS", "PICK_PRODUCT"].includes(customer.state) && ["milk", "cheese"].includes(customer.shoppingList[customer.currentLine]?.productId ?? ""));
+  const checkoutTransaction = (lane: 0 | 1) => checkoutTransactions.find((transaction) => (transaction.checkoutLane ?? 0) === lane && transaction.state !== "ABANDONED");
   return <group>
-    <WallShelf position={[-5.2, 0, -8.05]} width={2.05} />
-    <WallShelf position={[-2.8, 0, -8.05]} width={2.05} />
-    <WallShelf position={[-0.4, 0, -8.05]} width={2.05} />
-    <WallShelf position={[2.0, 0, -8.05]} width={2.05} />
-    <GlassFridge position={[5.25, 0, -8.0]} />
-    <MetalRack position={[8.65, 0, -7.85]} />
+    <StoreElement position={[-5.2, 0, -8.05]}><WallShelf position={[0, 0, 0]} width={2.05} productId="bread" count={shelves.bread} low /></StoreElement>
+    <StoreElement position={[-2.8, 0, -8.05]}><WallShelf position={[0, 0, 0]} width={2.05} productId="coffee" count={shelves.coffee} /></StoreElement>
+    <StoreElement position={[-0.4, 0, -8.05]}><WallShelf position={[0, 0, 0]} width={2.05} productId="juice" count={shelves.juice} /></StoreElement>
+    <StoreElement position={[2.0, 0, -8.05]}><WallShelf position={[0, 0, 0]} width={2.05} productId="flour" count={shelves.flour} /></StoreElement>
+    <StoreElement position={[5.25, 0, -8.0]}><GlassFridge position={[0, 0, 0]} milk={shelves.milk} cheese={shelves.cheese} open={coldDoorActive} /></StoreElement>
+    <StoreElement position={[8.65, 0, -7.85]}><MetalRack position={[0, 0, 0]} /></StoreElement>
 
-    <Gondola position={[-4.0, 0, -2.2]} accent="#8d9c73" />
-    <Gondola position={[0, 0, -2.2]} accent="#c0a05d" />
-    <Gondola position={[4.0, 0, -2.2]} accent="#799d8b" />
-    <ProduceTable position={[-4.1, 0, 2.45]} />
-    <ChilledDisplay position={[0, 0, 2.45]} />
-    <LowFreezer position={[4.05, 0, 2.45]} />
+    <StoreElement position={retailDisplayPosition("bakery")}><Gondola position={[0, 0, 0]} productId="bread" count={shelves.bread} single /></StoreElement>
+    <StoreElement position={retailDisplayPosition("pantry")}><Gondola position={[0, 0, 0]} productId="coffee" count={shelves.coffee} /></StoreElement>
+    <StoreElement position={retailDisplayPosition("eggs")}><EggDisplay count={shelves.eggs} /></StoreElement>
+    <StoreElement position={retailDisplayPosition("produce")}><ProduceTable position={[0, 0, 0]} tomatoes={shelves.tomatoes} apples={shelves.apples} corn={shelves.corn} /></StoreElement>
+    <StoreElement position={retailDisplayPosition("dairy")}><ChilledDisplay position={[0, 0, 0]} milk={shelves.milk} cheese={shelves.cheese} /></StoreElement>
+    <StoreElement position={retailDisplayPosition("drinks")}><DrinksDisplay position={[0, 0, 0]} count={shelves.juice} /></StoreElement>
+    <StoreElement position={[-7.0, 0, 3.15]}><ProduceRack position={[0, 0, 0]} count={shelves.corn} /></StoreElement>
+    {unlockedAreas.includes("endcap-display") && <StoreElement position={[6.4, 0, -2.2]}><EnvironmentModel id="shelf_endcap" /><group position={[0, 0, 0.72]} scale={0.72}><EnvironmentModel id="display_promo_basket" /></group></StoreElement>}
 
-    <CheckoutKit position={[7.55, 0, 3.95]} />
-    <CartBay position={[9.6, 0, 6.25]} />
-    <BakeryKit position={[-8.75, 0, -0.45]} />
-    <MillMachine position={[-8.75, 0, -4.05]} />
-    <SupplierCorner position={[8.8, 0, -2.15]} />
-    <TerminalModel position={[8.8, 0, -5.35]} label="MAPA" />
-    <StoreUtilities />
+    <StoreElement position={[...CHECKOUT_LANES[0].counter]}><CheckoutKit position={[0, 0, 0]} lane={0} transaction={checkoutTransaction(0)} /></StoreElement>
+    <StoreElement position={[...CHECKOUT_LANES[0].cashierWork]}><CashierWorkArea /></StoreElement>
+    {unlockedAreas.includes("checkout-2") && <><StoreElement position={[...CHECKOUT_LANES[1].counter]}><CheckoutKit position={[0, 0, 0]} lane={1} transaction={checkoutTransaction(1)} /></StoreElement><StoreElement position={[...CHECKOUT_LANES[1].cashierWork]}><CashierWorkArea /></StoreElement></>}
+    <StoreElement position={[9.85, 0, 5.45]}><ReturnsCubicle inventory={returnsBin} /></StoreElement>
+    <StoreElement position={[3.05, 0, 6.55]}><CartBay position={[0, 0, 0]} count={returnedCartCount} /></StoreElement>
+    {unlockedAreas.includes("bread-oven") && <StoreElement position={[-8.75, 0, -0.45]}><BakeryKit position={[0, 0, 0]} machine={machine("bread-oven-1")} /></StoreElement>}
+    <StoreElement position={[-9.0, 0, 2.05]}><PrepSink position={[0, 0, 0]} /></StoreElement>
+    {unlockedAreas.includes("flour-mill") && <StoreElement position={[-8.75, 0, -4.05]}><MillMachine position={[0, 0, 0]} machine={machine("flour-mill-1")} /></StoreElement>}
+    {unlockedAreas.includes("cheese-maker") && <StoreElement position={[-6.15, 0, -2.2]}><ProcessMachine kind="cheese" machine={machine("cheese-maker-1")} /></StoreElement>}
+    {unlockedAreas.includes("juice-machine") && <StoreElement position={[-5.65, 0, 1.55]}><ProcessMachine kind="juice" machine={machine("juice-machine-1")} /></StoreElement>}
+    <StoreElement position={[8.8, 0, -2.15]}><SupplierCorner position={[0, 0, 0]} /></StoreElement>
+    <StoreElement position={[8.8, 0, -5.35]}><TerminalModel position={[0, 0, 0]} label="MAPA" /></StoreElement>
+    <StoreUtilities lightsOn={lightsOn} />
   </group>;
 }
 
-function WallShelf({ position, width }: { position: Position; width: number }) {
+function productVisual(productId: ProductId): { color: string; shape: "box" | "bottle" | "produce" } {
+  const colors: Record<ProductId, string> = { tomatoes: "#d65643", apples: "#c94f3e", corn: "#e4bd4a", eggs: "#eee4c8", milk: "#f4f0df", juice: "#d96842", wheat: "#d9b449", flour: "#eee2c8", bread: "#ad6d35", cheese: "#e8b94b", coffee: "#6b4031" };
+  if (["tomatoes", "apples", "corn", "eggs"].includes(productId)) return { color: colors[productId], shape: "produce" };
+  if (["milk", "juice"].includes(productId)) return { color: productId === "milk" ? "#f4f0df" : "#d96842", shape: "bottle" };
+  return { color: colors[productId], shape: "box" };
+}
+
+const PRODUCTS_LABELS: Record<ProductId, string> = {
+  tomatoes: "TOMATES",
+  apples: "MANZANAS",
+  corn: "MAÍZ",
+  eggs: "HUEVOS",
+  milk: "LECHE",
+  cheese: "QUESO",
+  juice: "ZUMOS",
+  bread: "PAN",
+  flour: "HARINA",
+  wheat: "TRIGO",
+  coffee: "CAFÉ",
+};
+
+function departmentColor(productId: ProductId) {
+  return RETAIL_DEPARTMENTS[productId === "tomatoes" || productId === "apples" || productId === "corn" ? "produce"
+    : productId === "eggs" ? "eggs"
+      : productId === "milk" || productId === "cheese" ? "dairy"
+        : productId === "juice" ? "drinks"
+          : productId === "coffee" ? "pantry" : "bakery"].color;
+}
+
+function WallShelf({ position, width, productId, count, low = false }: { position: Position; width: number; productId: ProductId; count: number; low?: boolean }) {
+  const perRow = Math.floor(width * 4);
   return <group position={position}>
-    <Box args={[width, 2.25, 0.42]} position={[0, 1.13, 0]} color={palette.cream} radius={0.06} />
-    <Box args={[width + 0.06, 0.16, 0.51]} position={[0, 0.12, 0.15]} color={palette.frame} />
-    {[0.48, 1.03, 1.58, 2.1].map((y) => <group key={y}><Box args={[width - 0.08, 0.08, 0.55]} position={[0, y, 0.18]} color={palette.green} /><ProductRow y={y + 0.16} z={0.48} count={Math.floor(width * 4)} /></group>)}
-    {[-1, 1].map((side) => <Box key={side} args={[0.09, 2.28, 0.56]} position={[side * width / 2, 1.14, 0.15]} color={palette.frame} />)}
+    <EnvironmentModel id={low ? "shelf_wall_low" : "shelf_wall_tall"} />
+    {(low ? [0.48, 1.03] : [0.48, 1.03, 1.58, 2.1]).map((y, row) => <RetailProductRow key={y} productId={productId} y={y + 0.16} z={0.48} count={Math.min(perRow, Math.max(0, count - row * perRow))} />)}
+    <DepartmentSign label={PRODUCTS_LABELS[productId]} color={departmentColor(productId)} position={[0, low ? 1.42 : 2.42, 0.08]} width={1.88} />
   </group>;
 }
 
-function Gondola({ position, accent }: { position: Position; accent: string }) {
+function Gondola({ position, productId, count, single = false }: { position: Position; productId: ProductId; count: number; single?: boolean }) {
   return <group position={position}>
-    <Box args={[1.9, 0.16, 0.9]} position={[0, 0.09, 0]} color={palette.frame} />
-    <Box args={[1.72, 1.65, 0.13]} position={[0, 0.94, 0]} color={palette.cream} />
-    {[-1, 1].map((side) => <group key={side} position={[0, 0, side * 0.31]} rotation={[0, side < 0 ? Math.PI : 0, 0]}>
-      {[0.38, 0.83, 1.28].map((y) => <group key={y}><Box args={[1.82, 0.09, 0.62]} position={[0, y, 0]} color={accent} /><ProductRow y={y + 0.15} z={0.31} count={8} /></group>)}
+    <EnvironmentModel id={single ? "shelf_gondola_single" : "shelf_gondola_double"} />
+    {(single ? [1] : [-1, 1]).map((side, sideIndex) => <group key={side} position={[0, 0, side * 0.31]} rotation={[0, side < 0 ? Math.PI : 0, 0]}>
+      {[0.38, 0.83, 1.28].map((y, row) => <RetailProductRow key={y} productId={productId} y={y + 0.15} z={0.31} count={Math.min(8, Math.max(0, count - (sideIndex * 3 + row) * 8))} />)}
     </group>)}
-    <Box args={[1.95, 0.13, 0.98]} position={[0, 1.73, 0]} color={palette.frame} />
+    <DepartmentSign label={productId === "bread" ? RETAIL_DEPARTMENTS.bakery.label : RETAIL_DEPARTMENTS.pantry.label} color={productId === "bread" ? RETAIL_DEPARTMENTS.bakery.color : RETAIL_DEPARTMENTS.pantry.color} position={[0, 1.82, 0]} width={1.85} />
   </group>;
 }
 
-function ProduceTable({ position }: { position: Position }) {
+function ProduceTable({ position, tomatoes, apples, corn }: { position: Position; tomatoes: number; apples: number; corn: number }) {
+  const productIds: ProductId[] = ["tomatoes", "apples", "corn"];
+  const counts = [tomatoes, apples, corn];
   return <group position={position}>
-    <Box args={[2.05, 0.18, 1.2]} position={[0, 0.18, 0]} color={palette.frame} />
+    <EnvironmentModel id="display_produce_mixed" />
+    <DepartmentSign label={RETAIL_DEPARTMENTS.produce.label} color={RETAIL_DEPARTMENTS.produce.color} position={[0, 1.86, 0.04]} width={1.94} />
     {[-0.72, 0, 0.72].map((x, column) => <group key={x} position={[x, 0.64, 0]} rotation={[0, 0, column === 1 ? 0 : (column ? -0.13 : 0.13)]}>
-      <Box args={[0.62, 0.18, 0.95]} color={palette.wood} />
-      {Array.from({ length: 9 }, (_, index) => <Product key={index} position={[(index % 3 - 1) * 0.15, 0.15, (Math.floor(index / 3) - 1) * 0.18]} color={["#d76a42", "#79a64f", "#e8b648"][column]} shape="produce" scale={0.88} />)}
+      {Array.from({ length: Math.min(9, counts[column]) }, (_, index) => <RetailProduct key={index} productId={productIds[column]} position={[(index % 3 - 1) * 0.15, 0.15, (Math.floor(index / 3) - 1) * 0.18]} scale={0.88} />)}
     </group>)}
-    {[-0.82, 0.82].map((x) => <Box key={x} args={[0.14, 0.6, 0.14]} position={[x, 0.38, 0]} color={palette.frame} />)}
+    {productIds.map((productId, index) => <Text key={productId} position={[(index - 1) * 0.72, 1.2, 0.48]} fontSize={0.105} color="#f8f1dc" anchorX="center" fontWeight={800}>{PRODUCTS_LABELS[productId]}</Text>)}
   </group>;
 }
 
-function ChilledDisplay({ position }: { position: Position }) {
+function ProduceRack({ position, count }: { position: Position; count: number }) {
   return <group position={position}>
-    <Box args={[2.05, 0.75, 1.15]} position={[0, 0.38, 0]} color="#d9ded8" radius={0.1} />
-    <mesh position={[0, 0.79, 0]} rotation={[0, 0, 0]} castShadow><boxGeometry args={[1.92, 0.08, 1.03]} /><meshPhysicalMaterial color="#b9d9d4" transparent opacity={0.48} roughness={0.1} transmission={0.15} /></mesh>
-    <ProductRow y={0.69} z={0.18} count={8} shape="produce" />
-    <ProductRow y={0.69} z={-0.18} count={8} shape="produce" colors={["#d87355", "#c69d50", "#6aa06c"]} />
+    <EnvironmentModel id="display_produce_tomato" />
+    {[0.38, 0.88, 1.36].map((y, row) => <group key={y} position={[0, y, 0]} rotation={[row === 2 ? -0.12 : -0.2, 0, 0]}>
+      {[-0.52, 0, 0.52].map((x, column) => <group key={x}>
+        {Array.from({ length: Math.min(5, Math.max(0, count - (row * 3 + column) * 5)) }, (_, index) => <Product key={index} position={[x + (index % 2) * 0.13 - 0.06, 0.19, (Math.floor(index / 2) - 1) * 0.16]} color="#e5aa3d" shape="produce" scale={0.8} />)}
+      </group>)}
+    </group>)}
   </group>;
 }
 
-function LowFreezer({ position }: { position: Position }) {
+function ChilledDisplay({ position, milk, cheese }: { position: Position; milk: number; cheese: number }) {
   return <group position={position}>
-    <Box args={[1.8, 0.9, 1.05]} position={[0, 0.45, 0]} color="#e9ede7" radius={0.12} />
-    {[-0.43, 0.43].map((x) => <mesh key={x} position={[x, 0.92, 0]}><boxGeometry args={[0.78, 0.05, 0.9]} /><meshPhysicalMaterial color="#afcfcb" transparent opacity={0.55} roughness={0.12} /></mesh>)}
-    <Box args={[1.84, 0.1, 1.08]} position={[0, 0.08, 0]} color={palette.frame} />
+    <EnvironmentModel id="display_refrigerated_open" />
+    <DepartmentSign label={RETAIL_DEPARTMENTS.dairy.label} color={RETAIL_DEPARTMENTS.dairy.color} position={[0, 2.28, 0.03]} width={1.9} />
+    <RetailProductRow productId="milk" y={0.69} z={0.18} count={Math.min(8, milk)} />
+    <RetailProductRow productId="cheese" y={0.69} z={-0.18} count={Math.min(8, cheese)} />
   </group>;
 }
 
-function GlassFridge({ position }: { position: Position }) {
+function DrinksDisplay({ position, count }: { position: Position; count: number }) {
   return <group position={position}>
-    <Box args={[2.15, 2.35, 0.68]} position={[0, 1.18, 0]} color={palette.frame} radius={0.07} />
-    {[-0.52, 0.52].map((x) => <group key={x} position={[x, 1.25, 0.36]}>
-      <mesh><planeGeometry args={[0.92, 1.86]} /><meshPhysicalMaterial color="#c7dfda" transparent opacity={0.43} roughness={0.18} /></mesh>
-      <Box args={[0.035, 0.72, 0.035]} position={[x < 0 ? 0.36 : -0.36, 0, 0.03]} color="#c6cfcc" />
-      {[0.55, 0.05, -0.45].map((y) => <group key={y}><Box args={[0.86, 0.035, 0.35]} position={[0, y, -0.08]} color="#d8dfdc" /><ProductRow y={y + 0.12} z={0.03} count={4} shape="bottle" /></group>)}
+    <EnvironmentModel id="display_refrigerated_open" />
+    <DepartmentSign label={RETAIL_DEPARTMENTS.drinks.label} color={RETAIL_DEPARTMENTS.drinks.color} position={[0, 2.28, 0.03]} width={1.9} />
+    {[0.52, 1.02, 1.52].map((y, row) => <RetailProductRow key={y} productId="juice" y={y} z={0.33} count={Math.min(7, Math.max(0, count - row * 7))} />)}
+  </group>;
+}
+
+function EggDisplay({ count }: { count: number }) {
+  return <group>
+    <EnvironmentModel id="display_eggs" />
+    <DepartmentSign label={RETAIL_DEPARTMENTS.eggs.label} color={RETAIL_DEPARTMENTS.eggs.color} position={[0, 1.86, 0.04]} width={1.48} />
+    {[0.5, 0.93, 1.36].map((y, row) => <EggCarton key={y} position={[0, y, 0.24]} count={Math.min(6, Math.max(0, count - row * 6))} />)}
+  </group>;
+}
+
+function EggCarton({ position, count }: { position: Position; count: number }) {
+  return <group position={position}>
+    <Box args={[1.22, 0.1, 0.48]} color="#bca47a" radius={0.025} />
+    {Array.from({ length: count }, (_, index) => <RetailProduct key={index} productId="eggs" position={[(index % 6 - 2.5) * 0.19, 0.1, 0]} scale={0.9} />)}
+    <Text position={[0, -0.01, 0.255]} fontSize={0.075} color="#604f36" anchorX="center" fontWeight={800}>HUEVOS FRESCOS</Text>
+  </group>;
+}
+
+function GlassFridge({ position, milk, cheese, open }: { position: Position; milk: number; cheese: number; open: boolean }) {
+  return <group position={position}>
+    <EnvironmentModel id="display_refrigerated_doors" onFrame={(model, delta) => model.traverse((node) => { if (node.name.startsWith("Door")) node.rotation.y = THREE.MathUtils.lerp(node.rotation.y, open ? (node.name.endsWith(".001") ? -0.55 : 0.55) : 0, 1 - Math.exp(-7 * delta)); })} />
+    {[-0.52, 0.52].map((x, door) => <group key={x} position={[x, 1.25, 0.36]}>
+      {[0.55, 0.05, -0.45].map((y, row) => <group key={y}><Box args={[0.86, 0.035, 0.35]} position={[0, y, -0.08]} color="#d8dfdc" /><ProductRow y={y + 0.12} z={0.03} count={Math.min(4, Math.max(0, (door ? cheese : milk) - row * 4))} shape={door ? "box" : "bottle"} colors={[door ? "#e8b94b" : "#f4f0df"]} /></group>)}
     </group>)}
   </group>;
 }
 
 function MetalRack({ position }: { position: Position }) {
+  return <group position={position}><EnvironmentModel id="rack_stockroom" /></group>;
+}
+
+function CheckoutKit({ position, lane, transaction }: { position: Position; lane: 0 | 1; transaction?: CheckoutTransaction }) {
+  const scanning = transaction?.state === "SCANNING" || transaction?.state === "BAGGING";
+  const bagged = transaction?.pendingItems.reduce((total, line) => total + line.bagged, 0) ?? 0;
+  const total = transaction?.pendingItems.reduce((sum, line) => sum + line.quantity, 0) ?? 0;
+  const units = transaction?.pendingItems.flatMap((line) => Array.from({ length: line.quantity }, (_, unit) => ({
+    productId: line.productId,
+    loaded: unit < line.loaded,
+    scanned: unit < line.scanned,
+    bagged: unit < line.bagged,
+  }))) ?? [];
   return <group position={position}>
-    {[-0.68, 0.68].map((x) => <Box key={x} args={[0.08, 2.25, 0.08]} position={[x, 1.12, 0]} color={palette.metal} />)}
-    {[0.18, 0.78, 1.38, 2.0].map((y) => <group key={y}><Box args={[1.45, 0.08, 0.72]} position={[0, y, 0]} color={palette.metal} />{y < 1.9 && <><Parcel position={[-0.35, y + 0.2, 0]} /><Parcel position={[0.35, y + 0.2, 0]} small /></>}</group>)}
+    <pointLight position={[0, 2.7, -1.7]} color="#fff0d2" intensity={0.72} distance={5.8} decay={1.7} />
+    <Box args={[4.45, 0.92, 1.18]} position={[0, 0.46, 0]} color={palette.darkGreen} radius={0.14} />
+    <Box args={[4.24, 0.16, 1.08]} position={[0, 0.98, 0]} color="#d8dedb" radius={0.09} />
+    <Box args={[2.55, 0.08, 0.82]} position={[-0.66, 1.08, 0]} color="#252d2b" radius={0.035} />
+    {Array.from({ length: 9 }, (_, index) => <mesh key={`belt-${index}`} position={[-1.7 + index * 0.28, 1.125, 0]}><boxGeometry args={[0.025, 0.018, 0.78]} /><meshStandardMaterial color="#68726f" metalness={0.35} roughness={0.48} /></mesh>)}
+    <Box args={[0.52, 0.11, 0.94]} position={[0.64, 1.1, 0]} color="#1f2a27" radius={0.035} />
+    <mesh position={[0.64, 1.165, 0]}><boxGeometry args={[0.27, 0.018, 0.57]} /><meshStandardMaterial color="#8fe8c5" emissive={scanning ? "#60ffbd" : "#2d6553"} emissiveIntensity={scanning ? 2.2 : 0.5} /></mesh>
+    {scanning && <pointLight position={[0.64, 1.35, 0]} color="#64ffc2" intensity={1.4} distance={1.4} />}
+    <Box args={[0.86, 0.18, 0.62]} position={[1.28, 1.13, -0.18]} color="#24302d" radius={0.08} />
+    <mesh position={[1.28, 1.61, -0.13]} rotation={[-0.23, 0, 0]}><boxGeometry args={[0.72, 0.62, 0.1]} /><meshStandardMaterial color="#25322f" roughness={0.42} /></mesh>
+    <mesh position={[1.28, 1.62, -0.07]} rotation={[-0.23, 0, 0]}><planeGeometry args={[0.56, 0.42]} /><meshStandardMaterial color="#bde9d8" emissive={transaction ? "#4d9b80" : "#27463d"} emissiveIntensity={0.8} /></mesh>
+    <Text position={[1.28, 1.63, -0.01]} rotation={[-0.23, 0, 0]} fontSize={0.11} color="#173f35" anchorX="center">{transaction ? `${bagged}/${total}` : "LISTA"}</Text>
+    <Box args={[0.32, 0.13, 0.5]} position={[1.78, 1.16, 0.24]} color="#e8ece7" radius={0.055} />
+    <mesh position={[1.78, 1.26, 0.26]} rotation={[-0.42, 0, 0]}><planeGeometry args={[0.21, 0.18]} /><meshStandardMaterial color={transaction?.state === "PAYMENT" ? "#91f2be" : "#77948a"} emissive="#42a776" emissiveIntensity={transaction?.state === "PAYMENT" ? 1.4 : 0.18} /></mesh>
+    <Box args={[0.92, 0.5, 0.82]} position={[1.67, 0.48, 0]} color="#eff1e8" radius={0.09} />
+    <CheckoutBag fill={total ? bagged / total : 0} />
+    {units.map((unit, index) => unit.loaded && !unit.bagged ? <CheckoutProductUnit key={`${unit.productId}-${index}`} productId={unit.productId} index={index} scanned={unit.scanned} /> : null)}
+    <mesh position={[-1.55, 2.32, -0.48]}><boxGeometry args={[0.06, 2.35, 0.06]} /><meshStandardMaterial color="#4b5b56" metalness={0.4} /></mesh>
+    <mesh position={[-1.55, 3.08, -0.44]}><boxGeometry args={[0.98, 0.58, 0.12]} /><meshStandardMaterial color="#f4e4ad" roughness={0.55} /></mesh>
+    <Text position={[-1.55, 3.09, -0.36]} fontSize={0.24} color="#24453d" anchorX="center">CAJA {lane + 1}</Text>
   </group>;
 }
 
-function CheckoutKit({ position }: { position: Position }) {
-  return <group position={position} rotation={[0, Math.PI, 0]}>
-    <Box args={[3.15, 0.78, 0.88]} position={[0, 0.39, 0]} color={palette.green} radius={0.11} />
-    <Box args={[1.28, 0.07, 0.67]} position={[-0.67, 0.82, 0]} color="#27312f" />
-    {[0.75, 1.16].map((x) => <mesh key={x} position={[x, 0.83, 0]}><cylinderGeometry args={[0.07, 0.07, 0.7, 12]} /><meshStandardMaterial color="#202927" /></mesh>)}
-    <Box args={[0.5, 0.26, 0.42]} position={[0.72, 0.92, 0]} color="#26332f" radius={0.04} />
-    <mesh position={[0.72, 1.04, 0.2]} rotation={[-0.5, 0, 0]}><planeGeometry args={[0.34, 0.18]} /><meshStandardMaterial color="#9dd3c1" emissive="#315c50" emissiveIntensity={0.25} /></mesh>
-    <Box args={[0.22, 0.11, 0.35]} position={[1.05, 0.91, 0.35]} color="#e6e3d7" />
-    <Box args={[0.17, 0.28, 0.1]} position={[0.25, 1.01, 0.35]} color="#26332f" />
-    <Text position={[0, 0.4, -0.46]} rotation={[0, Math.PI, 0]} fontSize={0.18} color="#f7f3df">CAJA</Text>
+function CheckoutProductUnit({ productId, index, scanned }: { productId: ProductId; index: number; scanned: boolean }) {
+  const ref = useRef<THREE.Group>(null);
+  const target = useMemo(() => new THREE.Vector3(scanned ? 1.48 : Math.min(0.15, -1.66 + index * 0.29), scanned ? 1.38 : 1.25, scanned ? 0.18 : 0), [index, scanned]);
+  useFrame((_, delta) => { if (ref.current) ref.current.position.lerp(target, 1 - Math.exp(-8 * delta)); });
+  const visual = productVisual(productId);
+  return <group ref={ref} position={[-2.05, 1.45, 0.42]}><Product position={[0, 0, 0]} color={visual.color} shape={visual.shape} scale={1.18} /></group>;
+}
+
+function CheckoutBag({ fill }: { fill: number }) {
+  return <group position={[1.67, 1.02, 0]} scale={[1, 0.72 + fill * 0.28, 1]}>
+    <mesh><boxGeometry args={[0.56, 0.72, 0.42]} /><meshStandardMaterial color="#c7935e" roughness={0.92} /></mesh>
+    <mesh position={[0, 0.41, 0]} rotation={[Math.PI / 2, 0, 0]}><torusGeometry args={[0.18, 0.025, 7, 16, Math.PI]} /><meshStandardMaterial color="#8b623d" /></mesh>
+    {fill > 0 && <mesh position={[0, 0.26, 0]}><boxGeometry args={[0.4, 0.12, 0.3]} /><meshStandardMaterial color="#e0b44a" /></mesh>}
   </group>;
 }
 
-function CartBay({ position }: { position: Position }) {
+function CashierWorkArea() {
+  return <group>
+    <mesh rotation={[-Math.PI / 2, 0, 0]}><planeGeometry args={[1.35, 0.92]} /><meshStandardMaterial color="#63bd8b" emissive="#255d45" emissiveIntensity={0.35} transparent opacity={0.72} /></mesh>
+    <Text position={[0, 0.018, 0]} rotation={[-Math.PI / 2, 0, 0]} fontSize={0.13} color="#effff5" anchorX="center">PUESTO CAJERO</Text>
+  </group>;
+}
+
+function ReturnsCubicle({ inventory }: { inventory: Inventory }) {
+  const units = Object.values(inventory).reduce((total, quantity) => total + quantity, 0);
+  return <group>
+    <Box args={[1.35, 1.25, 1.05]} position={[0, 0.63, 0]} color="#d5c3aa" radius={0.08} />
+    <Box args={[1.05, 0.72, 0.82]} position={[0, 0.86, 0.04]} color="#735847" radius={0.06} />
+    <mesh position={[0, 1.31, 0.54]}><boxGeometry args={[1.42, 0.34, 0.08]} /><meshStandardMaterial color="#e7bb62" /></mesh>
+    <Text position={[0, 1.31, 0.59]} fontSize={0.15} color="#493821" anchorX="center">DEVOLUCIONES</Text>
+    {Array.from({ length: Math.min(6, units) }, (_, index) => <Product key={index} position={[(index % 3 - 1) * 0.24, 0.62 + Math.floor(index / 3) * 0.2, 0.48]} color={["#d65643", "#e5b84d", "#77a85d"][index % 3]} shape={index % 2 ? "box" : "produce"} />)}
+  </group>;
+}
+
+function CartBay({ position, count }: { position: Position; count: number }) {
   return <group position={position}>
-    {[0, -0.35].map((z, index) => <ShoppingCart key={z} position={[0, 0, z]} scale={1 - index * 0.08} />)}
-    <ShoppingBasket position={[-0.8, 0.05, 0.05]} />
+    <Box args={[2.1, 0.08, 1.45]} position={[0, 0.04, 0]} color="#5d6e68" radius={0.025} />
+    {[-0.96, 0.96].map((x) => <group key={x}><mesh position={[x, 0.65, 0]}><boxGeometry args={[0.07, 1.3, 1.45]} /><meshStandardMaterial color="#667772" metalness={0.4} /></mesh><mesh position={[x, 1.31, 0]}><sphereGeometry args={[0.11, 12, 8]} /><meshStandardMaterial color="#e7b759" emissive="#765318" emissiveIntensity={0.25} /></mesh></group>)}
+    <mesh position={[0, 1.48, -0.66]}><boxGeometry args={[2.05, 0.38, 0.1]} /><meshStandardMaterial color="#f2e6bd" /></mesh>
+    <Text position={[0, 1.48, -0.59]} fontSize={0.16} color="#2f4d43" anchorX="center">CARROS</Text>
+    {Array.from({ length: Math.max(2, Math.min(4, count)) }, (_, index) => <ShoppingCart key={index} position={[0, 0, 0.42 - index * 0.26]} scale={1 - index * 0.055} />)}
   </group>;
 }
 
 function ShoppingCart({ position, scale = 1 }: { position: Position; scale?: number }) {
   return <group position={position} scale={scale}>
-    <mesh position={[0, 0.55, 0]} rotation={[0, 0, Math.PI / 2]}><cylinderGeometry args={[0.03, 0.03, 1.15, 8]} /><meshStandardMaterial color={palette.metal} /></mesh>
-    <Box args={[0.82, 0.52, 0.62]} position={[0, 0.43, 0]} color="#799463" radius={0.06} />
+    <mesh position={[0, 0.84, -0.3]} rotation={[0, 0, Math.PI / 2]}><cylinderGeometry args={[0.035, 0.035, 1.05, 8]} /><meshStandardMaterial color="#4f6945" /></mesh>
+    {[-0.38, 0.38].map((x) => <group key={x}>
+      <Box args={[0.035, 0.52, 0.68]} position={[x, 0.55, 0]} color={palette.metal} radius={0.01} />
+      {[-0.25,-0.08,0.09,0.26].map((z) => <Box key={z} args={[0.035, 0.44, 0.025]} position={[x,0.59,z]} color={palette.metal} radius={0.008} />)}
+    </group>)}
+    {[-0.27,-0.09,0.09,0.27].map((x) => <Box key={x} args={[0.025, 0.44, 0.64]} position={[x,0.59,0]} color={palette.metal} radius={0.008} />)}
+    {[-0.28,0.28].map((z) => <Box key={z} args={[0.82, 0.035, 0.035]} position={[0,0.38,z]} color={palette.metal} radius={0.01} />)}
+    {[-0.35,0.35].map((x) => <Box key={x} args={[0.045,0.52,0.045]} position={[x,0.29,-0.21]} rotation={[0,0,x<0?-0.12:0.12]} color={palette.metal} />)}
     {[-0.33, 0.33].flatMap((x) => [-0.22, 0.22].map((z) => <mesh key={`${x}-${z}`} position={[x, 0.08, z]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[0.07, 0.07, 0.05, 10]} /><meshStandardMaterial color="#303634" /></mesh>))}
   </group>;
 }
 
-function ShoppingBasket({ position }: { position: Position }) {
-  return <group position={position}><Box args={[0.62, 0.36, 0.42]} position={[0, 0.18, 0]} color="#708e55" radius={0.06} />{[-0.18, 0.18].map((x) => <mesh key={x} position={[x, 0.45, 0]} rotation={[0, 0, x < 0 ? -0.45 : 0.45]}><torusGeometry args={[0.24, 0.025, 6, 14, Math.PI]} /><meshStandardMaterial color="#344436" /></mesh>)}</group>;
-}
-
-function BakeryKit({ position }: { position: Position }) {
+function BakeryKit({ position, machine }: { position: Position; machine?: ProductionMachineState }) {
+  const processing = machine?.status === "PROCESSING";
   return <group position={position}>
-    <Box args={[1.45, 1.8, 0.92]} position={[0, 0.9, 0]} color="#c5cbc5" radius={0.12} />
-    {[-0.35, 0.35].map((y) => <group key={y} position={[0, 1 + y, 0.47]}><Box args={[1.08, 0.47, 0.05]} color="#303836" /><mesh position={[0, 0, 0.035]}><planeGeometry args={[0.88, 0.3]} /><meshPhysicalMaterial color="#735242" transparent opacity={0.8} /></mesh></group>)}
-    <Box args={[1.55, 0.75, 0.8]} position={[0, 0.38, 1.2]} color="#e2e4dd" radius={0.08} />
-    <mesh position={[0, 0.79, 1.2]}><cylinderGeometry args={[0.07, 0.07, 0.2, 12]} /><meshStandardMaterial color={palette.metal} /></mesh>
-    <Box args={[1.1, 0.08, 0.52]} position={[0, 0.8, 1.2]} color={palette.frame} />
-    <Text position={[0, 0.25, 0.48]} fontSize={0.14} color="#f7f3df">HORNO</Text>
+    <EnvironmentModel id="equipment_bread_oven" onFrame={(model, delta) => model.traverse((node) => { if (node.name.startsWith("OvenGlass")) node.rotation.x = THREE.MathUtils.lerp(node.rotation.x, processing ? 0 : -0.55, 1 - Math.exp(-6 * delta)); })} />
+    <group position={[1.35, 0, 0]} scale={0.72}><EnvironmentModel id="display_bakery" /></group>
+    {processing && <pointLight position={[0, 0.95, 0.52]} intensity={0.8} distance={2.2} color="#df8b43" />}
   </group>;
 }
 
-function MillMachine({ position }: { position: Position }) {
+function PrepSink({ position }: { position: Position }) {
+  return <group position={position} rotation={[0, Math.PI / 2, 0]}>
+    {[-0.65, 0.65].flatMap((x) => [-0.3, 0.3].map((z) => <Box key={`${x}-${z}`} args={[0.07, 0.82, 0.07]} position={[x, 0.41, z]} color={palette.metal} />))}
+    <Box args={[1.55, 0.18, 0.78]} position={[0, 0.82, 0]} color="#aeb9b6" radius={0.07} />
+    <Box args={[0.92, 0.12, 0.55]} position={[0, 0.8, 0]} color="#59635f" radius={0.09} />
+    <mesh position={[0, 1.13, -0.12]} rotation={[0, 0, Math.PI / 2]}><torusGeometry args={[0.2, 0.035, 8, 18, Math.PI]} /><meshStandardMaterial color="#929e9a" metalness={0.38} roughness={0.35} /></mesh>
+    <mesh position={[0.2, 1.12, 0.04]}><cylinderGeometry args={[0.035, 0.035, 0.26, 10]} /><meshStandardMaterial color="#929e9a" metalness={0.38} roughness={0.35} /></mesh>
+    <Box args={[1.38, 0.08, 0.64]} position={[0, 0.18, 0]} color={palette.metal} />
+  </group>;
+}
+
+function MillMachine({ position, machine }: { position: Position; machine?: ProductionMachineState }) {
+  const processing = machine?.status === "PROCESSING";
   return <group position={position}>
-    <Box args={[1.35, 1.12, 0.95]} position={[0, 0.56, 0]} color="#d5b45f" radius={0.12} />
-    <mesh position={[0, 1.48, 0]}><coneGeometry args={[0.48, 0.72, 12]} /><meshStandardMaterial color="#a97943" roughness={0.76} /></mesh>
-    <mesh position={[0, 0.68, 0.5]} rotation={[Math.PI / 2, 0, 0]} castShadow><torusGeometry args={[0.3, 0.08, 8, 18]} /><meshStandardMaterial color={palette.frame} /></mesh>
-    <mesh position={[0, 0.68, 0.55]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[0.08, 0.08, 0.16, 10]} /><meshStandardMaterial color="#b5c0bb" /></mesh>
-    <Box args={[0.62, 0.16, 0.52]} position={[0, 0.12, 0.78]} color={palette.wood} />
-    <Text position={[0, 0.28, 0.49]} fontSize={0.13} color="#3f4637">MOLINO</Text>
+    <EnvironmentModel id="equipment_flour_mill" onFrame={(model, delta) => { if (!processing) return; model.traverse((node) => { if (node.name.startsWith("Wheel")) node.rotation.z += delta * 4.8; }); }} />
+  </group>;
+}
+
+function ProcessMachine({ kind, machine }: { kind: "cheese" | "juice"; machine?: ProductionMachineState }) {
+  const processing = machine?.status === "PROCESSING";
+  return <group>
+    <EnvironmentModel id={kind === "cheese" ? "equipment_cheese_maker" : "equipment_juice_machine"} onFrame={(model, _, elapsed) => { if (processing) model.rotation.y = Math.sin(elapsed * 4) * 0.018; }} />
+    {processing && <pointLight position={[0, 0.65, 0.45]} intensity={0.45} distance={1.6} color={kind === "cheese" ? "#ffd75c" : "#ff6b43"} />}
+    {Array.from({ length: Math.min(4, machine?.output ?? 0) }, (_, index) => <Product key={index} position={[0.34 + (index % 2) * 0.13, 0.16 + Math.floor(index / 2) * 0.12, 0.45]} color={kind === "cheese" ? "#e8b94b" : "#d96842"} shape={kind === "juice" ? "bottle" : "box"} scale={0.8} />)}
   </group>;
 }
 
 function SupplierCorner({ position }: { position: Position }) {
   return <group position={position}>
     <TerminalModel position={[0, 0, 0]} label="PEDIDOS" />
+    <group position={[0, 0, -1.35]} scale={0.72}><EnvironmentModel id="equipment_delivery_dock" /></group>
     <Pallet position={[-0.05, 0, -1.3]} />
     <Parcel position={[-0.3, 0.34, -1.3]} />
     <Parcel position={[0.25, 0.34, -1.3]} small />
@@ -198,14 +459,14 @@ function Parcel({ position, small = false }: { position: Position; small?: boole
   return <group position={position} scale={small ? 0.72 : 1}><Box args={[0.52, 0.44, 0.46]} position={[0, 0.22, 0]} color="#ba8050" radius={0.025} /><Box args={[0.08, 0.45, 0.47]} position={[0, 0.23, 0]} color="#d5ad70" radius={0.01} /></group>;
 }
 
-function StoreUtilities() {
+function StoreUtilities({ lightsOn }: { lightsOn: boolean }) {
   return <group>
-    <WallClock position={[9.2, 2.2, -8.34]} />
-    <SecurityCamera position={[-10.75, 2.55, -8.05]} />
-    <SecurityCamera position={[10.65, 2.55, 7.2]} rotationY={Math.PI} />
-    <HangingSign position={[7.25, 2.45, 1.65]} label="CAJAS" />
-    <HangingSign position={[-3.8, 2.45, -3.35]} label="DESPENSA" />
-    {[-7.2, -2.4, 2.4, 7.2].map((x) => <CeilingLamp key={x} position={[x, 2.85, -0.6]} />)}
+    <StoreElement position={[9.2, 2.2, -8.34]}><WallClock position={[0, 0, 0]} /></StoreElement>
+    <StoreElement position={[-10.75, 2.55, -8.05]}><SecurityCamera position={[0, 0, 0]} /></StoreElement>
+    <StoreElement position={[10.65, 2.55, 7.2]}><SecurityCamera position={[0, 0, 0]} rotationY={Math.PI} /></StoreElement>
+    <StoreElement position={[7.25, 2.45, 1.65]}><HangingSign position={[0, 0, 0]} label="CAJAS" /></StoreElement>
+    <StoreElement position={[-3.8, 2.45, -3.35]}><HangingSign position={[0, 0, 0]} label="DESPENSA" /></StoreElement>
+    {[-7.2, -2.4, 2.4, 7.2].map((x) => <StoreElement key={x} position={[x, 2.85, -0.6]}><CeilingLamp position={[0, 0, 0]} on={lightsOn} /></StoreElement>)}
   </group>;
 }
 
@@ -221,42 +482,101 @@ function HangingSign({ position, label }: { position: Position; label: string })
   return <group position={position}><Box args={[1.35, 0.42, 0.08]} color={palette.darkGreen} radius={0.04} /><Text position={[0, 0, 0.05]} fontSize={0.15} color="#f6efd9">{label}</Text>{[-0.48, 0.48].map((x) => <Box key={x} args={[0.025, 0.55, 0.025]} position={[x, 0.45, 0]} color={palette.frame} />)}</group>;
 }
 
-function CeilingLamp({ position }: { position: Position }) {
-  return <group position={position}><Box args={[2.0, 0.07, 0.42]} color="#ebeee7" radius={0.02} /><pointLight position={[0, -0.15, 0]} intensity={0.35} distance={5} color="#fff2c9" /></group>;
+function CeilingLamp({ position, on }: { position: Position; on: boolean }) {
+  const updateMaterials = useCallback((model: THREE.Group) => model.traverse((node) => {
+    if (!(node instanceof THREE.Mesh) || !(node.material instanceof THREE.MeshStandardMaterial)) return;
+    node.material.emissive.set(on ? "#fff0b8" : "#000000");
+    node.material.emissiveIntensity = on ? 1.1 : 0;
+  }), [on]);
+  return <group position={position}><EnvironmentModel id="equipment_ceiling_light" isolateMaterials onUpdate={updateMaterials} />{on && <pointLight position={[0, -0.15, 0]} intensity={0.18} distance={4} color="#fff2c9" />}</group>;
 }
 
-export function KitFarm() {
-  const plots: { position: Position; crop: "wheat" | "carrot" | "tomato" | "lettuce" | "pumpkin" | "corn"; stage: number }[] = [
-    { position: [-9.3, 0, 10.0], crop: "wheat", stage: 3 },
-    { position: [-7.95, 0, 10.0], crop: "carrot", stage: 2 },
-    { position: [-9.3, 0, 11.25], crop: "tomato", stage: 3 },
-    { position: [-7.95, 0, 11.25], crop: "lettuce", stage: 3 },
-  ];
+export function KitFarm({ crops, machines, nowMs, unlockedAreas }: { crops: CropState[]; machines: ProductionMachineState[]; nowMs: number; unlockedAreas: string[] }) {
+  const positions: Record<string, Position> = { "crop-tomato-1": [-6.35, 0, 10.55], "crop-tomato-2": [-8, 0, 10.35], "crop-wheat-1": [-9.35, 0, 10.35], "crop-corn-1": [-6.65, 0, 11.55] };
+  const cropName = (productId: CropState["productId"]) => productId === "tomatoes" ? "tomato" as const : productId;
+  const chicken = machines.find((machine) => machine.id === "chicken-coop-1");
+  const cow = machines.find((machine) => machine.id === "cow-station-1");
   return <group>
-    <Box args={[3.55, 0.08, 3.1]} position={[-8.65, 0.02, 10.65]} color="#d6bd84" radius={0.06} />
-    {plots.map((plot) => <CropPlot key={`${plot.position[0]}-${plot.position[2]}`} {...plot} />)}
-    <FenceLine position={[-10.3, 0, 10.65]} length={3.0} vertical />
-    <FenceLine position={[-8.65, 0, 12.15]} length={3.3} />
-    <FenceLine position={[-8.65, 0, 9.15]} length={3.3} />
-    <FarmTools position={[-6.95, 0, 10.85]} />
-    <CompostBin position={[-7.1, 0, 9.65]} />
-    <MiniGreenhouse position={[-7.15, 0, 11.7]} />
-    <Scarecrow position={[-8.65, 0, 10.65]} />
+    <StoreElement position={[-7.95, 0.02, 10.65]}><Box args={[5.55, 0.08, 3.2]} color="#d6bd84" radius={0.06} /></StoreElement>
+    {crops.filter((crop) => crop.status !== "LOCKED" && positions[crop.id]).map((crop) => <StoreElement key={crop.id} position={positions[crop.id]}><CropPlot position={[0, 0, 0]} crop={cropName(crop.productId)} status={crop.status} progress={cropProgress(crop, nowMs)} /></StoreElement>)}
+    <StoreElement position={[-10.65, 0, 10.65]}><FenceLine position={[0, 0, 0]} length={3.0} vertical /></StoreElement>
+    <StoreElement position={[-7.95, 0, 12.22]}><FenceLine position={[0, 0, 0]} length={5.4} /></StoreElement>
+    <StoreElement position={[-7.95, 0, 9.08]}><FenceLine position={[0, 0, 0]} length={5.4} /></StoreElement>
+    <StoreElement position={[-5.25, 0, 10.65]}><FarmGate position={[0, 0, 0]} /></StoreElement>
+    <StoreElement position={[-3.05, 0, 8.9]}><FarmTools position={[0, 0, 0]} /></StoreElement>
+    <StoreElement position={[-9.85, 0, 9.72]}><CompostBin position={[0, 0, 0]} /></StoreElement>
+    <StoreElement position={[-4.35, 0, 12.0]}><MiniGreenhouse position={[0, 0, 0]} /></StoreElement>
+    <StoreElement position={[-10.05, 0, 11.45]}><Scarecrow position={[0, 0, 0]} /></StoreElement>
+    <StoreElement position={[-8.05, 0, 11.72]}><Sprinkler position={[0, 0, 0]} /></StoreElement>
+    <StoreElement position={[-8.15, 0, 11.82]}><IrrigationTrench position={[0, 0, 0]} /></StoreElement>
+    {unlockedAreas.includes("chicken-coop") && chicken && <StoreElement position={[-3.45, 0, 10.8]}><AnimalStation kind="chicken" machine={chicken} /></StoreElement>}
+    {unlockedAreas.includes("cow-station") && cow && <StoreElement position={[-1.5, 0, 10.8]}><AnimalStation kind="cow" machine={cow} /></StoreElement>}
   </group>;
 }
 
-function CropPlot({ position, crop, stage }: { position: Position; crop: "wheat" | "carrot" | "tomato" | "lettuce" | "pumpkin" | "corn"; stage: number }) {
+function AnimalStation({ kind, machine }: { kind: "chicken" | "cow"; machine: ProductionMachineState }) {
+  return <group>
+    <EnvironmentModel id={kind === "chicken" ? "chicken_coop" : "cow_station"} />
+    {kind === "chicken" ? <ChickenCharacter active={machine.status === "PROCESSING"} /> : <CowCharacter active={machine.status === "PROCESSING"} />}
+    <group position={[kind === "cow" ? 0.62 : 0.44, 0.02, 0.42]} scale={0.72} visible={machine.output > 0}><EnvironmentModel id={kind === "chicken" ? "egg_output_tray" : "milk_output_can"} /></group>
+    <Text position={[0, 0.18, 0.67]} fontSize={0.12} color="#f7f3df">{kind === "chicken" ? "HUEVOS" : "LECHE"}</Text>
+  </group>;
+}
+
+function ChickenCharacter({ active }: { active: boolean }) {
+  const root = useRef<THREE.Group>(null);
+  useFrame(({ clock }) => { if (root.current) { root.current.position.y = 0.48 + (active ? Math.sin(clock.elapsedTime * 7) * 0.025 : 0); root.current.rotation.y = Math.sin(clock.elapsedTime * 0.8) * 0.28; } });
+  return <group ref={root} position={[0, 0.48, 0]}><EnvironmentModel id="chicken_character" /></group>;
+}
+
+function CowCharacter({ active }: { active: boolean }) {
+  const head = useRef<THREE.Group>(null);
+  useFrame(({ clock }) => { if (head.current) head.current.rotation.y = Math.sin(clock.elapsedTime * (active ? 1.8 : 0.7)) * 0.1; });
+  return <group ref={head} position={[-0.12, 0.02, 0]}><EnvironmentModel id="cow_character" /></group>;
+}
+
+function CropPlot({ position, crop, status, progress }: { position: Position; crop: "wheat" | "carrot" | "tomato" | "lettuce" | "pumpkin" | "corn"; status: CropState["status"]; progress: number }) {
+  const cropLabel = crop === "tomato" ? "TOMATES" : crop === "wheat" ? "TRIGO" : crop === "corn" ? "MAÍZ" : crop.toUpperCase();
+  const stateLabel = status === "EMPTY" ? `SEMBRAR ${cropLabel}` : status === "READY" ? `COSECHAR ${cropLabel}` : `${cropLabel} · ${Math.round(progress * 100)}%`;
+  const stateColor = status === "EMPTY" ? "#b46a3d" : status === "READY" ? "#32784a" : "#648d48";
+  if (crop === "tomato" || crop === "wheat" || crop === "corn") {
+    if (status === "EMPTY") return <group position={position}>
+      <EnvironmentModel id="farm_plot_empty" />
+      <CropStateSign label={stateLabel} color={stateColor} />
+      <SeedMarkers />
+    </group>;
+    const stage = status === "READY" ? 4 : Math.max(0, Math.min(3, Math.floor(progress * 4)));
+    const stageName = stage <= 0 ? "sprout" : stage === 1 ? "small" : stage <= 3 ? "growing" : "ripe";
+    return <group position={position}><EnvironmentModel id={`${crop}_${stageName}`} /><CropStateSign label={stateLabel} color={stateColor} /></group>;
+  }
+  const stage = status === "READY" ? 4 : Math.max(0, Math.min(3, Math.floor(progress * 4)));
   return <group position={position}>
     <Box args={[1.12, 0.16, 1.04]} position={[0, 0.08, 0]} color={palette.soil} radius={0.03} />
-    {Array.from({ length: 9 }, (_, index) => <Crop key={index} type={crop} stage={stage} position={[(index % 3 - 1) * 0.32, 0.12, (Math.floor(index / 3) - 1) * 0.29]} />)}
+    <Float speed={1.05} floatIntensity={0.018} rotationIntensity={0.04}>
+      {Array.from({ length: 9 }, (_, index) => <Crop key={index} type={crop} stage={stage} position={[(index % 3 - 1) * 0.32, 0.12, (Math.floor(index / 3) - 1) * 0.29]} />)}
+    </Float>
   </group>;
+}
+
+function CropStateSign({ label, color }: { label: string; color: string }) {
+  return <group position={[0, 1.48, 0.57]}>
+    <Box args={[1.16, 0.28, 0.08]} color={color} radius={0.04} />
+    <Text position={[0, 0, 0.046]} fontSize={0.085} color="#fff8e8" anchorX="center" anchorY="middle" fontWeight={800}>{label}</Text>
+    {[-0.49, 0.49].map((x) => <Box key={x} args={[0.045, 0.92, 0.045]} position={[x, -0.49, 0]} color="#765035" radius={0.01} />)}
+  </group>;
+}
+
+function SeedMarkers() {
+  return <>{[-0.32, 0, 0.32].flatMap((x) => [-0.3, 0, 0.3].map((z) => <group key={`${x}-${z}`} position={[x, 0.13, z]}>
+    <mesh rotation={[-Math.PI / 2, 0, 0]}><ringGeometry args={[0.035, 0.055, 12]} /><meshBasicMaterial color="#ebc15d" /></mesh>
+  </group>))}</>;
 }
 
 function Crop({ type, position, stage }: { type: "wheat" | "carrot" | "tomato" | "lettuce" | "pumpkin" | "corn"; position: Position; stage: number }) {
   const height = 0.16 + stage * 0.1;
   const fruitColor = { wheat: "#d9b449", carrot: "#dc7440", tomato: "#d65643", lettuce: "#78a952", pumpkin: "#dc8a36", corn: "#e4bd4a" }[type];
-  if (type === "lettuce" || type === "pumpkin") return <Float speed={1} floatIntensity={0.015} rotationIntensity={0.03}><group position={position}>{Array.from({ length: 5 }, (_, index) => <mesh key={index} position={[(index - 2) * 0.025, height * 0.35, 0]} rotation={[0, 0, (index - 2) * 0.25]}><dodecahedronGeometry args={[type === "pumpkin" ? 0.13 : 0.11, 1]} /><meshStandardMaterial color={fruitColor} roughness={0.9} /></mesh>)}</group></Float>;
-  return <Float speed={1.1} floatIntensity={0.02} rotationIntensity={0.05}><group position={position}><mesh position={[0, height / 2, 0]}><cylinderGeometry args={[0.015, 0.023, height, 6]} /><meshStandardMaterial color="#668e43" /></mesh>{[-1, 1].map((side) => <mesh key={side} position={[side * 0.045, height * 0.55, 0]} rotation={[0, 0, side * -0.65]}><coneGeometry args={[0.045, 0.18, 6]} /><meshStandardMaterial color="#71994c" /></mesh>)}<mesh position={[0, height, 0]}><dodecahedronGeometry args={[type === "wheat" ? 0.065 : 0.075, 0]} /><meshStandardMaterial color={fruitColor} roughness={0.9} /></mesh></group></Float>;
+  if (type === "lettuce" || type === "pumpkin") return <group position={position}>{Array.from({ length: 5 }, (_, index) => <mesh key={index} position={[(index - 2) * 0.025, height * 0.35, 0]} rotation={[0, 0, (index - 2) * 0.25]}><dodecahedronGeometry args={[type === "pumpkin" ? 0.13 : 0.11, 1]} /><meshStandardMaterial color={fruitColor} roughness={0.9} /></mesh>)}</group>;
+  return <group position={position}><mesh position={[0, height / 2, 0]}><cylinderGeometry args={[0.015, 0.023, height, 6]} /><meshStandardMaterial color="#668e43" /></mesh>{[-1, 1].map((side) => <mesh key={side} position={[side * 0.045, height * 0.55, 0]} rotation={[0, 0, side * -0.65]}><coneGeometry args={[0.045, 0.18, 6]} /><meshStandardMaterial color="#71994c" /></mesh>)}<mesh position={[0, height, 0]}><dodecahedronGeometry args={[type === "wheat" ? 0.065 : 0.075, 0]} /><meshStandardMaterial color={fruitColor} roughness={0.9} /></mesh></group>;
 }
 
 function FenceLine({ position, length, vertical = false }: { position: Position; length: number; vertical?: boolean }) {
@@ -264,12 +584,54 @@ function FenceLine({ position, length, vertical = false }: { position: Position;
   return <group position={position} rotation={[0, vertical ? Math.PI / 2 : 0, 0]}>{Array.from({ length: count + 1 }, (_, index) => <Box key={index} args={[0.09, 0.68, 0.09]} position={[index * (length / count) - length / 2, 0.34, 0]} color={palette.wood} />)}{[0.2, 0.5].map((y) => <Box key={y} args={[length, 0.08, 0.08]} position={[0, y, 0]} color={palette.wood} />)}</group>;
 }
 
+function FarmGate({ position }: { position: Position }) {
+  return <group position={position} rotation={[0, Math.PI / 2, 0]}>
+    {[-0.58,0.58].map((x) => <Box key={x} args={[0.13,0.92,0.13]} position={[x,0.46,0]} color="#87552f" />)}
+    <group rotation={[0,0,-0.03]}>
+      <Box args={[1.05,0.1,0.1]} position={[0,0.23,0]} color="#a96d38" />
+      <Box args={[1.05,0.1,0.1]} position={[0,0.68,0]} color="#a96d38" />
+      <Box args={[0.1,0.7,0.1]} position={[0,0.46,0]} rotation={[0,0,-0.76]} color="#8a572f" />
+    </group>
+    {[-0.45,0.45].map((x) => <mesh key={x} position={[x,0.72,0.08]} rotation={[Math.PI/2,0,0]}><torusGeometry args={[0.045,0.014,6,12]} /><meshStandardMaterial color="#4a4d46" metalness={0.38} /></mesh>)}
+    <group position={[0, 1.24, 0]}>
+      <Box args={[1.34, 0.36, 0.1]} color="#315f45" radius={0.055} />
+      <Text position={[0, 0, 0.056]} fontSize={0.13} color="#fff2cf" anchorX="center" anchorY="middle" fontWeight={800}>HUERTA</Text>
+    </group>
+  </group>;
+}
+
+function IrrigationTrench({ position }: { position: Position }) {
+  return <group position={position} rotation={[0, Math.PI / 2, 0]}>
+    <Box args={[2.2,0.1,0.55]} position={[0,0.03,0]} color="#6c4a31" radius={0.1} />
+    <Box args={[2.02,0.055,0.34]} position={[0,0.09,0]} color="#4e9aa4" radius={0.08} />
+    {[-0.98,0.98].map((x) => <mesh key={x} position={[x,0.13,0]} rotation={[0,0,Math.PI/2]}><cylinderGeometry args={[0.09,0.11,0.34,9]} /><meshStandardMaterial color="#7b5839" /></mesh>)}
+  </group>;
+}
+
+function Sprinkler({ position }: { position: Position }) {
+  return <group position={position}>
+    <mesh position={[0,0.3,0]}><cylinderGeometry args={[0.06,0.09,0.6,10]} /><meshStandardMaterial color="#56635e" metalness={0.28} /></mesh>
+    <mesh position={[0,0.62,0]} rotation={[0,0,Math.PI/2]}><cylinderGeometry args={[0.035,0.035,0.5,9]} /><meshStandardMaterial color="#56635e" metalness={0.28} /></mesh>
+    {[-0.24,0.24].map((x) => <mesh key={x} position={[x,0.62,0]}><sphereGeometry args={[0.065,10,8]} /><meshStandardMaterial color="#48534f" /></mesh>)}
+    <mesh position={[0,0.02,0]}><cylinderGeometry args={[0.24,0.3,0.08,14]} /><meshStandardMaterial color="#64874f" /></mesh>
+  </group>;
+}
+
 function FarmTools({ position }: { position: Position }) {
   return <group position={position}>
+    <group position={[0, 0, 0.48]} scale={0.78}><EnvironmentModel id="farm_tool_set" /></group>
     <WateringCan position={[0, 0.18, 0]} />
     <Box args={[0.42, 0.62, 0.26]} position={[0.55, 0.31, 0]} color="#b79b58" radius={0.08} />
     <Text position={[0.55, 0.34, 0.14]} fontSize={0.09} color="#4b5038">SEMILLAS</Text>
     <Box args={[0.65, 0.38, 0.5]} position={[-0.55, 0.19, 0]} color={palette.wood} radius={0.035} />
+    <SeedSack position={[0.05,0.3,-0.45]} />
+  </group>;
+}
+
+function SeedSack({ position }: { position: Position }) {
+  return <group position={position}>
+    <mesh scale={[0.85,1.2,0.66]}><sphereGeometry args={[0.22,14,10]} /><meshStandardMaterial color="#b99559" roughness={1} /></mesh>
+    <mesh position={[0,0.27,0]}><torusGeometry args={[0.085,0.025,6,12]} /><meshStandardMaterial color="#765338" /></mesh>
   </group>;
 }
 
