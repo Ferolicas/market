@@ -17,7 +17,7 @@ export const domainEventSchema = z.object({
 export interface RecoveryEnvelope { state: GameState; saveRevision: number; pendingEvents: GameEvent[]; }
 
 export function createSnapshot(state: GameState, now = new Date()) {
-  return { ...structuredClone(state), schemaVersion: 3 as const, lastSavedAt: now.toISOString() };
+  return { ...structuredClone(state), schemaVersion: 4 as const, lastSavedAt: now.toISOString() };
 }
 
 export function chooseRecovery(server: RecoveryEnvelope, local: RecoveryEnvelope) {

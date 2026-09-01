@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { advanceWorld, applyGameAction, CHECKOUT_SCAN_UNIT_MS, createInitialGame, normalizeGameState } from "./engine";
+import { advanceWorld, applyGameAction, CHECKOUT_SCAN_UNIT_MS, createInitialGame, employeeHiringQuote, normalizeGameState, unlockedCustomerProducts, upgradeQuote } from "./engine";
 import type { CheckoutTransaction, CustomerRuntimeState, GameState, PaymentMethod } from "./types";
 import { CHECKOUT_LANES } from "./stations/checkout-layout";
+import { createCustomerMind } from "./ai/CustomerBrain";
 
 function addReadyCheckout(state: GameState, id: string, paymentMethod: PaymentMethod) {
   const customer = {
@@ -31,7 +32,7 @@ describe("motor económico", () => {
   it("agrupa las interacciones de proximidad en una sola revisión inmutable del mundo", () => {
     const state = createInitialGame("ES");
     const franchise = state.franchises[0];
-    franchise.carry = { capacity: 3, item: { productId: "tomatoes", quantity: 2 } };
+    franchise.carry = { capacity: 3, items: { tomatoes: 2 } };
     franchise.shelves.tomatoes = 0;
 
     const result = advanceWorld(state, 100, undefined, {
@@ -43,11 +44,11 @@ describe("motor económico", () => {
 
     expect(result.ok).toBe(true);
     expect(result.state.franchises[0].shelves.tomatoes).toBe(2);
-    expect(result.state.franchises[0].carry.item).toBeNull();
+    expect(result.state.franchises[0].carry.items).toEqual({});
     expect(result.state.progression.counters["stock:tomatoes"]).toBe(2);
     expect(result.state.revision).toBe(state.revision + 1);
     expect(state.franchises[0].shelves.tomatoes).toBe(0);
-    expect(state.franchises[0].carry.item?.quantity).toBe(2);
+    expect(state.franchises[0].carry.items.tomatoes).toBe(2);
   });
 
   it("recorre waypoints cortos sin detenerse en cada tick", () => {
@@ -72,7 +73,7 @@ describe("motor económico", () => {
       id: "dense-worker", name: "Luna", role: "stocker", level: 3, salaryMinor: 3_000, energy: 100, hat: "frog",
       runtime: {
         state: "NAVIGATE_PICKUP", assignedProduct: "tomatoes", assignedStationId: "stockroom",
-        carry: { capacity: 4, item: null }, x: 0, z: 0, targetX: 0.04, targetZ: 0,
+        carry: { capacity: 4, items: {} }, x: 0, z: 0, targetX: 0.04, targetZ: 0,
         path: [[0.04, 0], [0.08, 0], [0.2, 0], [1, 0]], pathIndex: 0, speed: 1.66, currentSpeed: 1.66, stateSince: 0,
       },
     }];
@@ -101,18 +102,36 @@ describe("motor económico", () => {
     state.level = 5;
     state.franchises[0].employees.push({ id: "e1", name: "Luna", role: "stocker", level: 1, salaryMinor: 3000, energy: 100, hat: "frog" });
     state.franchises[0].open = true;
+    state.franchises[0].lastCustomerSpawnAt = 999_999;
     for (const productId of Object.keys(state.franchises[0].warehouse) as (keyof typeof state.franchises[0]["warehouse"])[]) state.franchises[0].warehouse[productId] = 0;
     state.franchises[0].shelves.apples = 0;
     state.franchises[0].warehouse.apples = 3;
     for (let tick = 0; tick < 60; tick++) state = advanceWorld(state, 1_000).state;
     expect(state.franchises[0].shelves.apples).toBeGreaterThan(0);
-    expect(state.franchises[0].warehouse.apples + state.franchises[0].shelves.apples + (state.franchises[0].employees[0].runtime?.carry.item?.quantity ?? 0)).toBe(3);
+    expect(state.franchises[0].warehouse.apples + state.franchises[0].shelves.apples + (state.franchises[0].employees[0].runtime?.carry.items.apples ?? 0)).toBe(3);
   });
 
   it("no permite gastar más caja de la disponible", () => {
     const state = createInitialGame("ES");
     state.balanceMinor = 0;
     expect(applyGameAction(state, { type: "ORDER", supplierId: "campo", productId: "wheat", quantity: 20 }).ok).toBe(false);
+  });
+
+  it("usa la misma cuantización entera para salario, alta y contratación", () => {
+    const state = createInitialGame("US");
+    state.level = 4;
+    const quote = employeeHiringQuote("operator", state.countryCode);
+    state.balanceMinor = quote.signingCostMinor;
+
+    expect(quote).toEqual({ salaryMinor: 3_636, signingCostMinor: 7_272 });
+    expect(Number.isInteger(quote.salaryMinor)).toBe(true);
+    expect(Number.isInteger(quote.signingCostMinor)).toBe(true);
+
+    const result = applyGameAction(state, { type: "HIRE", role: "operator" });
+    expect(result.ok).toBe(true);
+    expect(result.state.balanceMinor).toBe(0);
+    expect(result.state.franchises[0].employees[0].salaryMinor).toBe(quote.salaryMinor);
+    expect(result.events[0]?.amountMinor).toBe(-quote.signingCostMinor);
   });
 
   it("registra cobros manuales por efectivo y tarjeta", () => {
@@ -184,7 +203,7 @@ describe("motor económico", () => {
         state: "OPERATE_CHECKOUT",
         assignedProduct: null,
         assignedStationId: "checkout-1",
-        carry: { capacity: 2, item: null },
+        carry: { capacity: 2, items: {} },
         x: 6.35,
         z: 2.78,
         targetX: 6.35,
@@ -247,10 +266,65 @@ describe("motor económico", () => {
     delete legacy.avatar.hair;
     delete legacy.avatar.hairColor;
     const migrated = normalizeGameState(legacy);
-    expect(migrated.schemaVersion).toBe(3);
+    expect(migrated.schemaVersion).toBe(4);
     expect(migrated.avatar.body).toBe("adult-man");
     const changed = applyGameAction(migrated, { type: "SET_AVATAR", body: "adult-woman", hair: "long-wavy", hairColor: "#7a3f22", hat: "none" });
     expect(changed.state.avatar).toMatchObject({ body: "adult-woman", hair: "long-wavy", hairColor: "#7a3f22", hat: "none" });
+  });
+
+  it("retires only the inherited red-panda default when migrating to snapshot v4", () => {
+    const inherited = structuredClone(createInitialGame("ES"));
+    inherited.schemaVersion = 3 as 4;
+    inherited.avatar = { body: "adult-man", hair: "side-part", hairColor: "#332b27", skin: "#bd815f", shirt: "#76aee5", hat: "red-panda" };
+    expect(normalizeGameState(inherited).avatar.hat).toBe("none");
+
+    const personalizedLegacy = structuredClone(inherited);
+    personalizedLegacy.avatar.shirt = "#c95f72";
+    expect(normalizeGameState(personalizedLegacy).avatar.hat).toBe("red-panda");
+
+    const explicitV4Choice = structuredClone(inherited);
+    explicitV4Choice.schemaVersion = 4;
+    expect(normalizeGameState(explicitV4Choice).avatar.hat).toBe("red-panda");
+  });
+
+  it("adds apples and coffee to real customer demand only at their unlock levels", () => {
+    expect(unlockedCustomerProducts(1)).not.toContain("apples");
+    expect(unlockedCustomerProducts(2)).toContain("apples");
+    expect(unlockedCustomerProducts(8)).not.toContain("coffee");
+    expect(unlockedCustomerProducts(9)).toContain("coffee");
+
+    const canBeDemanded = (level: number, productId: "apples" | "coffee") => Array.from({ length: 128 }, (_, seed) => (
+      createCustomerMind(`demand-${level}-${seed}`, unlockedCustomerProducts(level), seed + 1, level)
+        .shoppingList.some((line) => line.productId === productId)
+    )).some(Boolean);
+    expect(canBeDemanded(1, "apples")).toBe(false);
+    expect(canBeDemanded(2, "apples")).toBe(true);
+    expect(canBeDemanded(8, "coffee")).toBe(false);
+    expect(canBeDemanded(9, "coffee")).toBe(true);
+  });
+
+  it("uses human station names in upgrade quotes, events and messages", () => {
+    const state = createInitialGame("ES");
+    state.franchises[0].stationTiers = { "crop-tomato-1": 1 };
+
+    const quote = upgradeQuote(state, "station");
+    const result = applyGameAction(state, { type: "CONTRIBUTE_UPGRADE", upgrade: "station", amountMinor: 100 });
+
+    expect(quote?.label).toBe("Bancal de tomates");
+    expect(result.message).toContain("Bancal de tomates");
+    expect(result.events[0]?.description).toContain("Bancal de tomates");
+    expect(`${quote?.label} ${result.message} ${result.events[0]?.description}`).not.toContain("crop-tomato-1");
+  });
+
+  it("recupera la carga legacy de un solo producto dentro de la cesta mixta", () => {
+    const legacy = structuredClone(createInitialGame("ES")) as unknown as {
+      franchises: { carry: { capacity: number; item: { productId: "tomatoes"; quantity: number }; items?: unknown } }[];
+    };
+    legacy.franchises[0].carry = { capacity: 5, item: { productId: "tomatoes", quantity: 4 } };
+
+    const migrated = normalizeGameState(legacy);
+
+    expect(migrated.franchises[0].carry).toEqual({ capacity: 5, items: { tomatoes: 4 } });
   });
 
   it("replaces hats from retired non-kit assets during recovery", () => {

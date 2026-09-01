@@ -1,17 +1,28 @@
 "use client";
 
-import { Float, RoundedBox, Text, useGLTF, useTexture } from "@react-three/drei";
+import { RoundedBox, Text, useGLTF, useTexture } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { useCallback, useEffect, useMemo, useRef, type ReactNode } from "react";
 import * as THREE from "three";
 import { scaleStorePosition, STORE_ELEMENT_SCALE } from "@/game/world-scale";
 import type { CheckoutTransaction, CropState, CustomerRuntimeState, Inventory, ProductId, ProductionMachineState } from "@/game/types";
 import { cropProgress } from "@/game/stations/StationSystem";
-import { CHECKOUT_LANES } from "@/game/stations/checkout-layout";
+import { CHECKOUT_LANES, activeCheckoutForLane, checkoutBagLocation, checkoutHandoffForLane } from "@/game/stations/checkout-layout";
+import { FARM_PLOTS } from "@/game/stations/farm-layout";
 import { RETAIL_DEPARTMENTS, retailDisplayPosition } from "@/game/stations/retail-layout";
 import { marketAsset } from "@/game/assets/AssetRegistry";
 
 type Position = [number, number, number];
+
+const WALL_SHELF_LOW_LEVELS = [0.48, 1.03] as const;
+const WALL_SHELF_TALL_LEVELS = [0.48, 1.03, 1.58, 2.1] as const;
+const GONDOLA_LEVELS = [0.38, 0.83, 1.28] as const;
+
+interface InstanceTransform {
+  position: Position;
+  rotation?: Position;
+  scale?: Position;
+}
 
 const palette = {
   cream: "#eee8d8",
@@ -23,6 +34,27 @@ const palette = {
   soil: "#765035",
   metal: "#87928e",
 };
+
+function StaticInstances({ transforms, children, castShadow = false, receiveShadow = false }: { transforms: readonly InstanceTransform[]; children: ReactNode; castShadow?: boolean; receiveShadow?: boolean }) {
+  const ref = useRef<THREE.InstancedMesh>(null);
+  useEffect(() => {
+    const mesh = ref.current;
+    if (!mesh) return;
+    const dummy = new THREE.Object3D();
+    transforms.forEach((transform, index) => {
+      dummy.position.set(...transform.position);
+      dummy.rotation.set(...(transform.rotation ?? [0, 0, 0]));
+      dummy.scale.set(...(transform.scale ?? [1, 1, 1]));
+      dummy.updateMatrix();
+      mesh.setMatrixAt(index, dummy.matrix);
+    });
+    mesh.count = transforms.length;
+    mesh.instanceMatrix.needsUpdate = true;
+    mesh.computeBoundingBox();
+    mesh.computeBoundingSphere();
+  }, [transforms]);
+  return <instancedMesh ref={ref} args={[undefined, undefined, transforms.length]} castShadow={castShadow} receiveShadow={receiveShadow}>{children}</instancedMesh>;
+}
 
 type KitSurface = "charcoal" | "cream" | "olive" | "wood";
 const preparedSurfaceTextures = new WeakSet<THREE.Texture>();
@@ -59,20 +91,20 @@ function surfaceForColor(color: string): KitSurface | null {
   return null;
 }
 
-function Product({ position, color, shape = "box", scale = 1 }: { position: Position; color: string; shape?: "box" | "bottle" | "produce"; scale?: number }) {
-  if (shape === "bottle") return <group position={position} scale={scale}><mesh><cylinderGeometry args={[0.055, 0.06, 0.22, 8]} /><meshStandardMaterial color={color} /></mesh><mesh position={[0, 0.14, 0]}><cylinderGeometry args={[0.025, 0.035, 0.07, 7]} /><meshStandardMaterial color="#f1e5c8" /></mesh></group>;
-  if (shape === "produce") return <mesh position={position} scale={scale}><dodecahedronGeometry args={[0.09, 1]} /><meshStandardMaterial color={color} roughness={0.9} /></mesh>;
-  return <Box args={[0.15 * scale, 0.23 * scale, 0.12 * scale]} position={position} color={color} radius={0.018} />;
-}
-
-function ProductRow({ y, z = 0.36, colors = ["#d76a4d", "#e5b84d", "#77a85d", "#6599ad"], count = 6, shape = "box" }: { y: number; z?: number; colors?: string[]; count?: number; shape?: "box" | "bottle" | "produce" }) {
-  return <>{Array.from({ length: count }, (_, index) => <Product key={index} position={[(index - (count - 1) / 2) * 0.19, y, z]} color={colors[index % colors.length]} shape={shape} scale={0.9} />)}</>;
-}
-
 function DepartmentSign({ label, color, position = [0, 1.82, 0.03], width = 1.72 }: { label: string; color: string; position?: Position; width?: number }) {
   return <group position={position}>
-    <Box args={[width, 0.34, 0.09]} color={color} radius={0.045} />
+    <Box args={[width + 0.1, 0.42, 0.07]} position={[0, -0.025, -0.035]} color={palette.frame} radius={0.055} />
+    <Box args={[width, 0.31, 0.09]} color={color} radius={0.045} />
     <Text position={[0, 0, 0.052]} fontSize={0.135} color="#fffaf0" anchorX="center" anchorY="middle" fontWeight={800}>{label}</Text>
+  </group>;
+}
+
+function ShelfMerchandising({ levels, width, z, accent }: { levels: readonly number[]; width: number; z: number; accent: string }) {
+  const rails = useMemo<InstanceTransform[]>(() => levels.map((y) => ({ position: [0, y, z], scale: [width, 0.045, 0.035] })), [levels, width, z]);
+  const tags = useMemo<InstanceTransform[]>(() => levels.flatMap((y) => [-0.3, 0.3].map((offset) => ({ position: [offset * width, y + 0.018, z + 0.021], scale: [0.22, 0.075, 0.018] }))), [levels, width, z]);
+  return <group>
+    <StaticInstances transforms={rails} receiveShadow><boxGeometry args={[1, 1, 1]} /><meshStandardMaterial color={accent} roughness={0.58} metalness={0.08} /></StaticInstances>
+    <StaticInstances transforms={tags}><boxGeometry args={[1, 1, 1]} /><meshStandardMaterial color="#fff6dc" roughness={0.72} /></StaticInstances>
   </group>;
 }
 
@@ -156,7 +188,17 @@ function EnvironmentFrameDriver({ model, onFrame }: { model: THREE.Group; onFram
 export function KitFurniture({ shelves, machines, customers, checkoutTransactions, returnsBin, returnedCartCount, lightsOn, unlockedAreas }: { shelves: Inventory; machines: ProductionMachineState[]; customers: CustomerRuntimeState[]; checkoutTransactions: CheckoutTransaction[]; returnsBin: Inventory; returnedCartCount: number; lightsOn: boolean; unlockedAreas: string[] }) {
   const machine = (id: string) => machines.find((candidate) => candidate.id === id);
   const coldDoorActive = customers.some((customer) => ["WAIT_FOR_ACCESS", "PICK_PRODUCT"].includes(customer.state) && ["milk", "cheese"].includes(customer.shoppingList[customer.currentLine]?.productId ?? ""));
-  const checkoutTransaction = (lane: 0 | 1) => checkoutTransactions.find((transaction) => (transaction.checkoutLane ?? 0) === lane && transaction.state !== "ABANDONED");
+  const activeCheckouts = useMemo(() => [activeCheckoutForLane(checkoutTransactions, 0), activeCheckoutForLane(checkoutTransactions, 1)] as const, [checkoutTransactions]);
+  const checkoutHandoffs = useMemo(() => [checkoutHandoffForLane(checkoutTransactions, 0, customers), checkoutHandoffForLane(checkoutTransactions, 1, customers)] as const, [checkoutTransactions, customers]);
+  const checkoutHandoffLocations = useMemo(() => [checkoutBagLocation(checkoutHandoffs[0], customers), checkoutBagLocation(checkoutHandoffs[1], customers)] as const, [checkoutHandoffs, customers]);
+  useEffect(() => {
+    const qaWindow = window as typeof window & { __MARKET_QA__?: Record<string, unknown> };
+    if (qaWindow.__MARKET_QA__) {
+      qaWindow.__MARKET_QA__.checkoutPresentation = activeCheckouts.map((transaction) => transaction?.id ?? null);
+      qaWindow.__MARKET_QA__.checkoutHandoffPresentation = checkoutHandoffs.map((transaction) => transaction?.id ?? null);
+      qaWindow.__MARKET_QA__.checkoutBagPresentation = checkoutHandoffLocations.map((location, lane) => location ?? (activeCheckouts[lane] ? "counter" : null));
+    }
+  }, [activeCheckouts, checkoutHandoffs, checkoutHandoffLocations]);
   return <group>
     <StoreElement position={[-5.2, 0, -8.05]}><WallShelf position={[0, 0, 0]} width={2.05} productId="bread" count={shelves.bread} low /></StoreElement>
     <StoreElement position={[-2.8, 0, -8.05]}><WallShelf position={[0, 0, 0]} width={2.05} productId="coffee" count={shelves.coffee} /></StoreElement>
@@ -174,9 +216,9 @@ export function KitFurniture({ shelves, machines, customers, checkoutTransaction
     <StoreElement position={[-7.0, 0, 3.15]}><ProduceRack position={[0, 0, 0]} count={shelves.corn} /></StoreElement>
     {unlockedAreas.includes("endcap-display") && <StoreElement position={[6.4, 0, -2.2]}><EnvironmentModel id="shelf_endcap" /><group position={[0, 0, 0.72]} scale={0.72}><EnvironmentModel id="display_promo_basket" /></group></StoreElement>}
 
-    <StoreElement position={[...CHECKOUT_LANES[0].counter]}><CheckoutKit position={[0, 0, 0]} lane={0} transaction={checkoutTransaction(0)} /></StoreElement>
+    <StoreElement position={[...CHECKOUT_LANES[0].counter]}><CheckoutKit position={[0, 0, 0]} lane={0} transaction={activeCheckouts[0]} handoffTransaction={checkoutHandoffs[0]} handoffBagAtCounter={checkoutHandoffLocations[0] === "counter"} /></StoreElement>
     <StoreElement position={[...CHECKOUT_LANES[0].cashierWork]}><CashierWorkArea /></StoreElement>
-    {unlockedAreas.includes("checkout-2") && <><StoreElement position={[...CHECKOUT_LANES[1].counter]}><CheckoutKit position={[0, 0, 0]} lane={1} transaction={checkoutTransaction(1)} /></StoreElement><StoreElement position={[...CHECKOUT_LANES[1].cashierWork]}><CashierWorkArea /></StoreElement></>}
+    {unlockedAreas.includes("checkout-2") && <><StoreElement position={[...CHECKOUT_LANES[1].counter]}><CheckoutKit position={[0, 0, 0]} lane={1} transaction={activeCheckouts[1]} handoffTransaction={checkoutHandoffs[1]} handoffBagAtCounter={checkoutHandoffLocations[1] === "counter"} /></StoreElement><StoreElement position={[...CHECKOUT_LANES[1].cashierWork]}><CashierWorkArea /></StoreElement></>}
     <StoreElement position={[9.85, 0, 5.45]}><ReturnsCubicle inventory={returnsBin} /></StoreElement>
     <StoreElement position={[3.05, 0, 6.55]}><CartBay position={[0, 0, 0]} count={returnedCartCount} /></StoreElement>
     {unlockedAreas.includes("bread-oven") && <StoreElement position={[-8.75, 0, -0.45]}><BakeryKit position={[0, 0, 0]} machine={machine("bread-oven-1")} /></StoreElement>}
@@ -188,13 +230,6 @@ export function KitFurniture({ shelves, machines, customers, checkoutTransaction
     <StoreElement position={[8.8, 0, -5.35]}><TerminalModel position={[0, 0, 0]} label="MAPA" /></StoreElement>
     <StoreUtilities lightsOn={lightsOn} />
   </group>;
-}
-
-function productVisual(productId: ProductId): { color: string; shape: "box" | "bottle" | "produce" } {
-  const colors: Record<ProductId, string> = { tomatoes: "#d65643", apples: "#c94f3e", corn: "#e4bd4a", eggs: "#eee4c8", milk: "#f4f0df", juice: "#d96842", wheat: "#d9b449", flour: "#eee2c8", bread: "#ad6d35", cheese: "#e8b94b", coffee: "#6b4031" };
-  if (["tomatoes", "apples", "corn", "eggs"].includes(productId)) return { color: colors[productId], shape: "produce" };
-  if (["milk", "juice"].includes(productId)) return { color: productId === "milk" ? "#f4f0df" : "#d96842", shape: "bottle" };
-  return { color: colors[productId], shape: "box" };
 }
 
 const PRODUCTS_LABELS: Record<ProductId, string> = {
@@ -221,9 +256,11 @@ function departmentColor(productId: ProductId) {
 
 function WallShelf({ position, width, productId, count, low = false }: { position: Position; width: number; productId: ProductId; count: number; low?: boolean }) {
   const perRow = Math.floor(width * 4);
+  const levels = low ? WALL_SHELF_LOW_LEVELS : WALL_SHELF_TALL_LEVELS;
   return <group position={position}>
     <EnvironmentModel id={low ? "shelf_wall_low" : "shelf_wall_tall"} />
-    {(low ? [0.48, 1.03] : [0.48, 1.03, 1.58, 2.1]).map((y, row) => <RetailProductRow key={y} productId={productId} y={y + 0.16} z={0.48} count={Math.min(perRow, Math.max(0, count - row * perRow))} />)}
+    {levels.map((y, row) => <RetailProductRow key={y} productId={productId} y={y + 0.16} z={0.48} count={Math.min(perRow, Math.max(0, count - row * perRow))} />)}
+    <ShelfMerchandising levels={levels} width={1.86} z={0.53} accent={departmentColor(productId)} />
     <DepartmentSign label={PRODUCTS_LABELS[productId]} color={departmentColor(productId)} position={[0, low ? 1.42 : 2.42, 0.08]} width={1.88} />
   </group>;
 }
@@ -232,8 +269,10 @@ function Gondola({ position, productId, count, single = false }: { position: Pos
   return <group position={position}>
     <EnvironmentModel id={single ? "shelf_gondola_single" : "shelf_gondola_double"} />
     {(single ? [1] : [-1, 1]).map((side, sideIndex) => <group key={side} position={[0, 0, side * 0.31]} rotation={[0, side < 0 ? Math.PI : 0, 0]}>
-      {[0.38, 0.83, 1.28].map((y, row) => <RetailProductRow key={y} productId={productId} y={y + 0.15} z={0.31} count={Math.min(8, Math.max(0, count - (sideIndex * 3 + row) * 8))} />)}
+      {GONDOLA_LEVELS.map((y, row) => <RetailProductRow key={y} productId={productId} y={y + 0.15} z={0.31} count={Math.min(8, Math.max(0, count - (sideIndex * 3 + row) * 8))} />)}
+      <ShelfMerchandising levels={GONDOLA_LEVELS} width={1.86} z={0.35} accent={departmentColor(productId)} />
     </group>)}
+    <Box args={[2.05, 0.13, 0.86]} position={[0, 0.08, 0]} color={palette.frame} radius={0.045} />
     <DepartmentSign label={productId === "bread" ? RETAIL_DEPARTMENTS.bakery.label : RETAIL_DEPARTMENTS.pantry.label} color={productId === "bread" ? RETAIL_DEPARTMENTS.bakery.color : RETAIL_DEPARTMENTS.pantry.color} position={[0, 1.82, 0]} width={1.85} />
   </group>;
 }
@@ -256,7 +295,7 @@ function ProduceRack({ position, count }: { position: Position; count: number })
     <EnvironmentModel id="display_produce_tomato" />
     {[0.38, 0.88, 1.36].map((y, row) => <group key={y} position={[0, y, 0]} rotation={[row === 2 ? -0.12 : -0.2, 0, 0]}>
       {[-0.52, 0, 0.52].map((x, column) => <group key={x}>
-        {Array.from({ length: Math.min(5, Math.max(0, count - (row * 3 + column) * 5)) }, (_, index) => <Product key={index} position={[x + (index % 2) * 0.13 - 0.06, 0.19, (Math.floor(index / 2) - 1) * 0.16]} color="#e5aa3d" shape="produce" scale={0.8} />)}
+        {Array.from({ length: Math.min(5, Math.max(0, count - (row * 3 + column) * 5)) }, (_, index) => <RetailProduct key={index} productId="corn" position={[x + (index % 2) * 0.13 - 0.06, 0.19, (Math.floor(index / 2) - 1) * 0.16]} scale={0.8} />)}
       </group>)}
     </group>)}
   </group>;
@@ -266,8 +305,11 @@ function ChilledDisplay({ position, milk, cheese }: { position: Position; milk: 
   return <group position={position}>
     <EnvironmentModel id="display_refrigerated_open" />
     <DepartmentSign label={RETAIL_DEPARTMENTS.dairy.label} color={RETAIL_DEPARTMENTS.dairy.color} position={[0, 2.28, 0.03]} width={1.9} />
-    <RetailProductRow productId="milk" y={0.69} z={0.18} count={Math.min(8, milk)} />
-    <RetailProductRow productId="cheese" y={0.69} z={-0.18} count={Math.min(8, cheese)} />
+    {[0.56, 1.05, 1.54].map((y, row) => <group key={y}>
+      <group position={[-0.49, 0, 0]}><RetailProductRow productId="milk" y={y} z={0.34} spacing={0.18} count={Math.min(4, Math.max(0, milk - row * 4))} /></group>
+      <group position={[0.49, 0, 0]}><RetailProductRow productId="cheese" y={y} z={0.34} spacing={0.18} count={Math.min(4, Math.max(0, cheese - row * 4))} /></group>
+    </group>)}
+    <mesh position={[0, 1.12, 0.08]}><planeGeometry args={[1.92, 1.62]} /><meshBasicMaterial color="#bce7ee" transparent opacity={0.065} depthWrite={false} /></mesh>
   </group>;
 }
 
@@ -299,7 +341,7 @@ function GlassFridge({ position, milk, cheese, open }: { position: Position; mil
   return <group position={position}>
     <EnvironmentModel id="display_refrigerated_doors" onFrame={(model, delta) => model.traverse((node) => { if (node.name.startsWith("Door")) node.rotation.y = THREE.MathUtils.lerp(node.rotation.y, open ? (node.name.endsWith(".001") ? -0.55 : 0.55) : 0, 1 - Math.exp(-7 * delta)); })} />
     {[-0.52, 0.52].map((x, door) => <group key={x} position={[x, 1.25, 0.36]}>
-      {[0.55, 0.05, -0.45].map((y, row) => <group key={y}><Box args={[0.86, 0.035, 0.35]} position={[0, y, -0.08]} color="#d8dfdc" /><ProductRow y={y + 0.12} z={0.03} count={Math.min(4, Math.max(0, (door ? cheese : milk) - row * 4))} shape={door ? "box" : "bottle"} colors={[door ? "#e8b94b" : "#f4f0df"]} /></group>)}
+      {[0.55, 0.05, -0.45].map((y, row) => <group key={y}><Box args={[0.86, 0.035, 0.35]} position={[0, y, -0.08]} color="#d8dfdc" /><RetailProductRow productId={door ? "cheese" : "milk"} y={y + 0.12} z={0.03} spacing={0.18} count={Math.min(4, Math.max(0, (door ? cheese : milk) - row * 4))} /></group>)}
     </group>)}
   </group>;
 }
@@ -308,10 +350,13 @@ function MetalRack({ position }: { position: Position }) {
   return <group position={position}><EnvironmentModel id="rack_stockroom" /></group>;
 }
 
-function CheckoutKit({ position, lane, transaction }: { position: Position; lane: 0 | 1; transaction?: CheckoutTransaction }) {
+function CheckoutKit({ position, lane, transaction, handoffTransaction, handoffBagAtCounter }: { position: Position; lane: 0 | 1; transaction?: CheckoutTransaction; handoffTransaction?: CheckoutTransaction; handoffBagAtCounter: boolean }) {
   const scanning = transaction?.state === "SCANNING" || transaction?.state === "BAGGING";
   const bagged = transaction?.pendingItems.reduce((total, line) => total + line.bagged, 0) ?? 0;
   const total = transaction?.pendingItems.reduce((sum, line) => sum + line.quantity, 0) ?? 0;
+  const handoffBagged = handoffTransaction?.pendingItems.reduce((sum, line) => sum + line.bagged, 0) ?? 0;
+  const handoffTotal = handoffTransaction?.pendingItems.reduce((sum, line) => sum + line.quantity, 0) ?? 0;
+  const hasSeparateHandoffBag = Boolean(handoffTransaction && handoffBagAtCounter);
   const units = transaction?.pendingItems.flatMap((line) => Array.from({ length: line.quantity }, (_, unit) => ({
     productId: line.productId,
     loaded: unit < line.loaded,
@@ -334,7 +379,9 @@ function CheckoutKit({ position, lane, transaction }: { position: Position; lane
     <Box args={[0.32, 0.13, 0.5]} position={[1.78, 1.16, 0.24]} color="#e8ece7" radius={0.055} />
     <mesh position={[1.78, 1.26, 0.26]} rotation={[-0.42, 0, 0]}><planeGeometry args={[0.21, 0.18]} /><meshStandardMaterial color={transaction?.state === "PAYMENT" ? "#91f2be" : "#77948a"} emissive="#42a776" emissiveIntensity={transaction?.state === "PAYMENT" ? 1.4 : 0.18} /></mesh>
     <Box args={[0.92, 0.5, 0.82]} position={[1.67, 0.48, 0]} color="#eff1e8" radius={0.09} />
-    <CheckoutBag fill={total ? bagged / total : 0} />
+    {transaction && <CheckoutBag fill={total ? bagged / total : 0} position={hasSeparateHandoffBag ? [1.34, 1.02, 0.24] : undefined} />}
+    {hasSeparateHandoffBag && <CheckoutBag fill={handoffTotal ? handoffBagged / handoffTotal : 1} position={transaction ? [1.94, 1.02, -0.24] : undefined} />}
+    {!transaction && !handoffTransaction && <CheckoutBag fill={0} />}
     {units.map((unit, index) => unit.loaded && !unit.bagged ? <CheckoutProductUnit key={`${unit.productId}-${index}`} productId={unit.productId} index={index} scanned={unit.scanned} /> : null)}
     <mesh position={[-1.55, 2.32, -0.48]}><boxGeometry args={[0.06, 2.35, 0.06]} /><meshStandardMaterial color="#4b5b56" metalness={0.4} /></mesh>
     <mesh position={[-1.55, 3.08, -0.44]}><boxGeometry args={[0.98, 0.58, 0.12]} /><meshStandardMaterial color="#f4e4ad" roughness={0.55} /></mesh>
@@ -346,12 +393,11 @@ function CheckoutProductUnit({ productId, index, scanned }: { productId: Product
   const ref = useRef<THREE.Group>(null);
   const target = useMemo(() => new THREE.Vector3(scanned ? 1.48 : Math.min(0.15, -1.66 + index * 0.29), scanned ? 1.38 : 1.25, scanned ? 0.18 : 0), [index, scanned]);
   useFrame((_, delta) => { if (ref.current) ref.current.position.lerp(target, 1 - Math.exp(-8 * delta)); });
-  const visual = productVisual(productId);
-  return <group ref={ref} position={[-2.05, 1.45, 0.42]}><Product position={[0, 0, 0]} color={visual.color} shape={visual.shape} scale={1.18} /></group>;
+  return <group ref={ref} position={[-2.05, 1.45, 0.42]}><RetailProduct productId={productId} position={[0, 0, 0]} scale={1.18} /></group>;
 }
 
-function CheckoutBag({ fill }: { fill: number }) {
-  return <group position={[1.67, 1.02, 0]} scale={[1, 0.72 + fill * 0.28, 1]}>
+function CheckoutBag({ fill, position = [1.67, 1.02, 0] }: { fill: number; position?: Position }) {
+  return <group position={position} scale={[1, 0.72 + fill * 0.28, 1]}>
     <mesh><boxGeometry args={[0.56, 0.72, 0.42]} /><meshStandardMaterial color="#c7935e" roughness={0.92} /></mesh>
     <mesh position={[0, 0.41, 0]} rotation={[Math.PI / 2, 0, 0]}><torusGeometry args={[0.18, 0.025, 7, 16, Math.PI]} /><meshStandardMaterial color="#8b623d" /></mesh>
     {fill > 0 && <mesh position={[0, 0.26, 0]}><boxGeometry args={[0.4, 0.12, 0.3]} /><meshStandardMaterial color="#e0b44a" /></mesh>}
@@ -360,19 +406,19 @@ function CheckoutBag({ fill }: { fill: number }) {
 
 function CashierWorkArea() {
   return <group>
-    <mesh rotation={[-Math.PI / 2, 0, 0]}><planeGeometry args={[1.35, 0.92]} /><meshStandardMaterial color="#63bd8b" emissive="#255d45" emissiveIntensity={0.35} transparent opacity={0.72} /></mesh>
-    <Text position={[0, 0.018, 0]} rotation={[-Math.PI / 2, 0, 0]} fontSize={0.13} color="#effff5" anchorX="center">PUESTO CAJERO</Text>
+    <Box args={[1.34, 0.045, 0.9]} position={[0, 0.022, 0]} color="#293532" radius={0.12} />
+    {[-0.42, -0.21, 0, 0.21, 0.42].map((x) => <mesh key={x} position={[x, 0.049, 0]}><boxGeometry args={[0.035, 0.012, 0.68]} /><meshStandardMaterial color="#4a5b56" roughness={0.9} /></mesh>)}
   </group>;
 }
 
 function ReturnsCubicle({ inventory }: { inventory: Inventory }) {
-  const units = Object.values(inventory).reduce((total, quantity) => total + quantity, 0);
+  const units = (Object.entries(inventory) as [ProductId, number][]).flatMap(([productId, quantity]) => Array.from({ length: Math.min(6, quantity) }, () => productId)).slice(0, 6);
   return <group>
     <Box args={[1.35, 1.25, 1.05]} position={[0, 0.63, 0]} color="#d5c3aa" radius={0.08} />
     <Box args={[1.05, 0.72, 0.82]} position={[0, 0.86, 0.04]} color="#735847" radius={0.06} />
     <mesh position={[0, 1.31, 0.54]}><boxGeometry args={[1.42, 0.34, 0.08]} /><meshStandardMaterial color="#e7bb62" /></mesh>
     <Text position={[0, 1.31, 0.59]} fontSize={0.15} color="#493821" anchorX="center">DEVOLUCIONES</Text>
-    {Array.from({ length: Math.min(6, units) }, (_, index) => <Product key={index} position={[(index % 3 - 1) * 0.24, 0.62 + Math.floor(index / 3) * 0.2, 0.48]} color={["#d65643", "#e5b84d", "#77a85d"][index % 3]} shape={index % 2 ? "box" : "produce"} />)}
+    {units.map((productId, index) => <RetailProduct key={`${productId}-${index}`} productId={productId} position={[(index % 3 - 1) * 0.24, 0.62 + Math.floor(index / 3) * 0.2, 0.48]} />)}
   </group>;
 }
 
@@ -432,7 +478,7 @@ function ProcessMachine({ kind, machine }: { kind: "cheese" | "juice"; machine?:
   return <group>
     <EnvironmentModel id={kind === "cheese" ? "equipment_cheese_maker" : "equipment_juice_machine"} onFrame={(model, _, elapsed) => { if (processing) model.rotation.y = Math.sin(elapsed * 4) * 0.018; }} />
     {processing && <pointLight position={[0, 0.65, 0.45]} intensity={0.45} distance={1.6} color={kind === "cheese" ? "#ffd75c" : "#ff6b43"} />}
-    {Array.from({ length: Math.min(4, machine?.output ?? 0) }, (_, index) => <Product key={index} position={[0.34 + (index % 2) * 0.13, 0.16 + Math.floor(index / 2) * 0.12, 0.45]} color={kind === "cheese" ? "#e8b94b" : "#d96842"} shape={kind === "juice" ? "bottle" : "box"} scale={0.8} />)}
+    {Array.from({ length: Math.min(4, machine?.output ?? 0) }, (_, index) => <RetailProduct key={index} productId={kind} position={[0.34 + (index % 2) * 0.13, 0.16 + Math.floor(index / 2) * 0.12, 0.45]} scale={0.8} />)}
   </group>;
 }
 
@@ -448,7 +494,16 @@ function SupplierCorner({ position }: { position: Position }) {
 }
 
 function TerminalModel({ position, label }: { position: Position; label: string }) {
-  return <group position={position}><Box args={[1.35, 1.2, 0.65]} position={[0, 0.6, 0]} color="#7396a0" radius={0.12} /><mesh position={[0, 0.8, 0.34]}><planeGeometry args={[0.88, 0.48]} /><meshStandardMaterial color="#cce6de" emissive="#315a50" emissiveIntensity={0.18} /></mesh><Text position={[0, 0.78, 0.36]} fontSize={0.13} color="#24453d">{label}</Text></group>;
+  return <group position={position}>
+    <Box args={[1.18, 0.82, 0.62]} position={[0, 0.41, 0]} color={palette.darkGreen} radius={0.11} />
+    <Box args={[1.38, 0.12, 0.76]} position={[0, 0.86, 0.04]} color={palette.cream} radius={0.055} />
+    <Box args={[0.76, 0.1, 0.48]} position={[0, 0.96, 0.08]} color="#303b38" radius={0.035} />
+    {[-0.24, -0.08, 0.08, 0.24].map((x) => <mesh key={x} position={[x, 1.025, 0.16]} rotation={[-0.25, 0, 0]}><boxGeometry args={[0.09, 0.025, 0.18]} /><meshStandardMaterial color="#85938d" roughness={0.58} metalness={0.12} /></mesh>)}
+    <Box args={[0.76, 0.64, 0.1]} position={[0, 1.38, 0.03]} rotation={[-0.14, 0, 0]} color="#202b28" radius={0.06} />
+    <mesh position={[0, 1.39, 0.091]} rotation={[-0.14, 0, 0]}><planeGeometry args={[0.62, 0.48]} /><meshStandardMaterial color="#c7eadc" emissive="#40806a" emissiveIntensity={0.34} roughness={0.45} /></mesh>
+    <Text position={[0, 1.42, 0.101]} rotation={[-0.14, 0, 0]} fontSize={0.105} color="#173f35" anchorX="center" anchorY="middle" fontWeight={800}>{label}</Text>
+    <mesh position={[-0.48, 0.63, 0.32]}><sphereGeometry args={[0.035, 10, 7]} /><meshBasicMaterial color="#8ce0a6" toneMapped={false} /></mesh>
+  </group>;
 }
 
 function Pallet({ position }: { position: Position }) {
@@ -491,26 +546,191 @@ function CeilingLamp({ position, on }: { position: Position; on: boolean }) {
   return <group position={position}><EnvironmentModel id="equipment_ceiling_light" isolateMaterials onUpdate={updateMaterials} />{on && <pointLight position={[0, -0.15, 0]} intensity={0.18} distance={4} color="#fff2c9" />}</group>;
 }
 
+type FarmCropKind = "tomato" | "wheat" | "corn";
+
+const FARM_CENTER: Position = [-8.25, 0, 10.925];
+const TOMATO_GRID = Array.from({ length: 15 }, (_, index): [number, number] => [((index % 5) - 2) * 0.3, (Math.floor(index / 5) - 1) * 0.3]);
+const WHEAT_GRID = Array.from({ length: 28 }, (_, index): [number, number] => [((index % 7) - 3) * 0.215, (Math.floor(index / 7) - 1.5) * 0.205]);
+const CORN_GRID = Array.from({ length: 12 }, (_, index): [number, number] => [((index % 4) - 1.5) * 0.39, (Math.floor(index / 4) - 1) * 0.31]);
+const BED_TIMBERS: readonly InstanceTransform[] = [
+  { position: [0, 0.17, -0.62], scale: [2.05, 0.21, 0.1] },
+  { position: [0, 0.17, 0.62], scale: [2.05, 0.21, 0.1] },
+  { position: [-0.98, 0.17, 0], scale: [0.1, 0.21, 1.18] },
+  { position: [0.98, 0.17, 0], scale: [0.1, 0.21, 1.18] },
+  ...[-0.98, 0.98].flatMap((x) => [-0.62, 0.62].map((z): InstanceTransform => ({ position: [x, 0.26, z], scale: [0.14, 0.38, 0.14] }))),
+];
+const BED_FURROWS: readonly InstanceTransform[] = [-0.32, 0, 0.32].map((z) => ({ position: [0, 0.255, z], scale: [1.72, 0.025, 0.11] }));
+const BED_DRIP_LINES: readonly InstanceTransform[] = [-0.16, 0.16].map((z) => ({ position: [0, 0.286, z], rotation: [0, 0, Math.PI / 2], scale: [1, 1.72, 1] }));
+const EMPTY_SEED_HOLES: readonly InstanceTransform[] = TOMATO_GRID.map(([x, z]) => ({ position: [x, 0.282, z], scale: [1, 0.32, 1] }));
+const GARDEN_PATH_STONES: readonly InstanceTransform[] = [
+  ...Array.from({ length: 23 }, (_, index): InstanceTransform => ({
+    position: [-3.05 + index * 0.36, 0.055, Math.sin(index * 0.9) * 0.045],
+    rotation: [0, (index % 5 - 2) * 0.08, 0],
+    scale: [0.9 + (index % 3) * 0.07, 1, 0.72 + (index % 2) * 0.08],
+  })),
+  ...Array.from({ length: 9 }, (_, index): InstanceTransform => ({
+    position: [Math.sin(index * 1.1) * 0.035, 0.052, -1.68 + index * 0.41],
+    rotation: [0, (index % 4 - 1.5) * 0.1, 0],
+    scale: [0.78 + (index % 2) * 0.08, 1, 0.88],
+  })),
+];
+const GARDEN_GRASS_TUFTS: readonly InstanceTransform[] = Array.from({ length: 34 }, (_, index): InstanceTransform => {
+  const side = index % 2 ? 1 : -1;
+  const lane = Math.floor(index / 2);
+  return {
+    position: [side * (2.15 + (lane % 4) * 0.27), 0.13, -1.5 + (lane % 9) * 0.37],
+    rotation: [0, index * 0.73, (index % 3 - 1) * 0.08],
+    scale: [0.7 + (index % 3) * 0.12, 0.75 + (index % 4) * 0.1, 0.7],
+  };
+});
+const GARDEN_FLOWERS: readonly InstanceTransform[] = [
+  [-2.78, -1.28], [-2.92, 1.16], [2.72, -1.34], [2.84, 1.18], [-2.55, 1.55], [2.44, 1.58],
+].map(([x, z], index) => ({ position: [x, 0.26 + (index % 2) * 0.035, z], scale: [0.85, 0.85, 0.85] }));
+const READY_SPARKLES: readonly InstanceTransform[] = [
+  { position: [-0.78, 0.1, -0.42], scale: [0.7, 0.7, 0.7] },
+  { position: [0.8, 0.18, 0.31], scale: [0.55, 0.55, 0.55] },
+  { position: [0.62, 0.08, -0.48], scale: [0.42, 0.42, 0.42] },
+];
+const FARM_BENCH_LEGS: readonly InstanceTransform[] = [-0.56, 0.56].flatMap((x) => [-0.24, 0.24].map((z): InstanceTransform => ({ position: [x, 0.48, z], scale: [0.09, 0.96, 0.09] })));
+const GREENHOUSE_SEEDLINGS: readonly InstanceTransform[] = TOMATO_GRID.slice(0, 6).map(([x, z]) => ({ position: [x * 0.55, 0.28, z * 0.52], scale: [0.5, 0.5, 0.5] }));
+
 export function KitFarm({ crops, machines, nowMs, unlockedAreas }: { crops: CropState[]; machines: ProductionMachineState[]; nowMs: number; unlockedAreas: string[] }) {
-  const positions: Record<string, Position> = { "crop-tomato-1": [-6.35, 0, 10.55], "crop-tomato-2": [-8, 0, 10.35], "crop-wheat-1": [-9.35, 0, 10.35], "crop-corn-1": [-6.65, 0, 11.55] };
-  const cropName = (productId: CropState["productId"]) => productId === "tomatoes" ? "tomato" as const : productId;
+  const cropsById = useMemo(() => new Map(crops.map((crop) => [crop.id, crop])), [crops]);
   const chicken = machines.find((machine) => machine.id === "chicken-coop-1");
   const cow = machines.find((machine) => machine.id === "cow-station-1");
   return <group>
-    <StoreElement position={[-7.95, 0.02, 10.65]}><Box args={[5.55, 0.08, 3.2]} color="#d6bd84" radius={0.06} /></StoreElement>
-    {crops.filter((crop) => crop.status !== "LOCKED" && positions[crop.id]).map((crop) => <StoreElement key={crop.id} position={positions[crop.id]}><CropPlot position={[0, 0, 0]} crop={cropName(crop.productId)} status={crop.status} progress={cropProgress(crop, nowMs)} /></StoreElement>)}
-    <StoreElement position={[-10.65, 0, 10.65]}><FenceLine position={[0, 0, 0]} length={3.0} vertical /></StoreElement>
-    <StoreElement position={[-7.95, 0, 12.22]}><FenceLine position={[0, 0, 0]} length={5.4} /></StoreElement>
-    <StoreElement position={[-7.95, 0, 9.08]}><FenceLine position={[0, 0, 0]} length={5.4} /></StoreElement>
-    <StoreElement position={[-5.25, 0, 10.65]}><FarmGate position={[0, 0, 0]} /></StoreElement>
-    <StoreElement position={[-3.05, 0, 8.9]}><FarmTools position={[0, 0, 0]} /></StoreElement>
-    <StoreElement position={[-9.85, 0, 9.72]}><CompostBin position={[0, 0, 0]} /></StoreElement>
-    <StoreElement position={[-4.35, 0, 12.0]}><MiniGreenhouse position={[0, 0, 0]} /></StoreElement>
-    <StoreElement position={[-10.05, 0, 11.45]}><Scarecrow position={[0, 0, 0]} /></StoreElement>
-    <StoreElement position={[-8.05, 0, 11.72]}><Sprinkler position={[0, 0, 0]} /></StoreElement>
-    <StoreElement position={[-8.15, 0, 11.82]}><IrrigationTrench position={[0, 0, 0]} /></StoreElement>
+    <StoreElement position={FARM_CENTER}><GardenFloor /></StoreElement>
+    {FARM_PLOTS.map((plot) => {
+      const crop = cropsById.get(plot.id);
+      return <StoreElement key={plot.id} position={[plot.position[0], plot.position[1], plot.position[2]]}>
+        {!crop || crop.status === "LOCKED"
+          ? <DormantCropPlot />
+          : <CropPlot position={[0, 0, 0]} crop={farmCropKind(crop.productId)} status={crop.status} progress={cropProgress(crop, nowMs)} accent={plot.accent} />}
+      </StoreElement>;
+    })}
+    <StoreElement position={[-4.65, 0, 9.45]}><FarmTools position={[0, 0, 0]} /></StoreElement>
+    <StoreElement position={[-10.85, 0, 9.28]}><CompostBin position={[0, 0, 0]} /></StoreElement>
+    <StoreElement position={[-5.08, 0, 12.52]}><MiniGreenhouse position={[0, 0, 0]} /></StoreElement>
+    <StoreElement position={[-10.8, 0, 12.52]}><Scarecrow position={[0, 0, 0]} /></StoreElement>
     {unlockedAreas.includes("chicken-coop") && chicken && <StoreElement position={[-3.45, 0, 10.8]}><AnimalStation kind="chicken" machine={chicken} /></StoreElement>}
     {unlockedAreas.includes("cow-station") && cow && <StoreElement position={[-1.5, 0, 10.8]}><AnimalStation kind="cow" machine={cow} /></StoreElement>}
+  </group>;
+}
+
+function DormantCropPlot() {
+  return <group>
+    <RaisedCropBed status="EMPTY" />
+    <StaticInstances transforms={[-0.32, 0, 0.32].map((z) => ({ position: [0, 0.302, z] as Position, scale: [1.55, 0.024, 0.13] as Position }))} receiveShadow>
+      <boxGeometry args={[1, 1, 1]} />
+      <meshStandardMaterial color="#9f7544" roughness={1} />
+    </StaticInstances>
+  </group>;
+}
+
+function farmCropKind(productId: CropState["productId"]): FarmCropKind {
+  if (productId === "wheat") return "wheat";
+  if (productId === "corn") return "corn";
+  return "tomato";
+}
+
+function GardenFloor() {
+  const gardenShape = useMemo(() => {
+    const shape = new THREE.Shape();
+    shape.moveTo(-3.18, -1.7);
+    shape.quadraticCurveTo(-3.48, -1.42, -3.4, -0.92);
+    shape.lineTo(-3.34, 1.28);
+    shape.quadraticCurveTo(-3.2, 1.82, -2.7, 1.9);
+    shape.lineTo(2.65, 1.86);
+    shape.quadraticCurveTo(3.18, 1.78, 3.34, 1.34);
+    shape.lineTo(3.43, -1.18);
+    shape.quadraticCurveTo(3.28, -1.72, 2.76, -1.84);
+    shape.closePath();
+    return shape;
+  }, []);
+  return <group>
+    <mesh position={[0, 0.006, 0]} rotation={[-Math.PI / 2, 0, 0]} scale={[1.035, 1.035, 1]} receiveShadow><shapeGeometry args={[gardenShape]} /><meshStandardMaterial color="#315d36" roughness={1} /></mesh>
+    <mesh position={[0, 0.026, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow><shapeGeometry args={[gardenShape]} /><meshStandardMaterial color="#57934a" roughness={0.98} /></mesh>
+    <StaticInstances transforms={GARDEN_PATH_STONES} receiveShadow><cylinderGeometry args={[0.23, 0.23, 0.04, 8]} /><meshStandardMaterial color="#a7a08c" roughness={0.96} /></StaticInstances>
+    <StaticInstances transforms={GARDEN_GRASS_TUFTS} castShadow><coneGeometry args={[0.065, 0.24, 5]} /><meshStandardMaterial color="#366f3b" roughness={1} /></StaticInstances>
+    <StaticInstances transforms={GARDEN_FLOWERS} castShadow><dodecahedronGeometry args={[0.075, 0]} /><meshStandardMaterial color="#ffe395" emissive="#9a6b2a" emissiveIntensity={0.12} roughness={0.82} /></StaticInstances>
+  </group>;
+}
+
+function CropPlot({ position, crop, status, progress, accent }: { position: Position; crop: FarmCropKind; status: CropState["status"]; progress: number; accent: string }) {
+  const stage = status === "READY" ? 4 : Math.max(0, Math.min(3, Math.floor(progress * 4)));
+  const growth = [0.18, 0.4, 0.66, 0.86, 1][stage];
+  return <group position={position}>
+    <RaisedCropBed status={status} />
+    {status === "EMPTY" ? <SeedBed /> : <CropCanopy crop={crop} growth={growth} ready={status === "READY"} />}
+    {status === "READY" && <ReadyHarvestGlow accent={accent} />}
+  </group>;
+}
+
+function RaisedCropBed({ status }: { status: CropState["status"] }) {
+  const soilColor = status === "EMPTY" ? "#704b31" : status === "READY" ? "#4b3426" : "#563a29";
+  return <group>
+    <RoundedBox args={[1.92, 0.22, 1.18]} position={[0, 0.15, 0]} radius={0.13} smoothness={3} receiveShadow><meshStandardMaterial color={soilColor} roughness={1} /></RoundedBox>
+    <StaticInstances transforms={BED_TIMBERS} castShadow receiveShadow><boxGeometry args={[1, 1, 1]} /><meshStandardMaterial color="#8b5b35" roughness={0.88} /></StaticInstances>
+    <StaticInstances transforms={BED_FURROWS} receiveShadow><boxGeometry args={[1, 1, 1]} /><meshStandardMaterial color="#3e2b21" roughness={1} /></StaticInstances>
+    <StaticInstances transforms={BED_DRIP_LINES}><cylinderGeometry args={[0.012, 0.012, 1, 6]} /><meshStandardMaterial color="#314b45" roughness={0.72} metalness={0.08} /></StaticInstances>
+  </group>;
+}
+
+function SeedBed() {
+  return <StaticInstances transforms={EMPTY_SEED_HOLES} receiveShadow><cylinderGeometry args={[0.035, 0.048, 0.018, 9]} /><meshStandardMaterial color="#2e211a" roughness={1} /></StaticInstances>;
+}
+
+function CropCanopy({ crop, growth, ready }: { crop: FarmCropKind; growth: number; ready: boolean }) {
+  const grid = crop === "wheat" ? WHEAT_GRID : crop === "corn" ? CORN_GRID : TOMATO_GRID;
+  const fullHeight = crop === "corn" ? 1.06 : crop === "wheat" ? 0.76 : 0.68;
+  const height = Math.max(0.12, fullHeight * growth);
+  const stems = useMemo<InstanceTransform[]>(() => grid.map(([x, z], index) => ({
+    position: [x, 0.25 + height / 2, z],
+    rotation: [0, index * 0.49, (index % 3 - 1) * 0.025],
+    scale: [1, height, 1],
+  })), [grid, height]);
+  const leaves = useMemo<InstanceTransform[]>(() => grid.flatMap(([x, z], index) => [-1, 1].map((side): InstanceTransform => ({
+    position: [x + side * (crop === "corn" ? 0.075 : 0.055), 0.28 + height * (side > 0 ? 0.5 : 0.68), z],
+    rotation: [0, index * 0.77, side * (crop === "corn" ? 0.72 : 0.56)],
+    scale: crop === "corn" ? [1.25, 0.23, 0.48] : crop === "wheat" ? [0.48, 0.12, 0.24] : [0.9, 0.2, 0.42],
+  }))), [crop, grid, height]);
+  const fruitGrowth = Math.max(0, Math.min(1, (growth - 0.52) / 0.48));
+  const fruits = useMemo<InstanceTransform[]>(() => {
+    if (fruitGrowth <= 0) return [];
+    if (crop === "tomato") return grid.flatMap(([x, z], index) => [-1, 1].map((side): InstanceTransform => ({
+      position: [x + side * 0.075, 0.31 + height * (0.56 + (index % 2) * 0.13), z + (index % 3 - 1) * 0.025],
+      scale: [fruitGrowth, fruitGrowth * 0.88, fruitGrowth],
+    })));
+    return grid.map(([x, z], index): InstanceTransform => ({
+      position: crop === "wheat" ? [x, 0.27 + height, z] : [x + (index % 2 ? 0.08 : -0.08), 0.31 + height * 0.66, z],
+      rotation: crop === "corn" ? [0, index * 0.41, index % 2 ? -0.28 : 0.28] : [0, index * 0.31, 0],
+      scale: crop === "corn" ? [fruitGrowth * 0.68, fruitGrowth * 1.7, fruitGrowth * 0.68] : [fruitGrowth, fruitGrowth, fruitGrowth],
+    }));
+  }, [crop, fruitGrowth, grid, height]);
+  const fruitColor = crop === "tomato" ? (ready ? "#df4035" : growth > 0.78 ? "#d98339" : "#79a24b") : crop === "wheat" ? (ready ? "#e8bd4c" : "#a4b15b") : (ready ? "#f2c53f" : "#83a950");
+  return <group>
+    <StaticInstances transforms={stems} castShadow><cylinderGeometry args={[crop === "wheat" ? 0.01 : 0.018, crop === "wheat" ? 0.015 : 0.024, 1, 6]} /><meshStandardMaterial color={crop === "wheat" && ready ? "#b89337" : "#4d7d3d"} roughness={0.94} /></StaticInstances>
+    <StaticInstances transforms={leaves} castShadow><sphereGeometry args={[0.115, 7, 5]} /><meshStandardMaterial color={crop === "corn" ? "#4f8a43" : crop === "wheat" ? "#729348" : "#438345"} roughness={0.96} /></StaticInstances>
+    {fruits.length > 0 && <StaticInstances transforms={fruits} castShadow>
+      {crop === "tomato" ? <dodecahedronGeometry args={[0.068, 0]} /> : crop === "wheat" ? <coneGeometry args={[0.045, 0.17, 6]} /> : <sphereGeometry args={[0.075, 8, 6]} />}
+      <meshStandardMaterial color={fruitColor} emissive={ready ? fruitColor : "#000000"} emissiveIntensity={ready ? 0.14 : 0} roughness={0.84} />
+    </StaticInstances>}
+  </group>;
+}
+
+function ReadyHarvestGlow({ accent }: { accent: string }) {
+  const ring = useRef<THREE.Mesh>(null);
+  useFrame(({ clock }) => {
+    if (!ring.current) return;
+    const pulse = (Math.sin(clock.elapsedTime * 2.25) + 1) / 2;
+    ring.current.rotation.z = clock.elapsedTime * 0.16;
+    ring.current.scale.setScalar(0.96 + pulse * 0.045);
+    const material = ring.current.material;
+    if (material instanceof THREE.MeshBasicMaterial) material.opacity = 0.17 + pulse * 0.11;
+  });
+  return <group position={[0, 0.295, 0]}>
+    <mesh ref={ring} rotation={[-Math.PI / 2, 0, 0]}><ringGeometry args={[0.76, 0.84, 28]} /><meshBasicMaterial color={accent} transparent opacity={0.2} depthWrite={false} toneMapped={false} /></mesh>
+    <StaticInstances transforms={READY_SPARKLES}><octahedronGeometry args={[0.045, 0]} /><meshBasicMaterial color={accent} toneMapped={false} /></StaticInstances>
   </group>;
 }
 
@@ -519,7 +739,6 @@ function AnimalStation({ kind, machine }: { kind: "chicken" | "cow"; machine: Pr
     <EnvironmentModel id={kind === "chicken" ? "chicken_coop" : "cow_station"} />
     {kind === "chicken" ? <ChickenCharacter active={machine.status === "PROCESSING"} /> : <CowCharacter active={machine.status === "PROCESSING"} />}
     <group position={[kind === "cow" ? 0.62 : 0.44, 0.02, 0.42]} scale={0.72} visible={machine.output > 0}><EnvironmentModel id={kind === "chicken" ? "egg_output_tray" : "milk_output_can"} /></group>
-    <Text position={[0, 0.18, 0.67]} fontSize={0.12} color="#f7f3df">{kind === "chicken" ? "HUEVOS" : "LECHE"}</Text>
   </group>;
 }
 
@@ -535,118 +754,51 @@ function CowCharacter({ active }: { active: boolean }) {
   return <group ref={head} position={[-0.12, 0.02, 0]}><EnvironmentModel id="cow_character" /></group>;
 }
 
-function CropPlot({ position, crop, status, progress }: { position: Position; crop: "wheat" | "carrot" | "tomato" | "lettuce" | "pumpkin" | "corn"; status: CropState["status"]; progress: number }) {
-  const cropLabel = crop === "tomato" ? "TOMATES" : crop === "wheat" ? "TRIGO" : crop === "corn" ? "MAÍZ" : crop.toUpperCase();
-  const stateLabel = status === "EMPTY" ? `SEMBRAR ${cropLabel}` : status === "READY" ? `COSECHAR ${cropLabel}` : `${cropLabel} · ${Math.round(progress * 100)}%`;
-  const stateColor = status === "EMPTY" ? "#b46a3d" : status === "READY" ? "#32784a" : "#648d48";
-  if (crop === "tomato" || crop === "wheat" || crop === "corn") {
-    if (status === "EMPTY") return <group position={position}>
-      <EnvironmentModel id="farm_plot_empty" />
-      <CropStateSign label={stateLabel} color={stateColor} />
-      <SeedMarkers />
-    </group>;
-    const stage = status === "READY" ? 4 : Math.max(0, Math.min(3, Math.floor(progress * 4)));
-    const stageName = stage <= 0 ? "sprout" : stage === 1 ? "small" : stage <= 3 ? "growing" : "ripe";
-    return <group position={position}><EnvironmentModel id={`${crop}_${stageName}`} /><CropStateSign label={stateLabel} color={stateColor} /></group>;
-  }
-  const stage = status === "READY" ? 4 : Math.max(0, Math.min(3, Math.floor(progress * 4)));
-  return <group position={position}>
-    <Box args={[1.12, 0.16, 1.04]} position={[0, 0.08, 0]} color={palette.soil} radius={0.03} />
-    <Float speed={1.05} floatIntensity={0.018} rotationIntensity={0.04}>
-      {Array.from({ length: 9 }, (_, index) => <Crop key={index} type={crop} stage={stage} position={[(index % 3 - 1) * 0.32, 0.12, (Math.floor(index / 3) - 1) * 0.29]} />)}
-    </Float>
-  </group>;
-}
-
-function CropStateSign({ label, color }: { label: string; color: string }) {
-  return <group position={[0, 1.48, 0.57]}>
-    <Box args={[1.16, 0.28, 0.08]} color={color} radius={0.04} />
-    <Text position={[0, 0, 0.046]} fontSize={0.085} color="#fff8e8" anchorX="center" anchorY="middle" fontWeight={800}>{label}</Text>
-    {[-0.49, 0.49].map((x) => <Box key={x} args={[0.045, 0.92, 0.045]} position={[x, -0.49, 0]} color="#765035" radius={0.01} />)}
-  </group>;
-}
-
-function SeedMarkers() {
-  return <>{[-0.32, 0, 0.32].flatMap((x) => [-0.3, 0, 0.3].map((z) => <group key={`${x}-${z}`} position={[x, 0.13, z]}>
-    <mesh rotation={[-Math.PI / 2, 0, 0]}><ringGeometry args={[0.035, 0.055, 12]} /><meshBasicMaterial color="#ebc15d" /></mesh>
-  </group>))}</>;
-}
-
-function Crop({ type, position, stage }: { type: "wheat" | "carrot" | "tomato" | "lettuce" | "pumpkin" | "corn"; position: Position; stage: number }) {
-  const height = 0.16 + stage * 0.1;
-  const fruitColor = { wheat: "#d9b449", carrot: "#dc7440", tomato: "#d65643", lettuce: "#78a952", pumpkin: "#dc8a36", corn: "#e4bd4a" }[type];
-  if (type === "lettuce" || type === "pumpkin") return <group position={position}>{Array.from({ length: 5 }, (_, index) => <mesh key={index} position={[(index - 2) * 0.025, height * 0.35, 0]} rotation={[0, 0, (index - 2) * 0.25]}><dodecahedronGeometry args={[type === "pumpkin" ? 0.13 : 0.11, 1]} /><meshStandardMaterial color={fruitColor} roughness={0.9} /></mesh>)}</group>;
-  return <group position={position}><mesh position={[0, height / 2, 0]}><cylinderGeometry args={[0.015, 0.023, height, 6]} /><meshStandardMaterial color="#668e43" /></mesh>{[-1, 1].map((side) => <mesh key={side} position={[side * 0.045, height * 0.55, 0]} rotation={[0, 0, side * -0.65]}><coneGeometry args={[0.045, 0.18, 6]} /><meshStandardMaterial color="#71994c" /></mesh>)}<mesh position={[0, height, 0]}><dodecahedronGeometry args={[type === "wheat" ? 0.065 : 0.075, 0]} /><meshStandardMaterial color={fruitColor} roughness={0.9} /></mesh></group>;
-}
-
-function FenceLine({ position, length, vertical = false }: { position: Position; length: number; vertical?: boolean }) {
-  const count = Math.ceil(length / 0.8);
-  return <group position={position} rotation={[0, vertical ? Math.PI / 2 : 0, 0]}>{Array.from({ length: count + 1 }, (_, index) => <Box key={index} args={[0.09, 0.68, 0.09]} position={[index * (length / count) - length / 2, 0.34, 0]} color={palette.wood} />)}{[0.2, 0.5].map((y) => <Box key={y} args={[length, 0.08, 0.08]} position={[0, y, 0]} color={palette.wood} />)}</group>;
-}
-
-function FarmGate({ position }: { position: Position }) {
-  return <group position={position} rotation={[0, Math.PI / 2, 0]}>
-    {[-0.58,0.58].map((x) => <Box key={x} args={[0.13,0.92,0.13]} position={[x,0.46,0]} color="#87552f" />)}
-    <group rotation={[0,0,-0.03]}>
-      <Box args={[1.05,0.1,0.1]} position={[0,0.23,0]} color="#a96d38" />
-      <Box args={[1.05,0.1,0.1]} position={[0,0.68,0]} color="#a96d38" />
-      <Box args={[0.1,0.7,0.1]} position={[0,0.46,0]} rotation={[0,0,-0.76]} color="#8a572f" />
-    </group>
-    {[-0.45,0.45].map((x) => <mesh key={x} position={[x,0.72,0.08]} rotation={[Math.PI/2,0,0]}><torusGeometry args={[0.045,0.014,6,12]} /><meshStandardMaterial color="#4a4d46" metalness={0.38} /></mesh>)}
-    <group position={[0, 1.24, 0]}>
-      <Box args={[1.34, 0.36, 0.1]} color="#315f45" radius={0.055} />
-      <Text position={[0, 0, 0.056]} fontSize={0.13} color="#fff2cf" anchorX="center" anchorY="middle" fontWeight={800}>HUERTA</Text>
-    </group>
-  </group>;
-}
-
-function IrrigationTrench({ position }: { position: Position }) {
-  return <group position={position} rotation={[0, Math.PI / 2, 0]}>
-    <Box args={[2.2,0.1,0.55]} position={[0,0.03,0]} color="#6c4a31" radius={0.1} />
-    <Box args={[2.02,0.055,0.34]} position={[0,0.09,0]} color="#4e9aa4" radius={0.08} />
-    {[-0.98,0.98].map((x) => <mesh key={x} position={[x,0.13,0]} rotation={[0,0,Math.PI/2]}><cylinderGeometry args={[0.09,0.11,0.34,9]} /><meshStandardMaterial color="#7b5839" /></mesh>)}
-  </group>;
-}
-
-function Sprinkler({ position }: { position: Position }) {
-  return <group position={position}>
-    <mesh position={[0,0.3,0]}><cylinderGeometry args={[0.06,0.09,0.6,10]} /><meshStandardMaterial color="#56635e" metalness={0.28} /></mesh>
-    <mesh position={[0,0.62,0]} rotation={[0,0,Math.PI/2]}><cylinderGeometry args={[0.035,0.035,0.5,9]} /><meshStandardMaterial color="#56635e" metalness={0.28} /></mesh>
-    {[-0.24,0.24].map((x) => <mesh key={x} position={[x,0.62,0]}><sphereGeometry args={[0.065,10,8]} /><meshStandardMaterial color="#48534f" /></mesh>)}
-    <mesh position={[0,0.02,0]}><cylinderGeometry args={[0.24,0.3,0.08,14]} /><meshStandardMaterial color="#64874f" /></mesh>
-  </group>;
-}
-
 function FarmTools({ position }: { position: Position }) {
   return <group position={position}>
-    <group position={[0, 0, 0.48]} scale={0.78}><EnvironmentModel id="farm_tool_set" /></group>
-    <WateringCan position={[0, 0.18, 0]} />
-    <Box args={[0.42, 0.62, 0.26]} position={[0.55, 0.31, 0]} color="#b79b58" radius={0.08} />
-    <Text position={[0.55, 0.34, 0.14]} fontSize={0.09} color="#4b5038">SEMILLAS</Text>
-    <Box args={[0.65, 0.38, 0.5]} position={[-0.55, 0.19, 0]} color={palette.wood} radius={0.035} />
-    <SeedSack position={[0.05,0.3,-0.45]} />
+    <StaticInstances transforms={FARM_BENCH_LEGS} castShadow><boxGeometry args={[1, 1, 1]} /><meshStandardMaterial color="#755033" roughness={0.9} /></StaticInstances>
+    <Box args={[1.32, 0.13, 0.64]} position={[0, 0.92, 0]} color={palette.wood} radius={0.045} />
+    <Box args={[1.16, 0.09, 0.52]} position={[0, 0.3, 0]} color="#8e6038" radius={0.025} />
+    <group position={[0.32, 0.98, 0.02]} scale={0.62}><EnvironmentModel id="farm_tool_set" /></group>
+    <WateringCan position={[-0.32, 1.12, 0]} />
+    <SeedSack position={[0.32, 0.47, 0]} />
+    <HarvestBasket position={[-0.48, 0.22, 0.5]} />
+  </group>;
+}
+
+function HarvestBasket({ position }: { position: Position }) {
+  return <group position={position}>
+    <mesh position={[0, 0.16, 0]}><cylinderGeometry args={[0.26, 0.2, 0.3, 12, 1, true]} /><meshStandardMaterial color="#a96f39" roughness={0.92} side={THREE.DoubleSide} /></mesh>
+    {[0.04, 0.15, 0.27].map((y) => <mesh key={y} position={[0, y, 0]} rotation={[Math.PI / 2, 0, 0]}><torusGeometry args={[0.22 + y * 0.11, 0.018, 6, 16]} /><meshStandardMaterial color="#704628" roughness={0.9} /></mesh>)}
+    <mesh position={[0, 0.34, 0]}><torusGeometry args={[0.24, 0.025, 7, 18, Math.PI]} /><meshStandardMaterial color="#80502d" roughness={0.9} /></mesh>
   </group>;
 }
 
 function SeedSack({ position }: { position: Position }) {
   return <group position={position}>
-    <mesh scale={[0.85,1.2,0.66]}><sphereGeometry args={[0.22,14,10]} /><meshStandardMaterial color="#b99559" roughness={1} /></mesh>
-    <mesh position={[0,0.27,0]}><torusGeometry args={[0.085,0.025,6,12]} /><meshStandardMaterial color="#765338" /></mesh>
+    <mesh scale={[0.85, 1.2, 0.66]}><sphereGeometry args={[0.22, 14, 10]} /><meshStandardMaterial color="#b99559" roughness={1} /></mesh>
+    <mesh position={[0, 0.27, 0]}><torusGeometry args={[0.085, 0.025, 6, 12]} /><meshStandardMaterial color="#765338" /></mesh>
   </group>;
 }
 
 function WateringCan({ position }: { position: Position }) {
-  return <group position={position}><mesh><cylinderGeometry args={[0.18, 0.21, 0.32, 12]} /><meshStandardMaterial color="#708f87" /></mesh><mesh position={[0.28, 0.04, 0]} rotation={[0, 0, -1.1]}><cylinderGeometry args={[0.055, 0.11, 0.48, 10]} /><meshStandardMaterial color="#708f87" /></mesh><mesh position={[-0.13, 0.15, 0]} rotation={[Math.PI / 2, 0, 0]}><torusGeometry args={[0.18, 0.035, 7, 15, Math.PI]} /><meshStandardMaterial color="#708f87" /></mesh></group>;
+  return <group position={position} scale={0.72}><mesh><cylinderGeometry args={[0.18, 0.21, 0.32, 12]} /><meshStandardMaterial color="#668c86" metalness={0.12} roughness={0.6} /></mesh><mesh position={[0.28, 0.04, 0]} rotation={[0, 0, -1.1]}><cylinderGeometry args={[0.055, 0.11, 0.48, 10]} /><meshStandardMaterial color="#668c86" metalness={0.12} roughness={0.6} /></mesh><mesh position={[-0.13, 0.15, 0]} rotation={[Math.PI / 2, 0, 0]}><torusGeometry args={[0.18, 0.035, 7, 15, Math.PI]} /><meshStandardMaterial color="#668c86" metalness={0.12} roughness={0.6} /></mesh></group>;
 }
 
 function CompostBin({ position }: { position: Position }) {
-  return <group position={position}><Box args={[0.78, 0.72, 0.72]} position={[0, 0.36, 0]} color="#6f5134" radius={0.04} />{[-0.26, 0, 0.26].map((y) => <Box key={y} args={[0.85, 0.08, 0.78]} position={[0, 0.38 + y, 0]} color="#9a6b3e" />)}<Box args={[0.87, 0.1, 0.8]} position={[0, 0.77, 0]} rotation={[0.08, 0, 0]} color="#754d30" /></group>;
+  return <group position={position}><Box args={[0.78, 0.72, 0.72]} position={[0, 0.36, 0]} color="#5f4934" radius={0.08} />{[-0.26, 0, 0.26].map((offset) => <Box key={offset} args={[0.85, 0.075, 0.78]} position={[0, 0.38 + offset, 0]} color="#89603c" />)}<Box args={[0.87, 0.1, 0.8]} position={[0, 0.77, 0]} rotation={[0.08, 0, 0]} color="#68462f" radius={0.04} /><mesh position={[0, 0.84, 0]}><sphereGeometry args={[0.18, 8, 6]} /><meshStandardMaterial color="#41633a" roughness={1} /></mesh></group>;
 }
 
 function MiniGreenhouse({ position }: { position: Position }) {
-  return <group position={position}>{[-0.46, 0.46].flatMap((x) => [-0.34, 0.34].map((z) => <Box key={`${x}-${z}`} args={[0.045, 0.85, 0.045]} position={[x, 0.43, z]} color={palette.frame} />))}<mesh position={[0, 0.48, 0]}><boxGeometry args={[1, 0.8, 0.76]} /><meshPhysicalMaterial color="#b8d8c7" transparent opacity={0.25} roughness={0.18} /></mesh><mesh position={[0, 0.94, 0]} rotation={[0, 0, Math.PI / 4]}><boxGeometry args={[0.76, 0.76, 0.78]} /><meshPhysicalMaterial color="#b8d8c7" transparent opacity={0.28} roughness={0.18} /></mesh></group>;
+  return <group position={position}>
+    <Box args={[1.12, 0.14, 0.88]} position={[0, 0.12, 0]} color="#68472f" radius={0.05} />
+    {[-0.46, 0.46].flatMap((x) => [-0.34, 0.34].map((z) => <Box key={`${x}-${z}`} args={[0.045, 0.85, 0.045]} position={[x, 0.55, z]} color={palette.frame} />))}
+    <mesh position={[0, 0.6, 0]}><boxGeometry args={[1, 0.8, 0.76]} /><meshPhysicalMaterial color="#b8e2d0" transparent opacity={0.2} roughness={0.12} transmission={0.12} /></mesh>
+    <mesh position={[0, 1.06, 0]} rotation={[0, 0, Math.PI / 4]}><boxGeometry args={[0.76, 0.76, 0.78]} /><meshPhysicalMaterial color="#b8e2d0" transparent opacity={0.24} roughness={0.12} transmission={0.12} /></mesh>
+    <StaticInstances transforms={GREENHOUSE_SEEDLINGS} castShadow><coneGeometry args={[0.06, 0.25, 6]} /><meshStandardMaterial color="#559147" roughness={0.95} /></StaticInstances>
+  </group>;
 }
 
 function Scarecrow({ position }: { position: Position }) {
-  return <group position={position}><Box args={[0.08, 1.25, 0.08]} position={[0, 0.72, 0]} color={palette.wood} /><Box args={[0.92, 0.07, 0.07]} position={[0, 1.04, 0]} color={palette.wood} /><mesh position={[0, 1.37, 0]}><sphereGeometry args={[0.2, 10, 8]} /><meshStandardMaterial color="#c79a57" /></mesh><mesh position={[0, 1.57, 0]}><coneGeometry args={[0.34, 0.25, 12]} /><meshStandardMaterial color="#a36936" /></mesh><Box args={[0.64, 0.52, 0.1]} position={[0, 0.94, 0]} color="#a75f45" /></group>;
+  return <group position={position}><Box args={[0.08, 1.25, 0.08]} position={[0, 0.72, 0]} color={palette.wood} /><Box args={[0.92, 0.07, 0.07]} position={[0, 1.04, 0]} color={palette.wood} /><mesh position={[0, 1.37, 0]}><sphereGeometry args={[0.2, 10, 8]} /><meshStandardMaterial color="#c79a57" roughness={0.94} /></mesh><mesh position={[0, 1.57, 0]}><coneGeometry args={[0.34, 0.25, 12]} /><meshStandardMaterial color="#a36936" roughness={0.92} /></mesh><Box args={[0.64, 0.52, 0.1]} position={[0, 0.94, 0]} color="#a75f45" radius={0.06} /></group>;
 }

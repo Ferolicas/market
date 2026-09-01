@@ -7,7 +7,7 @@ export default function manifest(): MetadataRoute.Manifest {
     description: "Simulador 3D de supermercados, empleados y franquicias.",
     start_url: "/",
     display: "standalone",
-    orientation: "landscape",
+    orientation: "any",
     background_color: "#eaf7ee",
     theme_color: "#163c32",
     icons: [

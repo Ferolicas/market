@@ -55,27 +55,41 @@ await page.evaluate(() => {
   };
   franchise.customers = [
     { ...shared, id: "qa-checkout-front", identity: 1, state: "WAIT_CHECKOUT", queueSlot: 0, transactionId: "qa-checkout-transaction", x: 5.25, z: 2.85, targetX: 5.25, targetZ: 2.85, stateSince: 99_500 },
+    { ...structuredClone(shared), id: "qa-checkout-handoff", identity: 2, state: "NAVIGATE_TO_BAG", shoppingList: [], currentLine: 0, basket: {}, queueSlot: null, queueJoinedAt: null, transactionId: "qa-checkout-complete", x: 7.7, z: 2.85, targetX: 8.85, targetZ: 2.85, path: [[8.85, 2.85]], stateSince: 99_700 },
     { ...structuredClone(shared), id: "qa-checkout-queue", identity: 3, state: "QUEUE_WAIT", shoppingList: [{ productId: "tomatoes", requested: 1, picked: 1 }], currentLine: 1, basket: { tomatoes: 1 }, queueSlot: 1, transactionId: null, x: 5.15, z: 2.07, targetX: 5.15, targetZ: 2.07, stateSince: 99_100 },
     { ...structuredClone(shared), id: "qa-empty-shopper", identity: 4, state: "NAVIGATE_TO_QUEUE", shoppingList: [{ productId: "tomatoes", requested: 1, picked: 0 }], currentLine: 1, basket: {}, queueSlot: 2, transactionId: null, x: 4.8, z: 1.25, targetX: 5.05, targetZ: 1.29, path: [[5.05, 1.29]], stateSince: 99_300 },
     { ...structuredClone(shared), id: "qa-door-exit", identity: 5, state: "EXIT_STORE", shoppingList: [], currentLine: 0, basket: {}, queueSlot: null, queueJoinedAt: null, transactionId: null, hasCart: false, x: 0, z: 7.2, targetX: 0, targetZ: 15.4, path: [[0, 15.4]], currentSpeed: 1.45, stateSince: 99_800 },
   ];
   franchise.queueCustomerIds = ["qa-checkout-front", "qa-checkout-queue"];
-  franchise.checkoutTransactions = [{
-    id: "qa-checkout-transaction", customerId: "qa-checkout-front", paymentMethod: "card", state: "SCANNING",
-    pendingItems: [{ productId: "tomatoes", quantity: 2, loaded: 2, scanned: 0, bagged: 0 }],
-    nextUnitIndex: 0, paymentCommitted: false, updatedAt: 99_900, lastLoadedAt: 99_900, lastScannedAt: 99_900, lastBaggedAt: 99_900, checkoutLane: 0,
-  }];
+  franchise.checkoutTransactions = [
+    {
+      id: "qa-checkout-transaction", customerId: "qa-checkout-front", paymentMethod: "card", state: "SCANNING",
+      pendingItems: [{ productId: "tomatoes", quantity: 2, loaded: 2, scanned: 0, bagged: 0 }],
+      nextUnitIndex: 0, paymentCommitted: false, updatedAt: 99_900, lastLoadedAt: 99_900, lastScannedAt: 99_900, lastBaggedAt: 99_900, checkoutLane: 0,
+    },
+    {
+      id: "qa-checkout-complete", customerId: "qa-checkout-handoff", paymentMethod: "cash", state: "COMPLETE",
+      pendingItems: [{ productId: "apples", quantity: 1, loaded: 1, scanned: 1, bagged: 1 }],
+      nextUnitIndex: 1, paymentCommitted: true, updatedAt: 99_850, lastLoadedAt: 98_000, lastScannedAt: 98_900, lastBaggedAt: 99_700, checkoutLane: 0,
+    },
+  ];
   localStorage.setItem("mini-market-recovery-v1", JSON.stringify({ state, saveRevision: qa.saveRevision, pendingEvents: [] }));
   sessionStorage.setItem("mini-market-qa-freeze", "1");
 });
 
 await page.reload({ waitUntil: "domcontentloaded", timeout: 60_000 });
 await page.waitForFunction(() => window.__MARKET_QA__?.state?.franchises?.[0]?.checkoutTransactions?.[0]?.id === "qa-checkout-transaction", null, { timeout: 60_000 });
+await page.waitForFunction(() => window.__MARKET_QA__?.checkoutPresentation?.[0] === "qa-checkout-transaction" && window.__MARKET_QA__?.checkoutHandoffPresentation?.[0] === "qa-checkout-complete" && window.__MARKET_QA__?.checkoutBagPresentation?.[0] === "counter", null, { timeout: 10_000 });
+const concurrentCheckoutPresentation = await page.evaluate(() => ({
+  active: structuredClone(window.__MARKET_QA__.checkoutPresentation),
+  handoff: structuredClone(window.__MARKET_QA__.checkoutHandoffPresentation),
+  bags: structuredClone(window.__MARKET_QA__.checkoutBagPresentation),
+}));
 await page.waitForTimeout(1_500);
 await page.screenshot({ path: path.join(output, "checkout-overview.png"), fullPage: true });
 
 const normalCameraPlayerVisible = await page.evaluate(() => document.querySelector("canvas") !== null && window.__MARKET_QA__.activeZones?.includes("checkout") !== true);
-await moveTo(page, [16.1, 10.24], 0.42);
+await moveTo(page, [16.1, 10.24], 0.42, 30_000, "checkout");
 await page.waitForFunction(() => window.__MARKET_QA__?.activeZones?.includes("checkout"), null, { timeout: 10_000 });
 await page.waitForTimeout(1_300);
 await page.screenshot({ path: path.join(output, "checkout-close-camera.png"), fullPage: true });
@@ -118,7 +132,7 @@ if (afterUnattended.balanceMinor !== beforeUnattended.balanceMinor || afterUnatt
   throw new Error(`La caja se atendió sin trabajador: ${JSON.stringify({ beforeUnattended, afterUnattended })}`);
 }
 
-await moveTo(page, [16.1, 10.24], 0.42);
+await moveTo(page, [16.1, 10.24], 0.42, 30_000, "checkout");
 const serviceStartedAt = Date.now();
 await page.waitForFunction(() => {
   const state = window.__MARKET_QA__?.state;
@@ -148,12 +162,13 @@ const webgl = await page.locator("canvas").first().evaluate((canvas) => {
   const extension = gl?.getExtension("WEBGL_debug_renderer_info");
   return gl ? { renderer: extension ? gl.getParameter(extension.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER), contextLost: gl.isContextLost() } : null;
 });
-const report = { generatedAt: new Date().toISOString(), email, normalCameraPlayerVisible, closeCamera, doorCheck, emptyShopperCheck, beforeUnattended, afterUnattended, paying, paid, serviceTiming, cartReturned, webgl, consoleErrors, pageErrors, failedResponses };
+const report = { generatedAt: new Date().toISOString(), email, concurrentCheckoutPresentation, normalCameraPlayerVisible, closeCamera, doorCheck, emptyShopperCheck, beforeUnattended, afterUnattended, paying, paid, serviceTiming, cartReturned, webgl, consoleErrors, pageErrors, failedResponses };
 await fs.writeFile(path.join(output, "report.json"), JSON.stringify(report, null, 2));
 await browser.close();
 console.log(JSON.stringify(report, null, 2));
 
 if (!closeCamera.activeZones.includes("checkout")) throw new Error("La cámara de caja no se activó en el rectángulo del cajero.");
+if (concurrentCheckoutPresentation.active[0] !== "qa-checkout-transaction" || concurrentCheckoutPresentation.handoff[0] !== "qa-checkout-complete" || concurrentCheckoutPresentation.bags[0] !== "counter") throw new Error(`La caja no presentó simultáneamente la compra activa y la bolsa pendiente: ${JSON.stringify(concurrentCheckoutPresentation)}`);
 if (!doorCheck.samples.length || doorCheck.violations.length) throw new Error(`El cliente cruzó una puerta todavía cerrada o no pudo observarse: ${JSON.stringify(doorCheck)}`);
 if (["NAVIGATE_TO_QUEUE", "QUEUE_WAIT", "MOVE_QUEUE", "UNLOAD", "WAIT_CHECKOUT", "PAY"].includes(emptyShopperCheck.state) || emptyShopperCheck.queued || emptyShopperCheck.hasTransaction) throw new Error(`El cliente sin compra fingió pasar por caja: ${JSON.stringify(emptyShopperCheck)}`);
 if (paying.balanceMinor !== beforeUnattended.balanceMinor || paying.customer?.state !== "PAY" || paying.customer?.queueSlot !== 0) throw new Error(`El pago no permaneció visible en el puesto: ${JSON.stringify(paying)}`);
@@ -178,9 +193,13 @@ async function snapshot(targetPage) {
   });
 }
 
-async function moveTo(targetPage, target, tolerance, timeoutMs = 30_000) {
+async function moveTo(targetPage, target, tolerance, timeoutMs = 30_000, stopZone = null) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
+    if (stopZone && await targetPage.evaluate((zone) => window.__MARKET_QA__?.activeZones?.includes(zone), stopZone)) {
+      await targetPage.evaluate(() => window.__MARKET_SET_PLAYER_INPUT__?.(0, 0));
+      return;
+    }
     const current = await targetPage.evaluate(() => structuredClone(window.__MARKET_QA__.player));
     if (Math.hypot(current.x - target[0], current.z - target[1]) <= tolerance) return;
     const route = await targetPage.evaluate((destination) => window.__MARKET_FIND_PLAYER_PATH__?.(destination) ?? [], target);
@@ -196,7 +215,7 @@ async function moveTo(targetPage, target, tolerance, timeoutMs = 30_000) {
     const inputY = -(worldX * forward[0] + worldZ * forward[1]);
     await targetPage.evaluate(({ x, y }) => window.__MARKET_SET_PLAYER_INPUT__?.(x, y), { x: inputX, y: inputY });
     await targetPage.waitForTimeout(180);
-    await targetPage.evaluate(() => window.__MARKET_SET_PLAYER_INPUT__?.(0, 0));
+    if (!stopZone) await targetPage.evaluate(() => window.__MARKET_SET_PLAYER_INPUT__?.(0, 0));
   }
   throw new Error(`No se alcanzó la caja: ${JSON.stringify(await targetPage.evaluate(() => window.__MARKET_QA__.player))}`);
 }

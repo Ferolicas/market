@@ -65,7 +65,7 @@ export interface MachineState {
 
 export interface CarryState {
   capacity: number;
-  item: { productId: ProductId; quantity: number } | null;
+  items: Partial<Inventory>;
 }
 
 export interface CropState {
@@ -230,7 +230,7 @@ export interface FinancialTotals {
 }
 
 export interface GameState {
-  schemaVersion: 3;
+  schemaVersion: 4;
   revision: number;
   countryCode: CountryCode;
   currency: string;
@@ -259,8 +259,8 @@ export type GameAction =
   | { type: "SET_COUNTRY"; countryCode: CountryCode }
   | { type: "SET_AVATAR"; body?: CharacterId; hair?: HairId; hairColor?: string; skin?: string; shirt?: string; hat?: AvatarHatId }
   | { type: "TOGGLE_STORE" }
-  | { type: "TEND_CROP"; productId?: "tomatoes" | "wheat" | "corn" }
-  | { type: "HARVEST"; productId?: "tomatoes" | "wheat" | "corn" }
+  | { type: "TEND_CROP"; cropId?: string; productId?: "tomatoes" | "wheat" | "corn" }
+  | { type: "HARVEST"; cropId?: string; productId?: "tomatoes" | "wheat" | "corn" }
   | { type: "LOAD_FLOUR_MILL" }
   | { type: "BAKE_BREAD" }
   | { type: "OPERATE_MACHINE"; machineId: string }

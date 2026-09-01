@@ -27,23 +27,34 @@ export interface MachineStation {
   tier: number;
 }
 
-export function createCrop(id: string, productId: CropStation["productId"], nowMs: number, tier = 1): CropStation {
+export function cropGrowthDurationMs(productId: CropStation["productId"], tier = 1, gameLevel = 1) {
   const growMs = PRODUCT_CONFIG[productId]?.growMs ?? 4_000;
-  return { id, productId, status: "GROWING", plantedAt: nowMs, readyAt: nowMs + growMs / stationTierModifiers(tier).speed, available: 0, tier };
+  const levelSpeed = 1 + Math.min(0.5, Math.max(0, Math.floor(gameLevel) - 1) * 0.025);
+  return Math.max(1_500, Math.round(growMs / stationTierModifiers(tier).speed / levelSpeed));
+}
+
+export function cropHarvestYield(productId: CropStation["productId"], tier = 1) {
+  const baseBedUnits = 3;
+  const productYield = PRODUCT_CONFIG[productId]?.yield ?? 1;
+  return Math.max(1, Math.round(baseBedUnits * productYield * stationTierModifiers(tier).capacity));
+}
+
+export function createCrop(id: string, productId: CropStation["productId"], nowMs: number, tier = 1, gameLevel = 1): CropStation {
+  return { id, productId, status: "GROWING", plantedAt: nowMs, readyAt: nowMs + cropGrowthDurationMs(productId, tier, gameLevel), available: 0, tier };
 }
 
 export function createEmptyCrop(id: string, productId: CropStation["productId"], tier = 1): CropStation {
   return { id, productId, status: "EMPTY", plantedAt: 0, readyAt: 0, available: 0, tier };
 }
 
-export function plantCrop(crop: CropStation, nowMs: number) {
+export function plantCrop(crop: CropStation, nowMs: number, gameLevel = 1) {
   if (crop.status !== "EMPTY") return { crop, planted: false };
-  return { crop: createCrop(crop.id, crop.productId, nowMs, crop.tier), planted: true };
+  return { crop: createCrop(crop.id, crop.productId, nowMs, crop.tier, gameLevel), planted: true };
 }
 
 export function updateCrop(crop: CropStation, nowMs: number): CropStation {
   if (crop.status !== "GROWING" || nowMs < crop.readyAt) return crop;
-  return { ...crop, status: "READY", available: Math.max(1, Math.round((PRODUCT_CONFIG[crop.productId]?.yield ?? 1) * stationTierModifiers(crop.tier).capacity)) };
+  return { ...crop, status: "READY", available: cropHarvestYield(crop.productId, crop.tier) };
 }
 
 export function cropProgress(crop: CropStation, nowMs: number) {
@@ -52,12 +63,12 @@ export function cropProgress(crop: CropStation, nowMs: number) {
   return Math.min(1, Math.max(0, (nowMs - crop.plantedAt) / Math.max(1, crop.readyAt - crop.plantedAt)));
 }
 
-export function harvestCrop(cropInput: CropStation, nowMs: number) {
+export function harvestCrop(cropInput: CropStation, nowMs: number, gameLevel = 1) {
   const crop = updateCrop(cropInput, nowMs);
   if (crop.status !== "READY" || crop.available < 1) return { crop, harvested: 0 };
   const remaining = crop.available - 1;
   if (remaining > 0) return { crop: { ...crop, status: "READY" as const, available: remaining }, harvested: 1 };
-  return { crop: createEmptyCrop(crop.id, crop.productId, crop.tier), harvested: 1 };
+  return { crop: createCrop(crop.id, crop.productId, nowMs, crop.tier, gameLevel), harvested: 1 };
 }
 
 export function createMachine(id: string, productId: MachineStation["productId"], tier = 1): MachineStation {

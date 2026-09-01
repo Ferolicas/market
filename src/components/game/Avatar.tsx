@@ -2,15 +2,15 @@
 
 import { useAnimations, useGLTF } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
-import { Suspense, useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import * as THREE from "three";
-import { clone } from "three/examples/jsm/utils/SkeletonUtils.js";
 import type { AvatarHatId, CharacterId, HairId } from "@/game/types";
 import { CharacterHair, CharacterHat } from "./CharacterAccessories";
 import { LocomotionController } from "@/game/animation/LocomotionController";
 import { FacialController, type FaceExpression } from "@/game/animation/FacialController";
 import { feedbackBus, type FeedbackSource } from "@/game/feedback/FeedbackBus";
 import { FootGroundingController } from "@/game/animation/FootGroundingController";
+import { disposeCharacterMaterials, prepareCharacterModel } from "@/game/animation/CharacterPresentation";
 
 interface AvatarProps {
   skin: string;
@@ -25,6 +25,7 @@ interface AvatarProps {
   animation?: CharacterAnimation;
   animationSpeed?: number;
   scale?: number;
+  carryAccessory?: ReactNode;
   feedbackSource?: FeedbackSource;
   feedbackActorId?: string;
 }
@@ -67,36 +68,34 @@ function RiggedAvatar({
   animation,
   animationSpeed,
   scale = 1,
+  carryAccessory,
   feedbackSource,
   feedbackActorId,
 }: AvatarProps) {
   const avatarRoot = useRef<THREE.Group>(null);
   const groundingRoot = useRef<THREE.Group>(null);
   const appearanceRoot = useRef<THREE.Group>(null);
+  const carrySocket = useRef<THREE.Group>(null);
   const relativeHeadMatrix = useRef(new THREE.Matrix4());
   const locomotion = useRef(new LocomotionController());
   const facial = useRef(new FacialController(({ "adult-man": 1, "adult-woman": 2, boy: 3, girl: 4 } as const)[body]));
   const footGrounding = useRef(new FootGroundingController());
   const footWorldPosition = useRef(new THREE.Vector3());
   const avatarWorldScale = useRef(new THREE.Vector3());
+  const leftHandWorld = useRef(new THREE.Vector3());
+  const rightHandWorld = useRef(new THREE.Vector3());
+  const carryLocalPosition = useRef(new THREE.Vector3());
   const [compactModel] = useState(() => typeof window !== "undefined" && window.innerWidth <= 640);
   const gltf = useGLTF(compactModel ? LOD1_MODEL_PATHS[body] : MODEL_PATHS[body]);
-  const model = useMemo(() => {
-    const copy = clone(gltf.scene) as THREE.Group;
-    copy.traverse((object) => {
-      if (!(object instanceof THREE.Mesh)) return;
-      object.castShadow = true;
-      object.receiveShadow = true;
-      object.frustumCulled = false;
-      object.material = Array.isArray(object.material)
-        ? object.material.map((material) => material.clone())
-        : object.material.clone();
-    });
-    return copy;
-  }, [gltf.scene]);
+  const model = useMemo(
+    () => prepareCharacterModel(gltf.scene, { build: body === "boy" || body === "girl" ? "child" : "adult" }),
+    [body, gltf.scene],
+  );
   const { actions } = useAnimations(gltf.animations, model);
   const fallbackClip: CharacterAnimation = animation ?? (walking ? carrying ? "CarryWalk" : "Walk" : carrying ? "CarryIdle" : "Idle");
   const head = model.getObjectByName("Head");
+  const leftHand = model.getObjectByName("Hand_L");
+  const rightHand = model.getObjectByName("Hand_R");
   const feet = useMemo(() => [model.getObjectByName("Foot_L"), model.getObjectByName("Foot_R")].filter((foot): foot is THREE.Object3D => Boolean(foot)), [model]);
   const morphMeshes = useMemo(() => {
     const meshes: THREE.Mesh[] = [];
@@ -126,6 +125,16 @@ function RiggedAvatar({
       relativeHeadMatrix.current.copy(avatarRoot.current.matrixWorld).invert().multiply(head.matrixWorld);
       appearanceRoot.current.matrix.copy(relativeHeadMatrix.current);
       appearanceRoot.current.matrixWorldNeedsUpdate = true;
+    }
+    if (carryAccessory && avatarRoot.current && carrySocket.current && leftHand && rightHand) {
+      avatarRoot.current.updateWorldMatrix(true, true);
+      leftHand.getWorldPosition(leftHandWorld.current);
+      rightHand.getWorldPosition(rightHandWorld.current);
+      carryLocalPosition.current.copy(leftHandWorld.current).add(rightHandWorld.current).multiplyScalar(0.5);
+      avatarRoot.current.worldToLocal(carryLocalPosition.current);
+      carryLocalPosition.current.y -= 0.08;
+      carryLocalPosition.current.z += 0.08;
+      carrySocket.current.position.copy(carryLocalPosition.current);
     }
 
     const expression: FaceExpression = liveClip === "Happy" ? "Happy" : liveClip === "Confused" ? "Confused" : "Neutral";
@@ -169,13 +178,7 @@ function RiggedAvatar({
     });
   }, [hairColor, model, shirt, skin]);
 
-  useEffect(() => () => {
-    model.traverse((object) => {
-      if (!(object instanceof THREE.Mesh)) return;
-      const materials = Array.isArray(object.material) ? object.material : [object.material];
-      materials.forEach((material) => material.dispose());
-    });
-  }, [model]);
+  useEffect(() => () => disposeCharacterMaterials(model), [model]);
 
   return (
     <group ref={avatarRoot} scale={scale * BODY_SCALE[body]}>
@@ -187,6 +190,7 @@ function RiggedAvatar({
           {hat !== "none" && <CharacterHat key={`${body}-hat-${hat}`} body={body} hat={hat} />}
         </Suspense>
       </group>}
+      {carryAccessory && <group ref={carrySocket} position={[0, 0.78, 0.28]}>{carryAccessory}</group>}
     </group>
   );
 }

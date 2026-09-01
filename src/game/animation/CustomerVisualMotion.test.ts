@@ -37,7 +37,7 @@ describe("customer visual motion", () => {
   it("projects a moving employee while preserving the configured level speed", () => {
     const employee: EmployeeRuntimeState = {
       state: "NAVIGATE_PICKUP", assignedProduct: "tomatoes", assignedStationId: "stockroom",
-      carry: { capacity: 4, item: null }, x: 0, z: 0, targetX: 2, targetZ: 0,
+      carry: { capacity: 4, items: {} }, x: 0, z: 0, targetX: 2, targetZ: 0,
       path: [[2, 0]], pathIndex: 0, speed: 1.82, currentSpeed: 1.82, stateSince: 0,
     };
     const snapshot = captureEmployeeMotion(employee, 1_000);

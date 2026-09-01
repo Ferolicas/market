@@ -18,6 +18,45 @@ describe("server save authority", () => {
     expect(validateSaveTransition(current, invalid, result.events)).toEqual({ ok: false, code: "INVALID_STATE_TRANSITION" });
   });
 
+  it("rejects an over-capacity, negative or unknown product in the mixed carry basket", () => {
+    const current = createInitialGame();
+    const overCapacity = structuredClone(current);
+    overCapacity.franchises[0].carry = { capacity: 3, items: { tomatoes: 2, wheat: 2 } };
+    expect(validateSaveTransition(current, overCapacity, [])).toEqual({ ok: false, code: "INVALID_STATE_TRANSITION" });
+
+    const negative = structuredClone(current);
+    negative.franchises[0].carry.items.tomatoes = -1;
+    expect(validateSaveTransition(current, negative, [])).toEqual({ ok: false, code: "INVALID_STATE_TRANSITION" });
+
+    const unknown = structuredClone(current);
+    (unknown.franchises[0].carry.items as Record<string, number>).potatoes = 1;
+    expect(validateSaveTransition(current, unknown, [])).toEqual({ ok: false, code: "INVALID_STATE_TRANSITION" });
+  });
+
+  it("applies the v4 carry invariants to every persisted employee runtime", () => {
+    const current = createInitialGame();
+    current.level = 5;
+    const hired = applyGameAction(current, { type: "HIRE", role: "stocker" });
+    expect(hired.ok).toBe(true);
+    expect(validateSaveTransition(current, hired.state, hired.events)).toEqual({ ok: true });
+
+    const overCapacity = structuredClone(hired.state);
+    overCapacity.franchises[0].employees[0].runtime!.carry = { capacity: 2, items: { tomatoes: 2, apples: 1 } };
+    expect(validateSaveTransition(current, overCapacity, hired.events)).toEqual({ ok: false, code: "INVALID_STATE_TRANSITION" });
+
+    const negative = structuredClone(hired.state);
+    negative.franchises[0].employees[0].runtime!.carry.items.tomatoes = -1;
+    expect(validateSaveTransition(current, negative, hired.events)).toEqual({ ok: false, code: "INVALID_STATE_TRANSITION" });
+
+    const unknown = structuredClone(hired.state);
+    (unknown.franchises[0].employees[0].runtime!.carry.items as Record<string, number>).potatoes = 1;
+    expect(validateSaveTransition(current, unknown, hired.events)).toEqual({ ok: false, code: "INVALID_STATE_TRANSITION" });
+
+    const missingItems = structuredClone(hired.state);
+    delete (missingItems.franchises[0].employees[0].runtime!.carry as { items?: unknown }).items;
+    expect(validateSaveTransition(current, missingItems, hired.events)).toEqual({ ok: false, code: "INVALID_STATE_TRANSITION" });
+  });
+
   it("does not allow changing the registered country in a later save", () => {
     const initial = createInitialGame();
     const registration = applyGameAction(initial, { type: "SET_COUNTRY", countryCode: "ES" });

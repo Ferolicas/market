@@ -26,7 +26,8 @@ await page.getByRole("button", { name: "Crear perfil y jugar" }).click();
 await page.getByRole("button", { name: "Abrir mi primer Mini Market" }).waitFor({ timeout: 60_000 });
 await page.getByRole("button", { name: "Abrir mi primer Mini Market" }).click();
 await page.getByText("Objetivos del día").waitFor({ timeout: 30_000 });
-await page.waitForFunction(() => Object.values(window.__MARKET_QA__?.customerVisuals ?? {}).some((customer) => customer.basketVisible), null, { timeout: 30_000 });
+await page.getByRole("button", { name: "Abrir el supermercado" }).click();
+await page.waitForFunction(() => Object.values(window.__MARKET_QA__?.customerVisuals ?? {}).some((customer) => customer.cartVisible), null, { timeout: 30_000 });
 
 const samples = await page.evaluate(() => new Promise((resolve) => {
   const result = [];
@@ -74,8 +75,8 @@ const movementEnd = await page.evaluate(() => ({
 
 await page.screenshot({ path: path.join(outputRoot, "customers-live.png"), fullPage: true });
 const byCustomer = Map.groupBy(samples, (sample) => sample.id);
-const travelRatios = []; const headFrameDegrees = []; const basketDistances = [];
-const movementByState = {}; let maxHeadFrame = null;
+const travelRatios = []; const headFrameDegrees = []; const cartGripDistances = [];
+const movementByState = {}; const cartGripByState = {}; let maxHeadFrame = null;
 for (const customerSamples of byCustomer.values()) {
   let previous = customerSamples[0];
   for (let index = 1; index < customerSamples.length; index += 1) {
@@ -95,7 +96,14 @@ for (const customerSamples of byCustomer.values()) {
       headFrameDegrees.push(degrees);
       if (!maxHeadFrame || degrees > maxHeadFrame.degrees) maxHeadFrame = { id: current.id, degrees, elapsedMs: current.t - previous.t, from: previous.animation, to: current.animation, state: current.state };
     }
-    if (current.basketVisible && current.basketHandDistance !== null) basketDistances.push(current.basketHandDistance);
+    // GET_CART and RETURN_CART deliberately interpolate the trolley between the
+    // bay and the customer's hands. Measure grip only once the trolley is under
+    // the customer's control, otherwise the transfer itself becomes a false
+    // hand-contact failure.
+    if (current.cartVisible && current.cartGripDistance !== null && !["GET_CART", "RETURN_CART"].includes(current.state)) {
+      cartGripDistances.push(current.cartGripDistance);
+      (cartGripByState[current.state] ??= []).push(current.cartGripDistance);
+    }
     previous = current;
   }
 }
@@ -116,8 +124,9 @@ const report = {
   maxHeadFrameDegrees: sortedHead.at(-1) ?? 0,
   p95HeadFrameDegrees: percentile(sortedHead, 0.95),
   maxHeadFrame,
-  basketSamples: basketDistances.length,
-  basketHandDistance: basketDistances.length ? { min: Math.min(...basketDistances), max: Math.max(...basketDistances) } : null,
+  cartGripSamples: cartGripDistances.length,
+  cartGripDistance: cartGripDistances.length ? { min: Math.min(...cartGripDistances), max: Math.max(...cartGripDistances) } : null,
+  cartGripByState: Object.fromEntries(Object.entries(cartGripByState).map(([state, distances]) => [state, { samples: distances.length, p95: percentile(distances.toSorted((a, b) => a - b), 0.95), max: Math.max(...distances) }])),
   movingAlongside: {
     frames: movingAlongsideRatios.length,
     pauseRatio: movingAlongsideRatios.filter((ratio) => ratio < 0.2).length / Math.max(1, movingAlongsideRatios.length),
@@ -140,9 +149,9 @@ if (report.pauseRatio > 0.08) throw new Error(`Los clientes aún presentan pausa
 if (report.movingAlongside.frames < 120 || report.movingAlongside.revisionDelta < 3) throw new Error(`La prueba no ejercitó suficiente movimiento simultáneo del vendedor y los clientes: ${JSON.stringify(report.movingAlongside)}`);
 if (report.movingAlongside.excessRevisions > 3) throw new Error(`El movimiento del vendedor todavía crea actualizaciones globales fuera del tick mundial: ${JSON.stringify(report.movingAlongside)}`);
 if (report.movingAlongside.maxSnapshotRefreshes > 66) throw new Error(`Los snapshots de clientes todavía se reinician fuera del reloj autoritativo: ${JSON.stringify(report.movingAlongside)}`);
-if (report.movingAlongside.pauseRatio > report.pauseRatio + 0.03 || report.movingAlongside.p10TravelRatio < Math.max(0.5, report.p10TravelRatio * 0.7)) throw new Error(`Caminar junto a los clientes todavía degrada su movimiento: ${JSON.stringify({ stationary: { pauseRatio: report.pauseRatio, p10TravelRatio: report.p10TravelRatio }, moving: report.movingAlongside })}`);
+if (report.movingAlongside.pauseRatio > 0.08 || report.movingAlongside.p10TravelRatio < report.p10TravelRatio * 0.65 || report.movingAlongside.medianTravelRatio < report.medianTravelRatio * 0.9) throw new Error(`Caminar junto a los clientes todavía degrada su movimiento: ${JSON.stringify({ stationary: { pauseRatio: report.pauseRatio, p10TravelRatio: report.p10TravelRatio, medianTravelRatio: report.medianTravelRatio }, moving: report.movingAlongside })}`);
 if (report.maxHeadFrameDegrees > 5) throw new Error(`La cabeza da un salto no anatómico: ${JSON.stringify(report)}`);
-if (!report.basketHandDistance || report.basketHandDistance.max > 1.2) throw new Error(`La canasta no permanece unida a la mano: ${JSON.stringify(report)}`);
+if (!report.cartGripDistance || report.cartGripDistance.max > 0.5) throw new Error(`Las manos no permanecen unidas al manillar del carro: ${JSON.stringify(report)}`);
 if (consoleErrors.length || pageErrors.length || failedResponses.length) throw new Error(`Errores de navegador o red: ${JSON.stringify({ consoleErrors, pageErrors, failedResponses })}`);
 
 function percentile(sorted, quantile) {

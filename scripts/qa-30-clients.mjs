@@ -59,7 +59,7 @@ await page.evaluate(() => {
   ];
   franchise.employees = employeeFixtures.map(([role, hat, x, z], index) => ({
     id: `qa-employee-${index + 1}`, name: `QA ${role}`, role, level: 3, salaryMinor: 1_000, energy: 100, hat,
-    runtime: { state: "IDLE", assignedProduct: null, assignedStationId: null, carry: { capacity: 4, item: null }, x, z, targetX: x, targetZ: z, path: [], pathIndex: 0, speed: 1.66, currentSpeed: 0, stateSince: state.simulationTimeMs },
+    runtime: { state: "IDLE", assignedProduct: null, assignedStationId: null, carry: { capacity: 4, items: {} }, x, z, targetX: x, targetZ: z, path: [], pathIndex: 0, speed: 1.66, currentSpeed: 0, stateSince: state.simulationTimeMs },
   }));
   franchise.customers = Array.from({ length: 30 }, (_, index) => ({
     ...base,

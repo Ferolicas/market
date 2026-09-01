@@ -1,3 +1,5 @@
+import type { CheckoutTransaction, CustomerRuntimeState } from "../types";
+
 export type CheckoutLane = 0 | 1;
 export type StorePoint = readonly [x: number, z: number];
 export type StorePosition = readonly [x: number, y: number, z: number];
@@ -35,4 +37,40 @@ export const CHECKOUT_CAMERA_POSITION: StorePosition = [6.9, 3.65, 5.6];
 export function checkoutQueuePosition(slot: number, lane: CheckoutLane = 0): [number, number] {
   const front = CHECKOUT_LANES[lane].customerFront;
   return [front[0], front[1] - slot * 0.78];
+}
+
+export function activeCheckoutForLane(transactions: readonly CheckoutTransaction[], lane: CheckoutLane) {
+  return transactions.find((transaction) => (
+    (transaction.checkoutLane ?? 0) === lane
+    && transaction.state !== "COMPLETE"
+    && transaction.state !== "ABANDONED"
+  ));
+}
+
+/** A paid bag remains independent from the next transaction using the lane. */
+export function checkoutHandoffForLane(
+  transactions: readonly CheckoutTransaction[],
+  lane: CheckoutLane,
+  customers: readonly Pick<CustomerRuntimeState, "id" | "state" | "transactionId">[],
+) {
+  const handoffTransactionIds = new Set(customers
+    .filter((customer) => customer.transactionId && ["NAVIGATE_TO_BAG", "TAKE_BAG"].includes(customer.state))
+    .map((customer) => customer.transactionId));
+  let fallback: CheckoutTransaction | undefined;
+  for (const transaction of transactions) {
+    if ((transaction.checkoutLane ?? 0) !== lane || transaction.state !== "COMPLETE" || !handoffTransactionIds.has(transaction.id)) continue;
+    if (!fallback || transaction.updatedAt > fallback.updatedAt) fallback = transaction;
+  }
+  return fallback;
+}
+
+export function checkoutBagLocation(
+  transaction: Pick<CheckoutTransaction, "id" | "customerId" | "state"> | null | undefined,
+  customers: readonly Pick<CustomerRuntimeState, "id" | "state" | "transactionId">[],
+): "counter" | "customer" | null {
+  if (!transaction) return null;
+  const customer = customers.find((candidate) => candidate.id === transaction.customerId && candidate.transactionId === transaction.id);
+  return transaction.state === "COMPLETE" && customer?.transactionId === transaction.id && customer.state === "TAKE_BAG"
+    ? "customer"
+    : "counter";
 }

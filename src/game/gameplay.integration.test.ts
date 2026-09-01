@@ -18,19 +18,52 @@ function shopper(id: string, productId: ProductId, socket: number): CustomerRunt
 }
 
 describe("real supermarket loop", () => {
-  it("starts level one with a visible manual planting and harvesting loop", () => {
+  it("starts level one growing and automatically replants after the exact plot is harvested", () => {
     let state = createInitialGame();
     expect(state.level).toBe(1);
-    expect(state.franchises[0].crops[0].status).toBe("EMPTY");
-
-    state = act(state, { type: "TEND_CROP", productId: "tomatoes" });
     expect(state.franchises[0].crops[0].status).toBe("GROWING");
     state = tick(state, 4);
-    expect(state.franchises[0].crops[0].status).toBe("READY");
-    state = act(state, { type: "TEND_CROP", productId: "tomatoes" });
+    expect(state.franchises[0].crops[0]).toMatchObject({ status: "READY", available: 3 });
+    state = act(state, { type: "HARVEST", cropId: "crop-tomato-1", productId: "tomatoes" });
+    state = act(state, { type: "HARVEST", cropId: "crop-tomato-1", productId: "tomatoes" });
+    state = act(state, { type: "HARVEST", cropId: "crop-tomato-1", productId: "tomatoes" });
 
-    expect(state.franchises[0].crops[0].status).toBe("EMPTY");
-    expect(state.franchises[0].carry.item).toEqual({ productId: "tomatoes", quantity: 1 });
+    expect(state.franchises[0].crops[0]).toMatchObject({ id: "crop-tomato-1", status: "GROWING", available: 0 });
+    expect(state.franchises[0].crops[0].readyAt).toBeGreaterThan(state.simulationTimeMs);
+    expect(state.franchises[0].carry.items).toEqual({ tomatoes: 3 });
+  });
+
+  it("harvests only the requested cropId when two plots contain the same vegetable", () => {
+    let state = createInitialGame();
+    const first = state.franchises[0].crops[0];
+    Object.assign(first, { status: "READY", available: 1, plantedAt: 0, readyAt: 0 });
+    state.franchises[0].crops.push({ ...first, id: "crop-tomato-2" });
+
+    state = act(state, { type: "HARVEST", cropId: "crop-tomato-2", productId: "tomatoes" });
+
+    expect(state.franchises[0].crops.find((crop) => crop.id === "crop-tomato-1")).toMatchObject({ status: "READY", available: 1 });
+    expect(state.franchises[0].crops.find((crop) => crop.id === "crop-tomato-2")).toMatchObject({ status: "GROWING", available: 0 });
+    expect(state.franchises[0].carry.items).toEqual({ tomatoes: 1 });
+  });
+
+  it("keeps different vegetables together and enforces capacity across the whole basket", () => {
+    let state = createInitialGame();
+    const franchise = state.franchises[0];
+    franchise.carry.capacity = 2;
+    const tomato = franchise.crops.find((crop) => crop.productId === "tomatoes")!;
+    const wheat = franchise.crops.find((crop) => crop.productId === "wheat")!;
+    const corn = franchise.crops.find((crop) => crop.productId === "corn")!;
+    for (const crop of [tomato, wheat, corn]) Object.assign(crop, { status: "READY", available: 1, plantedAt: 0, readyAt: 0 });
+
+    state = act(state, { type: "HARVEST", cropId: tomato.id, productId: tomato.productId });
+    state = act(state, { type: "HARVEST", cropId: wheat.id, productId: wheat.productId });
+    const fullBasket = applyGameAction(state, { type: "HARVEST", cropId: corn.id, productId: corn.productId });
+
+    expect(state.franchises[0].carry.items).toEqual({ tomatoes: 1, wheat: 1 });
+    expect(fullBasket.ok).toBe(false);
+    expect(fullBasket.message).toContain("llena");
+    expect(fullBasket.state.franchises[0].carry.items).toEqual({ tomatoes: 1, wheat: 1 });
+    expect(fullBasket.state.franchises[0].crops.find((crop) => crop.id === corn.id)).toMatchObject({ status: "READY", available: 1 });
   });
 
   it("harvests tomatoes, stocks visible inventory, queues a real customer and commits one payment", () => {
@@ -38,9 +71,9 @@ describe("real supermarket loop", () => {
     state = act(state, { type: "TOGGLE_STORE" });
     const crop = state.franchises[0].crops.find((candidate) => candidate.productId === "tomatoes")!;
     Object.assign(crop, { status: "READY", available: 3, tier: 9 });
-    state = act(state, { type: "HARVEST", productId: "tomatoes" });
-    state = act(state, { type: "HARVEST", productId: "tomatoes" });
-    state = act(state, { type: "HARVEST", productId: "tomatoes" });
+    state = act(state, { type: "HARVEST", cropId: crop.id, productId: "tomatoes" });
+    state = act(state, { type: "HARVEST", cropId: crop.id, productId: "tomatoes" });
+    state = act(state, { type: "HARVEST", cropId: crop.id, productId: "tomatoes" });
     state = act(state, { type: "STOCK", productId: "tomatoes", quantity: 3, source: "carry" });
     const balanceBefore = state.balanceMinor;
     state = tick(state, 65);
@@ -68,7 +101,7 @@ describe("real supermarket loop", () => {
     Object.assign(wheat, { status: "READY", available: 2, tier: 6 });
     const mill = franchise.productionMachines.find((machine) => machine.id === "flour-mill-1")!; mill.status = "WAITING_INPUT";
     const oven = franchise.productionMachines.find((machine) => machine.id === "bread-oven-1")!; oven.status = "WAITING_INPUT";
-    state = act(state, { type: "HARVEST", productId: "wheat" }); state = act(state, { type: "HARVEST", productId: "wheat" });
+    state = act(state, { type: "HARVEST", cropId: wheat.id, productId: "wheat" }); state = act(state, { type: "HARVEST", cropId: wheat.id, productId: "wheat" });
     state = act(state, { type: "LOAD_FLOUR_MILL" }); state = tick(state, 4);
     state = act(state, { type: "OPERATE_MACHINE", machineId: "flour-mill-1" });
     state = act(state, { type: "BAKE_BREAD" }); state = tick(state, 6);
@@ -134,8 +167,8 @@ describe("real supermarket loop", () => {
 
     state = normalizeGameState(JSON.parse(JSON.stringify(state)));
 
-    expect(state.franchises[0].crops[0]).toMatchObject({ status: "READY", available: 1 });
-    state = act(state, { type: "HARVEST", productId: "tomatoes" });
+    expect(state.franchises[0].crops[0]).toMatchObject({ status: "READY", available: 3 });
+    state = act(state, { type: "HARVEST", cropId: franchise.crops[0].id, productId: "tomatoes" });
     state = act(state, { type: "STOCK", productId: "tomatoes", quantity: 1, source: "carry" });
     state = tick(state, 65);
     expect(state.franchises[0].customers.some((customer) => customerBasketUnitsForTest(customer) > 0)).toBe(true);
@@ -205,7 +238,7 @@ describe("real supermarket loop", () => {
     const franchise = state.franchises[0];
     const cheese = franchise.productionMachines.find((machine) => machine.id === "cheese-maker-1")!;
     cheese.status = "WAITING_INPUT";
-    franchise.carry.item = { productId: "milk", quantity: 2 };
+    franchise.carry.items = { milk: 2 };
     state = act(state, { type: "OPERATE_MACHINE", machineId: cheese.id });
     state = tick(state, 8);
     state = act(state, { type: "OPERATE_MACHINE", machineId: cheese.id });

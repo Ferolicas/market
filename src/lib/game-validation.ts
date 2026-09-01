@@ -5,7 +5,7 @@ export const savePayloadSchema = z.object({
   expectedRevision: z.number().int().min(0),
   sessionId: z.string().uuid(),
   state: z.object({
-    schemaVersion: z.literal(3),
+    schemaVersion: z.literal(4),
     revision: z.number().int().min(0),
     countryCode: z.enum(["ES", "US", "CO", "MX", "AR", "CL", "PE"]),
     currency: z.string().min(3).max(3),

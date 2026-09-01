@@ -28,6 +28,24 @@ function cloneStaticScene(scene: THREE.Group) {
     object.material = Array.isArray(object.material)
       ? object.material.map((material) => material.clone())
       : object.material.clone();
+    const materials = Array.isArray(object.material) ? object.material : [object.material];
+    for (const material of materials) {
+      if (!(material instanceof THREE.MeshStandardMaterial)) continue;
+      const isHair = material.name.toLowerCase().includes("hair");
+      material.side = THREE.DoubleSide;
+      material.metalness = 0;
+      material.roughness = isHair ? 0.62 : THREE.MathUtils.clamp(material.roughness * 0.82, 0.58, 0.72);
+      material.envMapIntensity = isHair ? 0.72 : 0.78;
+      if (material instanceof THREE.MeshPhysicalMaterial) {
+        material.clearcoat = isHair ? 0.06 : 0.1;
+        material.clearcoatRoughness = 0.68;
+        material.sheen = isHair ? 0.1 : 0.06;
+        material.sheenColor.set("#fff5eb");
+        material.sheenRoughness = 0.84;
+        material.specularIntensity = isHair ? 0.3 : 0.34;
+      }
+      material.needsUpdate = true;
+    }
   });
   return copy;
 }
@@ -53,9 +71,9 @@ export function CharacterHair({ body, style, color }: { body: CharacterId; style
         if (!(material instanceof THREE.MeshStandardMaterial) || !material.name.toLowerCase().includes("hair")) return;
         material.color.copy(tint);
         material.metalness = 0;
-        material.roughness = Math.max(material.roughness, 0.74);
-        material.envMapIntensity = 0.48;
-        if (material instanceof THREE.MeshPhysicalMaterial) material.specularIntensity = 0.28;
+        material.roughness = 0.62;
+        material.envMapIntensity = 0.72;
+        if (material instanceof THREE.MeshPhysicalMaterial) material.specularIntensity = 0.3;
       });
     });
   }, [color, model]);

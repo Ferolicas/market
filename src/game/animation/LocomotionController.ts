@@ -1,4 +1,4 @@
-import type { AnimationAction } from "three";
+import { LoopRepeat, MathUtils, type AnimationAction } from "three";
 
 export type LocomotionClip = "Idle" | "Walk" | "Run" | "TurnLeft" | "TurnRight" | "CarryIdle" | "CarryWalk";
 export type FootstepEvent = "LeftFootDown" | "RightFootDown";
@@ -6,6 +6,7 @@ export type FootstepEvent = "LeftFootDown" | "RightFootDown";
 export class LocomotionController {
   private active = "Idle";
   private moving = false;
+  private running = false;
   private previousPhase = 0;
 
   select(speed: number, yawDelta: number, carrying: boolean): LocomotionClip {
@@ -13,19 +14,39 @@ export class LocomotionController {
     const moving = this.moving;
     if (!moving && Math.abs(yawDelta) > 55 * Math.PI / 180) return yawDelta < 0 ? "TurnLeft" : "TurnRight";
     if (!moving) return carrying ? "CarryIdle" : "Idle";
-    if (speed >= 3.15) return "Run";
+    this.running = this.running ? speed >= 2.78 : speed > 3.15;
+    if (this.running) return "Run";
     return carrying ? "CarryWalk" : "Walk";
   }
 
-  transition(actions: Record<string, AnimationAction | null | undefined>, next: string, speedScale = 1, fadeSeconds = 0.16) {
-    if (next === this.active && actions[next]?.isRunning()) {
-      actions[next]?.setEffectiveTimeScale(speedScale);
+  transition(actions: Record<string, AnimationAction | null | undefined>, requested: string, speedScale = 1, fadeSeconds = 0.2) {
+    const next = actions[requested] ? requested : actions.Idle ? "Idle" : requested;
+    const nextAction = actions[next];
+    if (!nextAction) return;
+    const targetScale = MathUtils.clamp(speedScale, 0.55, 2.8);
+    if (next === this.active && nextAction.isRunning()) {
+      nextAction.setEffectiveTimeScale(MathUtils.lerp(nextAction.getEffectiveTimeScale(), targetScale, 0.18));
       return;
     }
-    actions[this.active]?.fadeOut(fadeSeconds);
-    actions[next]?.reset().setEffectiveTimeScale(speedScale).fadeIn(fadeSeconds).play();
+
+    const previousAction = actions[this.active];
+    const previousDuration = previousAction?.getClip().duration ?? 0;
+    const synchronizedGait = previousAction && isCyclicGait(this.active) && isCyclicGait(next);
+    const normalizedPhase = synchronizedGait && previousDuration > 0
+      ? (previousAction.time / previousDuration) % 1
+      : 0;
+
+    nextAction.reset();
+    if (synchronizedGait) nextAction.time = normalizedPhase * nextAction.getClip().duration;
+    nextAction
+      .setLoop(LoopRepeat, Number.POSITIVE_INFINITY)
+      .setEffectiveWeight(1)
+      .setEffectiveTimeScale(targetScale)
+      .fadeIn(fadeSeconds)
+      .play();
+    previousAction?.fadeOut(fadeSeconds);
     this.active = next;
-    this.previousPhase = 0;
+    this.previousPhase = synchronizedGait ? normalizedPhase : 0;
   }
 
   footEvents(action: AnimationAction | null | undefined): FootstepEvent[] {
@@ -40,6 +61,12 @@ export class LocomotionController {
   }
 
   current() { return this.active; }
+}
+
+const CYCLIC_GAITS = new Set(["Walk", "Run", "CarryWalk"]);
+
+function isCyclicGait(name: string) {
+  return CYCLIC_GAITS.has(name);
 }
 
 function crossed(previous: number, current: number, marker: number) {

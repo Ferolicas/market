@@ -30,7 +30,6 @@ const BASE_STORE_OBSTACLES: StoreObstacle[] = [
   { x: -7, z: 3.15, halfX: 1.05, halfZ: 0.7 },
   { x: 8.8, z: -2.65, halfX: 0.95, halfZ: 1.55 },
   { x: 8.8, z: -5.35, halfX: 0.95, halfZ: 0.7 },
-  { x: -7.95, z: 10.65, halfX: 2.95, halfZ: 1.78 },
 ];
 
 export const STORE_OBSTACLES = BASE_STORE_OBSTACLES.map((obstacle) => ({

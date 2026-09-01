@@ -53,7 +53,7 @@ await page.evaluate(() => {
       state: role === "cashier" ? "IDLE" : "NAVIGATE_PICKUP",
       assignedProduct: role === "cashier" ? null : "tomatoes",
       assignedStationId: role === "cashier" ? null : "stockroom",
-      carry: { capacity: 4, item: null },
+      carry: { capacity: 4, items: {} },
       x, z, targetX: role === "cashier" ? x : 8, targetZ: z,
       path: role === "cashier" ? [] : [[8, z]],
       pathIndex: 0,

@@ -91,7 +91,7 @@ await page.screenshot({ path: path.join(outputRoot, "11-world-after-walk.png"), 
 const storeStatus = page.locator(".store-status");
 if ((await storeStatus.textContent())?.includes("CERRADO")) {
   await storeStatus.click();
-  await page.getByRole("button", { name: "ABIERTO" }).waitFor({ timeout: 10_000 });
+  await page.getByRole("button", { name: "Cerrar el supermercado" }).waitFor({ timeout: 10_000 });
 }
 await page.waitForTimeout(6_000);
 await page.screenshot({ path: path.join(outputRoot, "12-world-customers.png"), fullPage: true });

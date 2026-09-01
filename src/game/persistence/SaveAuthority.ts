@@ -1,5 +1,5 @@
 import { COUNTRIES } from "../catalog";
-import type { GameEvent, GameState, Inventory, ProductId } from "../types";
+import type { CarryState, GameEvent, GameState, Inventory, ProductId } from "../types";
 import { validatePendingEvents } from "./Snapshot";
 
 export type SaveAuthorityCode =
@@ -18,12 +18,17 @@ export type SaveAuthorityResult = { ok: true } | { ok: false; code: SaveAuthorit
  */
 export function validateSaveTransition(current: GameState, next: GameState, events: GameEvent[]): SaveAuthorityResult {
   if (!validatePendingEvents(events)) return { ok: false, code: "INVALID_EVENTS" };
-  if (next.schemaVersion !== 3 || next.revision < current.revision || next.day < current.day || next.simulationTimeMs < current.simulationTimeMs || next.lastServerTime < current.lastServerTime) return { ok: false, code: "INVALID_STATE_TRANSITION" };
+  if (next.schemaVersion !== 4 || next.revision < current.revision || next.day < current.day || next.simulationTimeMs < current.simulationTimeMs || next.lastServerTime < current.lastServerTime) return { ok: false, code: "INVALID_STATE_TRANSITION" };
   if (next.currency !== COUNTRIES[next.countryCode].currency) return { ok: false, code: "INVALID_STATE_TRANSITION" };
   if (current.tutorialStep > 0 && (next.countryCode !== current.countryCode || next.currency !== current.currency)) return { ok: false, code: "INVALID_STATE_TRANSITION" };
   if (!next.franchises.some((franchise) => franchise.id === next.currentFranchiseId && franchise.owned)) return { ok: false, code: "INVALID_STATE_TRANSITION" };
   if (current.franchises.some((franchise) => !next.franchises.some((candidate) => candidate.id === franchise.id))) return { ok: false, code: "INVALID_STATE_TRANSITION" };
-  if (next.franchises.some((franchise) => hasInvalidInventory(franchise.warehouse) || hasInvalidInventory(franchise.shelves) || franchise.carry.capacity < 1 || (franchise.carry.item?.quantity ?? 0) < 0)) return { ok: false, code: "INVALID_STATE_TRANSITION" };
+  if (next.franchises.some((franchise) => (
+    hasInvalidInventory(franchise.warehouse)
+    || hasInvalidInventory(franchise.shelves)
+    || hasInvalidCarry(franchise.carry)
+    || franchise.employees.some((employee) => hasInvalidEmployeeCarry(employee.runtime))
+  ))) return { ok: false, code: "INVALID_STATE_TRANSITION" };
 
   const ids = new Set<string>();
   const idempotencyKeys = new Set<string>();
@@ -47,4 +52,21 @@ const PRODUCT_IDS: ProductId[] = ["wheat", "flour", "bread", "corn", "milk", "eg
 
 function hasInvalidInventory(inventory: Inventory) {
   return PRODUCT_IDS.some((productId) => !Number.isSafeInteger(inventory[productId]) || inventory[productId] < 0 || inventory[productId] > 1_000_000);
+}
+
+function hasInvalidCarry(input: unknown) {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return true;
+  const carry = input as Partial<CarryState>;
+  const capacity = carry.capacity;
+  if (typeof capacity !== "number" || !Number.isSafeInteger(capacity) || capacity < 1 || capacity > 1_000_000) return true;
+  if (!carry.items || typeof carry.items !== "object" || Array.isArray(carry.items)) return true;
+  const entries = Object.entries(carry.items);
+  if (entries.some(([productId, quantity]) => !PRODUCT_IDS.includes(productId as ProductId) || !Number.isSafeInteger(quantity) || quantity < 0 || quantity > 1_000_000)) return true;
+  return entries.reduce((total, [, quantity]) => total + quantity, 0) > capacity;
+}
+
+function hasInvalidEmployeeCarry(runtime: unknown) {
+  if (runtime === undefined) return false;
+  if (!runtime || typeof runtime !== "object" || Array.isArray(runtime)) return true;
+  return hasInvalidCarry((runtime as { carry?: unknown }).carry);
 }

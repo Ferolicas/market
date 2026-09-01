@@ -294,6 +294,90 @@ def stabilize_foot_weights(
             print(f"FUSED_LIMB_REMOVAL {mesh.name}: faces={len(bridge_faces)}")
 
 
+def add_closed_footwear_soles(
+    armature: bpy.types.Object,
+    character_meshes: list[bpy.types.Object],
+    character_height: float,
+) -> list[bpy.types.Object]:
+    """Add a thin, closed outsole after reconstruction cleanup.
+
+    Single-view character reconstruction occasionally fuses a shoe to its
+    support plane. Removing that plane is correct, but it can leave the lowest
+    shoe ring open. A separate rigid outsole closes the silhouette without
+    changing the reconstructed upper, UV atlas, morphs or ankle deformation.
+    Its dimensions come from the actual Foot-weighted vertices, so adults,
+    children and every shoe shape use the same deterministic repair.
+    """
+
+    ratio = character_height / 1.803
+    material = bpy.data.materials.new("PremiumClosedSole")
+    material.use_nodes = True
+    material.use_backface_culling = False
+    principled = material.node_tree.nodes.get("Principled BSDF")
+    principled.inputs["Base Color"].default_value = (0.010, 0.012, 0.014, 1.0)
+    principled.inputs["Roughness"].default_value = 0.38
+    if "Coat Weight" in principled.inputs:
+        principled.inputs["Coat Weight"].default_value = 0.16
+        principled.inputs["Coat Roughness"].default_value = 0.52
+
+    soles: list[bpy.types.Object] = []
+    for side in ("L", "R"):
+        group_name = f"Foot_{side}"
+        points: list[Vector] = []
+        for mesh_object in character_meshes:
+            group = mesh_object.vertex_groups.get(group_name)
+            if group is None:
+                continue
+            for vertex in mesh_object.data.vertices:
+                weight = next(
+                    (
+                        membership.weight
+                        for membership in vertex.groups
+                        if membership.group == group.index
+                    ),
+                    0.0,
+                )
+                if weight >= 0.55:
+                    points.append(vertex.co.copy())
+        if not points:
+            raise RuntimeError(f"Cannot derive outsole bounds for {group_name}")
+
+        minimum_x, maximum_x = min(point.x for point in points), max(point.x for point in points)
+        minimum_y, maximum_y = min(point.y for point in points), max(point.y for point in points)
+        minimum_z = min(point.z for point in points)
+        width = max(0.105 * ratio, min(0.205 * ratio, (maximum_x - minimum_x) * 0.86))
+        length = max(0.19 * ratio, min(0.36 * ratio, (maximum_y - minimum_y) * 0.88))
+        thickness = 0.032 * ratio
+        center = (
+            (minimum_x + maximum_x) * 0.5,
+            (minimum_y + maximum_y) * 0.5,
+            minimum_z + thickness * 0.42,
+        )
+
+        bpy.ops.mesh.primitive_cube_add(location=center)
+        sole = bpy.context.object
+        sole.name = f"PremiumClosedSole_{side}"
+        sole.scale = (width * 0.5, length * 0.5, thickness * 0.5)
+        sole.data.materials.append(material)
+        bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
+        bevel = sole.modifiers.new("SoftOutsoleEdge", "BEVEL")
+        bevel.width = min(width, thickness) * 0.34
+        bevel.segments = 3
+        bpy.context.view_layer.objects.active = sole
+        bpy.ops.object.modifier_apply(modifier=bevel.name)
+        for polygon in sole.data.polygons:
+            polygon.use_smooth = True
+
+        sole.parent = armature
+        modifier = sole.modifiers.new("FootRig", "ARMATURE")
+        modifier.object = armature
+        group = sole.vertex_groups.new(name=group_name)
+        group.add([vertex.index for vertex in sole.data.vertices], 1.0, "REPLACE")
+        sole["closedReconstructionSole"] = True
+        soles.append(sole)
+    return soles
+
+
 def remove_integrated_scalp_hair(
     character_meshes: list[bpy.types.Object],
     character_height: float,
@@ -1454,6 +1538,9 @@ def main() -> None:
         )
     )
     stabilize_foot_weights(armature, character_meshes)
+    character_meshes.extend(
+        add_closed_footwear_soles(armature, character_meshes, height)
+    )
 
     armature.name = "MarketCharacterRig"
     armature.data.name = "MarketCharacterRig"
@@ -1578,6 +1665,9 @@ def main() -> None:
     bpy.ops.object.select_all(action="DESELECT")
     armature.select_set(True)
     for obj in character_meshes:
+        for material in obj.data.materials:
+            if material is not None:
+                material.use_backface_culling = False
         obj.select_set(True)
     bpy.context.view_layer.objects.active = armature
     output.parent.mkdir(parents=True, exist_ok=True)
