@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { PRODUCT_CONFIG } from "../economy/products";
 import { stationTierModifiers } from "../progression/levels";
-import { overlapsStoreObstacle, scaleStorePoint, STORE_LAYOUT_SCALE } from "../world-scale";
+import { InteractionZoneState } from "../interaction/InteractionZone";
+import { overlapsStoreObstacle, scaleStorePoint, STORE_ELEMENT_SCALE, STORE_LAYOUT_SCALE } from "../world-scale";
 import type { ProductId } from "../types";
-import { isStockingInteractionId, PRODUCT_RETAIL_DEPARTMENT, retailDepartmentFromStockingInteraction, retailStockLandingLocalPosition, RETAIL_DEPARTMENTS, RETAIL_DEPARTMENT_IDS, RETAIL_VISUAL_CAPACITY, stockingInteractionId } from "./retail-layout";
+import { isStockingInteractionId, PRODUCT_RETAIL_DEPARTMENT, retailDepartmentFromStockingInteraction, retailStockingMagnet, retailStockLandingLocalPosition, RETAIL_DEPARTMENTS, RETAIL_DEPARTMENT_IDS, RETAIL_VISUAL_CAPACITY, stockingInteractionId } from "./retail-layout";
 
 const NAVMESH_FURNITURE_PADDING = 0.31 * STORE_LAYOUT_SCALE;
 
@@ -29,6 +30,51 @@ describe("retail service points", () => {
     });
     expect(isStockingInteractionId("stock:unknown")).toBe(false);
     expect(retailDepartmentFromStockingInteraction("checkout")).toBeNull();
+  });
+
+  it("wraps every complete fixture and detects its four geometric sides", () => {
+    RETAIL_DEPARTMENT_IDS.forEach((departmentId) => {
+      const magnet = retailStockingMagnet(departmentId, STORE_LAYOUT_SCALE, STORE_ELEMENT_SCALE);
+      const points = [
+        [magnet.x - magnet.halfExtents[0] - magnet.enterRadius + 0.01, magnet.z],
+        [magnet.x + magnet.halfExtents[0] + magnet.enterRadius - 0.01, magnet.z],
+        [magnet.x, magnet.z - magnet.halfExtents[1] - magnet.enterRadius + 0.01],
+        [magnet.x, magnet.z + magnet.halfExtents[1] + magnet.enterRadius - 0.01],
+      ];
+
+      points.forEach(([x, z]) => {
+        const zone = new InteractionZoneState({
+          id: stockingInteractionId(departmentId),
+          type: "stock",
+          x: magnet.x,
+          z: magnet.z,
+          halfExtents: magnet.halfExtents,
+          enterRadius: magnet.enterRadius,
+          exitRadius: magnet.exitRadius,
+          actorMask: ["player"],
+          priority: 80,
+          dwellMs: 0,
+          repeatEveryMs: 180,
+          channel: "transfer",
+        });
+        expect(zone.update("player", x, z, 0).map((event) => event.signal), `${departmentId}@${x},${z}`).toEqual(["enter", "tick"]);
+      });
+    });
+  });
+
+  it("keeps department magnets disjoint so proximity never chooses the wrong fixture", () => {
+    const magnets = RETAIL_DEPARTMENT_IDS.map((departmentId) => ({
+      departmentId,
+      ...retailStockingMagnet(departmentId, STORE_LAYOUT_SCALE, STORE_ELEMENT_SCALE),
+    }));
+
+    magnets.forEach((left, index) => magnets.slice(index + 1).forEach((right) => {
+      const overlapsX = Math.abs(left.x - right.x)
+        < left.halfExtents[0] + right.halfExtents[0] + left.enterRadius + right.enterRadius;
+      const overlapsZ = Math.abs(left.z - right.z)
+        < left.halfExtents[1] + right.halfExtents[1] + left.enterRadius + right.enterRadius;
+      expect(overlapsX && overlapsZ, `${left.departmentId}/${right.departmentId}`).toBe(false);
+    }));
   });
 
   it("lands each product on its real first rendered shelf instead of a generic height", () => {

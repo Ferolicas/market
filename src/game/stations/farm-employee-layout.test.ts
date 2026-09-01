@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { advanceWorld, createInitialGame, normalizeGameState, type WorldPathfinder } from "../engine";
 import type { Employee, GameState } from "../types";
+import { STORE_LAYOUT_SCALE, STORE_OBSTACLES } from "../world-scale";
 import { FARM_ACCESS_WAYPOINTS, FARM_ANIMAL_STATIONS, FARM_FIELD, FARM_PLOTS, FARM_WORKER_HOME, farmInteriorRouteBetween, isRetiredFrontFarmPoint } from "./farm-layout";
 
 function employee(role: Employee["role"]): Employee {
@@ -10,6 +11,32 @@ function employee(role: Employee["role"]): Employee {
 function assignAfterRuntimeCreation(state: GameState, pathfinder: WorldPathfinder) {
   state = advanceWorld(state, 400, pathfinder).state;
   return advanceWorld(state, 400, pathfinder).state;
+}
+
+function segmentHitsStoreObstacle(start: readonly [number, number], end: readonly [number, number]) {
+  const a = [start[0] * STORE_LAYOUT_SCALE, start[1] * STORE_LAYOUT_SCALE] as const;
+  const b = [end[0] * STORE_LAYOUT_SCALE, end[1] * STORE_LAYOUT_SCALE] as const;
+  const actorClearance = 0.31 * STORE_LAYOUT_SCALE;
+  return STORE_OBSTACLES.some((obstacle) => {
+    let minimum = 0;
+    let maximum = 1;
+    for (const [origin, destination, center, half] of [
+      [a[0], b[0], obstacle.x, obstacle.halfX + actorClearance],
+      [a[1], b[1], obstacle.z, obstacle.halfZ + actorClearance],
+    ] as const) {
+      const delta = destination - origin;
+      if (Math.abs(delta) < 1e-8) {
+        if (origin < center - half || origin > center + half) return false;
+        continue;
+      }
+      const first = (center - half - origin) / delta;
+      const second = (center + half - origin) / delta;
+      minimum = Math.max(minimum, Math.min(first, second));
+      maximum = Math.min(maximum, Math.max(first, second));
+      if (minimum > maximum) return false;
+    }
+    return true;
+  });
 }
 
 describe("farm employee destinations", () => {
@@ -106,7 +133,30 @@ describe("farm employee destinations", () => {
     expect(next.franchises[0].employees[0].runtime).toMatchObject({ state: "NAVIGATE_PICKUP", assignedStationId: machineId });
   });
 
-  it("uses the door and exterior service lane when Recast is not ready yet", () => {
+  it.each([
+    ["chicken-coop-1", FARM_ANIMAL_STATIONS.chicken.workPosition],
+    ["cow-station-1", FARM_ANIMAL_STATIONS.cow.workPosition],
+  ] as const)("keeps the complete fallback route from operator home to %s outside every expanded obstacle", (machineId, workPosition) => {
+    let state = createInitialGame();
+    const franchise = state.franchises[0];
+    franchise.employees = [employee("operator")];
+    const machine = franchise.productionMachines.find((candidate) => candidate.id === machineId)!;
+    Object.assign(machine, { status: "OUTPUT_READY" as const, output: 1 });
+
+    state = advanceWorld(state, 400).state;
+    const home = [state.franchises[0].employees[0].runtime!.x, state.franchises[0].employees[0].runtime!.z] as [number, number];
+    state = advanceWorld(state, 400).state;
+    const runtime = state.franchises[0].employees[0].runtime!;
+    const route = [home, ...runtime.path];
+
+    expect(runtime.path.at(-1)).toEqual([workPosition[0], workPosition[2]]);
+    FARM_ACCESS_WAYPOINTS.forEach((waypoint) => expect(runtime.path).toContainEqual([...waypoint]));
+    route.slice(1).forEach((point, index) => {
+      expect(segmentHitsStoreObstacle(route[index], point), `${route[index].join(",")} -> ${point.join(",")}`).toBe(false);
+    });
+  });
+
+  it("uses the direct rear door instead of circling through the storefront when Recast is not ready yet", () => {
     const state = createInitialGame();
     const franchise = state.franchises[0];
     Object.assign(franchise.crops[0], { status: "READY", available: 1, readyAt: 0 });
@@ -122,11 +172,16 @@ describe("farm employee destinations", () => {
     const runtime = next.franchises[0].employees[0].runtime!;
     const plot = FARM_PLOTS[0];
 
-    expect(runtime.path).toContainEqual([0, 7.25]);
-    expect(runtime.path).toContainEqual([0, 8.35]);
     FARM_ACCESS_WAYPOINTS.forEach((waypoint) => expect(runtime.path).toContainEqual([...waypoint]));
     expect(runtime.path.at(-1)).toEqual([plot.position[0], plot.position[2]]);
-    expect(runtime.path.some(([x, z]) => Math.abs(x) < 11.4 && z < -8.2 && z > -8.72)).toBe(false);
+    expect(runtime.path.some(([x]) => x > 11.4)).toBe(false);
+    expect(runtime.path.some(([, z]) => z >= 7.25)).toBe(false);
+    expect(next.franchises[0]).toMatchObject({ doorState: "CLOSED", doorProgress: 0 });
+    const rearDoorIndex = runtime.path.findIndex((point) => point[0] === FARM_ACCESS_WAYPOINTS[0][0] && point[1] === FARM_ACCESS_WAYPOINTS[0][1]);
+    const interiorPath = [[-5.3, 3.6] as [number, number], ...runtime.path.slice(0, rearDoorIndex + 1)];
+    interiorPath.slice(1).forEach((point, index) => {
+      expect(segmentHitsStoreObstacle(interiorPath[index], point), `${interiorPath[index].join(",")} -> ${point.join(",")}`).toBe(false);
+    });
   });
 
   it("opens the automatic door for a farm employee and never crosses a closed leaf", () => {
@@ -173,8 +228,7 @@ describe("farm employee destinations", () => {
     const next = advanceWorld(state, 400).state;
     const path = next.franchises[0].employees[0].runtime!.path;
 
-    expect(path.slice(0, 3)).toEqual([[2.15, 0.45], [2.15, 7.25], [0, 7.25]]);
-    expect(path).toContainEqual([0, 8.35]);
+    expect(path.slice(0, 3)).toEqual(FARM_ACCESS_WAYPOINTS.map((point) => [...point]));
     FARM_ACCESS_WAYPOINTS.forEach((waypoint) => expect(path).toContainEqual([...waypoint]));
   });
 
@@ -286,13 +340,13 @@ describe("farm employee destinations", () => {
     expect(runtime.path.at(-1)).toEqual([7.35, -5.2]);
   });
 
-  it("repaths a persisted animal operator paused on the exterior service lane", () => {
+  it("repaths a persisted animal operator from the retired exterior lane through the rear door", () => {
     const legacy = createInitialGame();
     legacy.franchises[0].employees = [{
       ...employee("operator"),
       runtime: {
         state: "NAVIGATE_DROPOFF", assignedProduct: "eggs", assignedStationId: "chicken-coop-1", carry: { capacity: 2, items: { eggs: 1 } },
-        x: 12.15, z: 0, targetX: 7.35, targetZ: -5.2, path: [[7.35, -5.2]], pathIndex: 0,
+        x: 12.15, z: -11.55, targetX: 7.35, targetZ: -5.2, path: [[7.35, -5.2]], pathIndex: 0,
         speed: 1.5, currentSpeed: 0, stateSince: 0,
       },
     }];
@@ -300,9 +354,32 @@ describe("farm employee destinations", () => {
     const migrated = normalizeGameState(legacy);
     const path = migrated.franchises[0].employees[0].runtime!.path;
 
-    expect(path[0]).toEqual([...FARM_ACCESS_WAYPOINTS[0]]);
-    expect(path).toContainEqual([0, 8.35]);
-    expect(path).toContainEqual([0, 7.25]);
+    expect(path[0]).toEqual([FARM_FIELD.serviceLaneX, FARM_ACCESS_WAYPOINTS[1][1]]);
+    expect(path).toContainEqual([...FARM_ACCESS_WAYPOINTS[1]]);
+    expect(path).toContainEqual([...FARM_ACCESS_WAYPOINTS[0]]);
+    expect(path.some(([, z]) => z >= 7.25)).toBe(false);
     expect(path.at(-1)).toEqual([7.35, -5.2]);
+  });
+
+  it("routes a farmer saved at the retired rear-lane waypoint into the new farm gate", () => {
+    const state = createInitialGame();
+    const franchise = state.franchises[0];
+    Object.assign(franchise.crops[0], { status: "READY", available: 1, readyAt: 0 });
+    franchise.employees = [{
+      ...employee("farmer"),
+      runtime: {
+        state: "IDLE", assignedProduct: null, assignedStationId: null, carry: { capacity: 2, items: {} },
+        x: 12.15, z: -11.55, targetX: 12.15, targetZ: -11.55, path: [], pathIndex: 0,
+        speed: 1.5, currentSpeed: 0, stateSince: 0,
+      },
+    }];
+
+    const next = advanceWorld(state, 400).state;
+    const path = next.franchises[0].employees[0].runtime!.path;
+
+    expect(path[0]).toEqual([FARM_FIELD.serviceLaneX, FARM_ACCESS_WAYPOINTS[1][1]]);
+    expect(path).toContainEqual([...FARM_ACCESS_WAYPOINTS[1]]);
+    expect(path).toContainEqual([...FARM_ACCESS_WAYPOINTS[2]]);
+    expect(path.at(-1)).toEqual([FARM_PLOTS[0].position[0], FARM_PLOTS[0].position[2]]);
   });
 });

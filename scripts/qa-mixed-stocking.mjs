@@ -13,6 +13,10 @@ const DEPARTMENT_PRODUCTS = {
   dairy: ["milk", "cheese"],
   drinks: ["juice"],
 };
+// Follow the nearest departments from the level-one spawn. Wide perimeter
+// magnets correctly stock on incidental approach, so the regression must not
+// pretend that walking through an unvisited compatible fixture has no effect.
+const VISIT_ORDER = ["dairy", "produce", "drinks", "eggs", "pantry", "bakery"];
 const SEED_ITEMS = {
   tomatoes: 2,
   apples: 1,
@@ -87,14 +91,16 @@ const initial = await snapshot(page);
 const discoveredDepartments = initial.targets.map((target) => target.departmentId);
 if (initial.carry.capacity < 20 || initial.carry.total !== TOTAL_UNITS || PRODUCT_IDS.some((productId) => initial.carry[productId] !== SEED_ITEMS[productId])) throw new Error(`La cesta mixta no contiene los 11 productos exactos: ${JSON.stringify(initial.carry)}`);
 if (initial.targets.length !== 6 || new Set(initial.targets.map((target) => target.id)).size !== 6 || new Set(discoveredDepartments).size !== 6
-  || Object.keys(DEPARTMENT_PRODUCTS).some((departmentId) => !discoveredDepartments.includes(departmentId))) {
+  || Object.keys(DEPARTMENT_PRODUCTS).some((departmentId) => !discoveredDepartments.includes(departmentId))
+  || initial.targets.some((target) => ![target.magnetX, target.magnetZ, target.magnetHalfX, target.magnetHalfZ, target.magnetReach].every(Number.isFinite)
+    || target.magnetHalfX <= 0 || target.magnetHalfZ <= 0 || target.magnetReach <= 0)) {
   throw new Error(`No existen los seis imanes departamentales estables: ${JSON.stringify(initial.targets)}`);
 }
 assertConservation(initial, "inicio");
 await page.screenshot({ path: path.join(output, "01-mixed-basket.png"), fullPage: true });
 
 const steps = [];
-for (const [index, departmentId] of discoveredDepartments.entries()) {
+for (const [index, departmentId] of VISIT_ORDER.entries()) {
   const before = await snapshot(page);
   await approachVisibleFixture(page, departmentId, DEPARTMENT_PRODUCTS[departmentId]);
   const after = await snapshot(page);

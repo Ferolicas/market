@@ -14,11 +14,13 @@ import {
   farmInteriorRouteBetween,
   farmInteriorRouteFromEntrance,
   farmInteriorRouteToEntrance,
+  farmGateOpenLeafTerminalPost,
   farmInteractionId,
   farmPlotById,
   isFarmInteractionId,
   isRetiredFrontFarmPoint,
 } from "./farm-layout";
+import { STORE_REAR_DOOR } from "./storefront-layout";
 
 const STORE_REAR_WALL_Z = -8.55;
 const STORE_LAYOUT_SCALE = 2;
@@ -109,20 +111,51 @@ describe("rear farm layout", () => {
     const frontPost = [FARM_GATE.frontPost[0], FARM_GATE.frontPost[2]] as const;
     const innerPost = [FARM_GATE.innerPost[0], FARM_GATE.innerPost[2]] as const;
     const entrance = [FARM_FIELD.entrance[0], FARM_FIELD.entrance[2]] as const;
+    expect(FARM_GATE.center[0]).toBeCloseTo((frontPost[0] + innerPost[0]) / 2, 2);
     expect(FARM_GATE.center[2]).toBeCloseTo((frontPost[1] + innerPost[1]) / 2, 2);
-    expect(entrance[1]).toBeCloseTo((frontPost[1] + innerPost[1]) / 2, 2);
-    expect(entrance[0]).toBeLessThan(FARM_GATE.center[0]);
-    expect(FARM_GATE.exteriorApproach[0]).toBeGreaterThan(FARM_GATE.center[0]);
-    expect(FARM_GATE.exteriorApproach[1]).toBe(entrance[1]);
+    expect(entrance[0]).toBe(FARM_GATE.center[0]);
+    expect(entrance[1]).toBeLessThan(FARM_GATE.center[2]);
+    expect(FARM_GATE.exteriorApproach[0]).toBe(FARM_GATE.center[0]);
+    expect(FARM_GATE.exteriorApproach[1]).toBeGreaterThan(FARM_GATE.center[2]);
+    expect(FARM_ACCESS_WAYPOINTS[0]).toEqual([...STORE_REAR_DOOR.insideApproach]);
+    expect(FARM_ACCESS_WAYPOINTS[1]).toEqual([...STORE_REAR_DOOR.outsideApproach]);
     expect(Math.hypot(entrance[0] - frontPost[0], entrance[1] - frontPost[1])).toBeGreaterThan(0.75);
     expect(Math.hypot(entrance[0] - innerPost[0], entrance[1] - innerPost[1])).toBeGreaterThan(0.75);
-    const openLeafRear = FARM_GATE.openLeaf.center[2] - FARM_GATE.openLeaf.halfZ * (STORE_ELEMENT_SCALE / STORE_LAYOUT_SCALE);
+    const leftFenceRight = FARM_GATE.leftFrontFence.center[0] + FARM_GATE.leftFrontFence.halfX * (STORE_ELEMENT_SCALE / STORE_LAYOUT_SCALE);
+    const rightFrontFenceLeft = FARM_GATE.rightFrontFence.center[0] - FARM_GATE.rightFrontFence.halfX * (STORE_ELEMENT_SCALE / STORE_LAYOUT_SCALE);
+    const rightFrontFenceRight = FARM_GATE.rightFrontFence.center[0] + FARM_GATE.rightFrontFence.halfX * (STORE_ELEMENT_SCALE / STORE_LAYOUT_SCALE);
     const rightFenceFront = FARM_GATE.rightFence.center[2] + FARM_GATE.rightFence.halfZ * (STORE_ELEMENT_SCALE / STORE_LAYOUT_SCALE);
     const rightFenceRear = FARM_GATE.rightFence.center[2] - FARM_GATE.rightFence.halfZ * (STORE_ELEMENT_SCALE / STORE_LAYOUT_SCALE);
-    expect(rightFenceFront).toBeCloseTo(openLeafRear, 4);
+    expect(leftFenceRight).toBeCloseTo(FARM_GATE.frontPost[0], 4);
+    expect(rightFrontFenceLeft).toBeCloseTo(FARM_GATE.innerPost[0], 4);
+    expect(rightFrontFenceRight).toBeCloseTo(FARM_FIELD.center[0] + FARM_FIELD.size[0] / 2, 4);
+    expect(rightFenceFront).toBeCloseTo(FARM_FIELD.center[2] + FARM_FIELD.size[2] / 2, 4);
     expect(rightFenceRear).toBeCloseTo(FARM_FIELD.center[2] - FARM_FIELD.size[2] / 2, 4);
     expect(isStoreNavigationPoint(entrance)).toBe(true);
-    expectObstacleFreeRoute("service lane through gate", FARM_ACCESS_WAYPOINTS);
+    expectObstacleFreeRoute("rear door through farm gate", FARM_ACCESS_WAYPOINTS);
+  });
+
+  it("keeps the visible open-leaf terminal post inside its canonical collider", () => {
+    const terminal = farmGateOpenLeafTerminalPost(STORE_LAYOUT_SCALE, STORE_ELEMENT_SCALE);
+    const directionZ = Math.sign(FARM_GATE.openLeaf.center[2] - FARM_GATE.innerPost[2]);
+    const visibleFarEdge = terminal[1] * STORE_LAYOUT_SCALE
+      + directionZ * FARM_GATE.openLeaf.terminalPostDepth * STORE_ELEMENT_SCALE / 2;
+    const colliderFarEdge = FARM_GATE.openLeaf.center[2] * STORE_LAYOUT_SCALE
+      + directionZ * FARM_GATE.openLeaf.halfZ * STORE_ELEMENT_SCALE;
+
+    expect(terminal[0]).toBe(FARM_GATE.openLeaf.center[0]);
+    expect(visibleFarEdge).toBeCloseTo(colliderFarEdge, 6);
+  });
+
+  it("parks a full-width gate leaf continuously from its hinge post", () => {
+    const directionZ = Math.sign(FARM_GATE.openLeaf.center[2] - FARM_GATE.innerPost[2]);
+    const leafHalfDepth = FARM_GATE.openLeaf.halfZ * (STORE_ELEMENT_SCALE / STORE_LAYOUT_SCALE);
+    const hingeEdge = FARM_GATE.openLeaf.center[2] - directionZ * leafHalfDepth;
+    const renderedLeafLength = FARM_GATE.openLeaf.halfZ * 2 * STORE_ELEMENT_SCALE;
+    const renderedOpeningWidth = Math.abs(FARM_GATE.innerPost[0] - FARM_GATE.frontPost[0]) * STORE_LAYOUT_SCALE;
+
+    expect(hingeEdge).toBeCloseTo(FARM_GATE.innerPost[2], 6);
+    expect(renderedLeafLength).toBeCloseTo(renderedOpeningWidth, 6);
   });
 
   it("uses the same obstacle-free interior corridor in both directions without Recast", () => {

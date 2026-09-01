@@ -74,7 +74,7 @@ console.log(JSON.stringify(report, null, 2));
 
 if (maxPalmGap > 0.001) throw new Error(`La canasta no toca ambas palmas: ${maxPalmGap}`);
 if (minWristOffset < 0.035) throw new Error(`El agarre volvió al origen de muñeca: ${minWristOffset}`);
-if (run.playerSpeedTier !== 1 || Math.abs(run.speedCap - 6.6) > 0.01 || run.playerSpeed < 6.5) throw new Error(`La carrera T1 no alcanzó el triple real: ${JSON.stringify(run)}`);
+if (run.playerSpeedTier !== 1 || Math.abs(run.speedCap - 5.94) > 0.01 || run.playerSpeed < 5.82) throw new Error(`La carrera T1 no alcanzó el límite reducido 10%: ${JSON.stringify(run)}`);
 if (errors.length) throw new Error(`Errores de navegador: ${JSON.stringify(errors)}`);
 
 async function gripSnapshot(targetPage) {

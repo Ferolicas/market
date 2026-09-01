@@ -20,13 +20,13 @@ export const DEFAULT_PLAYER_MOTION: PlayerMotionConfig = {
 
 /**
  * The enlarged market uses the former walk speed as a calibration unit, not as
- * the live tier-one cap.  Tier one is deliberately three times faster so a
- * full shop/farm traversal stays short; later upgrades keep their existing
- * percentage progression without making the first levels feel punitive.
- * Acceleration and braking scale with the same multiplier so touch and keyboard
- * input remain immediate instead of taking half a second to reach cruise speed.
+ * the live tier-one cap. Tier one is 10% below the previous 6.6-unit cap so a
+ * full shop/farm traversal stays fast without feeling over-sensitive; later
+ * upgrades keep their existing percentage progression. Acceleration and
+ * braking scale with the same multiplier so touch and keyboard preserve the
+ * same response-to-speed ratio.
  */
-export const PLAYER_TIER_ONE_SPEED_MULTIPLIER = 3;
+export const PLAYER_TIER_ONE_SPEED_MULTIPLIER = 2.7;
 
 export function playerMotionForTier(tier: number): PlayerMotionConfig {
   const safeTier = Math.max(1, Math.floor(Number.isFinite(tier) ? tier : 1));

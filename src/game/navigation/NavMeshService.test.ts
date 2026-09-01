@@ -1,6 +1,7 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { FARM_ACCESS_WAYPOINTS, FARM_ANIMAL_STATIONS, FARM_FIELD, FARM_PLOTS } from "../stations/farm-layout";
 import { CART_RETURN_POINT, RETURNS_POINT } from "../stations/store-service-layout";
+import { STORE_REAR_DOOR } from "../stations/storefront-layout";
 import { ensureStoreNavigation, isStoreNavigationPoint, STORE_NAVIGATION_BOUNDS, storePathfinder } from "./NavMeshService";
 
 function pathLength(start: readonly [number, number], path: readonly (readonly [number, number])[]) {
@@ -10,15 +11,28 @@ function pathLength(start: readonly [number, number], path: readonly (readonly [
   }, 0);
 }
 
+function crossingXAtZ(start: readonly [number, number], path: readonly (readonly [number, number])[], z: number) {
+  const points = [start, ...path];
+  for (let index = 1; index < points.length; index += 1) {
+    const previous = points[index - 1];
+    const next = points[index];
+    if ((previous[1] - z) * (next[1] - z) > 0 || Math.abs(next[1] - previous[1]) < 1e-8) continue;
+    const progress = (z - previous[1]) / (next[1] - previous[1]);
+    if (progress >= 0 && progress <= 1) return previous[0] + (next[0] - previous[0]) * progress;
+  }
+  return null;
+}
+
 describe("store and rear-farm navigation", () => {
   beforeAll(async () => {
     expect(await ensureStoreNavigation(92_001)).toBe(true);
   });
 
-  it("models the facade door, solid building walls and open exterior service lane", () => {
+  it("models both authored doors and keeps the remaining building walls solid", () => {
     expect(isStoreNavigationPoint([0, 7.8])).toBe(true);
     expect(isStoreNavigationPoint([4, 7.8])).toBe(false);
-    expect(isStoreNavigationPoint([0, -8.45])).toBe(false);
+    expect(isStoreNavigationPoint([STORE_REAR_DOOR.x, STORE_REAR_DOOR.z])).toBe(true);
+    expect(isStoreNavigationPoint([STORE_REAR_DOOR.x - 3, STORE_REAR_DOOR.z])).toBe(false);
     expect(isStoreNavigationPoint([11.35, 0])).toBe(false);
     expect(isStoreNavigationPoint([12.15, 7.8])).toBe(true);
     expect(isStoreNavigationPoint([12.15, 0])).toBe(true);
@@ -32,7 +46,7 @@ describe("store and rear-farm navigation", () => {
     expect(STORE_NAVIGATION_BOUNDS.maxX).toBeGreaterThan(FARM_FIELD.serviceLaneX);
   });
 
-  it("finds a continuous route from inside the shop to every farm destination", () => {
+  it("routes directly through the rear door to every farm destination", () => {
     const start: [number, number] = [0, 6.25];
     const destinations: [string, [number, number]][] = [
       ...FARM_PLOTS.map((plot): [string, [number, number]] => [plot.id, [plot.position[0], plot.position[2]]]),
@@ -43,8 +57,11 @@ describe("store and rear-farm navigation", () => {
       const path = storePathfinder(start, destination);
       expect(path.length, `${id} needs a complete route`).toBeGreaterThan(3);
       expect(Math.hypot(path.at(-1)![0] - destination[0], path.at(-1)![1] - destination[1]), `${id} endpoint`).toBeLessThan(0.9);
-      expect(path.some(([x]) => x > 11.58), `${id} must use the exterior service lane`).toBe(true);
-      expect(path.some(([x, z]) => Math.abs(x) < 11.55 && z > -8.72 && z < -8.2), `${id} cannot cross the rear wall`).toBe(false);
+      expect(path.some(([x]) => x > 11.58), `${id} cannot circle around the exterior lane`).toBe(false);
+      const crossingX = crossingXAtZ(start, path, STORE_REAR_DOOR.z);
+      expect(crossingX, `${id} must cross the rear wall`).not.toBeNull();
+      expect(Math.abs(crossingX! - STORE_REAR_DOOR.x), `${id} rear-door alignment`).toBeLessThan(STORE_REAR_DOOR.door.outerPostOffset - STORE_REAR_DOOR.door.postWidth / 2);
+      expect(pathLength(start, path), `${id} rear-door detour`).toBeLessThan(40);
     });
   });
 

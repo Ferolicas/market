@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addToCarry, canPickupWarehouse, carriedProductIds, carryQuantity, carryTotal, createCarryContainer, MAX_WAREHOUSE_PICKUP_BATCH, nextStockingPulse, preferredStockingProduct, primaryCarryProduct, removeFromCarry, transferCarryToShelf, transferWarehouseToCarry } from "./CarrySystem";
+import { addToCarry, canPickupWarehouse, carriedProductIds, carryQuantity, carryTotal, createCarryContainer, departmentStockingPulses, MAX_WAREHOUSE_PICKUP_BATCH, nextStockingPulse, preferredStockingProduct, primaryCarryProduct, removeFromCarry, transferCarryToShelf, transferWarehouseToCarry } from "./CarrySystem";
 
 const inventory = () => ({ wheat: 0, flour: 0, bread: 0, corn: 0, milk: 0, eggs: 0, cheese: 0, apples: 0, tomatoes: 0, coffee: 0, juice: 0 });
 
@@ -58,6 +58,19 @@ describe("CarrySystem", () => {
     expect(nextStockingPulse(carry, shelves, 1, ["eggs"])).toEqual({ productId: "eggs", quantity: 2 });
     expect(nextStockingPulse(carry, shelves, 1, ["milk", "cheese"])).toEqual({ productId: "milk", quantity: 2 });
     expect(nextStockingPulse(carry, shelves, 1, ["bread", "flour", "wheat"])).toBeNull();
+  });
+
+  it("plans every compatible product from one department approach", () => {
+    const carry = { items: { tomatoes: 3, apples: 2, corn: 1, eggs: 4 } };
+    const shelves = { tomatoes: 10, apples: 12, corn: 0, eggs: 0 };
+
+    expect(departmentStockingPulses(carry, shelves, 1, ["tomatoes", "apples", "corn"])).toEqual([
+      { productId: "corn", quantity: 1 },
+      { productId: "tomatoes", quantity: 2 },
+    ]);
+    expect(departmentStockingPulses({ items: {} }, shelves, 1, ["tomatoes"])).toEqual([]);
+    expect(carry.items).toEqual({ tomatoes: 3, apples: 2, corn: 1, eggs: 4 });
+    expect(shelves).toEqual({ tomatoes: 10, apples: 12, corn: 0, eggs: 0 });
   });
 
   it("adds exactly the amount removed from the basket and empties it on the final shelf pulse", () => {

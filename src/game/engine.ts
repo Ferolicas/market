@@ -19,6 +19,7 @@ import {
 } from "./stations/farm-layout";
 import { addToCarry, CAPACITY_TIERS, carryQuantity, carryTotal, MAX_WAREHOUSE_PICKUP_BATCH, primaryCarryProduct, removeFromCarry, transferCarryToShelf, transferWarehouseToCarry } from "./player/CarrySystem";
 import { CART_RETURN_POINT, RETURNS_POINT, RETURNS_TO_CART_FALLBACK, STORE_SERVICE_FIXTURES } from "./stations/store-service-layout";
+import { STORE_REAR_DOOR } from "./stations/storefront-layout";
 
 const EMPTY_INVENTORY = (): Inventory => ({ wheat: 0, flour: 0, bread: 0, corn: 0, milk: 0, eggs: 0, cheese: 0, apples: 0, tomatoes: 0, coffee: 0, juice: 0 });
 export const CHECKOUT_PATIENCE_MS = 5 * 60_000;
@@ -636,8 +637,9 @@ function currentFranchise(state: GameState) {
 }
 
 const EMPLOYEE_HOME: Record<Employee["role"], [number, number]> = {
-  farmer: [...FARM_WORKER_HOME], operator: [-4.8, -1.5], stocker: [0, -2.2], cashier: [4.7, 2.2], builder: [2.9, -4.5], manager: [5.4, -3.6],
+  farmer: [...FARM_WORKER_HOME], operator: [-4.8, -0.9], stocker: [0, -2.2], cashier: [4.7, 2.2], builder: [2.9, -4.5], manager: [5.4, -3.6],
 };
+const LEGACY_OPERATOR_HOME: [number, number] = [-4.8, -1.5];
 const CASHIER_WORK_POINTS: Record<CheckoutLane, [number, number]> = {
   0: [CHECKOUT_LANES[0].cashierWork[0], CHECKOUT_LANES[0].cashierWork[2]],
   1: [CHECKOUT_LANES[1].cashierWork[0], CHECKOUT_LANES[1].cashierWork[2]],
@@ -679,10 +681,17 @@ function normalizePersistedFarmEmployee(franchise: FranchiseState, employee: Emp
     runtime.currentSpeed = 0;
   };
 
+  // The old operator home sat inside the bakery's actor-clearance envelope.
+  // Move that exact persisted resting pose into the aisle before calculating a
+  // rear-door fallback, otherwise its first segment can graze the fixture.
+  const relocatedLegacyOperatorHome = employee.role === "operator"
+    && Math.hypot(runtime.x - LEGACY_OPERATOR_HOME[0], runtime.z - LEGACY_OPERATOR_HOME[1]) < 0.12;
+  if (relocatedLegacyOperatorHome) relocate(EMPLOYEE_HOME.operator);
+
   if (runtime.state === "IDLE" && !carryTotal(runtime.carry)) {
     if (employee.role === "farmer" && (atRetiredHome || currentAtRetiredFarm)) relocate(FARM_WORKER_HOME);
     else if (employee.role === "operator" && currentAtRetiredFarm) relocate(assignedFarmMachinePoint ?? EMPLOYEE_HOME.operator);
-    if (atRetiredHome || retiredRoute) {
+    if (atRetiredHome || retiredRoute || relocatedLegacyOperatorHome) {
       runtime.path = [];
       runtime.pathIndex = 0;
     }
@@ -725,13 +734,15 @@ function normalizePersistedFarmEmployee(franchise: FranchiseState, employee: Emp
   }
   const endpoint = runtime.path.at(-1);
   const endpointMatches = Boolean(endpoint && Math.hypot(endpoint[0] - expectedTarget[0], endpoint[1] - expectedTarget[1]) < 0.6);
-  const transitionNeedsServiceLane = isRearFarmPoint([runtime.x, runtime.z]) !== isRearFarmPoint(expectedTarget)
-    || isFarmServiceLanePoint([runtime.x, runtime.z]);
-  const pathUsesServiceLane = runtime.path.some(([x]) => x >= FARM_FIELD.serviceLaneX - 0.7);
-  const farmDeliveryNeedsServiceLane = delivering && Boolean(assignedCrop || assignedFarmMachinePoint);
+  const transitionNeedsFarmAccess = isRearFarmPoint([runtime.x, runtime.z]) !== isRearFarmPoint(expectedTarget)
+    || isLegacyFarmServiceLanePoint([runtime.x, runtime.z]);
+  const pathUsesRearDoor = runtime.path.some((point) => (
+    Math.hypot(point[0] - STORE_REAR_DOOR.x, point[1] - STORE_REAR_DOOR.z) <= 2
+  ));
+  const farmDeliveryNeedsFarmAccess = delivering && Boolean(assignedCrop || assignedFarmMachinePoint);
   const actionAtWrongPlace = (runtime.state === "PICKUP" || runtime.state === "DROPOFF")
     && Math.hypot(runtime.x - expectedTarget[0], runtime.z - expectedTarget[1]) >= 0.6;
-  if (!retiredRoute && endpointMatches && (!(transitionNeedsServiceLane || farmDeliveryNeedsServiceLane) || pathUsesServiceLane) && !actionAtWrongPlace) return;
+  if (!retiredRoute && !relocatedLegacyOperatorHome && endpointMatches && (!(transitionNeedsFarmAccess || farmDeliveryNeedsFarmAccess) || pathUsesRearDoor) && !actionAtWrongPlace) return;
 
   runtime.state = collecting ? "NAVIGATE_PICKUP" : "NAVIGATE_DROPOFF";
   runtime.stateSince = now;
@@ -1530,25 +1541,55 @@ function navigatePath(pathfinder: WorldPathfinder | undefined, start: [number, n
 
 function isRearFarmPoint(point: readonly [number, number]) {
   const farmFrontEdge = FARM_FIELD.center[2] + FARM_FIELD.size[2] / 2;
-  return point[1] <= farmFrontEdge + 0.5;
+  return point[1] <= farmFrontEdge + 0.5 && !isLegacyFarmServiceLanePoint(point);
 }
 
-function isFarmServiceLanePoint(point: readonly [number, number]) {
+function isLegacyFarmServiceLanePoint(point: readonly [number, number]) {
   return point[0] >= FARM_FIELD.serviceLaneX - 0.7
-    && point[1] >= FARM_ACCESS_WAYPOINTS[1][1] - 0.5
-    && point[1] <= FARM_ACCESS_WAYPOINTS[0][1] + 0.5;
+    && point[0] <= 13
+    && point[1] >= -12.1
+    && point[1] <= 9.15;
+}
+
+function isRearStockroomPoint(point: readonly [number, number]) {
+  return point[0] >= 6.1 && point[1] <= -4 && point[1] > -8.2;
+}
+
+function storeInteriorRouteToRearDoor(start: [number, number]) {
+  const corridor = STORE_REAR_DOOR.interiorCorridor.map((point) => [...point] as [number, number]);
+  if (isRearStockroomPoint(start)) return compactPath(start, [corridor.at(-1)!]);
+  return compactPath(start, [
+    ...customerPath(start, corridor[0]),
+    ...corridor.slice(1),
+  ]);
+}
+
+function storeInteriorRouteFromRearDoor(target: [number, number]) {
+  const corridor = STORE_REAR_DOOR.interiorCorridor.map((point) => [...point] as [number, number]);
+  const rearDoorInside = corridor.at(-1)!;
+  if (isRearStockroomPoint(target)) return compactPath(rearDoorInside, [target]);
+  const reversed = corridor.slice(0, -1).reverse();
+  const centralAisle = corridor[0];
+  return compactPath(rearDoorInside, [
+    ...reversed,
+    ...customerPath(centralAisle, target),
+  ]);
 }
 
 function safeFallbackPath(start: [number, number], target: [number, number]) {
-  const [frontLane, rearLane, farmGate] = FARM_ACCESS_WAYPOINTS.map((point) => [...point] as [number, number]);
+  const [rearDoorInside, rearDoorOutside, farmGate] = FARM_ACCESS_WAYPOINTS.map((point) => [...point] as [number, number]);
   const startAtFarm = isRearFarmPoint(start);
   const targetAtFarm = isRearFarmPoint(target);
   if (startAtFarm === targetAtFarm) {
     if (startAtFarm) return compactPath(start, farmInteriorRouteBetween(start, target));
     const targetInsideStore = Math.abs(target[0]) < 11.13 && target[1] > -8.2 && target[1] < 7.55;
-    if (isFarmServiceLanePoint(start) && targetInsideStore) {
-      const insideDoor: [number, number] = [0, DOOR_INSIDE_WAIT_Z];
-      return compactPath(start, [frontLane, [0, DOOR_OUTSIDE_WAIT_Z], insideDoor, ...customerPath(insideDoor, target)]);
+    if (isLegacyFarmServiceLanePoint(start) && targetInsideStore) {
+      return compactPath(start, [
+        [FARM_FIELD.serviceLaneX, rearDoorOutside[1]],
+        rearDoorOutside,
+        rearDoorInside,
+        ...storeInteriorRouteFromRearDoor(target),
+      ]);
     }
     const startsOutsideFront = start[1] > DOOR_OUTSIDE_WAIT_Z && Math.abs(start[0]) > 1.82;
     if (startsOutsideFront && targetInsideStore) {
@@ -1561,19 +1602,23 @@ function safeFallbackPath(start: [number, number], target: [number, number]) {
   if (targetAtFarm) {
     const path: [number, number][] = [];
     const startsInsideStore = Math.abs(start[0]) < 11.13 && start[1] > -8.2 && start[1] < 7.55;
-    const startsOnServiceLane = start[0] >= FARM_FIELD.serviceLaneX - 0.7 && start[1] <= frontLane[1];
     if (startsInsideStore) {
-      const insideDoor: [number, number] = [0, DOOR_INSIDE_WAIT_Z];
-      path.push(...customerPath(start, insideDoor), [0, DOOR_OUTSIDE_WAIT_Z]);
+      path.push(...storeInteriorRouteToRearDoor(start), rearDoorOutside);
+    } else if (isLegacyFarmServiceLanePoint(start)) {
+      path.push([FARM_FIELD.serviceLaneX, rearDoorOutside[1]], rearDoorOutside);
+    } else {
+      path.push(rearDoorOutside);
     }
-    if (!startsOnServiceLane) path.push(frontLane);
-    if (start[1] > rearLane[1]) path.push(rearLane);
     path.push(farmGate, ...farmInteriorRouteFromEntrance(target));
     return compactPath(start, path);
   }
 
-  const insideDoor: [number, number] = [0, DOOR_INSIDE_WAIT_Z];
-  return compactPath(start, [...farmInteriorRouteToEntrance(start), rearLane, frontLane, [0, DOOR_OUTSIDE_WAIT_Z], insideDoor, ...customerPath(insideDoor, target)]);
+  return compactPath(start, [
+    ...farmInteriorRouteToEntrance(start),
+    rearDoorOutside,
+    rearDoorInside,
+    ...storeInteriorRouteFromRearDoor(target),
+  ]);
 }
 
 function queuePosition(slot: number, lane = 0): [number, number] {

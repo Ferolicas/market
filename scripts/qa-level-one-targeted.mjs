@@ -46,20 +46,30 @@ const ready = await snapshot(page);
 const farmLayout = await page.evaluate(() => ({
   target: structuredClone(window.__MARKET_QA__?.farmTargets?.find((candidate) => candidate.id === "crop-tomato-1") ?? null),
   accessWaypoints: structuredClone(window.__MARKET_QA__?.farmAccessWaypoints ?? []),
+  rearDoor: structuredClone(window.__MARKET_QA__?.rearDoor ?? null),
 }));
 if (!farmLayout.target || farmLayout.accessWaypoints.length !== 3) throw new Error(`No se publicó el layout navegable de la finca: ${JSON.stringify(farmLayout)}`);
 if (farmLayout.target.z >= -20) throw new Error(`El cultivo sigue en fachada/calle en vez de detrás del edificio: ${JSON.stringify(farmLayout.target)}`);
 const plannedFarmPath = await page.evaluate((target) => window.__MARKET_FIND_PLAYER_PATH__?.([target.x, target.z]) ?? [], farmLayout.target);
-if (!plannedFarmPath.some(([x]) => x > 23.1)) throw new Error(`La ruta no usa el pasillo exterior lateral: ${JSON.stringify(plannedFarmPath)}`);
-if (plannedFarmPath.some(([x, z]) => Math.abs(x) < 22.8 && z < -16.4 && z > -17.45)) throw new Error(`La ruta atraviesa la pared trasera: ${JSON.stringify(plannedFarmPath)}`);
+if (!farmLayout.rearDoor || plannedFarmPath.some(([x]) => x > 23.1)) throw new Error(`La ruta todavía rodea el edificio: ${JSON.stringify({ farmLayout, plannedFarmPath })}`);
+const rearDoorCrossing = crossingAtZ(plannedFarmPath, farmLayout.rearDoor.z);
+if (!rearDoorCrossing || Math.abs(rearDoorCrossing.x - farmLayout.rearDoor.x) >= farmLayout.rearDoor.clearHalfWidth) throw new Error(`La ruta no cruza el hueco físico de la puerta trasera: ${JSON.stringify({ rearDoorCrossing, farmLayout, plannedFarmPath })}`);
 
 const walkStartedAt = structuredClone(ready.player);
-for (const waypoint of farmLayout.accessWaypoints) await moveTo(page, waypoint, 0.55);
+for (const [index, waypoint] of farmLayout.accessWaypoints.entries()) {
+  await moveTo(page, waypoint, 0.55);
+  if (index === 0) {
+    await page.waitForFunction(() => (window.__MARKET_QA__?.rearDoor?.progress ?? 0) >= 0.99, null, { timeout: 3_000 });
+    await page.screenshot({ path: path.join(output, "02-rear-door-open.png"), fullPage: true });
+  }
+}
 // Leave enough approach margin for T1 braking distance; otherwise a mobile
 // frame can coast into the magnet before the measured pass begins.
 const harvestPassStart = [farmLayout.target.x + 4.5, farmLayout.target.z];
 const harvestPassEnd = [farmLayout.target.x - 4.5, farmLayout.target.z];
 await moveTo(page, harvestPassStart, 0.45);
+await page.waitForFunction(() => (window.__MARKET_QA__?.rearDoor?.progress ?? 1) <= 0.01, null, { timeout: 4_000 });
+const rearDoorLifecycle = await page.evaluate(() => structuredClone(window.__MARKET_QA__?.rearDoor ?? null));
 const beforeHarvestPass = await snapshot(page);
 if (beforeHarvestPass.crop.status !== "READY" || beforeHarvestPass.carry.total !== 0) throw new Error(`La aproximación entró al sensor antes de la pasada medida: ${JSON.stringify(beforeHarvestPass)}`);
 await page.screenshot({ path: path.join(output, "02-farm-ready.png"), fullPage: true });
@@ -118,18 +128,29 @@ const webgl = await page.locator("canvas").first().evaluate((canvas) => {
 });
 const movementDistance = Math.hypot(harvested.player.x - walkStartedAt.x, harvested.player.z - walkStartedAt.z);
 const savedConfirmationVisible = await page.evaluate(() => document.body.innerText.includes("Partida guardada") || [...document.querySelectorAll(".save-chip")].some((element) => element.getAttribute("aria-hidden") !== "true" && element.textContent?.trim() === "Guardado"));
-const report = { email, viewport: mobile ? "mobile-390x844@2" : "desktop-1440x1000", initial, ready, farmLayout, plannedFarmPath, beforeHarvestPass, harvestPass, harvestFlights, harvested, stockingTarget, stocked, movement: { distance: movementDistance, workstationAtHarvest: harvested.workstation }, savedConfirmationVisible, webgl, consoleErrors, pageErrors, failedResponses };
+const report = { email, viewport: mobile ? "mobile-390x844@2" : "desktop-1440x1000", initial, ready, farmLayout, plannedFarmPath, rearDoorCrossing, rearDoorLifecycle, beforeHarvestPass, harvestPass, harvestFlights, harvested, stockingTarget, stocked, movement: { distance: movementDistance, workstationAtHarvest: harvested.workstation }, savedConfirmationVisible, webgl, consoleErrors, pageErrors, failedResponses };
 await fs.writeFile(path.join(output, "report.json"), JSON.stringify(report, null, 2));
 await browser.close();
 console.log(JSON.stringify(report, null, 2));
 
 if (ready.crop.status !== "READY" || ready.crop.available !== 3 || !["GROWING", "READY"].includes(harvested.crop.status) || harvested.crop.plantedAt <= ready.crop.plantedAt || harvested.carry.items.tomatoes !== 3 || stocked.shelves.tomatoes < initial.shelves.tomatoes + 3 || stocked.carry.total !== 0) throw new Error(`El ciclo automático de nivel 1 no se completó: ${JSON.stringify({ ready, harvested, stocked })}`);
-if (Math.abs(harvestPass.maxSpeedCap - 6.6) > 0.01 || harvestPass.maxSpeed < 6.45) throw new Error(`La pasada de cosecha no reprodujo T1=6.6: ${JSON.stringify(harvestPass)}`);
+if (Math.abs(harvestPass.maxSpeedCap - 5.94) > 0.01 || harvestPass.maxSpeed < 5.8) throw new Error(`La pasada de cosecha no reprodujo T1=5.94 (-10%): ${JSON.stringify(harvestPass)}`);
 if (harvestFlights.mounted.length !== 1 || harvestFlights.mounted[0].visualUnits !== 3 || harvestFlights.completed.length !== 1 || harvestFlights.completed[0].sequence !== harvestFlights.mounted[0].sequence) throw new Error(`Los tres tomates no completaron un único lote visual: ${JSON.stringify(harvestFlights)}`);
 if (movementDistance < 8 || harvested.workstation?.locked) throw new Error(`La cosecha no conservó el movimiento libre: ${JSON.stringify({ movementDistance, workstation: harvested.workstation })}`);
 if (savedConfirmationVisible) throw new Error("La confirmación permanente de partida guardada sigue visible.");
 if (!webgl?.renderer.includes("NVIDIA GeForce RTX 4080 SUPER") || webgl.contextLost) throw new Error(`GPU incorrecta: ${JSON.stringify(webgl)}`);
 if (consoleErrors.length || pageErrors.length || failedResponses.length) throw new Error(`Errores de navegador: ${JSON.stringify({ consoleErrors, pageErrors, failedResponses })}`);
+
+function crossingAtZ(pathPoints, z) {
+  for (let index = 1; index < pathPoints.length; index += 1) {
+    const previous = pathPoints[index - 1];
+    const next = pathPoints[index];
+    if ((previous[1] - z) * (next[1] - z) > 0 || Math.abs(next[1] - previous[1]) < 1e-8) continue;
+    const progress = (z - previous[1]) / (next[1] - previous[1]);
+    if (progress >= 0 && progress <= 1) return { x: previous[0] + (next[0] - previous[0]) * progress, z };
+  }
+  return null;
+}
 
 async function snapshot(targetPage) {
   return targetPage.evaluate(() => {

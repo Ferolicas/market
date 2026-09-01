@@ -15,14 +15,14 @@ describe("player controller", () => {
     expect(stopped).toEqual({ x: 0, y: 0 });
   });
 
-  it("triplica la velocidad inicial sin perder la progresión por tier", () => {
+  it("aplica exactamente la reducción del 10% sin perder la progresión por tier", () => {
     const tierOne = playerMotionForTier(1);
     const tierTwo = playerMotionForTier(2);
 
     expect(tierOne.walkSpeed).toBeCloseTo(DEFAULT_PLAYER_MOTION.walkSpeed * PLAYER_TIER_ONE_SPEED_MULTIPLIER);
-    expect(tierOne.walkSpeed).toBeCloseTo(6.6);
-    expect(tierOne.acceleration).toBe(DEFAULT_PLAYER_MOTION.acceleration * 3);
-    expect(tierOne.braking).toBe(DEFAULT_PLAYER_MOTION.braking * 3);
+    expect(tierOne.walkSpeed).toBeCloseTo(5.94);
+    expect(tierOne.acceleration).toBe(DEFAULT_PLAYER_MOTION.acceleration * 2.7);
+    expect(tierOne.braking).toBe(DEFAULT_PLAYER_MOTION.braking * 2.7);
     expect(tierTwo.walkSpeed).toBeCloseTo(tierOne.walkSpeed * 1.08);
   });
 

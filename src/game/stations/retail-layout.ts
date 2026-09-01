@@ -8,20 +8,24 @@ export interface RetailDepartment {
   label: string;
   color: string;
   display: readonly [number, number, number];
+  /** Half extents of the visible fixture before STORE_ELEMENT_SCALE. */
+  fixtureHalfExtents: readonly [number, number];
   service: readonly [number, number];
   products: readonly ProductId[];
 }
 
+/** Reach measured outwards from every physical edge of a retail fixture. */
+export const RETAIL_STOCKING_MAGNET_REACH = { enter: 1.1, exit: 1.3 } as const;
+
 export const RETAIL_DEPARTMENTS: Record<RetailDepartmentId, RetailDepartment> = {
-  // Service points stay on a generated NavMesh cell, outside the padded
-  // furniture footprint. The interaction radius reaches the display from
-  // that walkable lane; moving the sensor closer can make it unreachable.
-  bakery: { id: "bakery", label: "PAN Y HARINAS", color: "#b96d39", display: [-4, 0, -2.2], service: [-4, -0.88], products: ["bread", "flour", "wheat"] },
-  pantry: { id: "pantry", label: "DESPENSA", color: "#6f4938", display: [0, 0, -2.2], service: [0, -0.88], products: ["coffee"] },
-  eggs: { id: "eggs", label: "HUEVOS", color: "#d49a34", display: [4, 0, -2.2], service: [4, -0.88], products: ["eggs"] },
-  produce: { id: "produce", label: "FRUTAS Y VERDURAS", color: "#3f7b4c", display: [-4.1, 0, 2.45], service: [-4.1, 1.08], products: ["tomatoes", "apples", "corn"] },
-  dairy: { id: "dairy", label: "LÁCTEOS", color: "#4382a1", display: [0, 0, 2.45], service: [0, 3.82], products: ["milk", "cheese"] },
-  drinks: { id: "drinks", label: "BEBIDAS", color: "#cc6841", display: [4.05, 0, 2.45], service: [4.05, 3.82], products: ["juice"] },
+  // Service points remain useful route destinations, but the actual stocking
+  // volume wraps the complete fixture footprint so every walkable side works.
+  bakery: { id: "bakery", label: "PAN Y HARINAS", color: "#b96d39", display: [-4, 0, -2.2], fixtureHalfExtents: [1.2, 0.78], service: [-4, -0.88], products: ["bread", "flour", "wheat"] },
+  pantry: { id: "pantry", label: "DESPENSA", color: "#6f4938", display: [0, 0, -2.2], fixtureHalfExtents: [1.2, 0.78], service: [0, -0.88], products: ["coffee"] },
+  eggs: { id: "eggs", label: "HUEVOS", color: "#d49a34", display: [4, 0, -2.2], fixtureHalfExtents: [1.2, 0.78], service: [4, -0.88], products: ["eggs"] },
+  produce: { id: "produce", label: "FRUTAS Y VERDURAS", color: "#3f7b4c", display: [-4.1, 0, 2.45], fixtureHalfExtents: [1.25, 0.83], service: [-4.1, 1.08], products: ["tomatoes", "apples", "corn"] },
+  dairy: { id: "dairy", label: "LÁCTEOS", color: "#4382a1", display: [0, 0, 2.45], fixtureHalfExtents: [1.25, 0.83], service: [0, 3.82], products: ["milk", "cheese"] },
+  drinks: { id: "drinks", label: "BEBIDAS", color: "#cc6841", display: [4.05, 0, 2.45], fixtureHalfExtents: [1.18, 0.8], service: [4.05, 3.82], products: ["juice"] },
 };
 
 export const RETAIL_DEPARTMENT_IDS = Object.keys(RETAIL_DEPARTMENTS) as RetailDepartmentId[];
@@ -71,6 +75,25 @@ export function retailServicePoint(productId: ProductId): [number, number] {
 
 export function retailDisplayPosition(departmentId: RetailDepartmentId): [number, number, number] {
   return [...RETAIL_DEPARTMENTS[departmentId].display];
+}
+
+/** Complete rounded-rectangle stocking volume in scaled simulation units. */
+export function retailStockingMagnet(
+  departmentId: RetailDepartmentId,
+  layoutScale: number,
+  elementScale: number,
+) {
+  const department = RETAIL_DEPARTMENTS[departmentId];
+  return {
+    x: department.display[0] * layoutScale,
+    z: department.display[2] * layoutScale,
+    halfExtents: [
+      department.fixtureHalfExtents[0] * elementScale,
+      department.fixtureHalfExtents[1] * elementScale,
+    ] as const,
+    enterRadius: RETAIL_STOCKING_MAGNET_REACH.enter * elementScale,
+    exitRadius: RETAIL_STOCKING_MAGNET_REACH.exit * elementScale,
+  };
 }
 
 function rowCount(total: number, row: number, perRow: number) {

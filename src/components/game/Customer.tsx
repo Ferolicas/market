@@ -15,6 +15,7 @@ import { marketQaQueryEnabled } from "@/game/debug/QaAccess";
 import { CUSTOMER_CART_WHEEL_RADIUS, CUSTOMER_CHECKOUT_ITEM_CYCLE_MS, CUSTOMER_PICKUP_DURATION_MS, CustomerCartGripSolver, assignCartGripTargets, cartSteeringAngle, checkoutCartInventory, checkoutLoadingPresentation, easedMotionProgress, motionProgress, productTransferPoint, shortestHeadingDelta, wheelRollDelta, type CartGripChain } from "@/game/animation/CustomerCartMotion";
 import { PRODUCT_RETAIL_DEPARTMENT, retailDisplayPosition } from "@/game/stations/retail-layout";
 import { CART_BAY_POINT } from "@/game/stations/store-service-layout";
+import { checkoutCustomerFacingYaw } from "@/game/stations/checkout-layout";
 import { BasketProduct } from "./HarvestBasket";
 
 export type CustomerId = 1 | 2 | 3 | 4 | 5 | 6;
@@ -167,7 +168,10 @@ export function Customer({ customer, checkoutTransaction, simulationTimeMs }: { 
     group.position.z = z;
     const visualSpeed = Math.hypot(group.position.x - previousX, group.position.z - previousZ) / Math.max(0.001, frameDelta(delta)) / STORE_LAYOUT_SCALE;
     const headingBefore = group.rotation.y;
-    if (Math.hypot(projected.headingX, projected.headingZ) > 0.5) {
+    const desiredCheckoutYaw = checkoutCustomerFacingYaw(customer, [projected.x, projected.z]);
+    if (desiredCheckoutYaw !== null) {
+      group.rotation.y = turnTowards(group.rotation.y, desiredCheckoutYaw, frameDelta(delta) * 3.8);
+    } else if (Math.hypot(projected.headingX, projected.headingZ) > 0.5) {
       const angle = Math.atan2(projected.headingX, projected.headingZ);
       group.rotation.y = turnTowards(group.rotation.y, angle, frameDelta(delta) * 3.35);
     } else if (productDisplay && ["WAIT_FOR_ACCESS", "PICK_PRODUCT", "WAIT_RESTOCK"].includes(customer.state)) {
@@ -185,6 +189,26 @@ export function Customer({ customer, checkoutTransaction, simulationTimeMs }: { 
     const cartVisible = customer.hasCart || customer.state === "GET_CART";
     const cartGroup = cart.current;
     if (cartGroup) cartGroup.visible = cartVisible;
+    const qaWindow = window as typeof window & { __MARKET_QA__?: Record<string, unknown> };
+    const qaVisuals = qaWindow.__MARKET_QA__ && marketQaQueryEnabled(window.location.search)
+      ? (qaWindow.__MARKET_QA__.customerVisuals ??= {}) as Record<string, unknown>
+      : null;
+    if (qaVisuals) {
+      const previous = qaVisuals[customer.id];
+      qaVisuals[customer.id] = {
+        ...(previous && typeof previous === "object" ? previous : {}),
+        visualFrame: visualFrame.current,
+        state: customer.state,
+        animation,
+        x: group.position.x,
+        z: group.position.z,
+        rotationY: group.rotation.y,
+        checkoutFacingYaw: desiredCheckoutYaw,
+        checkoutFacingError: desiredCheckoutYaw === null ? null : Math.abs(shortestHeadingDelta(group.rotation.y, desiredCheckoutYaw)),
+        speed: motionSnapshot.current.speed,
+        snapshotCapturedAtMs: motionSnapshot.current.capturedAtMs,
+      };
+    }
     const inView = group.visible && characterIsInView(camera, group, visibilityScratch);
     mixerRef.current.timeScale = inView ? 1 : 0;
     if (!inView) {
@@ -382,9 +406,7 @@ export function Customer({ customer, checkoutTransaction, simulationTimeMs }: { 
       : visualGaitScale.current;
     animationAction?.setEffectiveTimeScale(animationTimeScale);
 
-    const qaWindow = window as typeof window & { __MARKET_QA__?: Record<string, unknown> };
-    if (qaWindow.__MARKET_QA__ && marketQaQueryEnabled(window.location.search)) {
-      const visuals = (qaWindow.__MARKET_QA__.customerVisuals ??= {}) as Record<string, unknown>;
+    if (qaVisuals) {
       let cartDistance: number | null = null;
       if (cart.current?.visible) {
         cart.current.getWorldPosition(carryObjectWorldPosition.current);
@@ -392,12 +414,15 @@ export function Customer({ customer, checkoutTransaction, simulationTimeMs }: { 
         cartDistance = customerWorldPosition.current.distanceTo(carryObjectWorldPosition.current);
       }
       const basketUnits = Object.values(cartInventory).reduce((total, quantity) => total + (quantity ?? 0), 0);
-      visuals[customer.id] = {
+      qaVisuals[customer.id] = {
         visualFrame: visualFrame.current,
         state: customer.state,
         animation,
         x: group.position.x,
         z: group.position.z,
+        rotationY: group.rotation.y,
+        checkoutFacingYaw: desiredCheckoutYaw,
+        checkoutFacingError: desiredCheckoutYaw === null ? null : Math.abs(shortestHeadingDelta(group.rotation.y, desiredCheckoutYaw)),
         speed: motionSnapshot.current.speed,
         snapshotCapturedAtMs: motionSnapshot.current.capturedAtMs,
         headQuaternion: head?.quaternion.toArray() ?? null,

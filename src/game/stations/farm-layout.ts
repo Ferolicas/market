@@ -1,4 +1,5 @@
 import type { CropState } from "../types";
+import { STORE_REAR_DOOR } from "./storefront-layout";
 
 export type FarmPlotId = "crop-tomato-1" | "crop-tomato-2" | "crop-wheat-1" | "crop-corn-1";
 export type FarmInteractionId = `farm:${FarmPlotId}`;
@@ -28,24 +29,39 @@ export interface FarmObstacleLayout {
 
 /**
  * The storefront sits on positive Z. The estate is intentionally beyond the
- * rear wall on negative Z, reached by the open service lane on the east side.
+ * rear wall on negative Z, reached directly through the rear service door.
  * All values use the same unscaled layout coordinates consumed by navigation.
  */
 const FARM_SERVICE_LANE_X = 12.15;
 
 /** One source for the visible gate, its physical solids and both approaches. */
 export const FARM_GATE = {
-  center: [10.4, 0, -11.55] as const,
-  frontPost: [10.4, 0, -10.35] as const,
-  innerPost: [10.4, 0, -12.75] as const,
-  openLeaf: { center: [10.4, 0, -13.43] as const, halfX: 0.07, halfZ: 0.85 },
-  rightFence: { center: [10.6, 0, -15.9175] as const, halfX: 0.07, halfZ: 2.259375 },
-  exteriorApproach: [FARM_SERVICE_LANE_X, -11.55] as const,
+  center: [7.5, 0, -10.575] as const,
+  frontPost: [6.2, 0, -10.575] as const,
+  innerPost: [8.8, 0, -10.575] as const,
+  // The open leaf has the same rendered length as the 2.6-layout-unit gate
+  // opening and starts flush behind the inner hinge post.
+  openLeaf: { center: [8.8, 0, -11.875] as const, halfX: 0.07, halfZ: 1.625, terminalPostDepth: 0.09 },
+  rightFence: { center: [10.6, 0, -14.15] as const, halfX: 0.07, halfZ: 4.46875 },
+  leftFrontFence: { center: [-2.2, 0, -10.575] as const, halfX: 10.5, halfZ: 0.07 },
+  rightFrontFence: { center: [9.7, 0, -10.575] as const, halfX: 1.125, halfZ: 0.07 },
+  exteriorApproach: [STORE_REAR_DOOR.outsideApproach[0], -9.35] as const,
   // Recast's first complete cell beyond the posts. Using the geometric fence
   // line itself makes a capsule chase an unreachable projection after entry.
-  interiorApproach: [9.5, -11.55] as const,
+  interiorApproach: [7.5, -11.55] as const,
   postHalfSize: 0.11,
 } as const;
+
+/** Center of the visible terminal post, kept fully inside the leaf collider. */
+export function farmGateOpenLeafTerminalPost(layoutScale: number, elementScale: number) {
+  const safeLayoutScale = Math.max(Number.EPSILON, layoutScale);
+  const elementToLayout = Math.max(0, elementScale) / safeLayoutScale;
+  const directionZ = Math.sign(FARM_GATE.openLeaf.center[2] - FARM_GATE.innerPost[2]) || -1;
+  return [
+    FARM_GATE.openLeaf.center[0],
+    FARM_GATE.openLeaf.center[2] + directionZ * (FARM_GATE.openLeaf.halfZ - FARM_GATE.openLeaf.terminalPostDepth / 2) * elementToLayout,
+  ] as const;
+}
 
 export const FARM_FIELD = {
   center: [0, 0, -14.15] as const,
@@ -114,8 +130,8 @@ export const FARM_ANIMAL_STATIONS = {
 } as const satisfies Record<"chicken" | "cow", FarmAnimalStationLayout>;
 
 export const FARM_ACCESS_WAYPOINTS = [
-  [FARM_FIELD.serviceLaneX, 8.65],
-  [...FARM_GATE.exteriorApproach],
+  [...STORE_REAR_DOOR.insideApproach],
+  [...STORE_REAR_DOOR.outsideApproach],
   [FARM_FIELD.entrance[0], FARM_FIELD.entrance[2]],
 ] as const satisfies readonly (readonly [number, number])[];
 
@@ -125,7 +141,7 @@ export const FARM_ACCESS_WAYPOINTS = [
  * a diagonal from the gate can never cut through a reserved animal paddock.
  */
 export const FARM_INTERIOR_WAYPOINTS = {
-  entranceApron: [8.55, -11.65],
+  entranceApron: [7.7, -11.65],
   cropJunction: [-2, -11.65],
   southCropJunction: [-2, -15.45],
 } as const satisfies Record<string, readonly [number, number]>;
@@ -277,7 +293,8 @@ export const FARM_OBSTACLES = [
   { x: FARM_ANIMAL_STATIONS.chicken.position[0], z: FARM_ANIMAL_STATIONS.chicken.position[2], halfX: 1.49, halfZ: 1.09 },
   { x: FARM_ANIMAL_STATIONS.cow.position[0], z: FARM_ANIMAL_STATIONS.cow.position[2], halfX: 1.79, halfZ: 1.24 },
   { x: 0, z: -17.725, halfX: 13.25, halfZ: 0.07 },
-  { x: -1.72, z: -10.575, halfX: 11.1, halfZ: 0.07 },
+  { x: FARM_GATE.leftFrontFence.center[0], z: FARM_GATE.leftFrontFence.center[2], halfX: FARM_GATE.leftFrontFence.halfX, halfZ: FARM_GATE.leftFrontFence.halfZ },
+  { x: FARM_GATE.rightFrontFence.center[0], z: FARM_GATE.rightFrontFence.center[2], halfX: FARM_GATE.rightFrontFence.halfX, halfZ: FARM_GATE.rightFrontFence.halfZ },
   { x: -10.6, z: FARM_FIELD.center[2], halfX: 0.07, halfZ: 4.47 },
   { x: FARM_GATE.rightFence.center[0], z: FARM_GATE.rightFence.center[2], halfX: FARM_GATE.rightFence.halfX, halfZ: FARM_GATE.rightFence.halfZ },
   { x: FARM_GATE.frontPost[0], z: FARM_GATE.frontPost[2], halfX: FARM_GATE.postHalfSize, halfZ: FARM_GATE.postHalfSize },

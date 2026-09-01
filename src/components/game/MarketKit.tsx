@@ -9,7 +9,8 @@ import type { CheckoutTransaction, CropState, Inventory, ProductId, ProductionMa
 import { cropHarvestYield, cropProgress } from "@/game/stations/StationSystem";
 import { CHECKOUT_LANES, activeCheckoutForLane, checkoutBagLocation, checkoutHandoffForLane } from "@/game/stations/checkout-layout";
 import { cropVisualSlotIndices } from "@/game/stations/crop-visual";
-import { FARM_ANIMAL_STATIONS, FARM_FACILITIES, FARM_FIELD, FARM_GATE, FARM_PLOTS } from "@/game/stations/farm-layout";
+import { FARM_ANIMAL_STATIONS, FARM_FACILITIES, FARM_FIELD, FARM_GATE, FARM_PLOTS, farmGateOpenLeafTerminalPost } from "@/game/stations/farm-layout";
+import { STORE_REAR_DOOR } from "@/game/stations/storefront-layout";
 import { RETAIL_DEPARTMENTS, RETAIL_FIXTURE_LEVELS, RETAIL_VISUAL_CAPACITY, retailDisplayPosition, retailStockLandingLocalPosition } from "@/game/stations/retail-layout";
 import { STORE_SERVICE_FIXTURES } from "@/game/stations/store-service-layout";
 import { marketAsset } from "@/game/assets/AssetRegistry";
@@ -317,7 +318,7 @@ export const KitFurniture = memo(function KitFurniture({ shelves, machines, cust
     <StaticBatchOptimizer rootRef={root} structureRevision={structureRevision} />
     <StoreElement position={[-1.6, 0, -8.05]}><OperationsWall /></StoreElement>
     <StoreElement position={[5.25, 0, -8.0]}><BackroomColdStorage position={[0, 0, 0]} /></StoreElement>
-    <StoreElement position={[8.65, 0, -7.85]}><MetalRack position={[0, 0, 0]} /></StoreElement>
+    <StoreElement position={[...STORE_REAR_DOOR.adjacentRackPosition]}><MetalRack position={[0, 0, 0]} /></StoreElement>
 
     <StoreElement position={retailDisplayPosition("bakery")}><BakeryDisplay bread={shelves.bread} flour={shelves.flour} wheat={shelves.wheat} /></StoreElement>
     <StoreElement position={retailDisplayPosition("pantry")}><Gondola position={[0, 0, 0]} count={shelves.coffee} /></StoreElement>
@@ -862,7 +863,7 @@ function Parcel({ position, small = false }: { position: Position; small?: boole
 
 function StoreUtilities({ lightsOn }: { lightsOn: boolean }) {
   return <group>
-    <StoreElement position={[9.2, 2.2, -8.34]}><WallClock position={[0, 0, 0]} /></StoreElement>
+    <StoreElement position={[STORE_REAR_DOOR.adjacentRackPosition[0], 2.2, -8.34]}><WallClock position={[0, 0, 0]} /></StoreElement>
     <StoreElement position={[-10.75, 2.55, -8.05]}><SecurityCamera position={[0, 0, 0]} /></StoreElement>
     <StoreElement position={[10.65, 2.55, 7.2]}><SecurityCamera position={[0, 0, 0]} rotationY={Math.PI} /></StoreElement>
     <StoreElement position={[7.25, 2.45, 1.65]}><HangingSign position={[0, 0, 0]} label="CAJAS" /></StoreElement>
@@ -898,6 +899,11 @@ const FARM_LOCAL_LAYOUT_SCALE = STORE_LAYOUT_SCALE / STORE_ELEMENT_SCALE;
 const FARM_LOCAL_HALF_WIDTH = FARM_FIELD.size[0] * FARM_LOCAL_LAYOUT_SCALE * 0.5;
 const FARM_LOCAL_HALF_DEPTH = FARM_FIELD.size[2] * FARM_LOCAL_LAYOUT_SCALE * 0.5;
 const FARM_RIGHT_FENCE_LOCAL_Z = (FARM_GATE.rightFence.center[2] - FARM_FIELD.center[2]) * FARM_LOCAL_LAYOUT_SCALE;
+const FARM_FRONT_FENCE_LOCAL_X = (FARM_GATE.leftFrontFence.center[0] - FARM_FIELD.center[0]) * FARM_LOCAL_LAYOUT_SCALE;
+const FARM_FRONT_FENCE_LOCAL_Z = (FARM_GATE.leftFrontFence.center[2] - FARM_FIELD.center[2]) * FARM_LOCAL_LAYOUT_SCALE;
+const FARM_FRONT_FENCE_MIN_X = FARM_GATE.leftFrontFence.center[0] - FARM_GATE.leftFrontFence.halfX * (STORE_ELEMENT_SCALE / STORE_LAYOUT_SCALE);
+const FARM_FRONT_FENCE_MAX_X = FARM_GATE.leftFrontFence.center[0] + FARM_GATE.leftFrontFence.halfX * (STORE_ELEMENT_SCALE / STORE_LAYOUT_SCALE);
+const FARM_RIGHT_FRONT_FENCE_LOCAL_X = (FARM_GATE.rightFrontFence.center[0] - FARM_FIELD.center[0]) * FARM_LOCAL_LAYOUT_SCALE;
 const TOMATO_GRID = Array.from({ length: 15 }, (_, index): [number, number] => [((index % 5) - 2) * 0.3, (Math.floor(index / 5) - 1) * 0.3]);
 const WHEAT_GRID = Array.from({ length: 28 }, (_, index): [number, number] => [((index % 7) - 3) * 0.215, (Math.floor(index / 7) - 1.5) * 0.205]);
 const CORN_GRID = Array.from({ length: 12 }, (_, index): [number, number] => [((index % 4) - 1.5) * 0.39, (Math.floor(index / 4) - 1) * 0.31]);
@@ -937,15 +943,25 @@ const GARDEN_FLOWERS: readonly InstanceTransform[] = [
 ].map(([x, z], index) => ({ position: [x, 0.26 + (index % 2) * 0.035, z], scale: [0.85, 0.85, 0.85] }));
 const FARM_FENCE_POSTS: readonly InstanceTransform[] = [
   ...Array.from({ length: 15 }, (_, index): InstanceTransform => ({ position: [-FARM_LOCAL_HALF_WIDTH + index * (FARM_LOCAL_HALF_WIDTH * 2 / 14), 0.54, -FARM_LOCAL_HALF_DEPTH], scale: [0.1, 1.08, 0.1] })),
-  ...Array.from({ length: 13 }, (_, index): InstanceTransform => ({ position: [-FARM_LOCAL_HALF_WIDTH + index * (FARM_LOCAL_HALF_WIDTH * 2 / 12), 0.54, FARM_LOCAL_HALF_DEPTH], scale: [0.1, 1.08, 0.1] })).filter((_, index) => index < 10),
+  ...Array.from({ length: 11 }, (_, index): InstanceTransform => ({
+    position: [
+      (FARM_FRONT_FENCE_MIN_X + index * ((FARM_FRONT_FENCE_MAX_X - FARM_FRONT_FENCE_MIN_X) / 10) - FARM_FIELD.center[0]) * FARM_LOCAL_LAYOUT_SCALE,
+      0.54,
+      FARM_FRONT_FENCE_LOCAL_Z,
+    ],
+    scale: [0.1, 1.08, 0.1],
+  })),
+  { position: [FARM_RIGHT_FRONT_FENCE_LOCAL_X, 0.54, FARM_FRONT_FENCE_LOCAL_Z], scale: [0.1, 1.08, 0.1] },
   ...Array.from({ length: 6 }, (_, index): InstanceTransform => ({ position: [-FARM_LOCAL_HALF_WIDTH, 0.54, -FARM_LOCAL_HALF_DEPTH + index * (FARM_LOCAL_HALF_DEPTH * 2 / 5)], scale: [0.1, 1.08, 0.1] })),
-  ...Array.from({ length: 6 }, (_, index): InstanceTransform => ({ position: [FARM_LOCAL_HALF_WIDTH, 0.54, -FARM_LOCAL_HALF_DEPTH + index * (FARM_LOCAL_HALF_DEPTH * 2 / 5)], scale: [0.1, 1.08, 0.1] })).filter((_, index) => index < 4),
+  ...Array.from({ length: 6 }, (_, index): InstanceTransform => ({ position: [FARM_LOCAL_HALF_WIDTH, 0.54, -FARM_LOCAL_HALF_DEPTH + index * (FARM_LOCAL_HALF_DEPTH * 2 / 5)], scale: [0.1, 1.08, 0.1] })),
 ];
 const FARM_FENCE_RAILS: readonly InstanceTransform[] = [
   { position: [0, 0.38, -FARM_LOCAL_HALF_DEPTH], scale: [FARM_LOCAL_HALF_WIDTH * 2, 0.075, 0.075] },
   { position: [0, 0.72, -FARM_LOCAL_HALF_DEPTH], scale: [FARM_LOCAL_HALF_WIDTH * 2, 0.075, 0.075] },
-  { position: [-2.15, 0.38, FARM_LOCAL_HALF_DEPTH], scale: [(FARM_LOCAL_HALF_WIDTH - 2.15) * 2, 0.075, 0.075] },
-  { position: [-2.15, 0.72, FARM_LOCAL_HALF_DEPTH], scale: [(FARM_LOCAL_HALF_WIDTH - 2.15) * 2, 0.075, 0.075] },
+  { position: [FARM_FRONT_FENCE_LOCAL_X, 0.38, FARM_FRONT_FENCE_LOCAL_Z], scale: [FARM_GATE.leftFrontFence.halfX * 2, 0.075, 0.075] },
+  { position: [FARM_FRONT_FENCE_LOCAL_X, 0.72, FARM_FRONT_FENCE_LOCAL_Z], scale: [FARM_GATE.leftFrontFence.halfX * 2, 0.075, 0.075] },
+  { position: [FARM_RIGHT_FRONT_FENCE_LOCAL_X, 0.38, FARM_FRONT_FENCE_LOCAL_Z], scale: [FARM_GATE.rightFrontFence.halfX * 2, 0.075, 0.075] },
+  { position: [FARM_RIGHT_FRONT_FENCE_LOCAL_X, 0.72, FARM_FRONT_FENCE_LOCAL_Z], scale: [FARM_GATE.rightFrontFence.halfX * 2, 0.075, 0.075] },
   { position: [-FARM_LOCAL_HALF_WIDTH, 0.38, 0], scale: [0.075, 0.075, FARM_LOCAL_HALF_DEPTH * 2] },
   { position: [-FARM_LOCAL_HALF_WIDTH, 0.72, 0], scale: [0.075, 0.075, FARM_LOCAL_HALF_DEPTH * 2] },
   { position: [FARM_LOCAL_HALF_WIDTH, 0.38, FARM_RIGHT_FENCE_LOCAL_Z], scale: [0.075, 0.075, FARM_GATE.rightFence.halfZ * 2] },
@@ -1052,20 +1068,25 @@ function FarmEntranceGate() {
     0,
     (FARM_GATE.frontPost[2] - FARM_FIELD.center[2]) * FARM_LOCAL_LAYOUT_SCALE,
   ];
+  const innerPostOffsetX = (FARM_GATE.innerPost[0] - FARM_GATE.frontPost[0]) * FARM_LOCAL_LAYOUT_SCALE;
   const innerPostOffsetZ = (FARM_GATE.innerPost[2] - FARM_GATE.frontPost[2]) * FARM_LOCAL_LAYOUT_SCALE;
+  const openLeafOffsetX = (FARM_GATE.openLeaf.center[0] - FARM_GATE.innerPost[0]) * FARM_LOCAL_LAYOUT_SCALE;
   const openLeafOffsetZ = (FARM_GATE.openLeaf.center[2] - FARM_GATE.innerPost[2]) * FARM_LOCAL_LAYOUT_SCALE;
+  const openLeafTerminalPost = farmGateOpenLeafTerminalPost(STORE_LAYOUT_SCALE, STORE_ELEMENT_SCALE);
+  const openLeafTerminalOffsetX = (openLeafTerminalPost[0] - FARM_GATE.innerPost[0]) * FARM_LOCAL_LAYOUT_SCALE;
+  const openLeafTerminalOffsetZ = (openLeafTerminalPost[1] - FARM_GATE.innerPost[2]) * FARM_LOCAL_LAYOUT_SCALE;
   const openLeafDepth = FARM_GATE.openLeaf.halfZ * 2;
   return <group position={frontPost}>
-    {[0, innerPostOffsetZ].map((z) => <group key={z} position={[0, 0, z]}>
+    {[[0, 0], [innerPostOffsetX, innerPostOffsetZ]].map(([x, z], index) => <group key={`farm-gate-post-${index}`} position={[x, 0, z]}>
       <Box args={[0.19, 1.38, 0.19]} position={[0, 0.69, 0]} color="#68472f" radius={0.025} />
       <mesh position={[0, 1.48, 0]}><sphereGeometry args={[0.12, 10, 7]} /><meshStandardMaterial color="#d6b35e" roughness={0.7} /></mesh>
     </group>)}
-    {/* Park the open leaf beyond the inner post, flush with the east fence,
-        so the marked opening is physically and visually unobstructed. */}
-    <group position={[0, 0, innerPostOffsetZ]}>
-      <Box args={[0.09, 0.09, openLeafDepth]} position={[0, 0.5, openLeafOffsetZ]} color="#b27a43" />
-      <Box args={[0.09, 0.09, openLeafDepth]} position={[0, 0.98, openLeafOffsetZ]} color="#b27a43" />
-      <Box args={[0.09, 1.02, 0.09]} position={[0, 0.74, openLeafOffsetZ * 2]} color="#8c5b37" />
+    {/* Park the open leaf behind the right post, flush with the east fence,
+        so the rear-door path is physically and visually unobstructed. */}
+    <group position={[innerPostOffsetX, 0, innerPostOffsetZ]}>
+      <Box args={[0.09, 0.09, openLeafDepth]} position={[openLeafOffsetX, 0.5, openLeafOffsetZ]} color="#b27a43" />
+      <Box args={[0.09, 0.09, openLeafDepth]} position={[openLeafOffsetX, 0.98, openLeafOffsetZ]} color="#b27a43" />
+      <Box args={[FARM_GATE.openLeaf.terminalPostDepth, 1.02, FARM_GATE.openLeaf.terminalPostDepth]} position={[openLeafTerminalOffsetX, 0.74, openLeafTerminalOffsetZ]} color="#8c5b37" />
     </group>
   </group>;
 }

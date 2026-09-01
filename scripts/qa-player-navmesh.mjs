@@ -44,7 +44,10 @@ if (farmShowcase) {
   });
   await page.reload({ waitUntil: "domcontentloaded", timeout: 60_000 });
   await page.waitForFunction(() => Boolean(window.__MARKET_QA__?.player && window.__MARKET_FIND_PLAYER_PATH__), null, { timeout: 30_000 });
-  await page.waitForFunction(() => (window.__MARKET_FIND_PLAYER_PATH__?.([15, -10.7])?.length ?? 0) >= 2, null, { timeout: 30_000 });
+  await page.waitForFunction(() => {
+    const target = window.__MARKET_QA__?.farmAccessWaypoints?.[0];
+    return Boolean(target && (window.__MARKET_FIND_PLAYER_PATH__?.(target)?.length ?? 0) >= 2);
+  }, null, { timeout: 30_000 });
 }
 
 const qa = () => page.evaluate(() => structuredClone(Object.fromEntries(
@@ -55,6 +58,7 @@ const distance = (a, b) => Math.hypot(a.x - b[0], a.z - b[1]);
 const forward = normalize([-16, -25.75]);
 const right = [-forward[1], forward[0]];
 const routeEvidence = [];
+let rearDoorEvidence = null;
 
 async function dragPulse(worldDirection, duration = 360) {
   const direction = normalize(worldDirection);
@@ -100,7 +104,12 @@ try {
   const published = await qa();
   const farmTarget = published.farmTargets?.find((candidate) => candidate.id === "crop-tomato-1");
   const farmAccess = published.farmAccessWaypoints ?? [];
-  if (!farmTarget || farmAccess.length !== 3 || farmTarget.z >= -20) throw new Error(`Layout de finca trasera inválido: ${JSON.stringify({ farmTarget, farmAccess })}`);
+  const rearDoor = published.rearDoor;
+  if (!farmTarget || farmAccess.length !== 3 || !rearDoor || farmTarget.z >= -20) throw new Error(`Layout de finca trasera inválido: ${JSON.stringify({ farmTarget, farmAccess, rearDoor })}`);
+  const directFarmPath = await page.evaluate((target) => window.__MARKET_FIND_PLAYER_PATH__?.(target) ?? [], [farmTarget.x, farmTarget.z]);
+  const crossing = crossingAtZ(directFarmPath, rearDoor.z);
+  rearDoorEvidence = { layout: rearDoor, directFarmPath, crossing };
+  if (directFarmPath.some(([x]) => x > 23.1) || !crossing || Math.abs(crossing.x - rearDoor.x) >= rearDoor.clearHalfWidth) throw new Error(`La ruta store→finca no usa el hueco trasero directo: ${JSON.stringify(rearDoorEvidence)}`);
   const serviceFixtures = Object.fromEntries((published.serviceFixtureTargets ?? []).map((fixture) => [fixture.id, fixture]));
   const fixturePresentation = published.serviceFixturePresentation ?? {};
   if (!serviceFixtures.promotionalEndcap || !serviceFixtures.returns || !serviceFixtures.cartBay) throw new Error(`Fixtures de servicio no publicadas: ${JSON.stringify(serviceFixtures)}`);
@@ -119,6 +128,10 @@ try {
     : [[15, -10.7], [12, -10], [4, -10], [4, 3], [0, 7], [-4, 1], [-15.1, -8.1], [-12, -2], [-4, 7], [0, 13.8], ...farmAccess, [farmTarget.x, farmTarget.z], ...[...farmAccess].reverse(), [0, 13.8], [-4, -10], [15, -10.7]];
   for (const target of checkpoints) {
     await moveTo(target);
+    if (target === farmAccess[0]) {
+      await page.waitForFunction(() => (window.__MARKET_QA__?.rearDoor?.progress ?? 0) >= 0.99, null, { timeout: 3_000 });
+      await page.screenshot({ path: path.join(outputRoot, "rear-door-fully-open.png"), fullPage: true });
+    }
     if (serviceFixtureFocus) await page.screenshot({ path: path.join(outputRoot, `service-route-${checkpoints.indexOf(target)}.png`), fullPage: true });
     if (farmShowcase && target === farmAccess.at(-1)) {
       await page.waitForTimeout(900);
@@ -146,7 +159,7 @@ try {
   failure = error instanceof Error ? error.message : String(error);
 }
 
-const report = { generatedAt: new Date().toISOString(), failure, final: await qa(), routeEvidence, consoleErrors, pageErrors, failedResponses };
+const report = { generatedAt: new Date().toISOString(), failure, final: await qa(), rearDoorEvidence, routeEvidence, consoleErrors, pageErrors, failedResponses };
 await page.screenshot({ path: path.join(outputRoot, "player-navmesh.png"), fullPage: true });
 await fs.writeFile(path.join(outputRoot, "report.json"), JSON.stringify(report, null, 2));
 await browser.close();
@@ -156,4 +169,15 @@ if (failure || consoleErrors.length || pageErrors.length || failedResponses.leng
 function normalize([x, y]) {
   const length = Math.hypot(x, y) || 1;
   return [x / length, y / length];
+}
+
+function crossingAtZ(pathPoints, z) {
+  for (let index = 1; index < pathPoints.length; index += 1) {
+    const previous = pathPoints[index - 1];
+    const next = pathPoints[index];
+    if ((previous[1] - z) * (next[1] - z) > 0 || Math.abs(next[1] - previous[1]) < 1e-8) continue;
+    const progress = (z - previous[1]) / (next[1] - previous[1]);
+    if (progress >= 0 && progress <= 1) return { x: previous[0] + (next[0] - previous[0]) * progress, z };
+  }
+  return null;
 }

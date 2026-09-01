@@ -39,6 +39,12 @@ export const CHECKOUT_CAMERA_POSITION: StorePosition = [8.3, 7.2, 8.8];
 export const CHECKOUT_CAMERA_FRAME = { width: 39, height: 27 } as const;
 
 const CHECKOUT_QUEUE_SPACING = 0.78;
+const CHECKOUT_CUSTOMER_FACING_STATES = new Set<CustomerRuntimeState["state"]>([
+  "QUEUE_WAIT",
+  "UNLOAD",
+  "WAIT_CHECKOUT",
+  "PAY",
+]);
 
 export function checkoutQueuePosition(slot: number, lane: CheckoutLane = 0): [number, number] {
   const layout = CHECKOUT_LANES[lane];
@@ -54,6 +60,24 @@ export function checkoutQueuePosition(slot: number, lane: CheckoutLane = 0): [nu
 export function checkoutQueueArrival(slot: number, lane: CheckoutLane = 0): [StorePoint, StorePoint] {
   const destination = checkoutQueuePosition(slot, lane);
   return [[destination[0], destination[1] - CHECKOUT_QUEUE_SPACING], destination];
+}
+
+/**
+ * Stationary customers in a checkout lane must not inherit the yaw of the
+ * previous NavMesh segment. That segment can disappear from the render
+ * snapshot on the exact tick in which the FSM enters a waiting state.
+ *
+ * The checkout counter remains the single source for the facing target, so a
+ * lane move cannot leave the body or trolley looking away from its register.
+ */
+export function checkoutCustomerFacingYaw(
+  customer: Pick<CustomerRuntimeState, "state" | "queueLane">,
+  position: StorePoint,
+): number | null {
+  if (!CHECKOUT_CUSTOMER_FACING_STATES.has(customer.state)) return null;
+  const lane = customer.queueLane === 1 ? 1 : 0;
+  const counter = CHECKOUT_LANES[lane].counter;
+  return Math.atan2(counter[0] - position[0], counter[2] - position[1]);
 }
 
 export function activeCheckoutForLane(transactions: readonly CheckoutTransaction[], lane: CheckoutLane) {

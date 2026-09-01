@@ -1,6 +1,8 @@
 import { CHECKOUT_LANES } from "./stations/checkout-layout";
 import { FARM_OBSTACLES } from "./stations/farm-layout";
+import { RETAIL_DEPARTMENT_IDS, RETAIL_DEPARTMENTS } from "./stations/retail-layout";
 import { STORE_SERVICE_FIXTURE_IDS, STORE_SERVICE_FIXTURES } from "./stations/store-service-layout";
+import { STORE_REAR_DOOR } from "./stations/storefront-layout";
 
 export type WorldPosition = [number, number, number];
 
@@ -54,14 +56,22 @@ const productionObstacles: StoreObstacle[] = Object.values(STORE_PRODUCTION_FIXT
   halfZ: fixture.localFootprint.halfZ,
 }));
 
+const retailObstacles: StoreObstacle[] = RETAIL_DEPARTMENT_IDS.map((departmentId) => {
+  const department = RETAIL_DEPARTMENTS[departmentId];
+  return {
+    id: `fixture:retail-${departmentId}`,
+    x: department.display[0],
+    z: department.display[2],
+    halfX: department.fixtureHalfExtents[0],
+    halfZ: department.fixtureHalfExtents[1],
+  };
+});
+
 const BASE_STORE_OBSTACLES: StoreObstacle[] = [
   ...[-5.2, -2.8, -0.4, 2].map((x) => ({ x, z: -8.05, halfX: 1.12, halfZ: 0.5 })),
   { x: 5.25, z: -8, halfX: 1.2, halfZ: 0.5 },
-  { x: 8.65, z: -7.85, halfX: 0.85, halfZ: 0.5 },
-  ...[-4, 0, 4].map((x) => ({ x, z: -2.2, halfX: 1.2, halfZ: 0.78 })),
-  { x: -4.1, z: 2.45, halfX: 1.25, halfZ: 0.83 },
-  { x: 0, z: 2.45, halfX: 1.25, halfZ: 0.83 },
-  { x: 4.05, z: 2.45, halfX: 1.18, halfZ: 0.8 },
+  { x: STORE_REAR_DOOR.adjacentRackPosition[0], z: STORE_REAR_DOOR.adjacentRackPosition[2], halfX: 0.85, halfZ: 0.5 },
+  ...retailObstacles,
   { x: CHECKOUT_LANES[0].counter[0], z: CHECKOUT_LANES[0].counter[2], halfX: 2.25, halfZ: 0.65 },
   { x: CHECKOUT_LANES[1].counter[0], z: CHECKOUT_LANES[1].counter[2], halfX: 2.25, halfZ: 0.65 },
   ...productionObstacles,

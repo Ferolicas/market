@@ -53,7 +53,7 @@ await page.evaluate(() => {
   }
   const employeeFixtures = [
     ["farmer", "red-panda", -5.3, 3.6],
-    ["operator", "red-fox", -4.8, -1.5],
+    ["operator", "red-fox", -4.8, -0.9],
     ["stocker", "chicken", 0, -2.2],
     ["cashier", "owl", 4.7, 2.2],
   ];

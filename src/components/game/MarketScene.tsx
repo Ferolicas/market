@@ -2,8 +2,8 @@
 
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { ContactShadows, Environment, Lightformer, Line, OrthographicCamera, Text } from "@react-three/drei";
-import { BallCollider, CapsuleCollider, CuboidCollider, Physics, RigidBody, useRapier, type RapierCollider, type RapierRigidBody } from "@react-three/rapier";
-import { memo, Suspense, useEffect, useEffectEvent, useMemo, useRef, useState, type RefObject } from "react";
+import { BallCollider, CapsuleCollider, CuboidCollider, CylinderCollider, Physics, RigidBody, useRapier, type RapierCollider, type RapierRigidBody } from "@react-three/rapier";
+import { Fragment, memo, Suspense, useEffect, useEffectEvent, useMemo, useRef, useState, type RefObject } from "react";
 import * as THREE from "three";
 import { Avatar, type CharacterAnimation } from "./Avatar";
 import { CityPerimeter } from "./CityPerimeter";
@@ -17,7 +17,7 @@ import { FixedStepLoop } from "@/game/core/GameLoop";
 import { inputManager } from "@/game/input/InputManager";
 import { InteractionDirector } from "@/game/interaction/InteractionDirector";
 import { WorkstationController } from "@/game/interaction/WorkstationController";
-import type { InteractionZoneConfig } from "@/game/interaction/InteractionZone";
+import { interactionZoneSensorPrimitives, type InteractionZoneConfig } from "@/game/interaction/InteractionZone";
 import { cameraRelativeMovement, moveVelocity, playerMotionForTier, smoothYaw } from "@/game/player/PlayerController";
 import { safeCanvasEvents } from "./safeCanvasEvents";
 import { PerformanceMonitor } from "@/game/debug/PerformanceMonitor";
@@ -25,12 +25,22 @@ import { marketPerformanceProbeEnabled } from "@/game/debug/QaAccess";
 import { createWalkableStoreGeometry, storePathfinder } from "@/game/navigation/NavMeshService";
 import { captureEmployeeMotion, projectCustomerMotion, type CustomerMotionSnapshot } from "@/game/animation/CustomerVisualMotion";
 import { CHECKOUT_CAMERA_FRAME, CHECKOUT_CAMERA_POSITION as CHECKOUT_CAMERA_POSITION_COORDS, CHECKOUT_CAMERA_TARGET as CHECKOUT_CAMERA_TARGET_COORDS, checkoutQueuePosition } from "@/game/stations/checkout-layout";
-import { isStockingInteractionId, PRODUCT_RETAIL_DEPARTMENT, retailDisplayPosition, retailStockLandingLocalPosition, RETAIL_DEPARTMENT_IDS, RETAIL_DEPARTMENTS, stockingInteractionId, type StockingInteractionId } from "@/game/stations/retail-layout";
+import { isStockingInteractionId, PRODUCT_RETAIL_DEPARTMENT, retailDepartmentFromStockingInteraction, retailDisplayPosition, retailStockingMagnet, retailStockLandingLocalPosition, RETAIL_DEPARTMENT_IDS, RETAIL_DEPARTMENTS, stockingInteractionId, type StockingInteractionId } from "@/game/stations/retail-layout";
 import { isWorkstationId, isWorkstationUnlocked, WORKSTATIONS, WORKSTATION_IDS, type WorkstationId } from "@/game/stations/workstation-layout";
 import { PRODUCTS } from "@/game/catalog";
 import { farmInteractionId, farmPlotById, FARM_ACCESS_WAYPOINTS, FARM_PLOTS, FARM_WORKER_HOME, scaledFarmHarvestSensor, type FarmInteractionId } from "@/game/stations/farm-layout";
 import { carryTotal, preferredStockingProduct } from "@/game/player/CarrySystem";
-import { STOREFRONT_LAYOUT, storefrontDoorLeafCenter } from "@/game/stations/storefront-layout";
+import {
+  advanceRearDoorMotion,
+  CLOSED_REAR_DOOR_MOTION,
+  rearDoorActorPresent,
+  rearDoorLeafCenter,
+  rearDoorWallPanels,
+  rearDoorWallSegments,
+  STORE_REAR_DOOR,
+  STOREFRONT_LAYOUT,
+  storefrontDoorLeafCenter,
+} from "@/game/stations/storefront-layout";
 import { STORE_SERVICE_FIXTURE_IDS, STORE_SERVICE_FIXTURES } from "@/game/stations/store-service-layout";
 import { WAREHOUSE_PICKUP_STATION } from "@/game/stations/warehouse-layout";
 import { advanceAdaptiveQuality, INITIAL_ADAPTIVE_QUALITY_STATE } from "@/game/render/AdaptiveQuality";
@@ -146,7 +156,22 @@ export const MarketScene = memo(function MarketScene({ avatar, carry, visualCarr
       const [x, z] = scaleStorePoint([...department.service]);
       const display = retailDisplayPosition(departmentId);
       const [displayX, displayZ] = scaleStorePoint([display[0], display[2]]);
-      return { id: stockingInteractionId(departmentId), departmentId, productId: stockableByDepartment[departmentId], sensorEnabled: true, x, z, displayX, displayZ };
+      const magnet = retailStockingMagnet(departmentId, STORE_LAYOUT_SCALE, STORE_ELEMENT_SCALE);
+      return {
+        id: stockingInteractionId(departmentId),
+        departmentId,
+        productId: stockableByDepartment[departmentId],
+        sensorEnabled: true,
+        x,
+        z,
+        displayX,
+        displayZ,
+        magnetX: magnet.x,
+        magnetZ: magnet.z,
+        magnetHalfX: magnet.halfExtents[0],
+        magnetHalfZ: magnet.halfExtents[1],
+        magnetReach: magnet.enterRadius,
+      };
     });
     qaWindow.__MARKET_QA__.stockingTargets = targets;
     qaWindow.__MARKET_QA__.stockingTarget = targets.find((target) => target.productId === stockableProduct) ?? { productId: null, sensorEnabled: false, x: 0, z: 0 };
@@ -197,6 +222,7 @@ export const MarketScene = memo(function MarketScene({ avatar, carry, visualCarr
       </group>
       <Physics timeStep={1 / 60} gravity={[0, -9.81, 0]}>
         <StoreColliders doorProgress={doorProgress} />
+        <RearDoorAssembly playerFocus={playerFocus} employees={employees} />
         <InteractionSensors checkoutLevel={checkoutLevel} unlockedAreas={unlockedAreas} crops={crops} warehousePickupEnabled={warehousePickupEnabled} />
         <group name="perf:player"><Suspense fallback={null}><Player avatar={avatar} carry={visualCarry} crops={crops} checkoutLevel={checkoutLevel} playerSpeedTier={playerSpeedTier} unlockedAreas={unlockedAreas} warehousePickupEnabled={warehousePickupEnabled} debug={debug} onPrompt={onPrompt} onInteract={onInteract} onDistance={onDistance} onDoorPresence={onDoorPresence} onCheckoutFocus={setCheckoutFocused} lastInteraction={lastInteraction} playerFocus={playerFocus} basketTarget={basketTarget} interactionLabels={interactionLabels} /></Suspense></group>
       </Physics>
@@ -840,18 +866,109 @@ function StoreColliders({ doorProgress }: { doorProgress: number }) {
   const door = STOREFRONT_LAYOUT.door;
   const doorHalfHeight = door.leafHeight / 2;
   const frameHalfHeight = (door.leafHeight + 0.16) / 2;
+  const rearDoor = STORE_REAR_DOOR.door;
+  const rearFrameHalfHeight = (rearDoor.leafHeight + 0.18) / 2;
   return <RigidBody type="fixed" colliders={false}>
     <CuboidCollider args={[13.35 * STORE_LAYOUT_SCALE * WORLD_SCALE, 0.08 * WORLD_SCALE, 17.15 * STORE_LAYOUT_SCALE * WORLD_SCALE]} position={[0, -0.08 * WORLD_SCALE, -1.25 * STORE_LAYOUT_SCALE * WORLD_SCALE]} friction={0.8} />
     {STORE_OBSTACLES.map((obstacle, index) => <CuboidCollider key={index} args={[obstacle.halfX * WORLD_SCALE, 0.9 * WORLD_SCALE, obstacle.halfZ * WORLD_SCALE]} position={[obstacle.x * WORLD_SCALE, 0.9 * WORLD_SCALE, obstacle.z * WORLD_SCALE]} />)}
     <CuboidCollider args={[0.17 * STORE_LAYOUT_SCALE * WORLD_SCALE, wallHalfHeight * WORLD_SCALE, 8.25 * STORE_LAYOUT_SCALE * WORLD_SCALE]} position={[-11.35 * STORE_LAYOUT_SCALE * WORLD_SCALE, wallHalfHeight * WORLD_SCALE, -0.35 * STORE_LAYOUT_SCALE * WORLD_SCALE]} />
     <CuboidCollider args={[0.17 * STORE_LAYOUT_SCALE * WORLD_SCALE, wallHalfHeight * WORLD_SCALE, 8.25 * STORE_LAYOUT_SCALE * WORLD_SCALE]} position={[11.35 * STORE_LAYOUT_SCALE * WORLD_SCALE, wallHalfHeight * WORLD_SCALE, -0.35 * STORE_LAYOUT_SCALE * WORLD_SCALE]} />
-    <CuboidCollider args={[11.4 * STORE_LAYOUT_SCALE * WORLD_SCALE, wallHalfHeight * WORLD_SCALE, 0.15 * WORLD_SCALE]} position={[0, wallHalfHeight * WORLD_SCALE, -8.45 * STORE_LAYOUT_SCALE * WORLD_SCALE]} />
+    {rearDoorWallSegments().map((segment, index) => <CuboidCollider
+      key={`rear-wall-collider-${index}`}
+      args={[segment.width * 0.5 * STORE_LAYOUT_SCALE * WORLD_SCALE, wallHalfHeight * WORLD_SCALE, STORE_REAR_DOOR.wallDepth * 0.5 * STORE_LAYOUT_SCALE * WORLD_SCALE]}
+      position={[segment.centerX * STORE_LAYOUT_SCALE * WORLD_SCALE, wallHalfHeight * WORLD_SCALE, STORE_REAR_DOOR.wallCenterZ * STORE_LAYOUT_SCALE * WORLD_SCALE]}
+    />)}
+    {([-1, 1] as const).map((side) => <CuboidCollider
+      key={`rear-door-post-${side}`}
+      args={[rearDoor.postWidth * 0.5 * STORE_LAYOUT_SCALE * WORLD_SCALE, rearFrameHalfHeight * WORLD_SCALE, rearDoor.frameDepth * 0.5 * STORE_LAYOUT_SCALE * WORLD_SCALE]}
+      position={[(STORE_REAR_DOOR.x + side * rearDoor.outerPostOffset) * STORE_LAYOUT_SCALE * WORLD_SCALE, rearFrameHalfHeight * WORLD_SCALE, STORE_REAR_DOOR.z * STORE_LAYOUT_SCALE * WORLD_SCALE]}
+    />)}
+    <CuboidCollider
+      args={[(rearDoor.outerPostOffset + rearDoor.postWidth * 0.5) * STORE_LAYOUT_SCALE * WORLD_SCALE, 0.09 * WORLD_SCALE, rearDoor.frameDepth * 0.55 * STORE_LAYOUT_SCALE * WORLD_SCALE]}
+      position={[STORE_REAR_DOOR.x * STORE_LAYOUT_SCALE * WORLD_SCALE, (rearDoor.leafHeight + 0.09) * WORLD_SCALE, STORE_REAR_DOOR.z * STORE_LAYOUT_SCALE * WORLD_SCALE]}
+    />
     <CuboidCollider args={[4.765 * STORE_LAYOUT_SCALE * WORLD_SCALE, wallHalfHeight * WORLD_SCALE, 0.12 * WORLD_SCALE]} position={[-6.585 * STORE_LAYOUT_SCALE * WORLD_SCALE, wallHalfHeight * WORLD_SCALE, (STOREFRONT_LAYOUT.z - 0.02) * STORE_LAYOUT_SCALE * WORLD_SCALE]} />
     <CuboidCollider args={[4.765 * STORE_LAYOUT_SCALE * WORLD_SCALE, wallHalfHeight * WORLD_SCALE, 0.12 * WORLD_SCALE]} position={[6.585 * STORE_LAYOUT_SCALE * WORLD_SCALE, wallHalfHeight * WORLD_SCALE, (STOREFRONT_LAYOUT.z - 0.02) * STORE_LAYOUT_SCALE * WORLD_SCALE]} />
     {[-1, 1].map((side) => <CuboidCollider key={`storefront-post-${side}`} args={[door.postWidth * 0.5 * STORE_LAYOUT_SCALE * WORLD_SCALE, frameHalfHeight * WORLD_SCALE, door.frameDepth * 0.5 * STORE_LAYOUT_SCALE * WORLD_SCALE]} position={[side * door.outerPostX * STORE_LAYOUT_SCALE * WORLD_SCALE, frameHalfHeight * WORLD_SCALE, STOREFRONT_LAYOUT.z * STORE_LAYOUT_SCALE * WORLD_SCALE]} />)}
     <CuboidCollider args={[(door.outerPostX + door.postWidth * 0.5) * STORE_LAYOUT_SCALE * WORLD_SCALE, 0.07 * WORLD_SCALE, door.frameDepth * 0.55 * STORE_LAYOUT_SCALE * WORLD_SCALE]} position={[0, (door.leafHeight + 0.07) * WORLD_SCALE, STOREFRONT_LAYOUT.z * STORE_LAYOUT_SCALE * WORLD_SCALE]} />
     {([-1, 1] as const).map((side) => <CuboidCollider key={`door-leaf-${side}`} args={[door.leafWidth * 0.5 * STORE_LAYOUT_SCALE * WORLD_SCALE, doorHalfHeight * WORLD_SCALE, door.leafDepth * 0.5 * STORE_LAYOUT_SCALE * WORLD_SCALE]} position={[storefrontDoorLeafCenter(side, doorProgress) * STORE_LAYOUT_SCALE * WORLD_SCALE, doorHalfHeight * WORLD_SCALE, STOREFRONT_LAYOUT.z * STORE_LAYOUT_SCALE * WORLD_SCALE]} />)}
   </RigidBody>;
+}
+
+/**
+ * The rear door is presentation-local: it has no economic state to persist,
+ * but its leaves and Rapier colliders always share the same animated progress.
+ * Player and simulation employees both open it before reaching the threshold.
+ */
+function RearDoorAssembly({ playerFocus, employees }: { playerFocus: RefObject<THREE.Vector3>; employees: Employee[] }) {
+  const motion = useRef({ ...CLOSED_REAR_DOOR_MOTION });
+  const [progress, setProgress] = useState(0);
+  const door = STORE_REAR_DOOR.door;
+  const doorHalfHeight = door.leafHeight / 2;
+
+  useEffect(() => {
+    const qaWindow = window as typeof window & { __MARKET_QA__?: Record<string, unknown> };
+    if (!qaWindow.__MARKET_QA__) return;
+    qaWindow.__MARKET_QA__.rearDoor = {
+      x: STORE_REAR_DOOR.x * STORE_LAYOUT_SCALE,
+      z: STORE_REAR_DOOR.z * STORE_LAYOUT_SCALE,
+      insideApproach: scaleStorePoint([...STORE_REAR_DOOR.insideApproach]),
+      outsideApproach: scaleStorePoint([...STORE_REAR_DOOR.outsideApproach]),
+      clearHalfWidth: (STORE_REAR_DOOR.door.outerPostOffset - STORE_REAR_DOOR.door.postWidth / 2) * STORE_LAYOUT_SCALE,
+      progress,
+    };
+  }, [progress]);
+
+  useFrame((_, delta) => {
+    const playerPresent = rearDoorActorPresent([
+      playerFocus.current.x / STORE_LAYOUT_SCALE,
+      playerFocus.current.z / STORE_LAYOUT_SCALE,
+    ]);
+    const employeePresent = employees.some((employee) => employee.runtime && rearDoorActorPresent([
+      employee.runtime.x,
+      employee.runtime.z,
+    ]));
+    const next = advanceRearDoorMotion(motion.current, playerPresent || employeePresent, delta * 1_000);
+    motion.current = next;
+    if (Math.abs(next.progress - progress) > 0.001) setProgress(next.progress);
+  });
+
+  return <>
+    <group
+      name="dynamic:rear-farm-door"
+      scale={[STORE_LAYOUT_SCALE * WORLD_SCALE, WORLD_SCALE, STORE_LAYOUT_SCALE * WORLD_SCALE]}
+      userData={{ progress }}
+    >
+      {([-1, 1] as const).map((side) => <group
+        key={`rear-door-leaf-visual-${side}`}
+        position={[rearDoorLeafCenter(side, progress), doorHalfHeight, STORE_REAR_DOOR.z]}
+      >
+        <mesh castShadow receiveShadow>
+          <boxGeometry args={[door.leafWidth, door.leafHeight, door.leafDepth]} />
+          <meshPhysicalMaterial color="#cbe8de" transparent opacity={0.42} transmission={0.32} clearcoat={1} clearcoatRoughness={0.06} roughness={0.13} metalness={0.04} depthWrite={false} />
+        </mesh>
+        {[-door.leafWidth / 2, door.leafWidth / 2].map((edge, index) => <mesh key={`rear-door-edge-${side}-${index}`} position={[edge, 0, 0.055]} castShadow>
+          <boxGeometry args={[0.065, door.leafHeight + 0.02, 0.1]} />
+          <meshStandardMaterial color="#294a41" metalness={0.72} roughness={0.24} />
+        </mesh>)}
+        <mesh position={[side * -0.27, 0, 0.075]}>
+          <boxGeometry args={[0.055, 0.6, 0.055]} />
+          <meshStandardMaterial color="#e4b95f" metalness={0.7} roughness={0.22} />
+        </mesh>
+      </group>)}
+      <group position={[STORE_REAR_DOOR.x, door.leafHeight + 0.38, STORE_REAR_DOOR.z + 0.035]}>
+        <mesh castShadow><boxGeometry args={[0.58, 0.22, 0.18]} /><meshStandardMaterial color="#203a33" metalness={0.5} roughness={0.3} /></mesh>
+        <mesh position={[0, 0, 0.105]}><circleGeometry args={[0.058, 18]} /><meshStandardMaterial color={progress > 0.98 ? "#79ecad" : "#f0bd66"} emissive={progress > 0.98 ? "#36a878" : "#9d681d"} emissiveIntensity={1.15} /></mesh>
+      </group>
+    </group>
+    <RigidBody type="fixed" colliders={false}>
+      {([-1, 1] as const).map((side) => <CuboidCollider
+        key={`rear-door-leaf-collider-${side}`}
+        args={[door.leafWidth * 0.5 * STORE_LAYOUT_SCALE * WORLD_SCALE, doorHalfHeight * WORLD_SCALE, door.leafDepth * 0.5 * STORE_LAYOUT_SCALE * WORLD_SCALE]}
+        position={[rearDoorLeafCenter(side, progress) * STORE_LAYOUT_SCALE * WORLD_SCALE, doorHalfHeight * WORLD_SCALE, STORE_REAR_DOOR.z * STORE_LAYOUT_SCALE * WORLD_SCALE]}
+      />)}
+    </RigidBody>
+  </>;
 }
 
 function highestPriorityWorkstation(activeZoneIds: readonly string[]) {
@@ -868,30 +985,50 @@ function workstationFacing(id: WorkstationId) {
 
 function InteractionSensors({ checkoutLevel, unlockedAreas, crops, warehousePickupEnabled }: { checkoutLevel: number; unlockedAreas: readonly string[]; crops: CropState[]; warehousePickupEnabled: boolean }) {
   return <RigidBody type="fixed" colliders={false}>
-    {interactionZoneConfigs(checkoutLevel, unlockedAreas, crops.filter((crop) => crop.status !== "LOCKED").map((crop) => crop.id), warehousePickupEnabled).map((zone) => <BallCollider key={zone.id} args={[zone.enterRadius * WORLD_SCALE]} position={[zone.x * WORLD_SCALE, 0.6 * WORLD_SCALE, zone.z * WORLD_SCALE]} sensor name={`interaction:${zone.id}`} />)}
+    {interactionZoneConfigs(checkoutLevel, unlockedAreas, crops.filter((crop) => crop.status !== "LOCKED").map((crop) => crop.id), warehousePickupEnabled).map((zone) => <InteractionSensorCollider key={zone.id} zone={zone} />)}
   </RigidBody>;
+}
+
+function InteractionSensorCollider({ zone }: { zone: InteractionZoneConfig }) {
+  const centerY = 0.6 * WORLD_SCALE;
+  const name = `interaction:${zone.id}`;
+  if (!zone.halfExtents) {
+    return <BallCollider args={[zone.enterRadius * WORLD_SCALE]} position={[zone.x * WORLD_SCALE, centerY, zone.z * WORLD_SCALE]} sensor name={name} />;
+  }
+  return <>
+    {interactionZoneSensorPrimitives(zone).map((primitive, index) => <Fragment key={`${zone.id}-${primitive.kind}-${index}`}>
+      {primitive.kind === "box"
+        ? <CuboidCollider args={[primitive.halfX * WORLD_SCALE, centerY, primitive.halfZ * WORLD_SCALE]} position={[zone.x * WORLD_SCALE, centerY, zone.z * WORLD_SCALE]} sensor name={name} />
+        : <CylinderCollider args={[centerY, primitive.radius * WORLD_SCALE]} position={[(zone.x + primitive.offsetX) * WORLD_SCALE, centerY, (zone.z + primitive.offsetZ) * WORLD_SCALE]} sensor name={name} />}
+    </Fragment>)}
+  </>;
 }
 
 function interactionZoneConfigs(checkoutLevel = 1, unlockedAreas: readonly string[] = [], activeCropIds: readonly string[] = [], warehousePickupEnabled = false): InteractionZoneConfig[] {
   const storeZones = ZONES.filter((zone) => (
     (zone.id !== "supplier" || warehousePickupEnabled)
     && (!isWorkstationId(zone.id) || isWorkstationUnlocked(zone.id, unlockedAreas))
-  )).map((zone): InteractionZoneConfig => ({
-    id: zone.id,
-    type: zone.id,
-    x: zone.position[0],
-    z: zone.position[2],
-    // Stocking is a walk-by magnet: its volume reaches the visible front edge
-    // of the fixture, while the station service point itself stays on NavMesh.
-    enterRadius: (zone.id === "door" ? 1.3 : zone.id === "supplier" ? WAREHOUSE_PICKUP_STATION.enterRadius : isStockingInteractionId(zone.id) ? 1.1 : isWorkstationId(zone.id) ? 0.44 : 0.75) * STORE_ELEMENT_SCALE,
-    exitRadius: (zone.id === "door" ? 1.5 : zone.id === "supplier" ? WAREHOUSE_PICKUP_STATION.exitRadius : isStockingInteractionId(zone.id) ? 1.3 : isWorkstationId(zone.id) ? 0.58 : 0.9) * STORE_ELEMENT_SCALE,
-    actorMask: ["player"],
-    priority: isStockingInteractionId(zone.id) ? 80 : ({ checkout: 100, mill: 70, bakery: 70, cheese: 70, juice: 70, chicken: 65, cow: 65, door: 20, supplier: 5 } as Partial<Record<InteractionId, number>>)[zone.id] ?? 10,
-    dwellMs: zone.id === "supplier" ? WAREHOUSE_PICKUP_STATION.dwellMs : zone.id === "checkout" ? 180 : zone.id === "door" || isStockingInteractionId(zone.id) ? 0 : 80,
-    repeatEveryMs: zone.id === "supplier" ? WAREHOUSE_PICKUP_STATION.repeatEveryMs : isStockingInteractionId(zone.id) ? 180 : zone.id === "checkout" ? (checkoutLevel >= 2 ? 340 : 450) : zone.id === "door" ? 60_000 : 220,
-    exitGraceMs: zone.id === "supplier" ? WAREHOUSE_PICKUP_STATION.exitGraceMs : 120,
-    channel: zone.id === "door" || zone.id === "supplier" ? "passive" : zone.id === "checkout" ? "hands" : "transfer",
-  }));
+  )).map((zone): InteractionZoneConfig => {
+    const departmentId = retailDepartmentFromStockingInteraction(zone.id);
+    const magnet = departmentId ? retailStockingMagnet(departmentId, STORE_LAYOUT_SCALE, STORE_ELEMENT_SCALE) : null;
+    return {
+      id: zone.id,
+      type: zone.id,
+      x: magnet?.x ?? zone.position[0],
+      z: magnet?.z ?? zone.position[2],
+      ...(magnet ? { halfExtents: magnet.halfExtents } : {}),
+      // Retail reach expands from every fixture edge; other stations retain
+      // their radial proximity volume around a single walkable service point.
+      enterRadius: magnet?.enterRadius ?? (zone.id === "door" ? 1.3 : zone.id === "supplier" ? WAREHOUSE_PICKUP_STATION.enterRadius : isWorkstationId(zone.id) ? 0.44 : 0.75) * STORE_ELEMENT_SCALE,
+      exitRadius: magnet?.exitRadius ?? (zone.id === "door" ? 1.5 : zone.id === "supplier" ? WAREHOUSE_PICKUP_STATION.exitRadius : isWorkstationId(zone.id) ? 0.58 : 0.9) * STORE_ELEMENT_SCALE,
+      actorMask: ["player"],
+      priority: isStockingInteractionId(zone.id) ? 80 : ({ checkout: 100, mill: 70, bakery: 70, cheese: 70, juice: 70, chicken: 65, cow: 65, door: 20, supplier: 5 } as Partial<Record<InteractionId, number>>)[zone.id] ?? 10,
+      dwellMs: zone.id === "supplier" ? WAREHOUSE_PICKUP_STATION.dwellMs : zone.id === "checkout" ? 180 : zone.id === "door" || isStockingInteractionId(zone.id) ? 0 : 80,
+      repeatEveryMs: zone.id === "supplier" ? WAREHOUSE_PICKUP_STATION.repeatEveryMs : isStockingInteractionId(zone.id) ? 180 : zone.id === "checkout" ? (checkoutLevel >= 2 ? 340 : 450) : zone.id === "door" ? 60_000 : 220,
+      exitGraceMs: zone.id === "supplier" ? WAREHOUSE_PICKUP_STATION.exitGraceMs : 120,
+      channel: zone.id === "door" || zone.id === "supplier" ? "passive" : zone.id === "checkout" ? "hands" : "transfer",
+    };
+  });
   const activeCrops = new Set(activeCropIds);
   const farmSensor = scaledFarmHarvestSensor(STORE_ELEMENT_SCALE);
   const farmZones = FARM_PLOTS.flatMap((plot): InteractionZoneConfig[] => {
@@ -933,6 +1070,7 @@ function SceneStaticBatch({ rootRef }: { rootRef: { current: THREE.Group | null 
 const MarketBuilding = memo(function MarketBuilding({ open, doorProgress }: { open: boolean; doorProgress: number }) {
   const root = useRef<THREE.Group>(null);
   const door = STOREFRONT_LAYOUT.door;
+  const rearDoor = STORE_REAR_DOOR.door;
   const wallHeight = STOREFRONT_LAYOUT.wallHeight;
   const frontGlassHeight = wallHeight - 0.6;
   const frontGlassCenterY = frontGlassHeight / 2 + 0.3;
@@ -944,11 +1082,22 @@ const MarketBuilding = memo(function MarketBuilding({ open, doorProgress }: { op
     <mesh receiveShadow position={[0, -0.1, 11.9]}><boxGeometry args={[23, 0.14, 7.5]} /><meshStandardMaterial color="#d7e3db" roughness={0.94} /></mesh>
     <mesh receiveShadow position={[0, -0.09, 16.15]}><boxGeometry args={[25, 0.12, 1.2]} /><meshStandardMaterial color="#566a62" roughness={0.98} /></mesh>
     {[-6, 0, 6].map((x) => <mesh key={x} position={[x, -0.015, 16.1]}><boxGeometry args={[2.7, 0.02, 0.1]} /><meshStandardMaterial color="#f4d58d" /></mesh>)}
-    <mesh receiveShadow position={[0, wallHeight / 2, -8.55]}><boxGeometry args={[23, wallHeight, 0.32]} /><meshStandardMaterial color="#eee8dc" roughness={0.88} /></mesh>
-    <mesh position={[0, 0.68, -8.34]}><boxGeometry args={[22.6, 1.25, 0.12]} /><meshStandardMaterial color="#2f6958" roughness={0.78} /></mesh>
-    {[-7.4, -3.7, 0, 3.7, 7.4].map((x) => <mesh key={`wall-panel-${x}`} position={[x, wallHeight * 0.54, -8.35]}><boxGeometry args={[3.3, wallHeight * 0.57, 0.08]} /><meshStandardMaterial color="#f7f2e8" roughness={0.86} /></mesh>)}
+    <mesh receiveShadow position={[STORE_REAR_DOOR.x, -0.015, -9.61]}><boxGeometry args={[2.58, 0.08, 2.2]} /><meshStandardMaterial color="#b8ab8f" roughness={0.96} /></mesh>
+    {[-0.72, 0, 0.72].map((offset, index) => <mesh key={`rear-path-inlay-${index}`} position={[STORE_REAR_DOOR.x + offset, 0.03, -9.61]}><boxGeometry args={[0.035, 0.018, 2.08]} /><meshStandardMaterial color="#dfd3b8" roughness={0.88} /></mesh>)}
+    {rearDoorWallSegments().map((segment, index) => <group key={`rear-wall-visual-${index}`}>
+      <mesh receiveShadow position={[segment.centerX, wallHeight / 2, STORE_REAR_DOOR.wallCenterZ]}><boxGeometry args={[segment.width, wallHeight, STORE_REAR_DOOR.wallDepth]} /><meshStandardMaterial color="#eee8dc" roughness={0.88} /></mesh>
+      <mesh position={[segment.centerX, 0.68, -8.34]}><boxGeometry args={[Math.max(0.01, segment.width - 0.08), 1.25, 0.12]} /><meshStandardMaterial color="#2f6958" roughness={0.78} /></mesh>
+    </group>)}
+    {rearDoorWallPanels().map((panel) => <mesh key={`wall-panel-${panel.centerX}`} position={[panel.centerX, wallHeight * 0.54, -8.35]}><boxGeometry args={[panel.width, wallHeight * 0.57, 0.08]} /><meshStandardMaterial color="#f7f2e8" roughness={0.86} /></mesh>)}
     <mesh position={[0, wallHeight - 0.82, -8.28]}><boxGeometry args={[5.6, 0.78, 0.18]} /><meshStandardMaterial color="#173f35" roughness={0.64} metalness={0.08} /></mesh>
     <Text position={[0, wallHeight - 0.82, -8.17]} fontSize={0.43} color="#fff3ce" anchorX="center">MINI MARKET</Text>
+    <group name="rear-farm-door-frame" position={[STORE_REAR_DOOR.x, 0, STORE_REAR_DOOR.z]}>
+      {([-1, 1] as const).map((side) => <mesh key={`rear-frame-post-${side}`} position={[side * rearDoor.outerPostOffset, (rearDoor.leafHeight + 0.18) / 2, 0.02]} castShadow receiveShadow><boxGeometry args={[rearDoor.postWidth, rearDoor.leafHeight + 0.18, rearDoor.frameDepth]} /><meshStandardMaterial color="#294a41" metalness={0.68} roughness={0.26} /></mesh>)}
+      <mesh position={[0, rearDoor.leafHeight + 0.09, 0.02]} castShadow><boxGeometry args={[rearDoor.outerPostOffset * 2 + rearDoor.postWidth, 0.18, rearDoor.frameDepth]} /><meshStandardMaterial color="#294a41" metalness={0.68} roughness={0.26} /></mesh>
+      <mesh position={[0, rearDoor.leafHeight + 0.48, 0.035]} castShadow><boxGeometry args={[2.18, 0.5, 0.16]} /><meshStandardMaterial color="#173f35" metalness={0.1} roughness={0.55} /></mesh>
+      <Text position={[0, rearDoor.leafHeight + 0.49, 0.13]} fontSize={0.22} color="#fff3ce" anchorX="center" anchorY="middle" fontWeight={800}>ACCESO FINCA</Text>
+      <mesh position={[0, 0.035, 0]} receiveShadow><boxGeometry args={[rearDoor.outerPostOffset * 2, 0.07, 0.54]} /><meshStandardMaterial color="#8e9894" metalness={0.42} roughness={0.38} /></mesh>
+    </group>
     <mesh receiveShadow position={[-11.35, wallHeight / 2, -0.35]}><boxGeometry args={[0.34, wallHeight, 16.5]} /><meshStandardMaterial color="#e5ded2" roughness={0.9} /></mesh>
     <mesh receiveShadow position={[11.35, wallHeight / 2, -0.35]}><boxGeometry args={[0.34, wallHeight, 16.5]} /><meshStandardMaterial color="#e5ded2" roughness={0.9} /></mesh>
     {[-6.585, 6.585].map((x) => <group key={x} position={[x, 0.3, 7.78]}>
@@ -976,7 +1125,7 @@ const MarketBuilding = memo(function MarketBuilding({ open, doorProgress }: { op
 function Employees({ employees, simulationTimeMs }: { employees: Employee[]; simulationTimeMs: number }) {
   const rolePositions: Record<EmployeeRole, [number, number, number]> = {
     farmer: scaleStorePosition([FARM_WORKER_HOME[0], 0, FARM_WORKER_HOME[1]]),
-    operator: scaleStorePosition([-4.8, 0, -1.5]),
+    operator: scaleStorePosition([-4.8, 0, -0.9]),
     stocker: scaleStorePosition([0, 0, -2.2]),
     cashier: scaleStorePosition([4.7, 0, 2.2]),
     builder: scaleStorePosition([2.9, 0, -4.5]),

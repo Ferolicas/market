@@ -13,7 +13,7 @@ import { GameInputSurface } from "./GameInputSurface";
 import { feedbackBus, type FeedbackCue } from "@/game/feedback/FeedbackBus";
 import { notificationOccurrenceKey, notificationPresentation } from "@/game/feedback/NotificationPolicy";
 import type { RendererMetrics } from "@/game/debug/PerformanceMonitor";
-import { canPickupWarehouse, carriedProductIds, carryQuantity, carryTotal, nextStockingPulse } from "@/game/player/CarrySystem";
+import { canPickupWarehouse, carriedProductIds, carryQuantity, carryTotal, departmentStockingPulses } from "@/game/player/CarrySystem";
 import { deriveVisualTransferPresentation, updateVisualTransferRemaining } from "@/game/player/VisualTransferLedger";
 import { cropIdFromFarmInteraction, isFarmInteractionId } from "@/game/stations/farm-layout";
 import { isStockingInteractionId, retailDepartmentFromStockingInteraction, RETAIL_DEPARTMENTS } from "@/game/stations/retail-layout";
@@ -109,7 +109,7 @@ export function GameShell({ playerName }: { playerName: string }) {
   }, [debug, game, message, messageRevision, metrics, saveRevision, status]);
   const interact = useCallback((id: InteractionId) => {
     let performed = true;
-    let visualEvent: Omit<InteractionVisualEvent, "sequence"> = { id, kind: "work" };
+    let visualEvents: Omit<InteractionVisualEvent, "sequence">[] = [{ id, kind: "work" }];
     if (isFarmInteractionId(id)) {
       const current = useMarketStore.getState().game;
       const currentFranchise = current?.franchises.find((item) => item.id === current.currentFranchiseId);
@@ -118,7 +118,7 @@ export function GameShell({ playerName }: { playerName: string }) {
       if (crop?.status === "READY" && currentFranchise && carryTotal(currentFranchise.carry) < currentFranchise.carry.capacity) {
         const quantity = Math.min(crop.available, currentFranchise.carry.capacity - carryTotal(currentFranchise.carry));
         queueInteraction({ type: "HARVEST", cropId: crop.id, productId: crop.productId, quantity });
-        visualEvent = {
+        visualEvents = [{
           id,
           kind: "harvest",
           cropId: crop.id,
@@ -127,10 +127,10 @@ export function GameShell({ playerName }: { playerName: string }) {
           remainingQuantity: quantity,
           carryStart: carryQuantity(currentFranchise.carry, crop.productId),
           cropStart: crop.available,
-        };
+        }];
       } else if (crop?.status === "EMPTY") {
         queueInteraction({ type: "TEND_CROP", cropId: crop.id, productId: crop.productId });
-        visualEvent = { id, kind: "work", cropId: crop.id, productId: crop.productId };
+        visualEvents = [{ id, kind: "work", cropId: crop.id, productId: crop.productId }];
       } else performed = false;
     }
     const machineInteraction = ({
@@ -152,22 +152,22 @@ export function GameShell({ playerName }: { playerName: string }) {
       const current = useMarketStore.getState().game;
       const currentFranchise = current?.franchises.find((item) => item.id === current.currentFranchiseId);
       const departmentId = retailDepartmentFromStockingInteraction(id);
-      const pulse = currentFranchise && departmentId ? nextStockingPulse(
+      const pulses = currentFranchise && departmentId ? departmentStockingPulses(
         currentFranchise.carry,
         currentFranchise.shelves,
         currentFranchise.stationTiers["shelves-1"] ?? currentFranchise.shelvesLevel,
         RETAIL_DEPARTMENTS[departmentId].products,
-      ) : null;
-      if (pulse) {
-        queueInteraction({ type: "STOCK", ...pulse, source: "carry" });
-        visualEvent = {
-          id,
-          kind: "stock",
-          ...pulse,
-          remainingQuantity: pulse.quantity,
-          carryStart: currentFranchise ? carryQuantity(currentFranchise.carry, pulse.productId) : 0,
-          shelfStart: currentFranchise?.shelves[pulse.productId] ?? 0,
-        };
+      ) : [];
+      if (pulses.length && currentFranchise) {
+        pulses.forEach((pulse) => queueInteraction({ type: "STOCK", ...pulse, source: "carry" }));
+        visualEvents = pulses.map((pulse) => ({
+            id,
+            kind: "stock",
+            ...pulse,
+            remainingQuantity: pulse.quantity,
+            carryStart: carryQuantity(currentFranchise.carry, pulse.productId),
+            shelfStart: currentFranchise.shelves[pulse.productId] ?? 0,
+          }));
       }
       else performed = false;
     }
@@ -191,16 +191,20 @@ export function GameShell({ playerName }: { playerName: string }) {
     // Keep a work gesture active only when a real station action was queued.
     // Locomotion owns the body again as soon as the player leaves its pad.
     if (performed) {
-      if (visualEvent.kind === "harvest" || visualEvent.kind === "stock" || activeInteractionId.current !== id) {
+      const transferVisuals = visualEvents.filter((event) => event.kind === "harvest" || event.kind === "stock");
+      if (transferVisuals.length || activeInteractionId.current !== id) {
         activeInteractionId.current = id;
-        interactionSequence.current += 1;
-        const event = { ...visualEvent, sequence: interactionSequence.current };
-        setLastInteraction(event);
-        if (event.kind === "harvest" || event.kind === "stock") {
+        const sequencedEvents = visualEvents.map((event): InteractionVisualEvent => ({
+          ...event,
+          sequence: ++interactionSequence.current,
+        }));
+        setLastInteraction(sequencedEvents[sequencedEvents.length - 1] ?? null);
+        const sequencedTransfers = sequencedEvents.filter((event) => event.kind === "harvest" || event.kind === "stock");
+        if (sequencedTransfers.length) {
           // Proximity pulses are intentionally faster than one flight. Keep
           // every transfer alive independently so no tomato, egg or bottle is
           // removed halfway between the basket and its destination.
-          setTransferEvents((current) => [...current, event].slice(-16));
+          setTransferEvents((current) => [...current, ...sequencedTransfers].slice(-16));
         }
       }
       if (interactionTimer.current) clearTimeout(interactionTimer.current);
@@ -210,8 +214,8 @@ export function GameShell({ playerName }: { playerName: string }) {
       }, 1050);
     }
     const cue: Partial<Record<InteractionId, FeedbackCue>> = { mill: "machine", bakery: "machine", chicken: "pickup", cow: "pickup", cheese: "machine", juice: "machine", checkout: "scanner", supplier: "pickup", door: "door" };
-    if (performed && visualEvent.kind === "harvest") feedbackBus.emit("harvest", { source: "player", actorId: "player" });
-    else if (performed && visualEvent.kind === "stock") feedbackBus.emit("stock", { source: "player", actorId: "player" });
+    if (performed && visualEvents.some((event) => event.kind === "harvest")) feedbackBus.emit("harvest", { source: "player", actorId: "player" });
+    else if (performed && visualEvents.some((event) => event.kind === "stock")) feedbackBus.emit("stock", { source: "player", actorId: "player" });
     else if (cue[id] && performed) feedbackBus.emit(cue[id], { source: "player", actorId: "player" });
   }, [queueInteraction]);
   const updateTransferProgress = useCallback((sequence: number, remainingQuantity: number) => {

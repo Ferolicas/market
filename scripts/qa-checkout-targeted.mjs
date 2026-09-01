@@ -85,7 +85,25 @@ const concurrentCheckoutPresentation = await page.evaluate(() => ({
   handoff: structuredClone(window.__MARKET_QA__.checkoutHandoffPresentation),
   bags: structuredClone(window.__MARKET_QA__.checkoutBagPresentation),
 }));
-await page.waitForTimeout(1_500);
+await page.waitForFunction(() => {
+  const visuals = window.__MARKET_QA__?.customerVisuals ?? {};
+  return ["qa-checkout-front", "qa-checkout-queue"].every((id) => (
+    typeof visuals[id]?.checkoutFacingYaw === "number"
+    && typeof visuals[id]?.checkoutFacingError === "number"
+    && visuals[id].checkoutFacingError < 0.01
+  ));
+}, null, { timeout: 30_000 });
+const checkoutFacing = await page.evaluate(() => Object.fromEntries(
+  ["qa-checkout-front", "qa-checkout-queue"].map((id) => {
+    const visual = window.__MARKET_QA__.customerVisuals[id];
+    return [id, {
+      state: visual.state,
+      rotationY: visual.rotationY,
+      checkoutFacingYaw: visual.checkoutFacingYaw,
+      checkoutFacingError: visual.checkoutFacingError,
+    }];
+  }),
+));
 await page.screenshot({ path: path.join(output, "checkout-overview.png"), fullPage: true });
 
 const normalCameraPlayerVisible = await page.evaluate(() => document.querySelector("canvas") !== null && window.__MARKET_QA__.activeZones?.includes("checkout") !== true);
@@ -163,13 +181,14 @@ const webgl = await page.locator("canvas").first().evaluate((canvas) => {
   const extension = gl?.getExtension("WEBGL_debug_renderer_info");
   return gl ? { renderer: extension ? gl.getParameter(extension.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER), contextLost: gl.isContextLost() } : null;
 });
-const report = { generatedAt: new Date().toISOString(), email, concurrentCheckoutPresentation, normalCameraPlayerVisible, closeCamera, doorCheck, emptyShopperCheck, beforeUnattended, afterUnattended, paying, paid, serviceTiming, cartReturned, webgl, consoleErrors, pageErrors, failedResponses };
+const report = { generatedAt: new Date().toISOString(), email, concurrentCheckoutPresentation, checkoutFacing, normalCameraPlayerVisible, closeCamera, doorCheck, emptyShopperCheck, beforeUnattended, afterUnattended, paying, paid, serviceTiming, cartReturned, webgl, consoleErrors, pageErrors, failedResponses };
 await fs.writeFile(path.join(output, "report.json"), JSON.stringify(report, null, 2));
 await browser.close();
 console.log(JSON.stringify(report, null, 2));
 
 if (!closeCamera.activeZones.includes("checkout")) throw new Error("La cámara de caja no se activó en el rectángulo del cajero.");
 if (concurrentCheckoutPresentation.active[0] !== "qa-checkout-transaction" || concurrentCheckoutPresentation.handoff[0] !== "qa-checkout-complete" || concurrentCheckoutPresentation.bags[0] !== "counter") throw new Error(`La caja no presentó simultáneamente la compra activa y la bolsa pendiente: ${JSON.stringify(concurrentCheckoutPresentation)}`);
+if (Object.values(checkoutFacing).some((visual) => typeof visual.checkoutFacingError !== "number" || visual.checkoutFacingError >= 0.01)) throw new Error(`Los clientes no miraron de frente a su caja: ${JSON.stringify(checkoutFacing)}`);
 if (!doorCheck.samples.length || doorCheck.violations.length) throw new Error(`El cliente cruzó una puerta todavía cerrada o no pudo observarse: ${JSON.stringify(doorCheck)}`);
 if (["NAVIGATE_TO_QUEUE", "QUEUE_WAIT", "MOVE_QUEUE", "UNLOAD", "WAIT_CHECKOUT", "PAY"].includes(emptyShopperCheck.state) || emptyShopperCheck.queued || emptyShopperCheck.hasTransaction) throw new Error(`El cliente sin compra fingió pasar por caja: ${JSON.stringify(emptyShopperCheck)}`);
 if (paying.balanceMinor !== beforeUnattended.balanceMinor || paying.customer?.state !== "PAY" || paying.customer?.queueSlot !== 0) throw new Error(`El pago no permaneció visible en el puesto: ${JSON.stringify(paying)}`);

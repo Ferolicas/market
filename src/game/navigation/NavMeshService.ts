@@ -3,6 +3,7 @@ import { threeToSoloNavMesh } from "@recast-navigation/three";
 import { BufferGeometry, Float32BufferAttribute, Mesh, MeshBasicMaterial } from "three";
 import { overlapsStoreObstacle, scaleStorePoint, STORE_LAYOUT_SCALE } from "../world-scale";
 import { FARM_FIELD } from "../stations/farm-layout";
+import { STORE_REAR_DOOR } from "../stations/storefront-layout";
 
 const NAVIGATION_CELL_SIZE = 0.36;
 const NAVMESH_FURNITURE_PADDING = 0.31 * STORE_LAYOUT_SCALE;
@@ -16,7 +17,13 @@ export const STORE_NAVIGATION_BOUNDS = {
 
 const STORE_WALL_BANDS = {
   front: { minZ: 7.55, maxZ: 8.08, maxAbsX: 11.55, doorHalfWidth: 1.82 },
-  rear: { minZ: -8.72, maxZ: -8.2, maxAbsX: 11.55 },
+  rear: {
+    minZ: STORE_REAR_DOOR.wallCenterZ - STORE_REAR_DOOR.wallDepth / 2 - 0.01,
+    maxZ: -8.2,
+    maxAbsX: STORE_REAR_DOOR.wallHalfWidth + 0.05,
+    doorMinX: STORE_REAR_DOOR.x - STORE_REAR_DOOR.door.outerPostOffset + STORE_REAR_DOOR.door.postWidth / 2,
+    doorMaxX: STORE_REAR_DOOR.x + STORE_REAR_DOOR.door.outerPostOffset - STORE_REAR_DOOR.door.postWidth / 2,
+  },
   side: { minAbsX: 11.13, maxAbsX: 11.58, minZ: -8.72, maxZ: 8.08 },
 } as const;
 
@@ -88,8 +95,9 @@ function createWalkableStoreMesh() {
 
 /**
  * Pure walkability predicate shared by mesh generation and layout tests.
- * The store has no rear door: the farm is reached from the storefront by the
- * open service lane around either exterior side of the building.
+ * The rear service entrance is cut from the same authored layout used by the
+ * visible wall and Rapier colliders, so navigation can never target a false
+ * decorative opening.
  */
 export function isStoreNavigationPoint(point: readonly [number, number]) {
   const [x, z] = point;
@@ -100,7 +108,8 @@ export function isStoreNavigationPoint(point: readonly [number, number]) {
   const front = STORE_WALL_BANDS.front;
   if (z > front.minZ && z < front.maxZ && absX < front.maxAbsX && absX > front.doorHalfWidth) return false;
   const rear = STORE_WALL_BANDS.rear;
-  if (z > rear.minZ && z < rear.maxZ && absX < rear.maxAbsX) return false;
+  const insideRearDoor = x > rear.doorMinX && x < rear.doorMaxX;
+  if (z > rear.minZ && z < rear.maxZ && absX < rear.maxAbsX && !insideRearDoor) return false;
   const side = STORE_WALL_BANDS.side;
   if (absX > side.minAbsX && absX < side.maxAbsX && z > side.minZ && z < side.maxZ) return false;
   return true;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { CHECKOUT_CAMERA_FRAME, CHECKOUT_CAMERA_POSITION, CHECKOUT_CAMERA_TARGET, CHECKOUT_LANES, activeCheckoutForLane, checkoutBagLocation, checkoutHandoffForLane, checkoutQueueArrival, checkoutQueuePosition } from "./checkout-layout";
-import type { CheckoutTransaction } from "../types";
+import { CHECKOUT_CAMERA_FRAME, CHECKOUT_CAMERA_POSITION, CHECKOUT_CAMERA_TARGET, CHECKOUT_LANES, activeCheckoutForLane, checkoutBagLocation, checkoutCustomerFacingYaw, checkoutHandoffForLane, checkoutQueueArrival, checkoutQueuePosition } from "./checkout-layout";
+import type { CheckoutTransaction, CustomerRuntimeState } from "../types";
 
 describe("checkout layout", () => {
   it("places the cashier on the entrance side facing the store", () => {
@@ -24,6 +24,26 @@ describe("checkout layout", () => {
     expect(CHECKOUT_CAMERA_TARGET[0]).toBeGreaterThan(CHECKOUT_LANES[0].counter[0]);
     expect(CHECKOUT_CAMERA_FRAME.width).toBeGreaterThanOrEqual(39);
     expect(CHECKOUT_CAMERA_FRAME.height).toBeGreaterThanOrEqual(27);
+  });
+
+  it("faces every stationary queue and payment pose toward its own register", () => {
+    const checkoutStates: CustomerRuntimeState["state"][] = ["QUEUE_WAIT", "UNLOAD", "WAIT_CHECKOUT", "PAY"];
+    for (const lane of [0, 1] as const) {
+      for (let slot = 0; slot < 6; slot += 1) {
+        const position = checkoutQueuePosition(slot, lane);
+        const counter = CHECKOUT_LANES[lane].counter;
+        const expected = Math.atan2(counter[0] - position[0], counter[2] - position[1]);
+        for (const state of checkoutStates) {
+          expect(checkoutCustomerFacingYaw({ state, queueLane: lane }, position)).toBeCloseTo(expected);
+        }
+      }
+    }
+  });
+
+  it("leaves moving customers under NavMesh heading control", () => {
+    for (const state of ["NAVIGATE_TO_QUEUE", "MOVE_QUEUE", "NAVIGATE_TO_BAG"] as const) {
+      expect(checkoutCustomerFacingYaw({ state, queueLane: 0 }, CHECKOUT_LANES[0].customerFront)).toBeNull();
+    }
   });
 
   it("keeps a completed bag awaiting handoff independent from the next live checkout", () => {

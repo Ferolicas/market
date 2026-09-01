@@ -85,6 +85,36 @@ export function nextStockingPulse(
   return quantity > 0 ? { productId, quantity } : null;
 }
 
+/**
+ * Plans every compatible SKU that one department magnet can accept. Each
+ * product remains an independent authoritative STOCK action (and therefore an
+ * independent visual flight), while a single proximity tick can empty a mixed
+ * basket without asking the player to hunt for product-specific sub-zones.
+ */
+export function departmentStockingPulses(
+  container: Pick<CarryState, "items">,
+  shelves: Partial<Inventory>,
+  shelfTier = 1,
+  allowedProducts?: readonly ProductId[],
+) {
+  const remaining = { items: { ...container.items } };
+  const projectedShelves: Partial<Inventory> = { ...shelves };
+  const pulses: { productId: ProductId; quantity: number }[] = [];
+  const maximumPulses = carriedProductIds(container).length;
+
+  while (pulses.length < maximumPulses) {
+    const pulse = nextStockingPulse(remaining, projectedShelves, shelfTier, allowedProducts);
+    if (!pulse) break;
+    pulses.push(pulse);
+    const left = carryQuantity(remaining, pulse.productId) - pulse.quantity;
+    if (left > 0) remaining.items[pulse.productId] = left;
+    else delete remaining.items[pulse.productId];
+    projectedShelves[pulse.productId] = Math.max(0, Math.floor(projectedShelves[pulse.productId] ?? 0)) + pulse.quantity;
+  }
+
+  return pulses;
+}
+
 /** Executes the carry side of one shelf transfer.  The engine remains the
  * authority for capacity and counters; this helper only guarantees that the
  * basket removal and the shelf addition use the same confirmed integer amount. */
