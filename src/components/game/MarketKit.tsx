@@ -904,10 +904,13 @@ const FARM_FRONT_FENCE_LOCAL_Z = (FARM_GATE.leftFrontFence.center[2] - FARM_FIEL
 const FARM_FRONT_FENCE_MIN_X = FARM_GATE.leftFrontFence.center[0] - FARM_GATE.leftFrontFence.halfX * (STORE_ELEMENT_SCALE / STORE_LAYOUT_SCALE);
 const FARM_FRONT_FENCE_MAX_X = FARM_GATE.leftFrontFence.center[0] + FARM_GATE.leftFrontFence.halfX * (STORE_ELEMENT_SCALE / STORE_LAYOUT_SCALE);
 const FARM_RIGHT_FRONT_FENCE_LOCAL_X = (FARM_GATE.rightFrontFence.center[0] - FARM_FIELD.center[0]) * FARM_LOCAL_LAYOUT_SCALE;
-const FARM_SIDE_CONNECTORS = FARM_GATE.sideConnectors.map((connector) => ({
-  x: (connector.center[0] - FARM_FIELD.center[0]) * FARM_LOCAL_LAYOUT_SCALE,
-  z: (connector.center[2] - FARM_FIELD.center[2]) * FARM_LOCAL_LAYOUT_SCALE,
-  halfZ: connector.halfZ,
+const FARM_WALL_CONNECTING_FENCES = [
+  ...FARM_GATE.accessCorridorFences,
+  ...FARM_GATE.perimeterWallFences,
+].map((fence) => ({
+  x: (fence.center[0] - FARM_FIELD.center[0]) * FARM_LOCAL_LAYOUT_SCALE,
+  z: (fence.center[2] - FARM_FIELD.center[2]) * FARM_LOCAL_LAYOUT_SCALE,
+  halfZ: fence.halfZ,
 }));
 const TOMATO_GRID = Array.from({ length: 15 }, (_, index): [number, number] => [((index % 5) - 2) * 0.3, (Math.floor(index / 5) - 1) * 0.3]);
 const WHEAT_GRID = Array.from({ length: 28 }, (_, index): [number, number] => [((index % 7) - 3) * 0.215, (Math.floor(index / 7) - 1.5) * 0.205]);
@@ -959,9 +962,9 @@ const FARM_FENCE_POSTS: readonly InstanceTransform[] = [
   { position: [FARM_RIGHT_FRONT_FENCE_LOCAL_X, 0.54, FARM_FRONT_FENCE_LOCAL_Z], scale: [0.1, 1.08, 0.1] },
   ...Array.from({ length: 6 }, (_, index): InstanceTransform => ({ position: [-FARM_LOCAL_HALF_WIDTH, 0.54, -FARM_LOCAL_HALF_DEPTH + index * (FARM_LOCAL_HALF_DEPTH * 2 / 5)], scale: [0.1, 1.08, 0.1] })),
   ...Array.from({ length: 6 }, (_, index): InstanceTransform => ({ position: [FARM_LOCAL_HALF_WIDTH, 0.54, -FARM_LOCAL_HALF_DEPTH + index * (FARM_LOCAL_HALF_DEPTH * 2 / 5)], scale: [0.1, 1.08, 0.1] })),
-  ...FARM_SIDE_CONNECTORS.flatMap((connector): InstanceTransform[] => [
-    { position: [connector.x, 0.54, connector.z], scale: [0.1, 1.08, 0.1] },
-    { position: [connector.x, 0.54, connector.z + connector.halfZ], scale: [0.1, 1.08, 0.1] },
+  ...FARM_WALL_CONNECTING_FENCES.flatMap((fence): InstanceTransform[] => [
+    { position: [fence.x, 0.54, fence.z], scale: [0.1, 1.08, 0.1] },
+    { position: [fence.x, 0.54, fence.z + fence.halfZ], scale: [0.1, 1.08, 0.1] },
   ]),
 ];
 const FARM_FENCE_RAILS: readonly InstanceTransform[] = [
@@ -975,9 +978,9 @@ const FARM_FENCE_RAILS: readonly InstanceTransform[] = [
   { position: [-FARM_LOCAL_HALF_WIDTH, 0.72, 0], scale: [0.075, 0.075, FARM_LOCAL_HALF_DEPTH * 2] },
   { position: [FARM_LOCAL_HALF_WIDTH, 0.38, FARM_RIGHT_FENCE_LOCAL_Z], scale: [0.075, 0.075, FARM_GATE.rightFence.halfZ * 2] },
   { position: [FARM_LOCAL_HALF_WIDTH, 0.72, FARM_RIGHT_FENCE_LOCAL_Z], scale: [0.075, 0.075, FARM_GATE.rightFence.halfZ * 2] },
-  ...FARM_SIDE_CONNECTORS.flatMap((connector): InstanceTransform[] => [
-    { position: [connector.x, 0.38, connector.z], scale: [0.075, 0.075, connector.halfZ * 2] },
-    { position: [connector.x, 0.72, connector.z], scale: [0.075, 0.075, connector.halfZ * 2] },
+  ...FARM_WALL_CONNECTING_FENCES.flatMap((fence): InstanceTransform[] => [
+    { position: [fence.x, 0.38, fence.z], scale: [0.075, 0.075, fence.halfZ * 2] },
+    { position: [fence.x, 0.72, fence.z], scale: [0.075, 0.075, fence.halfZ * 2] },
   ]),
 ];
 const READY_SPARKLES: readonly InstanceTransform[] = [

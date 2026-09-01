@@ -36,28 +36,43 @@ const FARM_SERVICE_LANE_X = 12.15;
 const FARM_ELEMENT_TO_LAYOUT_RATIO = 0.8;
 const FARM_FRONT_FENCE_Z = -10.575;
 const FARM_SIDE_FENCE_X = 10.6;
+const REAR_DOOR_CLEAR_HALF_WIDTH = STORE_REAR_DOOR.door.outerPostOffset - STORE_REAR_DOOR.door.postWidth / 2;
+const FARM_GATE_LEFT_POST_X = STORE_REAR_DOOR.x - REAR_DOOR_CLEAR_HALF_WIDTH;
+const FARM_GATE_RIGHT_POST_X = STORE_REAR_DOOR.x + REAR_DOOR_CLEAR_HALF_WIDTH;
+const STORE_REAR_DOOR_FARM_FACE_Z = STORE_REAR_DOOR.z - STORE_REAR_DOOR.door.frameDepth / 2;
 const STORE_REAR_WALL_OUTER_Z = STORE_REAR_DOOR.wallCenterZ - STORE_REAR_DOOR.wallDepth / 2;
-const CONNECTOR_FENCE_CENTER_Z = (FARM_FRONT_FENCE_Z + STORE_REAR_WALL_OUTER_Z) / 2;
-const CONNECTOR_FENCE_HALF_Z = Math.abs(FARM_FRONT_FENCE_Z - STORE_REAR_WALL_OUTER_Z)
+const ACCESS_CORRIDOR_FENCE_CENTER_Z = (FARM_FRONT_FENCE_Z + STORE_REAR_DOOR_FARM_FACE_Z) / 2;
+const ACCESS_CORRIDOR_FENCE_HALF_Z = Math.abs(FARM_FRONT_FENCE_Z - STORE_REAR_DOOR_FARM_FACE_Z)
+  / 2 / FARM_ELEMENT_TO_LAYOUT_RATIO;
+const PERIMETER_WALL_FENCE_CENTER_Z = (FARM_FRONT_FENCE_Z + STORE_REAR_WALL_OUTER_Z) / 2;
+const PERIMETER_WALL_FENCE_HALF_Z = Math.abs(FARM_FRONT_FENCE_Z - STORE_REAR_WALL_OUTER_Z)
   / 2 / FARM_ELEMENT_TO_LAYOUT_RATIO;
 
 /** One source for the visible gate, its physical solids and both approaches. */
 export const FARM_GATE = {
-  center: [7.5, 0, FARM_FRONT_FENCE_Z] as const,
-  frontPost: [6.2, 0, FARM_FRONT_FENCE_Z] as const,
-  innerPost: [8.8, 0, FARM_FRONT_FENCE_Z] as const,
+  center: [STORE_REAR_DOOR.x, 0, FARM_FRONT_FENCE_Z] as const,
+  frontPost: [FARM_GATE_LEFT_POST_X, 0, FARM_FRONT_FENCE_Z] as const,
+  innerPost: [FARM_GATE_RIGHT_POST_X, 0, FARM_FRONT_FENCE_Z] as const,
   // The open leaf has the same rendered length as the 2.6-layout-unit gate
   // opening and starts flush behind the inner hinge post.
   openLeaf: { center: [8.8, 0, -11.875] as const, halfX: 0.07, halfZ: 1.625, terminalPostDepth: 0.09 },
   rightFence: { center: [FARM_SIDE_FENCE_X, 0, -14.15] as const, halfX: 0.07, halfZ: 4.46875 },
   leftFrontFence: { center: [-2.2, 0, FARM_FRONT_FENCE_Z] as const, halfX: 10.5, halfZ: 0.07 },
   rightFrontFence: { center: [9.7, 0, FARM_FRONT_FENCE_Z] as const, halfX: 1.125, halfZ: 0.07 },
-  // These close the former street shortcuts between the rear wall and the
-  // estate perimeter. Authored half extents account for StoreElement's 1.6
-  // render scale versus the 2.0 navigation layout scale.
-  sideConnectors: [
-    { center: [-FARM_SIDE_FENCE_X, 0, CONNECTOR_FENCE_CENTER_Z] as const, halfX: 0.07, halfZ: CONNECTOR_FENCE_HALF_Z },
-    { center: [FARM_SIDE_FENCE_X, 0, CONNECTOR_FENCE_CENTER_Z] as const, halfX: 0.07, halfZ: CONNECTOR_FENCE_HALF_Z },
+  // These two rails form a direct chute from the clear edges of the rear door
+  // to the matching gate posts. They prevent turning into either transverse
+  // passage before entering the estate. Authored half extents account for
+  // StoreElement's 1.6 render scale versus the 2.0 navigation layout scale.
+  accessCorridorFences: [
+    { side: -1, center: [FARM_GATE_LEFT_POST_X, 0, ACCESS_CORRIDOR_FENCE_CENTER_Z] as const, halfX: 0.07, halfZ: ACCESS_CORRIDOR_FENCE_HALF_Z },
+    { side: 1, center: [FARM_GATE_RIGHT_POST_X, 0, ACCESS_CORRIDOR_FENCE_CENTER_Z] as const, halfX: 0.07, halfZ: ACCESS_CORRIDOR_FENCE_HALF_Z },
+  ] as const,
+  // Keep the transverse pockets closed at their outer ends as a secondary
+  // safeguard. The access fences above are the ones that stop a turn made
+  // immediately after leaving the rear door.
+  perimeterWallFences: [
+    { side: -1, center: [-FARM_SIDE_FENCE_X, 0, PERIMETER_WALL_FENCE_CENTER_Z] as const, halfX: 0.07, halfZ: PERIMETER_WALL_FENCE_HALF_Z },
+    { side: 1, center: [FARM_SIDE_FENCE_X, 0, PERIMETER_WALL_FENCE_CENTER_Z] as const, halfX: 0.07, halfZ: PERIMETER_WALL_FENCE_HALF_Z },
   ] as const,
   exteriorApproach: [STORE_REAR_DOOR.outsideApproach[0], -9.35] as const,
   // Recast's first complete cell beyond the posts. Using the geometric fence
@@ -311,11 +326,17 @@ export const FARM_OBSTACLES = [
   { x: FARM_GATE.rightFrontFence.center[0], z: FARM_GATE.rightFrontFence.center[2], halfX: FARM_GATE.rightFrontFence.halfX, halfZ: FARM_GATE.rightFrontFence.halfZ },
   { x: -FARM_SIDE_FENCE_X, z: FARM_FIELD.center[2], halfX: 0.07, halfZ: 4.47 },
   { x: FARM_GATE.rightFence.center[0], z: FARM_GATE.rightFence.center[2], halfX: FARM_GATE.rightFence.halfX, halfZ: FARM_GATE.rightFence.halfZ },
-  ...FARM_GATE.sideConnectors.map((connector) => ({
-    x: connector.center[0],
-    z: connector.center[2],
-    halfX: connector.halfX,
-    halfZ: connector.halfZ,
+  ...FARM_GATE.accessCorridorFences.map((fence) => ({
+    x: fence.center[0],
+    z: fence.center[2],
+    halfX: fence.halfX,
+    halfZ: fence.halfZ,
+  })),
+  ...FARM_GATE.perimeterWallFences.map((fence) => ({
+    x: fence.center[0],
+    z: fence.center[2],
+    halfX: fence.halfX,
+    halfZ: fence.halfZ,
   })),
   { x: FARM_GATE.frontPost[0], z: FARM_GATE.frontPost[2], halfX: FARM_GATE.postHalfSize, halfZ: FARM_GATE.postHalfSize },
   { x: FARM_GATE.innerPost[0], z: FARM_GATE.innerPost[2], halfX: FARM_GATE.postHalfSize, halfZ: FARM_GATE.postHalfSize },

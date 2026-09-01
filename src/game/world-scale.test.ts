@@ -20,14 +20,27 @@ describe("store scale system", () => {
     expect(overlapsStoreObstacle(scaleStorePoint([2.2, 0.45]), 0.4)).toBe(false);
   });
 
-  it("shares both farm-to-wall connector fences with physics and navigation", () => {
-    FARM_GATE.sideConnectors.forEach((connector) => {
-      const center = scaleStorePoint([connector.center[0], connector.center[2]]);
+  it("shares both rear-door corridor fences with physics and navigation", () => {
+    FARM_GATE.accessCorridorFences.forEach((fence, index) => {
+      const center = scaleStorePoint([fence.center[0], fence.center[2]]);
       expect(overlapsStoreObstacle(center, 0)).toBe(true);
       expect(STORE_OBSTACLES.some((obstacle) => (
         obstacle.x === center[0]
         && obstacle.z === center[1]
-        && obstacle.halfZ === connector.halfZ * STORE_ELEMENT_SCALE
+        && obstacle.halfZ === fence.halfZ * STORE_ELEMENT_SCALE
+      ))).toBe(true);
+      expect(fence.center[0]).toBe(index === 0 ? FARM_GATE.frontPost[0] : FARM_GATE.innerPost[0]);
+    });
+  });
+
+  it("keeps the lateral pockets sealed at their perimeter ends", () => {
+    FARM_GATE.perimeterWallFences.forEach((fence) => {
+      const center = scaleStorePoint([fence.center[0], fence.center[2]]);
+      expect(overlapsStoreObstacle(center, 0)).toBe(true);
+      expect(STORE_OBSTACLES.some((obstacle) => (
+        obstacle.x === center[0]
+        && obstacle.z === center[1]
+        && obstacle.halfZ === fence.halfZ * STORE_ELEMENT_SCALE
       ))).toBe(true);
     });
   });

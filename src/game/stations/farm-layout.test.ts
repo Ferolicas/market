@@ -135,25 +135,46 @@ describe("rear farm layout", () => {
     expectObstacleFreeRoute("rear door through farm gate", FARM_ACCESS_WAYPOINTS);
   });
 
-  it("seals both street shortcuts continuously from the estate to the rear wall", () => {
+  it("channels rear-door traffic directly between the two farm-gate posts", () => {
+    const elementToLayout = STORE_ELEMENT_SCALE / STORE_LAYOUT_SCALE;
+    const doorFarmFaceZ = STORE_REAR_DOOR.z - STORE_REAR_DOOR.door.frameDepth / 2;
+    const estateFrontZ = FARM_FIELD.center[2] + FARM_FIELD.size[2] / 2;
+    const clearHalfWidth = STORE_REAR_DOOR.door.outerPostOffset - STORE_REAR_DOOR.door.postWidth / 2;
+    const expectedXs = [
+      STORE_REAR_DOOR.x - clearHalfWidth,
+      STORE_REAR_DOOR.x + clearHalfWidth,
+    ];
+
+    expect(FARM_GATE.accessCorridorFences).toHaveLength(2);
+    FARM_GATE.accessCorridorFences.forEach((fence, index) => {
+      const gateEnd = fence.center[2] - fence.halfZ * elementToLayout;
+      const doorEnd = fence.center[2] + fence.halfZ * elementToLayout;
+
+      expect(fence.side).toBe(index === 0 ? -1 : 1);
+      expect(fence.center[0]).toBeCloseTo(expectedXs[index], 6);
+      expect(fence.center[0]).toBeCloseTo(index === 0 ? FARM_GATE.frontPost[0] : FARM_GATE.innerPost[0], 6);
+      expect(gateEnd).toBeCloseTo(estateFrontZ, 6);
+      expect(doorEnd).toBeCloseTo(doorFarmFaceZ, 6);
+      expect(isStoreNavigationPoint([fence.center[0], fence.center[2]])).toBe(false);
+      expect(isStoreNavigationPoint([fence.center[0] - fence.side * 0.5, fence.center[2]])).toBe(true);
+    });
+
+    expect(isStoreNavigationPoint([STORE_REAR_DOOR.x, FARM_GATE.accessCorridorFences[0].center[2]])).toBe(true);
+    expectObstacleFreeRoute("rear-door chute remains open", FARM_ACCESS_WAYPOINTS);
+  });
+
+  it("also seals the outer ends of both inaccessible lateral pockets", () => {
     const elementToLayout = STORE_ELEMENT_SCALE / STORE_LAYOUT_SCALE;
     const wallOuterZ = STORE_REAR_DOOR.wallCenterZ - STORE_REAR_DOOR.wallDepth / 2;
     const estateFrontZ = FARM_FIELD.center[2] + FARM_FIELD.size[2] / 2;
 
-    expect(FARM_GATE.sideConnectors).toHaveLength(2);
-    FARM_GATE.sideConnectors.forEach((connector, index) => {
-      const connectorFront = connector.center[2] - connector.halfZ * elementToLayout;
-      const connectorWall = connector.center[2] + connector.halfZ * elementToLayout;
-      const expectedX = index === 0 ? FARM_FIELD.center[0] - FARM_FIELD.size[0] / 2 : FARM_FIELD.center[0] + FARM_FIELD.size[0] / 2;
-
-      expect(connector.center[0]).toBeCloseTo(expectedX, 6);
-      expect(connectorFront).toBeCloseTo(estateFrontZ, 6);
-      expect(connectorWall).toBeCloseTo(wallOuterZ, 6);
-      expect(isStoreNavigationPoint([connector.center[0], connector.center[2]])).toBe(false);
-      expect(isStoreNavigationPoint([connector.center[0] - Math.sign(connector.center[0]) * 0.5, connector.center[2]])).toBe(true);
+    expect(FARM_GATE.perimeterWallFences).toHaveLength(2);
+    FARM_GATE.perimeterWallFences.forEach((fence) => {
+      expect(fence.center[0]).toBeCloseTo(fence.side * FARM_FIELD.size[0] / 2, 6);
+      expect(fence.center[2] - fence.halfZ * elementToLayout).toBeCloseTo(estateFrontZ, 6);
+      expect(fence.center[2] + fence.halfZ * elementToLayout).toBeCloseTo(wallOuterZ, 6);
+      expect(isStoreNavigationPoint([fence.center[0], fence.center[2]])).toBe(false);
     });
-
-    expectObstacleFreeRoute("sealed rear access remains open", FARM_ACCESS_WAYPOINTS);
   });
 
   it("keeps the visible open-leaf terminal post inside its canonical collider", () => {

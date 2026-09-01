@@ -60,7 +60,7 @@ const right = [-forward[1], forward[0]];
 const routeEvidence = [];
 let rearDoorEvidence = null;
 const storefrontDoorEvidence = [];
-const farmSideFenceEvidence = [];
+const farmAccessFenceEvidence = [];
 
 async function dragPulse(worldDirection, duration = 360) {
   const direction = normalize(worldDirection);
@@ -163,26 +163,36 @@ try {
       await page.screenshot({ path: path.join(outputRoot, "farm-open-gate.png"), fullPage: true });
     }
     if (farmShowcase && target[0] === farmAccess[1][0] && target[1] === farmAccess[1][1]) {
-      const connectors = (await qa()).farmSideConnectors ?? [];
-      if (connectors.length !== 2) throw new Error(`Cierres laterales no publicados: ${JSON.stringify(connectors)}`);
-      for (const connector of connectors) {
-        const side = Math.sign(connector.x);
-        const innerTarget = [connector.x - side * 1.15, connector.z];
+      const fences = (await qa()).farmAccessCorridorFences ?? [];
+      if (fences.length !== 2) throw new Error(`Guías del acceso no publicadas: ${JSON.stringify(fences)}`);
+      for (const fence of [...fences].sort((left, rightFence) => left.side - rightFence.side)) {
+        const side = fence.side;
+        const expectedX = rearDoor.x + side * rearDoor.clearHalfWidth;
+        if ((side !== -1 && side !== 1) || Math.abs(fence.x - expectedX) > 0.02) {
+          throw new Error(`Guía desalineada con el borde de la puerta: ${JSON.stringify({ fence, rearDoor, expectedX })}`);
+        }
+        const innerTarget = [fence.x - side * 1.15, fence.z];
         await moveTo(innerTarget, 0.5);
         const beforeImpact = await qa();
         await dragPulse([side, 0], 1_050);
         const impact = await qa();
-        const crossed = side < 0 ? impact.player.x < connector.x : impact.player.x > connector.x;
+        const crossed = side < 0 ? impact.player.x < fence.x : impact.player.x > fence.x;
         const advanced = Math.abs(impact.player.x - beforeImpact.player.x);
         const collisions = impact.physics?.collisions ?? [];
-        const touchedConnector = collisions.some((collision) => (
-          Math.abs((collision?.colliderPosition?.[0] ?? Number.POSITIVE_INFINITY) - connector.x) < 0.02
-          && Math.abs((collision?.colliderPosition?.[2] ?? Number.POSITIVE_INFINITY) - connector.z) < 0.02
+        const touchedFence = collisions.some((collision) => (
+          Math.abs((collision?.colliderPosition?.[0] ?? Number.POSITIVE_INFINITY) - fence.x) < 0.02
+          && Math.abs((collision?.colliderPosition?.[2] ?? Number.POSITIVE_INFINITY) - fence.z) < 0.02
           && Math.abs(collision?.normal?.[0] ?? 0) > 0.95
         ));
-        farmSideFenceEvidence.push({ connector, innerTarget, before: beforeImpact.player, player: impact.player, advanced, collisions, touchedConnector, crossed });
-        await page.screenshot({ path: path.join(outputRoot, `farm-side-fence-${side < 0 ? "left" : "right"}-block.png`), fullPage: true });
-        if (crossed || advanced < 0.35 || !touchedConnector) throw new Error(`Impacto lateral inválido ${side}: ${JSON.stringify(farmSideFenceEvidence.at(-1))}`);
+        const expectedContactX = fence.x - side * (fence.halfX + 0.24);
+        const contactError = Math.abs(impact.player.x - expectedContactX);
+        const zDrift = Math.abs(impact.player.z - fence.z);
+        const insideFenceSpan = zDrift <= fence.halfZ - 0.2;
+        farmAccessFenceEvidence.push({ fence, innerTarget, before: beforeImpact.player, player: impact.player, advanced, collisions, expectedContactX, contactError, zDrift, insideFenceSpan, touchedFence, crossed });
+        await page.screenshot({ path: path.join(outputRoot, `farm-access-${side < 0 ? "left" : "right"}-blocked.png`), fullPage: true });
+        if (crossed || advanced < 0.35 || contactError > 0.35 || !insideFenceSpan || !touchedFence) {
+          throw new Error(`El acceso permite desviarse al pasillo ${side < 0 ? "izquierdo" : "derecho"}: ${JSON.stringify(farmAccessFenceEvidence.at(-1))}`);
+        }
         await moveTo(farmAccess[1], 0.6);
       }
     }
@@ -208,7 +218,7 @@ try {
   failure = error instanceof Error ? error.message : String(error);
 }
 
-const report = { generatedAt: new Date().toISOString(), failure, final: await qa(), storefrontDoorEvidence, farmSideFenceEvidence, rearDoorEvidence, routeEvidence, consoleErrors, pageErrors, failedResponses };
+const report = { generatedAt: new Date().toISOString(), failure, final: await qa(), storefrontDoorEvidence, farmAccessFenceEvidence, rearDoorEvidence, routeEvidence, consoleErrors, pageErrors, failedResponses };
 await page.screenshot({ path: path.join(outputRoot, "player-navmesh.png"), fullPage: true });
 await fs.writeFile(path.join(outputRoot, "report.json"), JSON.stringify(report, null, 2));
 await browser.close();

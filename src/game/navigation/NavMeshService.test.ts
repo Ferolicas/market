@@ -23,6 +23,19 @@ function crossingXAtZ(start: readonly [number, number], path: readonly (readonly
   return null;
 }
 
+function crossingsZAtX(start: readonly [number, number], path: readonly (readonly [number, number])[], x: number) {
+  const points = [start, ...path];
+  const crossings: number[] = [];
+  for (let index = 1; index < points.length; index += 1) {
+    const previous = points[index - 1];
+    const next = points[index];
+    if ((previous[0] - x) * (next[0] - x) > 0 || Math.abs(next[0] - previous[0]) < 1e-8) continue;
+    const progress = (x - previous[0]) / (next[0] - previous[0]);
+    if (progress >= 0 && progress <= 1) crossings.push(previous[1] + (next[1] - previous[1]) * progress);
+  }
+  return crossings;
+}
+
 describe("store and rear-farm navigation", () => {
   beforeAll(async () => {
     expect(await ensureStoreNavigation(92_001)).toBe(true);
@@ -46,12 +59,20 @@ describe("store and rear-farm navigation", () => {
     expect(STORE_NAVIGATION_BOUNDS.maxX).toBeGreaterThan(FARM_FIELD.serviceLaneX);
   });
 
-  it("blocks the direct side escapes between the rear wall and the farm", () => {
-    FARM_GATE.sideConnectors.forEach((connector) => {
-      expect(isStoreNavigationPoint([connector.center[0], connector.center[2]])).toBe(false);
-      const outside = [Math.sign(connector.center[0]) * 12.15, connector.center[2]] as [number, number];
-      const path = storePathfinder([...STORE_REAR_DOOR.outsideApproach], outside);
-      expect(pathLength(STORE_REAR_DOOR.outsideApproach, path)).toBeGreaterThan(12);
+  it("keeps both lateral passages inaccessible from the rear-door chute", () => {
+    const start = [...STORE_REAR_DOOR.outsideApproach] as [number, number];
+    FARM_GATE.accessCorridorFences.forEach((fence) => {
+      expect(isStoreNavigationPoint([fence.center[0], fence.center[2]])).toBe(false);
+      const lateralPocket = [fence.center[0] + fence.side * 1.2, fence.center[2]] as [number, number];
+      const path = storePathfinder(start, lateralPocket);
+      const crossings = crossingsZAtX(start, path, fence.center[0]);
+      const gateEndZ = FARM_GATE.center[2];
+      const doorEndZ = STORE_REAR_DOOR.z - STORE_REAR_DOOR.door.frameDepth / 2;
+      const endpointDistance = Math.hypot(path.at(-1)![0] - lateralPocket[0], path.at(-1)![1] - lateralPocket[1]);
+
+      expect(path.length).toBeGreaterThan(1);
+      expect(endpointDistance).toBeGreaterThan(0.9);
+      expect(crossings.some((z) => z > gateEndZ && z < doorEndZ)).toBe(false);
     });
   });
 

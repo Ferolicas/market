@@ -188,11 +188,12 @@ export const MarketScene = memo(function MarketScene({ avatar, carry, visualCarr
       return { id: plot.id, productId: plot.productId, x, z };
     });
     qaWindow.__MARKET_QA__.farmAccessWaypoints = FARM_ACCESS_WAYPOINTS.map((point) => scaleStorePoint([...point]));
-    qaWindow.__MARKET_QA__.farmSideConnectors = FARM_GATE.sideConnectors.map((connector) => ({
-      x: connector.center[0] * STORE_LAYOUT_SCALE,
-      z: connector.center[2] * STORE_LAYOUT_SCALE,
-      halfX: connector.halfX * STORE_ELEMENT_SCALE,
-      halfZ: connector.halfZ * STORE_ELEMENT_SCALE,
+    qaWindow.__MARKET_QA__.farmAccessCorridorFences = FARM_GATE.accessCorridorFences.map((fence) => ({
+      side: fence.side,
+      x: fence.center[0] * STORE_LAYOUT_SCALE,
+      z: fence.center[2] * STORE_LAYOUT_SCALE,
+      halfX: fence.halfX * STORE_ELEMENT_SCALE,
+      halfZ: fence.halfZ * STORE_ELEMENT_SCALE,
     }));
     qaWindow.__MARKET_QA__.storefrontDoor = {
       x: STOREFRONT_LAYOUT.sensor.centerX * STORE_LAYOUT_SCALE,
