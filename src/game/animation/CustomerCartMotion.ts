@@ -1,10 +1,126 @@
 import type { CheckoutTransaction, Inventory, ProductId } from "../types";
+import * as THREE from "three";
 
 export type MotionPoint3 = readonly [number, number, number];
 
 export const CUSTOMER_PICKUP_DURATION_MS = 520;
 export const CUSTOMER_CART_WHEEL_RADIUS = 0.075;
 export const CUSTOMER_CHECKOUT_ITEM_CYCLE_MS = 900;
+
+export type CartGripChain = Readonly<{
+  upperArm: THREE.Object3D;
+  forearm: THREE.Object3D;
+  hand: THREE.Object3D;
+}>;
+
+/**
+ * Allocation-free analytic two-segment IK for the small correction between
+ * the authored carry pose and a rigid cart handle. Animation still owns the
+ * pose every frame; this solver only closes the final wrist-to-handle gap.
+ */
+export class CustomerCartGripSolver {
+  private readonly jointPosition = new THREE.Vector3();
+  private readonly elbowPosition = new THREE.Vector3();
+  private readonly handPosition = new THREE.Vector3();
+  private readonly currentDirection = new THREE.Vector3();
+  private readonly targetDirection = new THREE.Vector3();
+  private readonly bendDirection = new THREE.Vector3();
+  private readonly desiredElbow = new THREE.Vector3();
+  private readonly rotationAxis = new THREE.Vector3();
+  private readonly jointWorldQuaternion = new THREE.Quaternion();
+  private readonly parentWorldQuaternion = new THREE.Quaternion();
+  private readonly worldDelta = new THREE.Quaternion();
+  private readonly desiredWorldQuaternion = new THREE.Quaternion();
+
+  solve(chain: CartGripChain, target: THREE.Vector3) {
+    chain.upperArm.updateWorldMatrix(true, true);
+    chain.upperArm.getWorldPosition(this.jointPosition);
+    chain.forearm.getWorldPosition(this.elbowPosition);
+    chain.hand.getWorldPosition(this.handPosition);
+    const upperLength = this.jointPosition.distanceTo(this.elbowPosition);
+    const forearmLength = this.elbowPosition.distanceTo(this.handPosition);
+    this.targetDirection.copy(target).sub(this.jointPosition);
+    const targetDistance = this.targetDirection.length();
+    if (upperLength > 1e-4 && forearmLength > 1e-4 && targetDistance > 1e-4) {
+      this.targetDirection.multiplyScalar(1 / targetDistance);
+      const reach = THREE.MathUtils.clamp(targetDistance, Math.abs(upperLength - forearmLength) + 1e-4, upperLength + forearmLength - 1e-4);
+      const elbowAlongTarget = (upperLength * upperLength - forearmLength * forearmLength + reach * reach) / (2 * reach);
+      const elbowOffAxis = Math.sqrt(Math.max(0, upperLength * upperLength - elbowAlongTarget * elbowAlongTarget));
+      this.bendDirection.copy(this.elbowPosition).sub(this.jointPosition);
+      this.bendDirection.addScaledVector(this.targetDirection, -this.bendDirection.dot(this.targetDirection));
+      if (this.bendDirection.lengthSq() < 1e-8) {
+        this.bendDirection.set(0, 0, 1).transformDirection(chain.upperArm.matrixWorld);
+        this.bendDirection.addScaledVector(this.targetDirection, -this.bendDirection.dot(this.targetDirection));
+      }
+      if (this.bendDirection.lengthSq() >= 1e-8) {
+        this.bendDirection.normalize();
+        this.desiredElbow.copy(this.jointPosition)
+          .addScaledVector(this.targetDirection, elbowAlongTarget)
+          .addScaledVector(this.bendDirection, elbowOffAxis);
+        this.rotateJoint(chain.upperArm, chain.forearm, this.desiredElbow, 0.51);
+      }
+    }
+    // The forearm supplies the final reach while the bounded shoulder change
+    // preserves the authored silhouette and avoids a robotic straight arm.
+    this.rotateJoint(chain.forearm, chain.hand, target, 1.1);
+
+    chain.hand.updateWorldMatrix(true, false);
+    chain.hand.getWorldPosition(this.handPosition);
+    return this.handPosition.distanceTo(target);
+  }
+
+  private rotateJoint(joint: THREE.Object3D, hand: THREE.Object3D, target: THREE.Vector3, maxRadians: number) {
+    joint.updateWorldMatrix(true, false);
+    hand.updateWorldMatrix(true, false);
+    joint.getWorldPosition(this.jointPosition);
+    hand.getWorldPosition(this.handPosition);
+    this.currentDirection.copy(this.handPosition).sub(this.jointPosition);
+    this.targetDirection.copy(target).sub(this.jointPosition);
+    const currentLengthSq = this.currentDirection.lengthSq();
+    const targetLengthSq = this.targetDirection.lengthSq();
+    if (currentLengthSq < 1e-8 || targetLengthSq < 1e-8) return;
+
+    this.currentDirection.multiplyScalar(1 / Math.sqrt(currentLengthSq));
+    this.targetDirection.multiplyScalar(1 / Math.sqrt(targetLengthSq));
+    const cosine = THREE.MathUtils.clamp(this.currentDirection.dot(this.targetDirection), -1, 1);
+    const angle = Math.min(Math.acos(cosine), maxRadians);
+    if (angle < 1e-5) return;
+    this.rotationAxis.crossVectors(this.currentDirection, this.targetDirection);
+    if (this.rotationAxis.lengthSq() < 1e-8) return;
+    this.rotationAxis.normalize();
+    this.worldDelta.setFromAxisAngle(this.rotationAxis, angle);
+    joint.getWorldQuaternion(this.jointWorldQuaternion);
+    this.desiredWorldQuaternion.multiplyQuaternions(this.worldDelta, this.jointWorldQuaternion);
+    if (joint.parent) {
+      joint.parent.getWorldQuaternion(this.parentWorldQuaternion).invert();
+      joint.quaternion.multiplyQuaternions(this.parentWorldQuaternion, this.desiredWorldQuaternion);
+    } else {
+      joint.quaternion.copy(this.desiredWorldQuaternion);
+    }
+    joint.updateWorldMatrix(false, true);
+  }
+}
+
+/** Assign distinct handle ends with the minimum total hand travel. */
+export function assignCartGripTargets(
+  leftHand: THREE.Vector3,
+  rightHand: THREE.Vector3,
+  endA: THREE.Vector3,
+  endB: THREE.Vector3,
+  leftTarget: THREE.Vector3,
+  rightTarget: THREE.Vector3,
+) {
+  const direct = leftHand.distanceToSquared(endA) + rightHand.distanceToSquared(endB);
+  const crossed = leftHand.distanceToSquared(endB) + rightHand.distanceToSquared(endA);
+  if (direct <= crossed) {
+    leftTarget.copy(endA);
+    rightTarget.copy(endB);
+    return false;
+  }
+  leftTarget.copy(endB);
+  rightTarget.copy(endA);
+  return true;
+}
 
 export function motionProgress(elapsedMs: number, durationMs: number) {
   if (!Number.isFinite(elapsedMs) || durationMs <= 0) return elapsedMs > 0 ? 1 : 0;

@@ -4,10 +4,10 @@ import { collectMachineOutput, createCrop, createEmptyCrop, createMachine, cropG
 import { PRODUCT_CONFIG } from "./economy/products";
 import { createCustomerMind } from "./ai/CustomerBrain";
 import { LEVELS, stationTierModifiers } from "./progression/levels";
-import { CHECKOUT_LANES, checkoutQueuePosition, type CheckoutLane } from "./stations/checkout-layout";
+import { CHECKOUT_LANES, checkoutQueueArrival, checkoutQueuePosition, type CheckoutLane } from "./stations/checkout-layout";
 import { retailServicePoint } from "./stations/retail-layout";
 import { FARM_PLOTS } from "./stations/farm-layout";
-import { addToCarry, carryQuantity, carryTotal, primaryCarryProduct, removeFromCarry } from "./player/CarrySystem";
+import { addToCarry, carryQuantity, carryTotal, primaryCarryProduct, removeFromCarry, transferCarryToShelf } from "./player/CarrySystem";
 
 const EMPTY_INVENTORY = (): Inventory => ({ wheat: 0, flour: 0, bread: 0, corn: 0, milk: 0, eggs: 0, cheese: 0, apples: 0, tomatoes: 0, coffee: 0, juice: 0 });
 export const CHECKOUT_PATIENCE_MS = 5 * 60_000;
@@ -295,13 +295,22 @@ function applyGameActionInternal(input: GameState, action: GameAction, cloneInpu
       return operateMachine(state, franchise, machine.id, ingredient ?? machine.productId, events, gain, success, fail);
     }
     case "STOCK": {
-      const source = action.source === "carry" ? carryQuantity(franchise.carry, action.productId) : franchise.warehouse[action.productId];
       const capacity = shelfCapacity(franchise, action.productId);
-      const quantity = Math.max(0, Math.min(action.quantity ?? 1, source, capacity - franchise.shelves[action.productId]));
+      const requested = Number.isFinite(action.quantity ?? 1) ? Math.max(0, Math.floor(action.quantity ?? 1)) : 0;
+      let quantity = 0;
+      if (action.source === "carry") {
+        const transfer = transferCarryToShelf(franchise.carry, action.productId, franchise.shelves[action.productId], capacity, requested);
+        franchise.carry = transfer.container;
+        franchise.shelves[action.productId] = transfer.shelfQuantity;
+        quantity = transfer.moved;
+      } else {
+        quantity = Math.max(0, Math.min(requested, franchise.warehouse[action.productId], capacity - franchise.shelves[action.productId]));
+      }
       if (quantity <= 0) return fail(`No puedes surtir más ${PRODUCTS[action.productId].name.toLowerCase()} ahora.`);
-      if (action.source === "carry") franchise.carry = removeFromCarry(franchise.carry, action.productId, quantity).container;
-      else franchise.warehouse[action.productId] -= quantity;
-      franchise.shelves[action.productId] += quantity;
+      if (action.source !== "carry") {
+        franchise.warehouse[action.productId] -= quantity;
+        franchise.shelves[action.productId] += quantity;
+      }
       recordDomain(state, `stock:${action.productId}`, quantity);
       recordDomain(state, "stock:all", quantity);
       recordDomain(state, "transport:all", quantity);
@@ -921,7 +930,7 @@ function updateCustomer(state: GameState, franchise: FranchiseState, customer: C
       } else {
         setCustomerState(customer, "NAVIGATE_TO_QUEUE", now);
         customer.queueJoinedAt = now;
-        setCustomerPath(customer, navigatePath(pathfinder, [customer.x, customer.z], queuePosition(franchise.customers.length - 1, customer.queueLane ?? 0)));
+        setCustomerPath(customer, queueArrivalPath(pathfinder, [customer.x, customer.z], franchise.customers.length - 1, customer.queueLane ?? 0));
       }
       break;
     case "NAVIGATE_TO_QUEUE":
@@ -931,7 +940,7 @@ function updateCustomer(state: GameState, franchise: FranchiseState, customer: C
     case "QUEUE_WAIT":
       if (customer.queueSlot === 0) {
         setCustomerState(customer, "MOVE_QUEUE", now);
-        setCustomerPath(customer, [queuePosition(0, customer.queueLane ?? 0)]);
+        setCustomerPath(customer, queueArrivalPath(pathfinder, [customer.x, customer.z], 0, customer.queueLane ?? 0));
       }
       break;
     case "UNLOAD":
@@ -1054,10 +1063,11 @@ function updateCustomerQueue(franchise: FranchiseState, pathfinder?: WorldPathfi
     customer.queueLane = lane as 0 | 1;
     customer.queueSlot = nextSlot;
     const destination = queuePosition(nextSlot, lane);
-    const targetChanged = Math.hypot(customer.targetX - destination[0], customer.targetZ - destination[1]) > 0.08;
+    const finalTarget = customer.path.at(-1) ?? [customer.targetX, customer.targetZ];
+    const targetChanged = Math.hypot(finalTarget[0] - destination[0], finalTarget[1] - destination[1]) > 0.08;
     if ((changed || targetChanged) && (customer.state === "NAVIGATE_TO_QUEUE" || customer.state === "QUEUE_WAIT" || customer.state === "MOVE_QUEUE")) {
       customer.state = "MOVE_QUEUE";
-      setCustomerPath(customer, navigatePath(pathfinder, [customer.x, customer.z], destination));
+      setCustomerPath(customer, queueArrivalPath(pathfinder, [customer.x, customer.z], nextSlot, lane));
     } else if (["UNLOAD", "WAIT_CHECKOUT", "PAY"].includes(customer.state) && Math.hypot(customer.x - destination[0], customer.z - destination[1]) > 0.08) {
       customer.x = destination[0]; customer.z = destination[1];
       customer.targetX = destination[0]; customer.targetZ = destination[1];
@@ -1318,6 +1328,14 @@ function navigatePath(pathfinder: WorldPathfinder | undefined, start: [number, n
 
 function queuePosition(slot: number, lane = 0): [number, number] {
   return checkoutQueuePosition(slot, lane === 1 ? 1 : 0);
+}
+
+function queueArrivalPath(pathfinder: WorldPathfinder | undefined, start: [number, number], slot: number, lane = 0): [number, number][] {
+  const [approach, destination] = checkoutQueueArrival(slot, lane === 1 ? 1 : 0);
+  return compactPath(start, [
+    ...navigatePath(pathfinder, start, [...approach]),
+    [...destination],
+  ]);
 }
 
 function compactPath(start: [number, number], path: [number, number][]) {

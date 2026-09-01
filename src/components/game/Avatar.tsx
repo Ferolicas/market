@@ -11,6 +11,7 @@ import { FacialController, type FaceExpression } from "@/game/animation/FacialCo
 import { feedbackBus, type FeedbackSource } from "@/game/feedback/FeedbackBus";
 import { FootGroundingController } from "@/game/animation/FootGroundingController";
 import { disposeCharacterMaterials, prepareCharacterModel } from "@/game/animation/CharacterPresentation";
+import { composeCarryAnimations, placeCarrySocket } from "@/game/animation/CarrySocket";
 
 interface AvatarProps {
   skin: string;
@@ -84,6 +85,9 @@ function RiggedAvatar({
   const avatarWorldScale = useRef(new THREE.Vector3());
   const leftHandWorld = useRef(new THREE.Vector3());
   const rightHandWorld = useRef(new THREE.Vector3());
+  const leftHandLocal = useRef(new THREE.Vector3());
+  const rightHandLocal = useRef(new THREE.Vector3());
+  const handSpanLocal = useRef(new THREE.Vector3());
   const carryLocalPosition = useRef(new THREE.Vector3());
   const [compactModel] = useState(() => typeof window !== "undefined" && window.innerWidth <= 640);
   const gltf = useGLTF(compactModel ? LOD1_MODEL_PATHS[body] : MODEL_PATHS[body]);
@@ -91,11 +95,13 @@ function RiggedAvatar({
     () => prepareCharacterModel(gltf.scene, { build: body === "boy" || body === "girl" ? "child" : "adult" }),
     [body, gltf.scene],
   );
-  const { actions } = useAnimations(gltf.animations, model);
+  const animations = useMemo(() => composeCarryAnimations(gltf.animations), [gltf.animations]);
+  const { actions } = useAnimations(animations, model);
   const fallbackClip: CharacterAnimation = animation ?? (walking ? carrying ? "CarryWalk" : "Walk" : carrying ? "CarryIdle" : "Idle");
   const head = model.getObjectByName("Head");
   const leftHand = model.getObjectByName("Hand_L");
   const rightHand = model.getObjectByName("Hand_R");
+  const hasCarryAccessory = carrying && Boolean(carryAccessory);
   const feet = useMemo(() => [model.getObjectByName("Foot_L"), model.getObjectByName("Foot_R")].filter((foot): foot is THREE.Object3D => Boolean(foot)), [model]);
   const morphMeshes = useMemo(() => {
     const meshes: THREE.Mesh[] = [];
@@ -126,15 +132,28 @@ function RiggedAvatar({
       appearanceRoot.current.matrix.copy(relativeHeadMatrix.current);
       appearanceRoot.current.matrixWorldNeedsUpdate = true;
     }
-    if (carryAccessory && avatarRoot.current && carrySocket.current && leftHand && rightHand) {
+    if (hasCarryAccessory && avatarRoot.current && carrySocket.current && leftHand && rightHand) {
       avatarRoot.current.updateWorldMatrix(true, true);
       leftHand.getWorldPosition(leftHandWorld.current);
       rightHand.getWorldPosition(rightHandWorld.current);
-      carryLocalPosition.current.copy(leftHandWorld.current).add(rightHandWorld.current).multiplyScalar(0.5);
-      avatarRoot.current.worldToLocal(carryLocalPosition.current);
-      carryLocalPosition.current.y -= 0.08;
-      carryLocalPosition.current.z += 0.08;
-      carrySocket.current.position.copy(carryLocalPosition.current);
+      leftHandLocal.current.copy(leftHandWorld.current);
+      rightHandLocal.current.copy(rightHandWorld.current);
+      avatarRoot.current.worldToLocal(leftHandLocal.current);
+      avatarRoot.current.worldToLocal(rightHandLocal.current);
+
+      // The carry clips place both hands in front of the hips.  The basket used
+      // to sit directly on their midpoint, which put half of its depth inside
+      // the abdomen.  Keep the rear grips on the hands while moving the actual
+      // container completely in front of the body.  Aligning its width with
+      // the live hand span also prevents either hand from floating away during
+      // CarryIdle/CarryWalk.
+      placeCarrySocket(
+        carrySocket.current,
+        leftHandLocal.current,
+        rightHandLocal.current,
+        carryLocalPosition.current,
+        handSpanLocal.current,
+      );
     }
 
     const expression: FaceExpression = liveClip === "Happy" ? "Happy" : liveClip === "Confused" ? "Confused" : "Neutral";
@@ -190,7 +209,7 @@ function RiggedAvatar({
           {hat !== "none" && <CharacterHat key={`${body}-hat-${hat}`} body={body} hat={hat} />}
         </Suspense>
       </group>}
-      {carryAccessory && <group ref={carrySocket} position={[0, 0.78, 0.28]}>{carryAccessory}</group>}
+      {hasCarryAccessory && <group ref={carrySocket} name="CarrySocket" position={[0, 0.64, 0.46]}>{carryAccessory}</group>}
     </group>
   );
 }

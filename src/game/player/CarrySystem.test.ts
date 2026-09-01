@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addToCarry, carriedProductIds, carryQuantity, carryTotal, createCarryContainer, nextStockingPulse, preferredStockingProduct, primaryCarryProduct, removeFromCarry } from "./CarrySystem";
+import { addToCarry, carriedProductIds, carryQuantity, carryTotal, createCarryContainer, nextStockingPulse, preferredStockingProduct, primaryCarryProduct, removeFromCarry, transferCarryToShelf } from "./CarrySystem";
 
 describe("CarrySystem", () => {
   it("combines product types while enforcing total basket capacity", () => {
@@ -46,5 +46,22 @@ describe("CarrySystem", () => {
     expect(nextStockingPulse(carry, { tomatoes: 11, apples: 12 }, 1)).toEqual({ productId: "tomatoes", quantity: 1 });
     expect(nextStockingPulse(carry, { tomatoes: 12, apples: 12 }, 1)).toBeNull();
     expect(nextStockingPulse({ items: {} }, { tomatoes: 0 }, 1)).toBeNull();
+  });
+
+  it("adds exactly the amount removed from the basket and empties it on the final shelf pulse", () => {
+    const carry = { capacity: 3, items: { tomatoes: 2 } };
+    const first = transferCarryToShelf(carry, "tomatoes", 10, 12, 1);
+    const final = transferCarryToShelf(first.container, "tomatoes", first.shelfQuantity, 12, 5);
+
+    expect(first).toEqual({ container: { capacity: 3, items: { tomatoes: 1 } }, shelfQuantity: 11, moved: 1 });
+    expect(final).toEqual({ container: { capacity: 3, items: {} }, shelfQuantity: 12, moved: 1 });
+    expect(carry.items).toEqual({ tomatoes: 2 });
+  });
+
+  it("cannot create stock from a full shelf or an invalid requested quantity", () => {
+    const carry = { capacity: 3, items: { tomatoes: 2 } };
+
+    expect(transferCarryToShelf(carry, "tomatoes", 12, 12, 1)).toEqual({ container: carry, shelfQuantity: 12, moved: 0 });
+    expect(transferCarryToShelf(carry, "tomatoes", 0, 12, Number.NaN)).toEqual({ container: carry, shelfQuantity: 0, moved: 0 });
   });
 });

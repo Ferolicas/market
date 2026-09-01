@@ -5,6 +5,7 @@ import { forwardRef } from "react";
 import * as THREE from "three";
 import type { CarryState, ProductId } from "@/game/types";
 import { carriedProductIds, carryQuantity, carryTotal } from "@/game/player/CarrySystem";
+import { HARVEST_BASKET_GRIP_HALF_WIDTH, HARVEST_BASKET_GRIP_HEIGHT, HARVEST_BASKET_GRIP_REACH } from "@/game/animation/CarrySocket";
 
 export const HarvestBasket = forwardRef<THREE.Group, { carry: CarryState }>(function HarvestBasket({ carry }, ref) {
   if (!carryTotal(carry)) return null;
@@ -12,7 +13,7 @@ export const HarvestBasket = forwardRef<THREE.Group, { carry: CarryState }>(func
     .flatMap((productId) => Array.from({ length: carryQuantity(carry, productId) }, () => productId))
     .slice(0, 12);
 
-  return <group ref={ref} rotation={[0.02, 0, 0]}>
+  return <group ref={ref} name="HarvestBasket">
     <RoundedBox args={[0.62, 0.14, 0.36]} position={[0, -0.13, 0]} radius={0.055} smoothness={3} castShadow>
       <meshStandardMaterial color="#9b5d2d" roughness={0.9} />
     </RoundedBox>
@@ -32,6 +33,16 @@ export const HarvestBasket = forwardRef<THREE.Group, { carry: CarryState }>(func
       <torusGeometry args={[0.285, 0.022, 8, 28, Math.PI]} />
       <meshStandardMaterial color="#e3ad68" roughness={0.88} />
     </mesh>
+    {[-1, 1].map((side) => <group key={`grip-${side}`} name={side < 0 ? "BasketGripLeft" : "BasketGripRight"}>
+      <mesh position={[side * HARVEST_BASKET_GRIP_HALF_WIDTH, HARVEST_BASKET_GRIP_HEIGHT, -HARVEST_BASKET_GRIP_REACH / 2]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+        <cylinderGeometry args={[0.023, 0.023, HARVEST_BASKET_GRIP_REACH, 10]} />
+        <meshStandardMaterial color="#d99d52" roughness={0.84} />
+      </mesh>
+      <mesh position={[side * HARVEST_BASKET_GRIP_HALF_WIDTH, HARVEST_BASKET_GRIP_HEIGHT, -HARVEST_BASKET_GRIP_REACH]} castShadow>
+        <sphereGeometry args={[0.037, 12, 8]} />
+        <meshStandardMaterial color="#8d5228" roughness={0.78} />
+      </mesh>
+    </group>)}
     <group position={[0, 0.08, 0]}>
       {visibleProducts.map((productId, index) => {
         const column = index % 3;

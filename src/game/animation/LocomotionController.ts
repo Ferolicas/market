@@ -3,6 +3,9 @@ import { LoopRepeat, MathUtils, type AnimationAction } from "three";
 export type LocomotionClip = "Idle" | "Walk" | "Run" | "TurnLeft" | "TurnRight" | "CarryIdle" | "CarryWalk";
 export type FootstepEvent = "LeftFootDown" | "RightFootDown";
 
+/** Calibrated from the support minima in the authored market walk cycle. */
+export const GAIT_FOOT_CONTACT_PHASES = Object.freeze({ left: 0.125, right: 0.625 });
+
 export class LocomotionController {
   private active = "Idle";
   private moving = false;
@@ -54,8 +57,8 @@ export class LocomotionController {
     if (!action?.isRunning() || duration <= 0) return [];
     const phase = (action.time / duration) % 1;
     const events: FootstepEvent[] = [];
-    if (crossed(this.previousPhase, phase, 0.03)) events.push("LeftFootDown");
-    if (crossed(this.previousPhase, phase, 0.53)) events.push("RightFootDown");
+    if (crossed(this.previousPhase, phase, GAIT_FOOT_CONTACT_PHASES.left)) events.push("LeftFootDown");
+    if (crossed(this.previousPhase, phase, GAIT_FOOT_CONTACT_PHASES.right)) events.push("RightFootDown");
     this.previousPhase = phase;
     return events;
   }

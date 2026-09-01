@@ -23,12 +23,13 @@ import { safeCanvasEvents } from "./safeCanvasEvents";
 import { PerformanceMonitor } from "@/game/debug/PerformanceMonitor";
 import { createWalkableStoreGeometry, storePathfinder } from "@/game/navigation/NavMeshService";
 import { captureEmployeeMotion, projectCustomerMotion, type CustomerMotionSnapshot } from "@/game/animation/CustomerVisualMotion";
-import { CHECKOUT_CAMERA_POSITION as CHECKOUT_CAMERA_POSITION_COORDS, CHECKOUT_CAMERA_TARGET as CHECKOUT_CAMERA_TARGET_COORDS, checkoutQueuePosition } from "@/game/stations/checkout-layout";
+import { CHECKOUT_CAMERA_FRAME, CHECKOUT_CAMERA_POSITION as CHECKOUT_CAMERA_POSITION_COORDS, CHECKOUT_CAMERA_TARGET as CHECKOUT_CAMERA_TARGET_COORDS, checkoutQueuePosition } from "@/game/stations/checkout-layout";
 import { retailServicePoint } from "@/game/stations/retail-layout";
 import { isWorkstationId, isWorkstationUnlocked, WORKSTATIONS, WORKSTATION_IDS, type WorkstationId } from "@/game/stations/workstation-layout";
 import { PRODUCTS } from "@/game/catalog";
 import { farmInteractionId, farmPlotById, FARM_PLOTS, type FarmInteractionId } from "@/game/stations/farm-layout";
 import { carryTotal, preferredStockingProduct } from "@/game/player/CarrySystem";
+import { STOREFRONT_LAYOUT, storefrontDoorLeafCenter } from "@/game/stations/storefront-layout";
 
 export type InteractionId = WorkstationId | FarmInteractionId | "supplier" | "door";
 export interface InteractionPrompt { id: InteractionId; label: string; }
@@ -47,7 +48,7 @@ const ZONES: { id: InteractionId; label: string; position: [number, number, numb
     return { id, label: station.label, position: [...station.position] as [number, number, number], facing: station.facing };
   }),
   { id: "supplier", label: "Terminal de proveedores", position: [7.5, 0, -2.15] },
-  { id: "door", label: "Sensor de entrada", position: [0, 0, 7.8] },
+  { id: "door", label: "Sensor de entrada", position: [0, 0, STOREFRONT_LAYOUT.z] },
 ] satisfies { id: InteractionId; label: string; position: [number, number, number]; facing?: number }[]).map((zone) => ({ ...zone, position: scaleStorePosition(zone.position) }));
 
 interface MarketSceneProps {
@@ -331,7 +332,7 @@ function OverviewCamera({ playerFocus, checkoutFocused }: { playerFocus: RefObje
     lookAt.current.lerp(desiredLookAt.current, response);
     camera.current.lookAt(lookAt.current);
     const overviewZoom = Math.min(size.width / 32, size.height / 28.5) / CAMERA_DISTANCE_FACTOR;
-    const checkoutZoom = Math.min(size.width / 27, size.height / 19);
+    const checkoutZoom = Math.min(size.width / CHECKOUT_CAMERA_FRAME.width, size.height / CHECKOUT_CAMERA_FRAME.height);
     camera.current.zoom = THREE.MathUtils.lerp(camera.current.zoom, THREE.MathUtils.lerp(overviewZoom, checkoutZoom, checkoutBlend.current), dampFactor(5, delta));
     camera.current.updateProjectionMatrix();
   });
@@ -538,15 +539,21 @@ function Player({ avatar, carry, crops, checkoutLevel, playerSpeedTier, unlocked
 }
 
 function StoreColliders({ doorProgress }: { doorProgress: number }) {
+  const wallHalfHeight = STOREFRONT_LAYOUT.wallHeight / 2;
+  const door = STOREFRONT_LAYOUT.door;
+  const doorHalfHeight = door.leafHeight / 2;
+  const frameHalfHeight = (door.leafHeight + 0.16) / 2;
   return <RigidBody type="fixed" colliders={false}>
     <CuboidCollider args={[11.5 * STORE_LAYOUT_SCALE * WORLD_SCALE, 0.08 * WORLD_SCALE, 12.2 * STORE_LAYOUT_SCALE * WORLD_SCALE]} position={[0, -0.08 * WORLD_SCALE, 3.7 * STORE_LAYOUT_SCALE * WORLD_SCALE]} friction={0.8} />
     {STORE_OBSTACLES.map((obstacle, index) => <CuboidCollider key={index} args={[obstacle.halfX * WORLD_SCALE, 0.9 * WORLD_SCALE, obstacle.halfZ * WORLD_SCALE]} position={[obstacle.x * WORLD_SCALE, 0.9 * WORLD_SCALE, obstacle.z * WORLD_SCALE]} />)}
-    <CuboidCollider args={[0.15 * WORLD_SCALE, 2.3 * WORLD_SCALE, 11.9 * STORE_LAYOUT_SCALE * WORLD_SCALE]} position={[-11.25 * STORE_LAYOUT_SCALE * WORLD_SCALE, 2.3 * WORLD_SCALE, 3.75 * STORE_LAYOUT_SCALE * WORLD_SCALE]} />
-    <CuboidCollider args={[0.15 * WORLD_SCALE, 2.3 * WORLD_SCALE, 11.9 * STORE_LAYOUT_SCALE * WORLD_SCALE]} position={[11.25 * STORE_LAYOUT_SCALE * WORLD_SCALE, 2.3 * WORLD_SCALE, 3.75 * STORE_LAYOUT_SCALE * WORLD_SCALE]} />
-    <CuboidCollider args={[11.4 * STORE_LAYOUT_SCALE * WORLD_SCALE, 2.3 * WORLD_SCALE, 0.15 * WORLD_SCALE]} position={[0, 2.3 * WORLD_SCALE, -8.45 * STORE_LAYOUT_SCALE * WORLD_SCALE]} />
-    <CuboidCollider args={[4.765 * STORE_LAYOUT_SCALE * WORLD_SCALE, 2.3 * WORLD_SCALE, 0.12 * WORLD_SCALE]} position={[-6.585 * STORE_LAYOUT_SCALE * WORLD_SCALE, 2.3 * WORLD_SCALE, 7.78 * STORE_LAYOUT_SCALE * WORLD_SCALE]} />
-    <CuboidCollider args={[4.765 * STORE_LAYOUT_SCALE * WORLD_SCALE, 2.3 * WORLD_SCALE, 0.12 * WORLD_SCALE]} position={[6.585 * STORE_LAYOUT_SCALE * WORLD_SCALE, 2.3 * WORLD_SCALE, 7.78 * STORE_LAYOUT_SCALE * WORLD_SCALE]} />
-    {[-1, 1].map((side) => <CuboidCollider key={side} args={[0.84 * STORE_LAYOUT_SCALE * WORLD_SCALE, 1.36 * WORLD_SCALE, 0.06 * STORE_LAYOUT_SCALE * WORLD_SCALE]} position={[side * (0.86 + doorProgress * 0.82) * STORE_LAYOUT_SCALE * WORLD_SCALE, 1.36 * WORLD_SCALE, 7.8 * STORE_LAYOUT_SCALE * WORLD_SCALE]} />)}
+    <CuboidCollider args={[0.15 * WORLD_SCALE, wallHalfHeight * WORLD_SCALE, 11.9 * STORE_LAYOUT_SCALE * WORLD_SCALE]} position={[-11.25 * STORE_LAYOUT_SCALE * WORLD_SCALE, wallHalfHeight * WORLD_SCALE, 3.75 * STORE_LAYOUT_SCALE * WORLD_SCALE]} />
+    <CuboidCollider args={[0.15 * WORLD_SCALE, wallHalfHeight * WORLD_SCALE, 11.9 * STORE_LAYOUT_SCALE * WORLD_SCALE]} position={[11.25 * STORE_LAYOUT_SCALE * WORLD_SCALE, wallHalfHeight * WORLD_SCALE, 3.75 * STORE_LAYOUT_SCALE * WORLD_SCALE]} />
+    <CuboidCollider args={[11.4 * STORE_LAYOUT_SCALE * WORLD_SCALE, wallHalfHeight * WORLD_SCALE, 0.15 * WORLD_SCALE]} position={[0, wallHalfHeight * WORLD_SCALE, -8.45 * STORE_LAYOUT_SCALE * WORLD_SCALE]} />
+    <CuboidCollider args={[4.765 * STORE_LAYOUT_SCALE * WORLD_SCALE, wallHalfHeight * WORLD_SCALE, 0.12 * WORLD_SCALE]} position={[-6.585 * STORE_LAYOUT_SCALE * WORLD_SCALE, wallHalfHeight * WORLD_SCALE, (STOREFRONT_LAYOUT.z - 0.02) * STORE_LAYOUT_SCALE * WORLD_SCALE]} />
+    <CuboidCollider args={[4.765 * STORE_LAYOUT_SCALE * WORLD_SCALE, wallHalfHeight * WORLD_SCALE, 0.12 * WORLD_SCALE]} position={[6.585 * STORE_LAYOUT_SCALE * WORLD_SCALE, wallHalfHeight * WORLD_SCALE, (STOREFRONT_LAYOUT.z - 0.02) * STORE_LAYOUT_SCALE * WORLD_SCALE]} />
+    {[-1, 1].map((side) => <CuboidCollider key={`storefront-post-${side}`} args={[door.postWidth * 0.5 * STORE_LAYOUT_SCALE * WORLD_SCALE, frameHalfHeight * WORLD_SCALE, door.frameDepth * 0.5 * STORE_LAYOUT_SCALE * WORLD_SCALE]} position={[side * door.outerPostX * STORE_LAYOUT_SCALE * WORLD_SCALE, frameHalfHeight * WORLD_SCALE, STOREFRONT_LAYOUT.z * STORE_LAYOUT_SCALE * WORLD_SCALE]} />)}
+    <CuboidCollider args={[(door.outerPostX + door.postWidth * 0.5) * STORE_LAYOUT_SCALE * WORLD_SCALE, 0.07 * WORLD_SCALE, door.frameDepth * 0.55 * STORE_LAYOUT_SCALE * WORLD_SCALE]} position={[0, (door.leafHeight + 0.07) * WORLD_SCALE, STOREFRONT_LAYOUT.z * STORE_LAYOUT_SCALE * WORLD_SCALE]} />
+    {([-1, 1] as const).map((side) => <CuboidCollider key={`door-leaf-${side}`} args={[door.leafWidth * 0.5 * STORE_LAYOUT_SCALE * WORLD_SCALE, doorHalfHeight * WORLD_SCALE, door.leafDepth * 0.5 * STORE_LAYOUT_SCALE * WORLD_SCALE]} position={[storefrontDoorLeafCenter(side, doorProgress) * STORE_LAYOUT_SCALE * WORLD_SCALE, doorHalfHeight * WORLD_SCALE, STOREFRONT_LAYOUT.z * STORE_LAYOUT_SCALE * WORLD_SCALE]} />)}
   </RigidBody>;
 }
 
@@ -608,6 +615,10 @@ function interactionZoneConfigs(checkoutLevel = 1, shelfPosition?: [number, numb
 }
 
 function MarketBuilding({ open, doorProgress }: { open: boolean; doorProgress: number }) {
+  const door = STOREFRONT_LAYOUT.door;
+  const wallHeight = STOREFRONT_LAYOUT.wallHeight;
+  const frontGlassHeight = wallHeight - 0.6;
+  const frontGlassCenterY = frontGlassHeight / 2 + 0.3;
   return <group>
     <mesh receiveShadow position={[0, -0.08, -0.35]}><boxGeometry args={[23, 0.16, 17]} /><meshStandardMaterial color="#eee8dc" roughness={0.82} /></mesh>
     {[-7.6, -3.8, 0, 3.8, 7.6].map((x) => <mesh key={`floor-seam-x-${x}`} position={[x, 0.012, -0.35]}><boxGeometry args={[0.018, 0.008, 16.7]} /><meshStandardMaterial color="#d9d2c5" roughness={0.95} /></mesh>)}
@@ -615,28 +626,28 @@ function MarketBuilding({ open, doorProgress }: { open: boolean; doorProgress: n
     <mesh receiveShadow position={[0, -0.1, 11.9]}><boxGeometry args={[23, 0.14, 7.5]} /><meshStandardMaterial color="#d7e3db" roughness={0.94} /></mesh>
     <mesh receiveShadow position={[0, -0.09, 16.15]}><boxGeometry args={[25, 0.12, 1.2]} /><meshStandardMaterial color="#566a62" roughness={0.98} /></mesh>
     {[-6, 0, 6].map((x) => <mesh key={x} position={[x, -0.015, 16.1]}><boxGeometry args={[2.7, 0.02, 0.1]} /><meshStandardMaterial color="#f4d58d" /></mesh>)}
-    <mesh receiveShadow position={[0, 2.3, -8.55]}><boxGeometry args={[23, 4.6, 0.32]} /><meshStandardMaterial color="#eee8dc" roughness={0.88} /></mesh>
+    <mesh receiveShadow position={[0, wallHeight / 2, -8.55]}><boxGeometry args={[23, wallHeight, 0.32]} /><meshStandardMaterial color="#eee8dc" roughness={0.88} /></mesh>
     <mesh position={[0, 0.68, -8.34]}><boxGeometry args={[22.6, 1.25, 0.12]} /><meshStandardMaterial color="#2f6958" roughness={0.78} /></mesh>
-    {[-7.4, -3.7, 0, 3.7, 7.4].map((x) => <mesh key={`wall-panel-${x}`} position={[x, 2.35, -8.35]}><boxGeometry args={[3.3, 2.45, 0.08]} /><meshStandardMaterial color="#f7f2e8" roughness={0.86} /></mesh>)}
-    <mesh position={[0, 3.72, -8.28]}><boxGeometry args={[5.6, 0.78, 0.18]} /><meshStandardMaterial color="#173f35" roughness={0.64} metalness={0.08} /></mesh>
-    <Text position={[0, 3.72, -8.17]} fontSize={0.43} color="#fff3ce" anchorX="center">MINI MARKET</Text>
-    <mesh receiveShadow position={[-11.35, 2.3, -0.35]}><boxGeometry args={[0.34, 4.6, 16.5]} /><meshStandardMaterial color="#e5ded2" roughness={0.9} /></mesh>
-    <mesh receiveShadow position={[11.35, 2.3, -0.35]}><boxGeometry args={[0.34, 4.6, 16.5]} /><meshStandardMaterial color="#e5ded2" roughness={0.9} /></mesh>
+    {[-7.4, -3.7, 0, 3.7, 7.4].map((x) => <mesh key={`wall-panel-${x}`} position={[x, wallHeight * 0.54, -8.35]}><boxGeometry args={[3.3, wallHeight * 0.57, 0.08]} /><meshStandardMaterial color="#f7f2e8" roughness={0.86} /></mesh>)}
+    <mesh position={[0, wallHeight - 0.82, -8.28]}><boxGeometry args={[5.6, 0.78, 0.18]} /><meshStandardMaterial color="#173f35" roughness={0.64} metalness={0.08} /></mesh>
+    <Text position={[0, wallHeight - 0.82, -8.17]} fontSize={0.43} color="#fff3ce" anchorX="center">MINI MARKET</Text>
+    <mesh receiveShadow position={[-11.35, wallHeight / 2, -0.35]}><boxGeometry args={[0.34, wallHeight, 16.5]} /><meshStandardMaterial color="#e5ded2" roughness={0.9} /></mesh>
+    <mesh receiveShadow position={[11.35, wallHeight / 2, -0.35]}><boxGeometry args={[0.34, wallHeight, 16.5]} /><meshStandardMaterial color="#e5ded2" roughness={0.9} /></mesh>
     {[-6.585, 6.585].map((x) => <group key={x} position={[x, 0.3, 7.78]}>
       <mesh><boxGeometry args={[9.53, 0.6, 0.3]} /><meshStandardMaterial color="#e7dfd2" roughness={0.9} /></mesh>
-      <mesh position={[0, 1.45, 0]}><boxGeometry args={[9.34, 2.2, 0.07]} /><meshPhysicalMaterial color="#c7e4df" transparent opacity={0.12} transmission={0.35} clearcoat={1} clearcoatRoughness={0.08} roughness={0.08} depthWrite={false} /></mesh>
-      {[-4.67, 0, 4.67].map((edge) => <mesh key={edge} position={[edge, 0.76, 0.06]}><boxGeometry args={[0.1, 1.22, 0.12]} /><meshStandardMaterial color="#37564d" metalness={0.28} roughness={0.42} /></mesh>)}
+      <mesh position={[0, frontGlassCenterY, 0]}><boxGeometry args={[9.34, frontGlassHeight, 0.07]} /><meshPhysicalMaterial color="#c7e4df" transparent opacity={0.12} transmission={0.35} clearcoat={1} clearcoatRoughness={0.08} roughness={0.08} depthWrite={false} /></mesh>
+      {[-4.67, 0, 4.67].map((edge) => <mesh key={edge} position={[edge, frontGlassCenterY, 0.06]}><boxGeometry args={[0.1, frontGlassHeight, 0.12]} /><meshStandardMaterial color="#37564d" metalness={0.28} roughness={0.42} /></mesh>)}
     </group>)}
     <mesh receiveShadow position={[0, 0.035, 7.02]}><boxGeometry args={[3.75, 0.055, 1.05]} /><meshStandardMaterial color="#2b4b43" roughness={0.92} /></mesh>
-    <group position={[0, 1.36, 7.8]}>
-      {[-1, 1].map((side) => <group key={side} position={[side * (0.86 + doorProgress * 0.82), 0, 0]}>
-        <mesh><boxGeometry args={[1.68, 2.7, 0.065]} /><meshPhysicalMaterial color="#c9e9e3" transparent opacity={0.28} transmission={0.5} clearcoat={1} clearcoatRoughness={0.04} roughness={0.06} envMapIntensity={1.9} depthWrite={false} /></mesh>
-        <mesh position={[0, 0, 0.07]}><boxGeometry args={[0.075, 2.72, 0.1]} /><meshStandardMaterial color="#294a41" metalness={0.62} roughness={0.25} /></mesh>
-        <mesh position={[0, 0.45, 0.1]} rotation={[0, 0, -0.2]}><planeGeometry args={[0.075, 1.65]} /><meshBasicMaterial color="#ffffff" transparent opacity={0.32} depthWrite={false} /></mesh>
+    <group position={[0, door.leafHeight / 2, STOREFRONT_LAYOUT.z]}>
+      {([-1, 1] as const).map((side) => <group key={side} position={[storefrontDoorLeafCenter(side, doorProgress), 0, 0]}>
+        <mesh><boxGeometry args={[door.leafWidth, door.leafHeight, door.leafDepth]} /><meshPhysicalMaterial color="#c9e9e3" transparent opacity={0.28} transmission={0.5} clearcoat={1} clearcoatRoughness={0.04} roughness={0.06} envMapIntensity={1.9} depthWrite={false} /></mesh>
+        {[-door.leafWidth / 2, door.leafWidth / 2].map((edge) => <mesh key={edge} position={[edge, 0, 0.07]}><boxGeometry args={[0.075, door.leafHeight + 0.02, 0.1]} /><meshStandardMaterial color="#294a41" metalness={0.62} roughness={0.25} /></mesh>)}
+        <mesh position={[0, 0.9, 0.1]} rotation={[0, 0, -0.2]}><planeGeometry args={[0.075, door.leafHeight * 0.61]} /><meshBasicMaterial color="#ffffff" transparent opacity={0.32} depthWrite={false} /></mesh>
       </group>)}
-      {[-1.82, 0, 1.82].map((x) => <mesh key={x} position={[x, 0, 0.08]}><boxGeometry args={[0.1, 2.86, 0.14]} /><meshStandardMaterial color="#294a41" metalness={0.6} roughness={0.28} /></mesh>)}
-      <mesh position={[0, 1.46, 0.08]}><boxGeometry args={[3.76, 0.14, 0.15]} /><meshStandardMaterial color="#294a41" metalness={0.6} roughness={0.28} /></mesh>
-      <group position={[0, 1.76, 0.02]}>
+      {[-door.outerPostX, door.outerPostX].map((x) => <mesh key={x} position={[x, 0, 0.08]}><boxGeometry args={[door.postWidth, door.leafHeight + 0.16, door.frameDepth]} /><meshStandardMaterial color="#294a41" metalness={0.6} roughness={0.28} /></mesh>)}
+      <mesh position={[0, door.leafHeight / 2 + 0.07, 0.08]}><boxGeometry args={[door.outerPostX * 2 + door.postWidth * 2, 0.14, 0.15]} /><meshStandardMaterial color="#294a41" metalness={0.6} roughness={0.28} /></mesh>
+      <group position={[0, door.leafHeight / 2 + 0.38, 0.02]}>
         <mesh><boxGeometry args={[0.62, 0.24, 0.2]} /><meshStandardMaterial color="#203a33" metalness={0.42} roughness={0.32} /></mesh>
         <mesh position={[0, 0, 0.12]}><circleGeometry args={[0.065, 20]} /><meshStandardMaterial color={open ? "#72e8a9" : "#f08d73"} emissive={open ? "#2fac74" : "#b84f38"} emissiveIntensity={1.35} /></mesh>
       </group>

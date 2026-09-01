@@ -12,12 +12,15 @@ export interface RetailDepartment {
 }
 
 export const RETAIL_DEPARTMENTS: Record<RetailDepartmentId, RetailDepartment> = {
+  // Service points stay on a generated NavMesh cell, outside the padded
+  // furniture footprint. The interaction radius reaches the display from
+  // that walkable lane; moving the sensor closer can make it unreachable.
   bakery: { id: "bakery", label: "PAN Y HARINAS", color: "#b96d39", display: [-4, 0, -2.2], service: [-4, -0.88], products: ["bread", "flour", "wheat"] },
   pantry: { id: "pantry", label: "DESPENSA", color: "#6f4938", display: [0, 0, -2.2], service: [0, -0.88], products: ["coffee"] },
   eggs: { id: "eggs", label: "HUEVOS", color: "#d49a34", display: [4, 0, -2.2], service: [4, -0.88], products: ["eggs"] },
   produce: { id: "produce", label: "FRUTAS Y VERDURAS", color: "#3f7b4c", display: [-4.1, 0, 2.45], service: [-4.1, 1.08], products: ["tomatoes", "apples", "corn"] },
-  dairy: { id: "dairy", label: "LÁCTEOS", color: "#4382a1", display: [0, 0, 2.45], service: [0, 1.08], products: ["milk", "cheese"] },
-  drinks: { id: "drinks", label: "BEBIDAS", color: "#cc6841", display: [4.05, 0, 2.45], service: [4.05, 1.08], products: ["juice"] },
+  dairy: { id: "dairy", label: "LÁCTEOS", color: "#4382a1", display: [0, 0, 2.45], service: [0, 3.82], products: ["milk", "cheese"] },
+  drinks: { id: "drinks", label: "BEBIDAS", color: "#cc6841", display: [4.05, 0, 2.45], service: [4.05, 3.82], products: ["juice"] },
 };
 
 export const PRODUCT_RETAIL_DEPARTMENT: Record<ProductId, RetailDepartmentId> = {

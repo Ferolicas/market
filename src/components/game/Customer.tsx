@@ -10,7 +10,7 @@ import { scaleStorePoint, STORE_ELEMENT_SCALE, STORE_LAYOUT_SCALE, WORLD_SCALE }
 import { FacialController, type FaceExpression } from "@/game/animation/FacialController";
 import { disposeCharacterMaterials, prepareCharacterModel } from "@/game/animation/CharacterPresentation";
 import { captureCustomerMotion, projectCustomerMotion } from "@/game/animation/CustomerVisualMotion";
-import { CUSTOMER_CART_WHEEL_RADIUS, CUSTOMER_CHECKOUT_ITEM_CYCLE_MS, CUSTOMER_PICKUP_DURATION_MS, cartSteeringAngle, checkoutCartInventory, checkoutLoadingPresentation, easedMotionProgress, motionProgress, productTransferPoint, shortestHeadingDelta, wheelRollDelta } from "@/game/animation/CustomerCartMotion";
+import { CUSTOMER_CART_WHEEL_RADIUS, CUSTOMER_CHECKOUT_ITEM_CYCLE_MS, CUSTOMER_PICKUP_DURATION_MS, CustomerCartGripSolver, assignCartGripTargets, cartSteeringAngle, checkoutCartInventory, checkoutLoadingPresentation, easedMotionProgress, motionProgress, productTransferPoint, shortestHeadingDelta, wheelRollDelta, type CartGripChain } from "@/game/animation/CustomerCartMotion";
 import { PRODUCT_RETAIL_DEPARTMENT, retailDisplayPosition } from "@/game/stations/retail-layout";
 import { BasketProduct } from "./HarvestBasket";
 
@@ -30,6 +30,7 @@ const LOD1_PATHS = Object.fromEntries(Object.entries(MODEL_PATHS).map(([id, path
 const CUSTOMER_SCALE: Record<CustomerId, number> = { 1: 1.29, 2: 1.28, 3: 1.32, 4: 1.32, 5: 1.32, 6: 1.27 };
 const CART_SCALE = 0.92;
 const CART_HANDLE_Z = -0.43;
+const CART_HANDLE_Y = 0.82;
 const CART_HANDLE_BASE_WIDTH = 0.78;
 const CART_MAX_FOLLOW_LAG = 0.075;
 const CART_BAY_POSITION = scaleStorePoint([3.05, 6.55]);
@@ -84,6 +85,8 @@ export function Customer({ customer, checkoutTransaction, simulationTimeMs }: { 
   const cartHandleAxis = useRef(new THREE.Vector3());
   const cartHandleEndA = useRef(new THREE.Vector3());
   const cartHandleEndB = useRef(new THREE.Vector3());
+  const leftGripTarget = useRef(new THREE.Vector3());
+  const rightGripTarget = useRef(new THREE.Vector3());
   const cartBasketLocalPosition = useRef(new THREE.Vector3());
   const pickupSourceLocalPosition = useRef(new THREE.Vector3());
   const pickupPoint = useRef(new THREE.Vector3());
@@ -106,6 +109,9 @@ export function Customer({ customer, checkoutTransaction, simulationTimeMs }: { 
   const morphMeshes = useMemo(() => collectMorphMeshes(model), [model]);
   const leftHand = useMemo(() => model.getObjectByName("Hand_L"), [model]);
   const rightHand = useMemo(() => model.getObjectByName("Hand_R"), [model]);
+  const leftGripChain = useMemo(() => collectCartGripChain(model, "L"), [model]);
+  const rightGripChain = useMemo(() => collectCartGripChain(model, "R"), [model]);
+  const cartGripSolver = useMemo(() => new CustomerCartGripSolver(), []);
   const head = useMemo(() => model.getObjectByName("Head"), [model]);
   const currentProduct = customer.shoppingList[customer.currentLine]?.productId ?? null;
   const productDisplay = currentProduct ? retailDisplayPosition(PRODUCT_RETAIL_DEPARTMENT[currentProduct]) : null;
@@ -214,13 +220,12 @@ export function Customer({ customer, checkoutTransaction, simulationTimeMs }: { 
       group.worldToLocal(leftHandLocalPosition.current.copy(leftHandWorldPosition.current));
       group.worldToLocal(rightHandLocalPosition.current.copy(rightHandWorldPosition.current));
 
-      const singleLeftGrip = checkoutLoading !== null || ["PICK_PRODUCT", "UNLOAD", "LEAVE_RETURNS", "RETURN_CART"].includes(customer.state);
+      const singleLeftGrip = checkoutLoading !== null || ["PICK_PRODUCT", "UNLOAD", "PAY", "LEAVE_RETURNS", "RETURN_CART"].includes(customer.state);
       const settlingAfterCartPickup = customer.state === "NAVIGATE_TO_PRODUCT"
         && customer.currentLine === 0
         && customer.shoppingList.every((line) => line.picked === 0)
         && stateElapsedMs < 240;
       const singleRightGrip = ["GET_CART", "BUILD_SHOPPING_LIST", "TAKE_BAG"].includes(customer.state) || settlingAfterCartPickup;
-      let handleWidth = CART_HANDLE_BASE_WIDTH;
       if (singleLeftGrip) {
         gripLocalPosition.current.copy(leftHandLocalPosition.current);
         desiredCartPosition.current.x = gripLocalPosition.current.x + CART_HANDLE_BASE_WIDTH * CART_SCALE * 0.5;
@@ -229,16 +234,15 @@ export function Customer({ customer, checkoutTransaction, simulationTimeMs }: { 
         desiredCartPosition.current.x = gripLocalPosition.current.x - CART_HANDLE_BASE_WIDTH * CART_SCALE * 0.5;
       } else {
         gripLocalPosition.current.copy(leftHandLocalPosition.current).add(rightHandLocalPosition.current).multiplyScalar(0.5);
-        handleWidth = THREE.MathUtils.clamp(Math.abs(rightHandLocalPosition.current.x - leftHandLocalPosition.current.x) / CART_SCALE, 0.64, 0.9);
         desiredCartPosition.current.x = gripLocalPosition.current.x;
       }
       desiredCartPosition.current.y = 0;
       desiredCartPosition.current.z = gripLocalPosition.current.z - CART_HANDLE_Z * CART_SCALE;
-      // The handle is the physical constraint driven by the animated hands.
-      // Do not ease its socket independently: doing so creates a visible gap
-      // whenever the arm pose crosses an animation boundary.
-      cartHandle.current.position.y = THREE.MathUtils.clamp(gripLocalPosition.current.y / CART_SCALE, 0.7, 1.18);
-      cartHandle.current.scale.x = handleWidth / CART_HANDLE_BASE_WIDTH;
+      // The handle is a rigid part of the cart. The arm chains close the final
+      // animated gap below; changing its height or width would make the metal
+      // frame visibly breathe at clip boundaries.
+      cartHandle.current.position.y = CART_HANDLE_Y;
+      cartHandle.current.scale.x = 1;
 
       if (customer.state === "GET_CART" || customer.state === "RETURN_CART") {
         const pointInParent = pickupPoint.current.set(CART_BAY_POSITION[0], 0, CART_BAY_POSITION[1]);
@@ -284,12 +288,28 @@ export function Customer({ customer, checkoutTransaction, simulationTimeMs }: { 
       cartHandle.current.getWorldPosition(cartHandleWorldPosition.current);
       cartHandle.current.getWorldQuaternion(cartHandleWorldQuaternion.current);
       cartHandleAxis.current.set(1, 0, 0).applyQuaternion(cartHandleWorldQuaternion.current).normalize();
-      const halfHandleWorld = CART_HANDLE_BASE_WIDTH * 0.5 * CART_SCALE * WORLD_SCALE * cartHandle.current.scale.x;
+      const halfHandleWorld = CART_HANDLE_BASE_WIDTH * 0.5 * CART_SCALE * WORLD_SCALE;
       cartHandleEndA.current.copy(cartHandleWorldPosition.current).addScaledVector(cartHandleAxis.current, halfHandleWorld);
       cartHandleEndB.current.copy(cartHandleWorldPosition.current).addScaledVector(cartHandleAxis.current, -halfHandleWorld);
-      leftGripDistance = Math.min(leftHandWorldPosition.current.distanceTo(cartHandleEndA.current), leftHandWorldPosition.current.distanceTo(cartHandleEndB.current));
-      rightGripDistance = Math.min(rightHandWorldPosition.current.distanceTo(cartHandleEndA.current), rightHandWorldPosition.current.distanceTo(cartHandleEndB.current));
-      handleGripDistance = singleLeftGrip ? leftGripDistance : singleRightGrip ? rightGripDistance : Math.max(leftGripDistance, rightGripDistance);
+      assignCartGripTargets(
+        leftHandWorldPosition.current,
+        rightHandWorldPosition.current,
+        cartHandleEndA.current,
+        cartHandleEndB.current,
+        leftGripTarget.current,
+        rightGripTarget.current,
+      );
+      if (cartVisible) {
+        if (!singleRightGrip && leftGripChain) cartGripSolver.solve(leftGripChain, leftGripTarget.current);
+        if (!singleLeftGrip && rightGripChain) cartGripSolver.solve(rightGripChain, rightGripTarget.current);
+        leftHand.updateWorldMatrix(true, false);
+        rightHand.updateWorldMatrix(true, false);
+        leftHand.getWorldPosition(leftHandWorldPosition.current);
+        rightHand.getWorldPosition(rightHandWorldPosition.current);
+        leftGripDistance = leftHandWorldPosition.current.distanceTo(leftGripTarget.current);
+        rightGripDistance = rightHandWorldPosition.current.distanceTo(rightGripTarget.current);
+        handleGripDistance = singleLeftGrip ? leftGripDistance : singleRightGrip ? rightGripDistance : Math.max(leftGripDistance, rightGripDistance);
+      }
     }
     cartWasVisible.current = cartVisible;
     previousHeading.current = group.rotation.y;
@@ -419,6 +439,13 @@ function collectMorphMeshes(model: THREE.Group) {
   return meshes;
 }
 
+function collectCartGripChain(model: THREE.Group, side: "L" | "R"): CartGripChain | null {
+  const upperArm = model.getObjectByName(`Rig_Arm_${side}`);
+  const forearm = model.getObjectByName(`Forearm_${side}`);
+  const hand = model.getObjectByName(`Hand_${side}`);
+  return upperArm && forearm && hand ? { upperArm, forearm, hand } : null;
+}
+
 function customerAnimation(customer: CustomerRuntimeState, elapsed = 0, checkoutLoading = false): CustomerAnimation {
   switch (customer.state) {
     case "ENTER_STORE": return "Enter";
@@ -474,11 +501,69 @@ function GroundingShadow() {
 const CART_BOX_GEOMETRY = new THREE.BoxGeometry(1, 1, 1);
 const CART_CYLINDER_GEOMETRY = new THREE.CylinderGeometry(1, 1, 1, 12);
 const CART_WHEEL_GEOMETRY = new THREE.CylinderGeometry(CUSTOMER_CART_WHEEL_RADIUS, CUSTOMER_CART_WHEEL_RADIUS, 0.055, 14);
-const CART_METAL_MATERIAL = new THREE.MeshStandardMaterial({ color: "#8c9995", metalness: 0.64, roughness: 0.28 });
-const CART_DARK_METAL_MATERIAL = new THREE.MeshStandardMaterial({ color: "#53615d", metalness: 0.54, roughness: 0.38 });
-const CART_GRIP_MATERIAL = new THREE.MeshStandardMaterial({ color: "#3f6e54", roughness: 0.48, metalness: 0.06 });
-const CART_WHEEL_MATERIAL = new THREE.MeshStandardMaterial({ color: "#202725", roughness: 0.78 });
-const CART_PANEL_MATERIAL = new THREE.MeshStandardMaterial({ color: "#426f58", roughness: 0.58 });
+const CART_HUB_GEOMETRY = new THREE.CylinderGeometry(0.032, 0.032, 0.062, 12);
+const CART_METAL_MATERIAL = new THREE.MeshStandardMaterial({ color: "#a1aca8", metalness: 0.62, roughness: 0.3 });
+const CART_DARK_METAL_MATERIAL = new THREE.MeshStandardMaterial({ color: "#56635f", metalness: 0.48, roughness: 0.4 });
+const CART_GRIP_MATERIAL = new THREE.MeshStandardMaterial({ color: "#315f4d", roughness: 0.55, metalness: 0.04 });
+const CART_WHEEL_MATERIAL = new THREE.MeshStandardMaterial({ color: "#252b29", roughness: 0.82 });
+const CART_PANEL_MATERIAL = new THREE.MeshStandardMaterial({ color: "#426f5d", roughness: 0.62 });
+
+type CartTubeTransform = Readonly<{
+  key: string;
+  position: readonly [number, number, number];
+  quaternion: THREE.Quaternion;
+  scale: readonly [number, number, number];
+  dark?: boolean;
+}>;
+
+function cartTube(key: string, from: readonly [number, number, number], to: readonly [number, number, number], radius: number, dark = false): CartTubeTransform {
+  const start = new THREE.Vector3(...from);
+  const end = new THREE.Vector3(...to);
+  const direction = end.clone().sub(start);
+  const length = direction.length();
+  return {
+    key,
+    position: start.add(end).multiplyScalar(0.5).toArray(),
+    quaternion: new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.normalize()),
+    scale: [radius, length, radius],
+    dark,
+  };
+}
+
+const CART_BASKET_TOP = {
+  leftRear: [-0.37, 0.75, -0.25] as const,
+  rightRear: [0.37, 0.75, -0.25] as const,
+  leftFront: [-0.4, 0.75, 0.34] as const,
+  rightFront: [0.4, 0.75, 0.34] as const,
+};
+const CART_BASKET_BOTTOM = {
+  leftRear: [-0.28, 0.34, -0.19] as const,
+  rightRear: [0.28, 0.34, -0.19] as const,
+  leftFront: [-0.31, 0.34, 0.27] as const,
+  rightFront: [0.31, 0.34, 0.27] as const,
+};
+const CART_TUBES: readonly CartTubeTransform[] = [
+  cartTube("top-rear", CART_BASKET_TOP.leftRear, CART_BASKET_TOP.rightRear, 0.014),
+  cartTube("top-front", CART_BASKET_TOP.leftFront, CART_BASKET_TOP.rightFront, 0.014),
+  cartTube("top-left", CART_BASKET_TOP.leftRear, CART_BASKET_TOP.leftFront, 0.014),
+  cartTube("top-right", CART_BASKET_TOP.rightRear, CART_BASKET_TOP.rightFront, 0.014),
+  cartTube("bottom-rear", CART_BASKET_BOTTOM.leftRear, CART_BASKET_BOTTOM.rightRear, 0.012),
+  cartTube("bottom-front", CART_BASKET_BOTTOM.leftFront, CART_BASKET_BOTTOM.rightFront, 0.012),
+  cartTube("bottom-left", CART_BASKET_BOTTOM.leftRear, CART_BASKET_BOTTOM.leftFront, 0.012),
+  cartTube("bottom-right", CART_BASKET_BOTTOM.rightRear, CART_BASKET_BOTTOM.rightFront, 0.012),
+  cartTube("corner-left-rear", CART_BASKET_BOTTOM.leftRear, CART_BASKET_TOP.leftRear, 0.013),
+  cartTube("corner-right-rear", CART_BASKET_BOTTOM.rightRear, CART_BASKET_TOP.rightRear, 0.013),
+  cartTube("corner-left-front", CART_BASKET_BOTTOM.leftFront, CART_BASKET_TOP.leftFront, 0.013),
+  cartTube("corner-right-front", CART_BASKET_BOTTOM.rightFront, CART_BASKET_TOP.rightFront, 0.013),
+  ...[-0.23, -0.075, 0.075, 0.23].map((x) => cartTube(`basket-long-${x}`, [x, 0.34, -0.19], [x * 1.34, 0.75, 0.34], 0.008)),
+  ...[-0.08, 0.09, 0.25].flatMap((z) => [-1, 1].map((side) => cartTube(`basket-side-${side}-${z}`, [side * 0.29, 0.39, z], [side * 0.39, 0.7, z + 0.035], 0.008))),
+  cartTube("handle-stay-left", CART_BASKET_TOP.leftRear, [-0.39, CART_HANDLE_Y, CART_HANDLE_Z], 0.018, true),
+  cartTube("handle-stay-right", CART_BASKET_TOP.rightRear, [0.39, CART_HANDLE_Y, CART_HANDLE_Z], 0.018, true),
+  cartTube("chassis-left", [-0.3, 0.14, -0.24], [-0.31, 0.27, 0.28], 0.019, true),
+  cartTube("chassis-right", [0.3, 0.14, -0.24], [0.31, 0.27, 0.28], 0.019, true),
+  cartTube("rear-axle", [-0.34, 0.14, -0.22], [0.34, 0.14, -0.22], 0.016, true),
+  cartTube("front-axle", [-0.34, 0.14, 0.27], [0.34, 0.14, 0.27], 0.016, true),
+];
 
 type CustomerCartProps = {
   inventory: CustomerRuntimeState["basket"];
@@ -494,21 +579,13 @@ const CustomerCart = forwardRef<THREE.Group, CustomerCartProps>(function Custome
   const units = (Object.entries(inventory) as [ProductId, number][])
     .flatMap(([productId, quantity]) => Array.from({ length: Math.min(quantity, compact ? 2 : 3) }, () => productId))
     .slice(0, compact ? 5 : 8);
-  const rails: { key: string; position: [number, number, number]; scale: [number, number, number] }[] = [
-    { key: "floor", position: [0, 0.31, 0.05], scale: [0.72, 0.035, 0.58] },
-    ...[-0.36, 0.36].flatMap((x) => [
-      { key: `upright-${x}-rear`, position: [x, 0.52, -0.25] as [number, number, number], scale: [0.035, 0.46, 0.035] as [number, number, number] },
-      { key: `upright-${x}-front`, position: [x, 0.52, 0.34] as [number, number, number], scale: [0.035, 0.46, 0.035] as [number, number, number] },
-      ...[0.34, 0.49, 0.65, 0.74].map((y) => ({ key: `side-${x}-${y}`, position: [x, y, 0.045] as [number, number, number], scale: [0.035, 0.027, 0.62] as [number, number, number] })),
-    ]),
-    ...[0.34, 0.5, 0.66, 0.75].flatMap((y) => [-0.25, 0.34].map((z) => ({ key: `cross-${y}-${z}`, position: [0, y, z] as [number, number, number], scale: [0.75, 0.027, 0.035] as [number, number, number] }))),
-  ];
   return <group ref={ref} position={[0, 0, 0.46]} scale={CART_SCALE} visible={false} dispose={null}>
-    {rails.map((rail) => <mesh key={rail.key} geometry={CART_BOX_GEOMETRY} material={CART_METAL_MATERIAL} position={rail.position} scale={rail.scale} />)}
-    <mesh geometry={CART_BOX_GEOMETRY} material={CART_PANEL_MATERIAL} position={[0, 0.63, -0.27]} scale={[0.68, 0.22, 0.045]} />
-    <mesh geometry={CART_BOX_GEOMETRY} material={CART_DARK_METAL_MATERIAL} position={[0, 0.22, -0.12]} rotation={[-0.12, 0, 0]} scale={[0.68, 0.055, 0.49]} />
-    {[-0.31, 0.31].map((x) => <mesh key={`support-${x}`} geometry={CART_BOX_GEOMETRY} material={CART_DARK_METAL_MATERIAL} position={[x, 0.53, -0.3]} rotation={[-0.41, 0, 0]} scale={[0.04, 0.64, 0.04]} />)}
-    <group ref={handleRef} position={[0, 0.82, CART_HANDLE_Z]}>
+    {CART_TUBES.map((tube) => <mesh key={tube.key} geometry={CART_CYLINDER_GEOMETRY} material={tube.dark ? CART_DARK_METAL_MATERIAL : CART_METAL_MATERIAL} position={tube.position} quaternion={tube.quaternion} scale={tube.scale} />)}
+    <mesh geometry={CART_BOX_GEOMETRY} material={CART_DARK_METAL_MATERIAL} position={[0, 0.27, 0.04]} scale={[0.64, 0.032, 0.5]} />
+    <mesh geometry={CART_BOX_GEOMETRY} material={CART_PANEL_MATERIAL} position={[0, 0.65, -0.265]} rotation={[-0.05, 0, 0]} scale={[0.54, 0.21, 0.035]} />
+    <mesh geometry={CART_BOX_GEOMETRY} material={CART_PANEL_MATERIAL} position={[0, 0.545, -0.13]} rotation={[-0.08, 0, 0]} scale={[0.5, 0.035, 0.24]} />
+    <mesh geometry={CART_BOX_GEOMETRY} material={CART_DARK_METAL_MATERIAL} position={[0, 0.455, -0.205]} scale={[0.04, 0.15, 0.04]} />
+    <group ref={handleRef} position={[0, CART_HANDLE_Y, CART_HANDLE_Z]}>
       <mesh geometry={CART_CYLINDER_GEOMETRY} material={CART_GRIP_MATERIAL} rotation={[0, 0, Math.PI / 2]} scale={[0.04, CART_HANDLE_BASE_WIDTH, 0.04]} />
       {[-0.5, 0.5].map((side) => <mesh key={side} geometry={CART_CYLINDER_GEOMETRY} material={CART_DARK_METAL_MATERIAL} position={[side * CART_HANDLE_BASE_WIDTH, 0, 0]} rotation={[0, 0, Math.PI / 2]} scale={[0.052, 0.07, 0.052]} />)}
     </group>
@@ -531,10 +608,12 @@ const CustomerCart = forwardRef<THREE.Group, CustomerCartProps>(function Custome
 
 function CartCaster({ casterRef, wheelRef, position }: { casterRef: RefObject<THREE.Group | null>; wheelRef: RefObject<THREE.Group | null>; position: [number, number, number] }) {
   return <group ref={casterRef} position={position}>
-    <mesh geometry={CART_BOX_GEOMETRY} material={CART_DARK_METAL_MATERIAL} position={[0, 0.065, 0]} scale={[0.035, 0.13, 0.035]} />
+    <mesh geometry={CART_CYLINDER_GEOMETRY} material={CART_DARK_METAL_MATERIAL} position={[0, 0.07, 0]} scale={[0.022, 0.14, 0.022]} />
+    {[-0.042, 0.042].map((x) => <mesh key={x} geometry={CART_BOX_GEOMETRY} material={CART_DARK_METAL_MATERIAL} position={[x, 0.025, 0]} scale={[0.012, 0.07, 0.026]} />)}
     <group ref={wheelRef}>
       <mesh geometry={CART_WHEEL_GEOMETRY} material={CART_WHEEL_MATERIAL} rotation={[0, 0, Math.PI / 2]} />
-      <mesh rotation={[0, Math.PI / 2, 0]}><torusGeometry args={[0.045, 0.008, 5, 12]} /><meshStandardMaterial color="#707b77" metalness={0.68} roughness={0.28} /></mesh>
+      <mesh geometry={CART_HUB_GEOMETRY} material={CART_METAL_MATERIAL} rotation={[0, 0, Math.PI / 2]} />
+      <mesh geometry={CART_BOX_GEOMETRY} material={CART_METAL_MATERIAL} position={[0, 0.038, 0]} scale={[0.063, 0.01, 0.014]} />
     </group>
   </group>;
 }

@@ -4,26 +4,63 @@ import { clone } from "three/examples/jsm/utils/SkeletonUtils.js";
 
 export type CharacterBuild = "adult" | "child";
 
+export type CharacterSoleProfile = Readonly<{
+  width: number;
+  thickness: number;
+  length: number;
+  centerZ: number;
+  bevel: number;
+}>;
+
 interface CharacterPresentationOptions {
   build?: CharacterBuild;
   crowd?: boolean;
+  /** Legacy repair path for third-party GLBs whose shoe bottom is open. The
+   * current market cast already contains a rigged outsole baked by Blender. */
+  repairOpenSoles?: boolean;
 }
 
-const soleGeometries: Record<CharacterBuild, RoundedBoxGeometry> = {
-  adult: new RoundedBoxGeometry(0.17, 0.036, 0.31, 3, 0.016),
-  child: new RoundedBoxGeometry(0.135, 0.029, 0.235, 3, 0.013),
+/**
+ * The reconstructed GLBs already contain the visible shoe upper. This shared
+ * insert only seals the underside, so it must stay inside that silhouette.
+ * In particular it is centred on the Foot bone: offsetting it towards the toe
+ * turns the insert into a detached, flipper-like slab during a step.
+ */
+export const CHARACTER_SOLE_PROFILES: Readonly<Record<CharacterBuild, CharacterSoleProfile>> = {
+  adult: Object.freeze({ width: 0.154, thickness: 0.024, length: 0.242, centerZ: 0, bevel: 0.011 }),
+  child: Object.freeze({ width: 0.12, thickness: 0.02, length: 0.188, centerZ: 0, bevel: 0.009 }),
 };
 
-const soleMaterial = new THREE.MeshPhysicalMaterial({
-  color: "#171b1d",
-  roughness: 0.38,
+const soleGeometries: Record<CharacterBuild, RoundedBoxGeometry> = {
+  adult: soleGeometry(CHARACTER_SOLE_PROFILES.adult),
+  child: soleGeometry(CHARACTER_SOLE_PROFILES.child),
+};
+
+const soleMaterial = new THREE.MeshStandardMaterial({
+  color: "#1d211f",
+  roughness: 0.82,
   metalness: 0,
-  clearcoat: 0.2,
-  clearcoatRoughness: 0.5,
-  envMapIntensity: 0.72,
+  envMapIntensity: 0.42,
 });
 soleMaterial.name = "RuntimePremiumSole";
 soleMaterial.userData.characterSharedResource = true;
+
+const preparedCharacterMaps = new WeakSet<THREE.Texture>();
+const CHARACTER_MAP_SLOTS = [
+  "map",
+  "normalMap",
+  "roughnessMap",
+  "metalnessMap",
+  "emissiveMap",
+  "alphaMap",
+  "aoMap",
+] as const;
+
+function soleGeometry(profile: CharacterSoleProfile) {
+  const geometry = new RoundedBoxGeometry(profile.width, profile.thickness, profile.length, 2, profile.bevel);
+  geometry.computeBoundingBox();
+  return geometry;
+}
 
 /**
  * Creates an instance-local skeleton and material set while keeping the heavy
@@ -46,7 +83,7 @@ export function prepareCharacterModel(source: THREE.Group, options: CharacterPre
       : premiumMaterial(object.material, crowd);
   });
 
-  attachClosedSoles(model, options.build ?? "adult", crowd);
+  if (options.repairOpenSoles) attachClosedSoles(model, options.build ?? "adult", crowd);
   return model;
 }
 
@@ -66,6 +103,7 @@ export function disposeCharacterMaterials(model: THREE.Group) {
 
 function premiumMaterial(source: THREE.Material, crowd: boolean) {
   const material = source.clone();
+  prepareSharedCharacterMaps(material);
   if (!(material instanceof THREE.MeshStandardMaterial)) return material;
 
   const name = material.name.toLowerCase();
@@ -97,10 +135,31 @@ function premiumMaterial(source: THREE.Material, crowd: boolean) {
   return material;
 }
 
+function prepareSharedCharacterMaps(material: THREE.Material) {
+  const mappedMaterial = material as THREE.Material & Partial<Record<(typeof CHARACTER_MAP_SLOTS)[number], THREE.Texture | null>>;
+  for (const slot of CHARACTER_MAP_SLOTS) {
+    const texture = mappedMaterial[slot];
+    if (!(texture instanceof THREE.Texture) || preparedCharacterMaps.has(texture)) continue;
+    texture.anisotropy = Math.max(8, texture.anisotropy);
+    texture.magFilter = THREE.LinearFilter;
+    const canGenerateMipmaps = !(texture instanceof THREE.CompressedTexture)
+      && !(texture instanceof THREE.VideoTexture)
+      && !(texture instanceof THREE.Data3DTexture)
+      && !(texture instanceof THREE.DataArrayTexture);
+    if (canGenerateMipmaps) {
+      texture.generateMipmaps = true;
+      texture.minFilter = THREE.LinearMipmapLinearFilter;
+    } else {
+      texture.minFilter = texture.mipmaps.length > 1 ? THREE.LinearMipmapLinearFilter : THREE.LinearFilter;
+    }
+    texture.needsUpdate = true;
+    preparedCharacterMaps.add(texture);
+  }
+}
+
 function attachClosedSoles(model: THREE.Group, build: CharacterBuild, crowd: boolean) {
+  const profile = CHARACTER_SOLE_PROFILES[build];
   const geometry = soleGeometries[build];
-  const thickness = build === "child" ? 0.029 : 0.036;
-  const centerZ = build === "child" ? -0.083 : -0.11;
   model.updateWorldMatrix(true, true);
   const groundY = new THREE.Box3().setFromObject(model).min.y;
   const origin = new THREE.Vector3();
@@ -115,16 +174,17 @@ function attachClosedSoles(model: THREE.Group, build: CharacterBuild, crowd: boo
     // Solve the bone-local Y position from the actual rest-pose ground. This
     // keeps every adult, senior and child outsole flush even though their
     // ankle heights differ by more than four centimetres.
-    const targetCenterY = groundY + thickness * 0.5 + 0.0015;
+    const targetCenterY = groundY + profile.thickness * 0.5 + 0.0015;
     const centerY = Math.abs(localYAxis.y) > 0.4
-      ? (targetCenterY - origin.y - centerZ * localZAxis.y) / localYAxis.y
+      ? (targetCenterY - origin.y - profile.centerZ * localZAxis.y) / localYAxis.y
       : build === "child" ? 0.063 : 0.096;
     const sole = new THREE.Mesh(geometry, soleMaterial);
     sole.name = `PremiumSole_${side}`;
-    sole.position.set(0, centerY, centerZ);
+    sole.position.set(0, centerY, profile.centerZ);
     sole.castShadow = !crowd;
     sole.receiveShadow = true;
     sole.userData.characterSharedResource = true;
+    sole.userData.characterSoleBuild = build;
     foot.add(sole);
   }
 }

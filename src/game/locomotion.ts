@@ -1,4 +1,4 @@
-import { CHECKOUT_LANES, checkoutQueuePosition } from "./stations/checkout-layout";
+import { CHECKOUT_LANES, checkoutQueueArrival, checkoutQueuePosition } from "./stations/checkout-layout";
 
 const FULL_TURN = Math.PI * 2;
 
@@ -47,7 +47,7 @@ export interface VisitorRoute {
 }
 
 export const VISITOR_ROUTES: Record<number, VisitorRoute> = {
-  1: { browse: [-4.1, -0.9], queue: checkoutQueuePosition(0), enterVia: [[-2.2, 5.6], [-2.2, 0.45]], queueVia: [[-4.1, 0.45], [5.35, 0.45]] },
+  1: { browse: [-4.1, -0.9], queue: checkoutQueuePosition(0), enterVia: [[-2.2, 5.6], [-2.2, 0.45]], queueVia: [[-4.1, 0.45], [5.35, 0.45], [5.35, 2.07], [7, 2.07]] },
   2: { browse: [0, -3.35], queue: checkoutQueuePosition(1), enterVia: [[2.15, 5.6], [2.15, -3.35]], queueVia: [[2.15, -3.35], [5.35, -3.35]] },
   3: { browse: [4.1, -0.9], queue: checkoutQueuePosition(2), enterVia: [[2.2, 5.6], [2.2, 0.45]], queueVia: [[5.35, -0.9]] },
   4: { browse: [-4.0, 4.15], queue: checkoutQueuePosition(3), enterVia: [[-2.2, 5.6]], queueVia: [[5.35, 4.15]] },
@@ -56,6 +56,8 @@ export const VISITOR_ROUTES: Record<number, VisitorRoute> = {
 };
 
 const CUSTOMER_CHECKOUT: Point = [...CHECKOUT_LANES[0].customerFront];
+const CUSTOMER_CHECKOUT_APPROACH: Point = [...checkoutQueueArrival(0, 0)[0]];
+const CUSTOMER_QUEUE_CORNER: Point = [CHECKOUT_LANES[0].queueStart[0], CUSTOMER_CHECKOUT_APPROACH[1]];
 
 export function sampleVisitorJourney(time: number, entryX: number, route: VisitorRoute, confused = false): VisitorPose {
   const { browse, queue } = route;
@@ -89,7 +91,10 @@ export function sampleVisitorJourney(time: number, entryX: number, route: Visito
     animation = confused ? "Confused" : "Queue";
   } else if (time < 30.5) {
     const progress = travelProgress((time - 29) / 1.5, 0.2);
-    position = mixPoint(queue, CUSTOMER_CHECKOUT, progress);
+    const checkoutPath = Math.hypot(queue[0] - CUSTOMER_CHECKOUT[0], queue[1] - CUSTOMER_CHECKOUT[1]) < 0.05
+      ? [queue, CUSTOMER_CHECKOUT]
+      : [queue, CUSTOMER_QUEUE_CORNER, CUSTOMER_CHECKOUT_APPROACH, CUSTOMER_CHECKOUT];
+    position = mixPath(checkoutPath, progress);
     target = CUSTOMER_CHECKOUT;
     animation = "CarryBasket";
   } else if (time < 33) {
@@ -106,7 +111,7 @@ export function sampleVisitorJourney(time: number, entryX: number, route: Visito
     animation = "ReceiveBag";
   } else if (time < 41) {
     const progress = travelProgress((time - 37) / 4);
-    const exitPath = [CUSTOMER_CHECKOUT, [5.35, 5.6], [entryX, 5.6], [entryX, 8.65]] satisfies Point[];
+    const exitPath = [CUSTOMER_CHECKOUT, [5.35, 2.85], [5.35, 5.6], [entryX, 5.6], [entryX, 8.65]] satisfies Point[];
     position = mixPath(exitPath, progress);
     target = mixPath(exitPath, Math.min(1, progress + 0.025));
     animation = "Exit";

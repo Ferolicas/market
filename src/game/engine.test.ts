@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { advanceWorld, applyGameAction, CHECKOUT_SCAN_UNIT_MS, createInitialGame, employeeHiringQuote, normalizeGameState, unlockedCustomerProducts, upgradeQuote } from "./engine";
 import type { CheckoutTransaction, CustomerRuntimeState, GameState, PaymentMethod } from "./types";
-import { CHECKOUT_LANES } from "./stations/checkout-layout";
+import { CHECKOUT_LANES, checkoutQueueArrival } from "./stations/checkout-layout";
 import { createCustomerMind } from "./ai/CustomerBrain";
 
 function addReadyCheckout(state: GameState, id: string, paymentMethod: PaymentMethod) {
   const customer = {
     id, identity: 1, state: "WAIT_CHECKOUT", shoppingList: [{ productId: "apples", requested: 1, picked: 1 }], currentLine: 1,
     basket: { apples: 1 }, patienceMs: 10_000, checkoutPatienceMs: 300_000, waitingSince: null, queueSlot: 0, transactionId: `${id}-tx`, hasCart: true, hasBag: false, angry: false,
-    x: 5.45, z: 3.95, targetX: 5.45, targetZ: 3.95, path: [], pathIndex: 0, speed: 1.4, stateSince: state.simulationTimeMs, reservedSocketId: null, blockedSince: null, routeFailures: 0,
+    x: CHECKOUT_LANES[0].customerFront[0], z: CHECKOUT_LANES[0].customerFront[1], targetX: CHECKOUT_LANES[0].customerFront[0], targetZ: CHECKOUT_LANES[0].customerFront[1], path: [], pathIndex: 0, speed: 1.4, stateSince: state.simulationTimeMs, reservedSocketId: null, blockedSince: null, routeFailures: 0,
   } satisfies CustomerRuntimeState;
   const transaction = {
     id: `${id}-tx`, customerId: id, pendingItems: [{ productId: "apples", quantity: 1, loaded: 1, scanned: 0, bagged: 0 }], paymentMethod,
@@ -51,6 +51,23 @@ describe("motor económico", () => {
     expect(state.franchises[0].carry.items.tomatoes).toBe(2);
   });
 
+  it("confirma surtido real por proximidad sin dejar una cesta fantasma al vaciar la última unidad", () => {
+    const state = createInitialGame("ES");
+    const franchise = state.franchises[0];
+    franchise.carry = { capacity: 3, items: { tomatoes: 1 } };
+    franchise.shelves.tomatoes = 0;
+
+    const result = advanceWorld(state, 100, undefined, {
+      interactions: [{ type: "STOCK", productId: "tomatoes", quantity: 1, source: "carry" }],
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.state.franchises[0].shelves.tomatoes).toBe(1);
+    expect(result.state.franchises[0].carry.items).toEqual({});
+    expect(result.state.progression.counters["stock:tomatoes"]).toBe(1);
+    expect(result.state.progression.counters["transport:all"]).toBe(1);
+  });
+
   it("recorre waypoints cortos sin detenerse en cada tick", () => {
     const state = createInitialGame("ES");
     state.franchises[0].customers = [{
@@ -65,6 +82,25 @@ describe("motor económico", () => {
     expect(next.x).toBeCloseTo(0.2);
     expect(next.pathIndex).toBe(3);
     expect(next.targetX).toBe(1);
+  });
+
+  it("termina la ruta de caja de frente a la cinta", () => {
+    const state = createInitialGame("ES");
+    state.franchises[0].lastCustomerSpawnAt = 999_999;
+    state.franchises[0].customers = [{
+      id: "checkout-facing", identity: 1, state: "NAVIGATE_TO_QUEUE", shoppingList: [{ productId: "apples", requested: 1, picked: 1 }], currentLine: 1,
+      basket: { apples: 1 }, patienceMs: 10_000, checkoutPatienceMs: 300_000, waitingSince: null, queueSlot: null, queueLane: 0,
+      queueJoinedAt: 0, transactionId: null, hasCart: true, hasBag: false, angry: false, x: 2.2, z: 0.45, targetX: 2.2, targetZ: 0.45,
+      path: [], pathIndex: 0, speed: 1.4, currentSpeed: 0, stateSince: 0, reservedSocketId: null, blockedSince: null, routeFailures: 0,
+    }];
+    const directPathfinder = (_start: [number, number], target: [number, number]) => [target];
+
+    const customer = advanceWorld(state, 1, directPathfinder).state.franchises[0].customers[0];
+    const [approach, destination] = checkoutQueueArrival(0, 0);
+
+    expect(customer.path.slice(-2)).toEqual([approach, destination]);
+    expect(destination[0] - approach[0]).toBe(0);
+    expect(destination[1] - approach[1]).toBeGreaterThan(0);
   });
 
   it("mantiene la velocidad por nivel del trabajador sin frenar en waypoints cortos", () => {

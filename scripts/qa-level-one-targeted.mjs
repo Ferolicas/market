@@ -62,7 +62,9 @@ await moveTo(page, [0, 17.2], 0.6);
 await page.waitForTimeout(1_100);
 await moveTo(page, [0, 13.8], 0.55);
 await moveTo(page, [-4, 7], 0.6);
-await moveTo(page, [-8.2, 2.16], 0.65);
+await page.waitForFunction(() => window.__MARKET_QA__?.stockingTarget?.sensorEnabled && window.__MARKET_QA__?.stockingTarget?.productId === "tomatoes", null, { timeout: 5_000 });
+const stockingTarget = await page.evaluate(() => structuredClone(window.__MARKET_QA__.stockingTarget));
+await moveTo(page, [stockingTarget.x, stockingTarget.z], 0.65);
 try {
   await page.waitForFunction((before) => window.__MARKET_QA__?.state?.franchises?.[0]?.shelves?.tomatoes > before && !(window.__MARKET_QA__.state.franchises[0].carry.items?.tomatoes > 0), initial.shelves.tomatoes, { timeout: 12_000 });
 } catch (error) {
@@ -82,7 +84,7 @@ const webgl = await page.locator("canvas").first().evaluate((canvas) => {
 });
 const movementDistance = Math.hypot(harvested.player.x - walkStartedAt.x, harvested.player.z - walkStartedAt.z);
 const savedConfirmationVisible = await page.evaluate(() => document.body.innerText.includes("Partida guardada") || [...document.querySelectorAll(".save-chip")].some((element) => element.getAttribute("aria-hidden") !== "true" && element.textContent?.trim() === "Guardado"));
-const report = { email, initial, ready, harvested, stocked, movement: { distance: movementDistance, workstationAtHarvest: harvested.workstation }, savedConfirmationVisible, webgl, consoleErrors, pageErrors, failedResponses };
+const report = { email, initial, ready, harvested, stockingTarget, stocked, movement: { distance: movementDistance, workstationAtHarvest: harvested.workstation }, savedConfirmationVisible, webgl, consoleErrors, pageErrors, failedResponses };
 await fs.writeFile(path.join(output, "report.json"), JSON.stringify(report, null, 2));
 await browser.close();
 console.log(JSON.stringify(report, null, 2));

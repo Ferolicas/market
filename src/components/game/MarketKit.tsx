@@ -14,13 +14,14 @@ import { marketAsset } from "@/game/assets/AssetRegistry";
 
 type Position = [number, number, number];
 
-const WALL_SHELF_LOW_LEVELS = [0.48, 1.03] as const;
-const WALL_SHELF_TALL_LEVELS = [0.48, 1.03, 1.58, 2.1] as const;
-const GONDOLA_LEVELS = [0.38, 0.83, 1.28] as const;
+const WALL_SHELF_LOW_LEVELS = [0.32, 0.78] as const;
+const WALL_SHELF_TALL_LEVELS = [0.26, 0.7, 1.14, 1.58, 2.02] as const;
+const GONDOLA_LEVELS = [0.24, 0.6, 0.96, 1.32, 1.68] as const;
 
 interface InstanceTransform {
   position: Position;
   rotation?: Position;
+  quaternion?: [number, number, number, number];
   scale?: Position;
 }
 
@@ -33,6 +34,9 @@ const palette = {
   wood: "#a46f3d",
   soil: "#765035",
   metal: "#87928e",
+  fixtureSteel: "#222a2b",
+  shelf: "#d9dcda",
+  coldInterior: "#dcecef",
 };
 
 function StaticInstances({ transforms, children, castShadow = false, receiveShadow = false }: { transforms: readonly InstanceTransform[]; children: ReactNode; castShadow?: boolean; receiveShadow?: boolean }) {
@@ -43,7 +47,8 @@ function StaticInstances({ transforms, children, castShadow = false, receiveShad
     const dummy = new THREE.Object3D();
     transforms.forEach((transform, index) => {
       dummy.position.set(...transform.position);
-      dummy.rotation.set(...(transform.rotation ?? [0, 0, 0]));
+      if (transform.quaternion) dummy.quaternion.set(...transform.quaternion);
+      else dummy.rotation.set(...(transform.rotation ?? [0, 0, 0]));
       dummy.scale.set(...(transform.scale ?? [1, 1, 1]));
       dummy.updateMatrix();
       mesh.setMatrixAt(index, dummy.matrix);
@@ -96,15 +101,6 @@ function DepartmentSign({ label, color, position = [0, 1.82, 0.03], width = 1.72
     <Box args={[width + 0.1, 0.42, 0.07]} position={[0, -0.025, -0.035]} color={palette.frame} radius={0.055} />
     <Box args={[width, 0.31, 0.09]} color={color} radius={0.045} />
     <Text position={[0, 0, 0.052]} fontSize={0.135} color="#fffaf0" anchorX="center" anchorY="middle" fontWeight={800}>{label}</Text>
-  </group>;
-}
-
-function ShelfMerchandising({ levels, width, z, accent }: { levels: readonly number[]; width: number; z: number; accent: string }) {
-  const rails = useMemo<InstanceTransform[]>(() => levels.map((y) => ({ position: [0, y, z], scale: [width, 0.045, 0.035] })), [levels, width, z]);
-  const tags = useMemo<InstanceTransform[]>(() => levels.flatMap((y) => [-0.3, 0.3].map((offset) => ({ position: [offset * width, y + 0.018, z + 0.021], scale: [0.22, 0.075, 0.018] }))), [levels, width, z]);
-  return <group>
-    <StaticInstances transforms={rails} receiveShadow><boxGeometry args={[1, 1, 1]} /><meshStandardMaterial color={accent} roughness={0.58} metalness={0.08} /></StaticInstances>
-    <StaticInstances transforms={tags}><boxGeometry args={[1, 1, 1]} /><meshStandardMaterial color="#fff6dc" roughness={0.72} /></StaticInstances>
   </group>;
 }
 
@@ -214,7 +210,7 @@ export function KitFurniture({ shelves, machines, customers, checkoutTransaction
     <StoreElement position={retailDisplayPosition("dairy")}><ChilledDisplay position={[0, 0, 0]} milk={shelves.milk} cheese={shelves.cheese} /></StoreElement>
     <StoreElement position={retailDisplayPosition("drinks")}><DrinksDisplay position={[0, 0, 0]} count={shelves.juice} /></StoreElement>
     <StoreElement position={[-7.0, 0, 3.15]}><ProduceRack position={[0, 0, 0]} count={shelves.corn} /></StoreElement>
-    {unlockedAreas.includes("endcap-display") && <StoreElement position={[6.4, 0, -2.2]}><EnvironmentModel id="shelf_endcap" /><group position={[0, 0, 0.72]} scale={0.72}><EnvironmentModel id="display_promo_basket" /></group></StoreElement>}
+    {unlockedAreas.includes("endcap-display") && <StoreElement position={[6.4, 0, -2.2]}><EndcapDisplay productId="coffee" count={shelves.coffee} /></StoreElement>}
 
     <StoreElement position={[...CHECKOUT_LANES[0].counter]}><CheckoutKit position={[0, 0, 0]} lane={0} transaction={activeCheckouts[0]} handoffTransaction={checkoutHandoffs[0]} handoffBagAtCounter={checkoutHandoffLocations[0] === "counter"} /></StoreElement>
     <StoreElement position={[...CHECKOUT_LANES[0].cashierWork]}><CashierWorkArea /></StoreElement>
@@ -254,26 +250,84 @@ function departmentColor(productId: ProductId) {
           : productId === "coffee" ? "pantry" : "bakery"].color;
 }
 
+function FixtureUprights({ width, height, z = -0.34 }: { width: number; height: number; z?: number }) {
+  const posts = useMemo<InstanceTransform[]>(() => [-1, 1].flatMap((side) => [z - 0.03, z + 0.09].map((postZ) => ({
+    position: [side * (width / 2 - 0.055), height / 2, postZ],
+    scale: [0.07, height, 0.07],
+  }))), [height, width, z]);
+  return <StaticInstances transforms={posts} castShadow receiveShadow>
+    <boxGeometry args={[1, 1, 1]} />
+    <meshStandardMaterial color={palette.fixtureSteel} metalness={0.58} roughness={0.34} />
+  </StaticInstances>;
+}
+
+function CommercialShelfBank({ levels, width, depth, z = 0, front = 1, accent }: { levels: readonly number[]; width: number; depth: number; z?: number; front?: -1 | 1; accent: string }) {
+  const decks = useMemo<InstanceTransform[]>(() => levels.map((y) => ({ position: [0, y, z], scale: [width, 0.065, depth] })), [depth, levels, width, z]);
+  const lips = useMemo<InstanceTransform[]>(() => levels.map((y) => ({ position: [0, y + 0.025, z + front * (depth / 2 - 0.006)], scale: [width + 0.035, 0.105, 0.035] })), [depth, front, levels, width, z]);
+  const accents = useMemo<InstanceTransform[]>(() => levels.map((y) => ({ position: [0, y + 0.075, z + front * (depth / 2 + 0.017)], scale: [width * 0.92, 0.062, 0.018] })), [depth, front, levels, width, z]);
+  const tags = useMemo<InstanceTransform[]>(() => levels.flatMap((y) => [-0.31, 0, 0.31].map((offset) => ({ position: [offset * width, y + 0.075, z + front * (depth / 2 + 0.029)], scale: [0.25, 0.055, 0.012] }))), [depth, front, levels, width, z]);
+  return <group>
+    <StaticInstances transforms={decks} receiveShadow><boxGeometry args={[1, 1, 1]} /><meshStandardMaterial color={palette.shelf} roughness={0.66} /></StaticInstances>
+    <StaticInstances transforms={lips} castShadow><boxGeometry args={[1, 1, 1]} /><meshStandardMaterial color={palette.fixtureSteel} metalness={0.45} roughness={0.36} /></StaticInstances>
+    <StaticInstances transforms={accents}><boxGeometry args={[1, 1, 1]} /><meshStandardMaterial color={accent} roughness={0.5} /></StaticInstances>
+    <StaticInstances transforms={tags}><boxGeometry args={[1, 1, 1]} /><meshStandardMaterial color="#fff8e7" roughness={0.78} /></StaticInstances>
+  </group>;
+}
+
+function CommercialBackPanel({ width, height, z, color = "#c5cac7" }: { width: number; height: number; z: number; color?: string }) {
+  const slats = useMemo<InstanceTransform[]>(() => Array.from({ length: 7 }, (_, index) => ({
+    position: [0, 0.22 + index * Math.max(0.2, (height - 0.34) / 6), z + 0.042],
+    scale: [width * 0.86, 0.012, 0.012],
+  })), [height, width, z]);
+  return <group>
+    <Box args={[width, height, 0.075]} position={[0, height / 2, z]} color={color} radius={0.018} />
+    <StaticInstances transforms={slats}><boxGeometry args={[1, 1, 1]} /><meshStandardMaterial color="#747d79" metalness={0.38} roughness={0.42} /></StaticInstances>
+  </group>;
+}
+
 function WallShelf({ position, width, productId, count, low = false }: { position: Position; width: number; productId: ProductId; count: number; low?: boolean }) {
-  const perRow = Math.floor(width * 4);
+  const perRow = Math.floor(width * 4.2);
   const levels = low ? WALL_SHELF_LOW_LEVELS : WALL_SHELF_TALL_LEVELS;
+  const height = low ? 1.12 : 2.27;
+  const accent = departmentColor(productId);
   return <group position={position}>
-    <EnvironmentModel id={low ? "shelf_wall_low" : "shelf_wall_tall"} />
-    {levels.map((y, row) => <RetailProductRow key={y} productId={productId} y={y + 0.16} z={0.48} count={Math.min(perRow, Math.max(0, count - row * perRow))} />)}
-    <ShelfMerchandising levels={levels} width={1.86} z={0.53} accent={departmentColor(productId)} />
-    <DepartmentSign label={PRODUCTS_LABELS[productId]} color={departmentColor(productId)} position={[0, low ? 1.42 : 2.42, 0.08]} width={1.88} />
+    <Box args={[width + 0.12, 0.16, 0.8]} position={[0, 0.08, 0]} color={palette.fixtureSteel} radius={0.028} />
+    <CommercialBackPanel width={width} height={height} z={-0.34} color={productId === "bread" ? "#d8c3a2" : "#c6cbc8"} />
+    <FixtureUprights width={width + 0.08} height={height + 0.08} z={-0.34} />
+    <CommercialShelfBank levels={levels} width={width - 0.08} depth={0.68} accent={accent} />
+    {levels.map((y, row) => <RetailProductRow key={y} productId={productId} y={y + 0.16} z={0.2} count={Math.min(perRow, Math.max(0, count - row * perRow))} />)}
+    <Box args={[width + 0.16, 0.14, 0.78]} position={[0, height + 0.04, -0.01]} color={palette.fixtureSteel} radius={0.035} />
+    <DepartmentSign label={PRODUCTS_LABELS[productId]} color={accent} position={[0, low ? 1.34 : 2.48, 0.1]} width={width - 0.12} />
   </group>;
 }
 
 function Gondola({ position, productId, count, single = false }: { position: Position; productId: ProductId; count: number; single?: boolean }) {
+  const accent = departmentColor(productId);
+  const sides = single ? [1] as const : [-1, 1] as const;
+  const perRow = 8;
   return <group position={position}>
-    <EnvironmentModel id={single ? "shelf_gondola_single" : "shelf_gondola_double"} />
-    {(single ? [1] : [-1, 1]).map((side, sideIndex) => <group key={side} position={[0, 0, side * 0.31]} rotation={[0, side < 0 ? Math.PI : 0, 0]}>
-      {GONDOLA_LEVELS.map((y, row) => <RetailProductRow key={y} productId={productId} y={y + 0.15} z={0.31} count={Math.min(8, Math.max(0, count - (sideIndex * 3 + row) * 8))} />)}
-      <ShelfMerchandising levels={GONDOLA_LEVELS} width={1.86} z={0.35} accent={departmentColor(productId)} />
+    <Box args={[2.24, 0.16, single ? 0.78 : 1.12]} position={[0, 0.08, single ? -0.11 : 0]} color={palette.fixtureSteel} radius={0.035} />
+    <CommercialBackPanel width={2.08} height={1.82} z={single ? -0.34 : 0} color={productId === "coffee" ? "#b69a77" : "#c6cbc8"} />
+    <FixtureUprights width={2.18} height={1.92} z={single ? -0.34 : 0} />
+    {sides.map((side, sideIndex) => <group key={side}>
+      <CommercialShelfBank levels={GONDOLA_LEVELS} width={2.08} depth={0.52} z={side * (single ? 0.02 : 0.28)} front={side} accent={accent} />
+      <group position={[0, 0, side * (single ? -0.28 : 0.03)]} rotation={[0, side < 0 ? Math.PI : 0, 0]}>
+        {GONDOLA_LEVELS.map((y, row) => <RetailProductRow key={y} productId={productId} y={y + 0.14} z={0.23} count={Math.min(perRow, Math.max(0, count - (sideIndex * GONDOLA_LEVELS.length + row) * perRow))} />)}
+      </group>
     </group>)}
-    <Box args={[2.05, 0.13, 0.86]} position={[0, 0.08, 0]} color={palette.frame} radius={0.045} />
-    <DepartmentSign label={productId === "bread" ? RETAIL_DEPARTMENTS.bakery.label : RETAIL_DEPARTMENTS.pantry.label} color={productId === "bread" ? RETAIL_DEPARTMENTS.bakery.color : RETAIL_DEPARTMENTS.pantry.color} position={[0, 1.82, 0]} width={1.85} />
+    <Box args={[2.3, 0.14, single ? 0.78 : 1.08]} position={[0, 1.88, single ? -0.1 : 0]} color={palette.fixtureSteel} radius={0.03} />
+    <DepartmentSign label={productId === "bread" ? RETAIL_DEPARTMENTS.bakery.label : RETAIL_DEPARTMENTS.pantry.label} color={accent} position={[0, 2.15, single ? 0.08 : 0]} width={2.02} />
+  </group>;
+}
+
+function ProduceBinProducts({ productId, count, position, raised = false }: { productId: ProductId; count: number; position: Position; raised?: boolean }) {
+  return <group position={position} rotation={[raised ? 0.08 : 0.17, 0, 0]}>
+    {Array.from({ length: Math.min(9, count) }, (_, index) => <RetailProduct
+      key={`${productId}-${index}`}
+      productId={productId}
+      position={[(index % 3 - 1) * 0.16, Math.floor(index / 3) * 0.055, (Math.floor(index / 3) - 1) * 0.17]}
+      scale={0.9}
+    />)}
   </group>;
 }
 
@@ -281,51 +335,86 @@ function ProduceTable({ position, tomatoes, apples, corn }: { position: Position
   const productIds: ProductId[] = ["tomatoes", "apples", "corn"];
   const counts = [tomatoes, apples, corn];
   return <group position={position}>
-    <EnvironmentModel id="display_produce_mixed" />
-    <DepartmentSign label={RETAIL_DEPARTMENTS.produce.label} color={RETAIL_DEPARTMENTS.produce.color} position={[0, 1.86, 0.04]} width={1.94} />
-    {[-0.72, 0, 0.72].map((x, column) => <group key={x} position={[x, 0.64, 0]} rotation={[0, 0, column === 1 ? 0 : (column ? -0.13 : 0.13)]}>
-      {Array.from({ length: Math.min(9, counts[column]) }, (_, index) => <RetailProduct key={index} productId={productIds[column]} position={[(index % 3 - 1) * 0.15, 0.15, (Math.floor(index / 3) - 1) * 0.18]} scale={0.88} />)}
+    <Box args={[2.42, 0.12, 1.5]} position={[0, 0.08, 0]} color={palette.fixtureSteel} radius={0.035} />
+    {[-1.08, 1.08].flatMap((x) => [-0.58, 0.58].map((z) => <Box key={`${x}-${z}`} args={[0.09, 0.7, 0.09]} position={[x, 0.39, z]} color={palette.fixtureSteel} radius={0.015} />))}
+    <Box args={[2.28, 0.54, 1.34]} position={[0, 0.43, 0]} color={palette.wood} radius={0.055} />
+    {[-0.92, -0.46, 0, 0.46, 0.92].map((x) => <Box key={x} args={[0.035, 0.46, 1.37]} position={[x, 0.44, 0]} color="#6e482d" radius={0.008} />)}
+    {[-0.76, 0, 0.76].map((x, column) => <group key={x}>
+      <Box args={[0.7, 0.095, 0.68]} position={[x, 0.78, -0.29]} rotation={[0.17, 0, 0]} color={palette.fixtureSteel} radius={0.025} />
+      <Box args={[0.035, 0.28, 0.7]} position={[x - 0.35, 0.87, -0.29]} rotation={[0.17, 0, 0]} color={palette.fixtureSteel} radius={0.008} />
+      <Box args={[0.035, 0.28, 0.7]} position={[x + 0.35, 0.87, -0.29]} rotation={[0.17, 0, 0]} color={palette.fixtureSteel} radius={0.008} />
+      <ProduceBinProducts productId={productIds[column]} count={counts[column]} position={[x, 0.88, -0.31]} />
+      <Box args={[0.63, 0.2, 0.035]} position={[x, 0.78, -0.65]} color={RETAIL_DEPARTMENTS.produce.color} radius={0.012} />
+      <Text position={[x, 0.79, -0.67]} rotation={[0, Math.PI, 0]} fontSize={0.07} color="#fffbea" anchorX="center" anchorY="middle" fontWeight={800}>{PRODUCTS_LABELS[productIds[column]]}</Text>
     </group>)}
-    {productIds.map((productId, index) => <Text key={productId} position={[(index - 1) * 0.72, 1.2, 0.48]} fontSize={0.105} color="#f8f1dc" anchorX="center" fontWeight={800}>{PRODUCTS_LABELS[productId]}</Text>)}
+    <Box args={[1.65, 0.11, 0.58]} position={[0, 1.16, 0.3]} rotation={[-0.1, 0, 0]} color={palette.fixtureSteel} radius={0.025} />
+    {productIds.map((productId, index) => <ProduceBinProducts key={productId} productId={productId} count={Math.max(0, counts[index] - 9)} position={[(index - 1) * 0.53, 1.27, 0.29]} raised />)}
+    {[-0.92, 0.92].map((x) => <Box key={x} args={[0.055, 1.25, 0.055]} position={[x, 1.56, 0.46]} color={palette.fixtureSteel} radius={0.012} />)}
+    <Box args={[2.02, 0.12, 0.08]} position={[0, 2.16, 0.46]} color={palette.fixtureSteel} radius={0.025} />
+    <DepartmentSign label={RETAIL_DEPARTMENTS.produce.label} color={RETAIL_DEPARTMENTS.produce.color} position={[0, 2.15, 0.41]} width={1.9} />
   </group>;
 }
 
 function ProduceRack({ position, count }: { position: Position; count: number }) {
   return <group position={position}>
-    <EnvironmentModel id="display_produce_tomato" />
-    {[0.38, 0.88, 1.36].map((y, row) => <group key={y} position={[0, y, 0]} rotation={[row === 2 ? -0.12 : -0.2, 0, 0]}>
-      {[-0.52, 0, 0.52].map((x, column) => <group key={x}>
-        {Array.from({ length: Math.min(5, Math.max(0, count - (row * 3 + column) * 5)) }, (_, index) => <RetailProduct key={index} productId="corn" position={[x + (index % 2) * 0.13 - 0.06, 0.19, (Math.floor(index / 2) - 1) * 0.16]} scale={0.8} />)}
-      </group>)}
+    <Box args={[1.95, 0.14, 0.86]} position={[0, 0.08, 0]} color={palette.fixtureSteel} radius={0.035} />
+    {[-0.88, 0.88].map((x) => <Box key={x} args={[0.075, 1.85, 0.075]} position={[x, 0.96, -0.3]} color={palette.fixtureSteel} radius={0.014} />)}
+    {[0.36, 0.86, 1.36].map((y, row) => <group key={y}>
+      <Box args={[1.82, 0.09, 0.68]} position={[0, y, 0]} rotation={[-0.2, 0, 0]} color={palette.wood} radius={0.02} />
+      <Box args={[1.86, 0.11, 0.04]} position={[0, y + 0.02, 0.35]} color={palette.fixtureSteel} radius={0.01} />
+      <group position={[0, y + 0.15, 0.02]} rotation={[-0.2, 0, 0]}>
+        {Array.from({ length: Math.min(8, Math.max(0, count - row * 8)) }, (_, index) => <RetailProduct key={index} productId="corn" position={[(index % 4 - 1.5) * 0.31, 0, (Math.floor(index / 4) - 0.5) * 0.23]} scale={0.84} />)}
+      </group>
     </group>)}
+    <DepartmentSign label="MAÍZ FRESCO" color={RETAIL_DEPARTMENTS.produce.color} position={[0, 1.92, -0.27]} width={1.72} />
   </group>;
 }
 
 function ChilledDisplay({ position, milk, cheese }: { position: Position; milk: number; cheese: number }) {
+  const levels = [0.32, 0.72, 1.12, 1.52, 1.92] as const;
   return <group position={position}>
-    <EnvironmentModel id="display_refrigerated_open" />
-    <DepartmentSign label={RETAIL_DEPARTMENTS.dairy.label} color={RETAIL_DEPARTMENTS.dairy.color} position={[0, 2.28, 0.03]} width={1.9} />
-    {[0.56, 1.05, 1.54].map((y, row) => <group key={y}>
-      <group position={[-0.49, 0, 0]}><RetailProductRow productId="milk" y={y} z={0.34} spacing={0.18} count={Math.min(4, Math.max(0, milk - row * 4))} /></group>
-      <group position={[0.49, 0, 0]}><RetailProductRow productId="cheese" y={y} z={0.34} spacing={0.18} count={Math.min(4, Math.max(0, cheese - row * 4))} /></group>
+    <Box args={[2.42, 0.18, 0.92]} position={[0, 0.09, 0]} color={palette.fixtureSteel} radius={0.045} />
+    <Box args={[2.32, 2.13, 0.12]} position={[0, 1.15, -0.36]} color={palette.coldInterior} radius={0.025} />
+    {[-1.14, 1.14].map((x) => <group key={x}>
+      <Box args={[0.09, 2.25, 0.86]} position={[x, 1.17, 0]} color={palette.fixtureSteel} radius={0.018} />
+      <mesh position={[x * 0.99, 1.2, -0.08]}><boxGeometry args={[0.025, 1.94, 0.62]} /><meshPhysicalMaterial color="#c8eef4" transparent opacity={0.2} transmission={0.45} roughness={0.08} depthWrite={false} /></mesh>
     </group>)}
-    <mesh position={[0, 1.12, 0.08]}><planeGeometry args={[1.92, 1.62]} /><meshBasicMaterial color="#bce7ee" transparent opacity={0.065} depthWrite={false} /></mesh>
+    <CommercialShelfBank levels={levels} width={2.18} depth={0.68} front={1} accent={RETAIL_DEPARTMENTS.dairy.color} />
+    {levels.map((y, row) => <group key={`stock-${y}`}>
+      <group position={[-0.55, 0, 0]}><RetailProductRow productId="milk" y={y + 0.14} z={0.2} spacing={0.17} count={Math.min(5, Math.max(0, milk - row * 5))} /></group>
+      <group position={[0.55, 0, 0]}><RetailProductRow productId="cheese" y={y + 0.14} z={0.2} spacing={0.17} count={Math.min(5, Math.max(0, cheese - row * 5))} /></group>
+    </group>)}
+    <Box args={[2.48, 0.24, 0.92]} position={[0, 2.28, 0]} color={palette.fixtureSteel} radius={0.045} />
+    {Array.from({ length: 9 }, (_, index) => <Box key={index} args={[0.12, 0.055, 0.015]} position={[(index - 4) * 0.23, 2.28, 0.47]} color="#7d8b88" radius={0.005} />)}
+    <DepartmentSign label={RETAIL_DEPARTMENTS.dairy.label} color={RETAIL_DEPARTMENTS.dairy.color} position={[0, 2.5, 0.08]} width={2.02} />
+    <Text position={[-0.55, 2.08, 0.43]} fontSize={0.075} color="#33586d" anchorX="center" fontWeight={800}>LECHE</Text>
+    <Text position={[0.55, 2.08, 0.43]} fontSize={0.075} color="#33586d" anchorX="center" fontWeight={800}>QUESOS</Text>
   </group>;
 }
 
 function DrinksDisplay({ position, count }: { position: Position; count: number }) {
+  const levels = [0.3, 0.7, 1.1, 1.5, 1.9] as const;
   return <group position={position}>
-    <EnvironmentModel id="display_refrigerated_open" />
-    <DepartmentSign label={RETAIL_DEPARTMENTS.drinks.label} color={RETAIL_DEPARTMENTS.drinks.color} position={[0, 2.28, 0.03]} width={1.9} />
-    {[0.52, 1.02, 1.52].map((y, row) => <RetailProductRow key={y} productId="juice" y={y} z={0.33} count={Math.min(7, Math.max(0, count - row * 7))} />)}
+    <Box args={[2.3, 0.17, 0.9]} position={[0, 0.085, 0]} color={palette.fixtureSteel} radius={0.04} />
+    <CommercialBackPanel width={2.2} height={2.08} z={-0.36} color="#d8d3c6" />
+    <FixtureUprights width={2.28} height={2.2} z={-0.31} />
+    <CommercialShelfBank levels={levels} width={2.13} depth={0.67} front={1} accent={RETAIL_DEPARTMENTS.drinks.color} />
+    {levels.map((y, row) => <RetailProductRow key={y} productId="juice" y={y + 0.14} z={0.21} spacing={0.2} count={Math.min(9, Math.max(0, count - row * 9))} />)}
+    <Box args={[2.38, 0.18, 0.92]} position={[0, 2.18, 0]} color={palette.fixtureSteel} radius={0.04} />
+    <DepartmentSign label={RETAIL_DEPARTMENTS.drinks.label} color={RETAIL_DEPARTMENTS.drinks.color} position={[0, 2.42, 0.07]} width={2} />
   </group>;
 }
 
 function EggDisplay({ count }: { count: number }) {
+  const levels = [0.28, 0.68, 1.08, 1.48] as const;
   return <group>
-    <EnvironmentModel id="display_eggs" />
-    <DepartmentSign label={RETAIL_DEPARTMENTS.eggs.label} color={RETAIL_DEPARTMENTS.eggs.color} position={[0, 1.86, 0.04]} width={1.48} />
-    {[0.5, 0.93, 1.36].map((y, row) => <EggCarton key={y} position={[0, y, 0.24]} count={Math.min(6, Math.max(0, count - row * 6))} />)}
+    <Box args={[2.18, 0.16, 0.82]} position={[0, 0.08, 0]} color={palette.fixtureSteel} radius={0.035} />
+    <CommercialBackPanel width={2.04} height={1.78} z={-0.31} color="#d7c9aa" />
+    <FixtureUprights width={2.12} height={1.88} z={-0.31} />
+    <CommercialShelfBank levels={levels} width={2.02} depth={0.68} accent={RETAIL_DEPARTMENTS.eggs.color} />
+    {levels.map((y, row) => <EggCarton key={y} position={[0, y + 0.105, 0.18]} count={Math.min(6, Math.max(0, count - row * 6))} />)}
+    <Box args={[2.22, 0.14, 0.84]} position={[0, 1.84, 0]} color={palette.fixtureSteel} radius={0.03} />
+    <DepartmentSign label={RETAIL_DEPARTMENTS.eggs.label} color={RETAIL_DEPARTMENTS.eggs.color} position={[0, 2.08, 0.08]} width={1.88} />
   </group>;
 }
 
@@ -338,16 +427,58 @@ function EggCarton({ position, count }: { position: Position; count: number }) {
 }
 
 function GlassFridge({ position, milk, cheese, open }: { position: Position; milk: number; cheese: number; open: boolean }) {
+  const doors = useRef<THREE.Group[]>([]);
+  useFrame((_, delta) => {
+    doors.current.forEach((door, index) => {
+      const direction = index === 0 ? -1 : 1;
+      door.rotation.y = THREE.MathUtils.damp(door.rotation.y, open ? direction * 1.15 : 0, 8, delta);
+    });
+  });
+  const levels = [0.34, 0.78, 1.22, 1.66, 2.1] as const;
   return <group position={position}>
-    <EnvironmentModel id="display_refrigerated_doors" onFrame={(model, delta) => model.traverse((node) => { if (node.name.startsWith("Door")) node.rotation.y = THREE.MathUtils.lerp(node.rotation.y, open ? (node.name.endsWith(".001") ? -0.55 : 0.55) : 0, 1 - Math.exp(-7 * delta)); })} />
-    {[-0.52, 0.52].map((x, door) => <group key={x} position={[x, 1.25, 0.36]}>
-      {[0.55, 0.05, -0.45].map((y, row) => <group key={y}><Box args={[0.86, 0.035, 0.35]} position={[0, y, -0.08]} color="#d8dfdc" /><RetailProductRow productId={door ? "cheese" : "milk"} y={y + 0.12} z={0.03} spacing={0.18} count={Math.min(4, Math.max(0, (door ? cheese : milk) - row * 4))} /></group>)}
+    <Box args={[2.35, 2.48, 0.92]} position={[0, 1.24, 0]} color={palette.fixtureSteel} radius={0.055} />
+    <Box args={[2.16, 2.18, 0.08]} position={[0, 1.22, -0.4]} color={palette.coldInterior} radius={0.02} />
+    {levels.map((y) => <Box key={y} args={[2.08, 0.055, 0.68]} position={[0, y, -0.02]} color={palette.shelf} radius={0.012} />)}
+    {levels.map((y, row) => <group key={`cold-stock-${y}`}>
+      <group position={[-0.54, 0, 0]}><RetailProductRow productId="milk" y={y + 0.13} z={0.17} spacing={0.17} count={Math.min(5, Math.max(0, milk - row * 5))} /></group>
+      <group position={[0.54, 0, 0]}><RetailProductRow productId="cheese" y={y + 0.13} z={0.17} spacing={0.17} count={Math.min(5, Math.max(0, cheese - row * 5))} /></group>
     </group>)}
+    {[-1, 1].map((side, index) => <group key={side} ref={(door) => { if (door) doors.current[index] = door; }} position={[side * 1.07, 1.25, 0.47]}>
+      <group position={[-side * 0.535, 0, 0]}>
+        <Box args={[1.04, 2.25, 0.065]} color="#34423f" radius={0.025} />
+        <mesh position={[0, 0, 0.04]}><boxGeometry args={[0.9, 2.08, 0.025]} /><meshPhysicalMaterial color="#c7eef0" transparent opacity={0.2} transmission={0.62} clearcoat={1} clearcoatRoughness={0.05} roughness={0.05} depthWrite={false} /></mesh>
+        <Box args={[0.045, 1.12, 0.055]} position={[side * -0.4, 0, 0.09]} color="#aab5b2" radius={0.015} />
+      </group>
+    </group>)}
+    <DepartmentSign label="REFRIGERADOS" color={RETAIL_DEPARTMENTS.dairy.color} position={[0, 2.7, 0.08]} width={2.05} />
   </group>;
 }
 
 function MetalRack({ position }: { position: Position }) {
-  return <group position={position}><EnvironmentModel id="rack_stockroom" /></group>;
+  return <group position={position}>
+    {[-0.74, 0.74].flatMap((x) => [-0.33, 0.33].map((z) => <Box key={`${x}-${z}`} args={[0.075, 2.05, 0.075]} position={[x, 1.03, z]} color="#53666b" radius={0.012} />))}
+    {[0.18, 0.75, 1.32, 1.89].map((y) => <group key={y}>
+      <Box args={[1.62, 0.1, 0.82]} position={[0, y, 0]} color="#728489" radius={0.015} />
+      <Box args={[1.66, 0.1, 0.08]} position={[0, y + 0.02, 0.41]} color="#e1a53a" radius={0.012} />
+      {[-0.43, 0.16, 0.47].map((x, index) => <group key={x} position={[x, y + 0.2, 0]} scale={index === 1 ? 0.78 : 0.9}>
+        <Box args={[0.48, 0.36, 0.52]} color={index === 1 ? "#b98655" : "#b47a48"} radius={0.018} />
+        <Box args={[0.06, 0.37, 0.53]} color="#d9b778" radius={0.006} />
+      </group>)}
+    </group>)}
+    <DepartmentSign label="RESERVA" color="#5f777d" position={[0, 2.2, 0.03]} width={1.46} />
+  </group>;
+}
+
+function EndcapDisplay({ productId, count }: { productId: ProductId; count: number }) {
+  const levels = [0.28, 0.68, 1.08, 1.48] as const;
+  return <group rotation={[0, Math.PI / 2, 0]}>
+    <Box args={[1.18, 0.15, 0.78]} position={[0, 0.075, 0]} color={palette.fixtureSteel} radius={0.035} />
+    <CommercialBackPanel width={1.06} height={1.72} z={-0.31} color="#b99a75" />
+    <FixtureUprights width={1.12} height={1.8} z={-0.31} />
+    <CommercialShelfBank levels={levels} width={1.04} depth={0.64} accent={departmentColor(productId)} />
+    {levels.map((y, row) => <RetailProductRow key={y} productId={productId} y={y + 0.14} z={0.18} spacing={0.2} count={Math.min(4, Math.max(0, count - row * 4))} />)}
+    <DepartmentSign label="OFERTA" color={departmentColor(productId)} position={[0, 1.98, 0.05]} width={1.02} />
+  </group>;
 }
 
 function CheckoutKit({ position, lane, transaction, handoffTransaction, handoffBagAtCounter }: { position: Position; lane: 0 | 1; transaction?: CheckoutTransaction; handoffTransaction?: CheckoutTransaction; handoffBagAtCounter: boolean }) {
@@ -424,25 +555,64 @@ function ReturnsCubicle({ inventory }: { inventory: Inventory }) {
 
 function CartBay({ position, count }: { position: Position; count: number }) {
   return <group position={position}>
-    <Box args={[2.1, 0.08, 1.45]} position={[0, 0.04, 0]} color="#5d6e68" radius={0.025} />
-    {[-0.96, 0.96].map((x) => <group key={x}><mesh position={[x, 0.65, 0]}><boxGeometry args={[0.07, 1.3, 1.45]} /><meshStandardMaterial color="#667772" metalness={0.4} /></mesh><mesh position={[x, 1.31, 0]}><sphereGeometry args={[0.11, 12, 8]} /><meshStandardMaterial color="#e7b759" emissive="#765318" emissiveIntensity={0.25} /></mesh></group>)}
-    <mesh position={[0, 1.48, -0.66]}><boxGeometry args={[2.05, 0.38, 0.1]} /><meshStandardMaterial color="#f2e6bd" /></mesh>
-    <Text position={[0, 1.48, -0.59]} fontSize={0.16} color="#2f4d43" anchorX="center">CARROS</Text>
+    <Box args={[2.1, 0.07, 1.45]} position={[0, 0.035, 0]} color="#596864" radius={0.022} />
+    {[-0.96, 0.96].map((x) => <group key={x}>
+      <Box args={[0.075, 1.34, 1.45]} position={[x, 0.67, 0]} color="#53645f" radius={0.018} />
+      <Box args={[0.16, 0.14, 1.48]} position={[x, 0.18, 0]} color="#d6a745" radius={0.025} />
+      <mesh position={[x, 1.35, 0]}><sphereGeometry args={[0.1, 16, 12]} /><meshStandardMaterial color="#f0c45e" emissive="#765318" emissiveIntensity={0.18} roughness={0.38} /></mesh>
+    </group>)}
+    <Box args={[2.08, 0.4, 0.12]} position={[0, 1.5, -0.66]} color="#f1e8cf" radius={0.045} />
+    <Text position={[0, 1.5, -0.59]} fontSize={0.16} color="#28483e" anchorX="center" anchorY="middle" fontWeight={800}>CARROS</Text>
     {Array.from({ length: Math.max(2, Math.min(4, count)) }, (_, index) => <ShoppingCart key={index} position={[0, 0, 0.42 - index * 0.26]} scale={1 - index * 0.055} />)}
   </group>;
 }
 
+type CartTubeSegment = readonly [from: Position, to: Position, radius: number];
+
+function cartTubeTransform([from, to, radius]: CartTubeSegment): InstanceTransform {
+  const start = new THREE.Vector3(...from);
+  const end = new THREE.Vector3(...to);
+  const direction = end.clone().sub(start);
+  const length = direction.length();
+  const quaternion = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.normalize());
+  return {
+    position: start.add(end).multiplyScalar(0.5).toArray() as Position,
+    quaternion: quaternion.toArray() as [number, number, number, number],
+    scale: [radius, length, radius],
+  };
+}
+
+function CartTubeInstances({ segments, color }: { segments: readonly CartTubeSegment[]; color: string }) {
+  const transforms = useMemo(() => segments.map(cartTubeTransform), [segments]);
+  return <StaticInstances transforms={transforms} castShadow>
+    <cylinderGeometry args={[1, 1, 1, 8]} />
+    <meshStandardMaterial color={color} metalness={0.68} roughness={0.27} />
+  </StaticInstances>;
+}
+
 function ShoppingCart({ position, scale = 1 }: { position: Position; scale?: number }) {
+  const tubeGroups = useMemo(() => {
+    const top = { leftBack: [-0.46, 0.88, -0.35] as Position, rightBack: [0.46, 0.88, -0.35] as Position, leftFront: [-0.46, 0.88, 0.42] as Position, rightFront: [0.46, 0.88, 0.42] as Position };
+    const bottom = { leftBack: [-0.34, 0.43, -0.25] as Position, rightBack: [0.34, 0.43, -0.25] as Position, leftFront: [-0.34, 0.43, 0.33] as Position, rightFront: [0.34, 0.43, 0.33] as Position };
+    const metal: CartTubeSegment[] = [
+      [[-0.44, 0.18, -0.28], top.leftBack, 0.022], [[0.44, 0.18, -0.28], top.rightBack, 0.022],
+      ...([[top.leftBack, top.rightBack], [top.leftFront, top.rightFront], [top.leftBack, top.leftFront], [top.rightBack, top.rightFront], [bottom.leftBack, bottom.rightBack], [bottom.leftFront, bottom.rightFront], [bottom.leftBack, bottom.leftFront], [bottom.rightBack, bottom.rightFront], [top.leftBack, bottom.leftBack], [top.rightBack, bottom.rightBack], [top.leftFront, bottom.leftFront], [top.rightFront, bottom.rightFront]] as const).map(([from, to]) => [from, to, 0.015] as CartTubeSegment),
+      ...[-0.27, -0.09, 0.09, 0.27].map((x) => [[x, 0.43, -0.25], [x * 1.3, 0.88, 0.42], 0.009] as CartTubeSegment),
+      ...[-0.1, 0.08, 0.26].flatMap((z) => [-1, 1].map((side) => [[side * 0.36, 0.48, z], [side * 0.45, 0.84, z + 0.05], 0.009] as CartTubeSegment)),
+      ...[-0.34, 0.34].map((x) => [[x, 0.13, -0.26], [x, 0.24, 0.32], 0.02] as CartTubeSegment),
+    ];
+    return { metal, grip: [[[-0.52, 1.02, -0.43], [0.52, 1.02, -0.43], 0.035] as CartTubeSegment] };
+  }, []);
+  const wheelTransforms = useMemo<InstanceTransform[]>(() => [-0.33, 0.33].flatMap((x) => [-0.23, 0.28].map((z) => ({ position: [x, 0.085, z], rotation: [0, 0, Math.PI / 2] }))), []);
+  const forkTransforms = useMemo<InstanceTransform[]>(() => [-0.33, 0.33].flatMap((x) => [-0.23, 0.28].map((z) => ({ position: [x, 0.15, z], scale: [0.045, 0.13, 0.045] }))), []);
   return <group position={position} scale={scale}>
-    <mesh position={[0, 0.84, -0.3]} rotation={[0, 0, Math.PI / 2]}><cylinderGeometry args={[0.035, 0.035, 1.05, 8]} /><meshStandardMaterial color="#4f6945" /></mesh>
-    {[-0.38, 0.38].map((x) => <group key={x}>
-      <Box args={[0.035, 0.52, 0.68]} position={[x, 0.55, 0]} color={palette.metal} radius={0.01} />
-      {[-0.25,-0.08,0.09,0.26].map((z) => <Box key={z} args={[0.035, 0.44, 0.025]} position={[x,0.59,z]} color={palette.metal} radius={0.008} />)}
-    </group>)}
-    {[-0.27,-0.09,0.09,0.27].map((x) => <Box key={x} args={[0.025, 0.44, 0.64]} position={[x,0.59,0]} color={palette.metal} radius={0.008} />)}
-    {[-0.28,0.28].map((z) => <Box key={z} args={[0.82, 0.035, 0.035]} position={[0,0.38,z]} color={palette.metal} radius={0.01} />)}
-    {[-0.35,0.35].map((x) => <Box key={x} args={[0.045,0.52,0.045]} position={[x,0.29,-0.21]} rotation={[0,0,x<0?-0.12:0.12]} color={palette.metal} />)}
-    {[-0.33, 0.33].flatMap((x) => [-0.22, 0.22].map((z) => <mesh key={`${x}-${z}`} position={[x, 0.08, z]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[0.07, 0.07, 0.05, 10]} /><meshStandardMaterial color="#303634" /></mesh>))}
+    <CartTubeInstances segments={tubeGroups.grip} color="#315f4d" />
+    <CartTubeInstances segments={tubeGroups.metal} color="#9aa5a2" />
+    <Box args={[0.72, 0.035, 0.58]} position={[0, 0.27, 0.04]} color="#9da8a5" radius={0.01} />
+    <Box args={[0.74, 0.27, 0.045]} position={[0, 0.7, -0.29]} color="#466f60" radius={0.025} />
+    <StaticInstances transforms={forkTransforms}><boxGeometry args={[1, 1, 1]} /><meshStandardMaterial color="#6d7774" metalness={0.42} roughness={0.4} /></StaticInstances>
+    <StaticInstances transforms={wheelTransforms}><cylinderGeometry args={[0.075, 0.075, 0.055, 14]} /><meshStandardMaterial color="#272d2c" roughness={0.65} /></StaticInstances>
+    <StaticInstances transforms={wheelTransforms}><cylinderGeometry args={[0.034, 0.034, 0.058, 12]} /><meshStandardMaterial color="#adb7b4" metalness={0.62} roughness={0.3} /></StaticInstances>
   </group>;
 }
 

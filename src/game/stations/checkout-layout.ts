@@ -8,6 +8,7 @@ export interface CheckoutLaneLayout {
   counter: StorePosition;
   cashierWork: StorePosition;
   customerFront: StorePoint;
+  queueStart: StorePoint;
   bagPickup: StorePoint;
 }
 
@@ -20,23 +21,39 @@ export const CHECKOUT_LANES: Record<CheckoutLane, CheckoutLaneLayout> = {
   0: {
     counter: [7.55, 0, 3.95],
     cashierWork: [8.05, 0.018, 5.12],
-    customerFront: [5.35, 2.85],
-    bagPickup: [8.85, 2.85],
+    customerFront: [7, 2.85],
+    queueStart: [5.35, 2.85],
+    bagPickup: [8.9, 2.85],
   },
   1: {
     counter: [7.55, 0, 0.95],
     cashierWork: [8.05, 0.018, 2.12],
-    customerFront: [5.35, -0.15],
-    bagPickup: [8.85, -0.15],
+    customerFront: [7, -0.15],
+    queueStart: [5.35, -0.15],
+    bagPickup: [8.9, -0.15],
   },
 };
 
-export const CHECKOUT_CAMERA_TARGET: StorePosition = [6.8, 1.15, 3.3];
-export const CHECKOUT_CAMERA_POSITION: StorePosition = [6.9, 3.65, 5.6];
+export const CHECKOUT_CAMERA_TARGET: StorePosition = [8.3, 1.35, 3.8];
+export const CHECKOUT_CAMERA_POSITION: StorePosition = [8.3, 7.2, 8.8];
+export const CHECKOUT_CAMERA_FRAME = { width: 39, height: 27 } as const;
+
+const CHECKOUT_QUEUE_SPACING = 0.78;
 
 export function checkoutQueuePosition(slot: number, lane: CheckoutLane = 0): [number, number] {
-  const front = CHECKOUT_LANES[lane].customerFront;
-  return [front[0], front[1] - slot * 0.78];
+  const layout = CHECKOUT_LANES[lane];
+  if (slot <= 0) return [...layout.customerFront];
+  return [layout.queueStart[0], layout.queueStart[1] - (slot - 1) * CHECKOUT_QUEUE_SPACING];
+}
+
+/**
+ * Customers enter every queue slot from directly behind it. Keeping the final
+ * segment on +Z leaves the body and trolley facing the belt instead of along
+ * the short end of the checkout.
+ */
+export function checkoutQueueArrival(slot: number, lane: CheckoutLane = 0): [StorePoint, StorePoint] {
+  const destination = checkoutQueuePosition(slot, lane);
+  return [[destination[0], destination[1] - CHECKOUT_QUEUE_SPACING], destination];
 }
 
 export function activeCheckoutForLane(transactions: readonly CheckoutTransaction[], lane: CheckoutLane) {

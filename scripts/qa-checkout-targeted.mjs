@@ -54,10 +54,10 @@ await page.evaluate(() => {
     reservedSocketId: null, blockedSince: null, routeFailures: 0, hasCart: true, hasBag: false, angry: false,
   };
   franchise.customers = [
-    { ...shared, id: "qa-checkout-front", identity: 1, state: "WAIT_CHECKOUT", queueSlot: 0, transactionId: "qa-checkout-transaction", x: 5.25, z: 2.85, targetX: 5.25, targetZ: 2.85, stateSince: 99_500 },
-    { ...structuredClone(shared), id: "qa-checkout-handoff", identity: 2, state: "NAVIGATE_TO_BAG", shoppingList: [], currentLine: 0, basket: {}, queueSlot: null, queueJoinedAt: null, transactionId: "qa-checkout-complete", x: 7.7, z: 2.85, targetX: 8.85, targetZ: 2.85, path: [[8.85, 2.85]], stateSince: 99_700 },
-    { ...structuredClone(shared), id: "qa-checkout-queue", identity: 3, state: "QUEUE_WAIT", shoppingList: [{ productId: "tomatoes", requested: 1, picked: 1 }], currentLine: 1, basket: { tomatoes: 1 }, queueSlot: 1, transactionId: null, x: 5.15, z: 2.07, targetX: 5.15, targetZ: 2.07, stateSince: 99_100 },
-    { ...structuredClone(shared), id: "qa-empty-shopper", identity: 4, state: "NAVIGATE_TO_QUEUE", shoppingList: [{ productId: "tomatoes", requested: 1, picked: 0 }], currentLine: 1, basket: {}, queueSlot: 2, transactionId: null, x: 4.8, z: 1.25, targetX: 5.05, targetZ: 1.29, path: [[5.05, 1.29]], stateSince: 99_300 },
+    { ...shared, id: "qa-checkout-front", identity: 1, state: "WAIT_CHECKOUT", queueSlot: 0, transactionId: "qa-checkout-transaction", x: 7, z: 2.85, targetX: 7, targetZ: 2.85, stateSince: 99_500 },
+    { ...structuredClone(shared), id: "qa-checkout-handoff", identity: 2, state: "NAVIGATE_TO_BAG", shoppingList: [], currentLine: 0, basket: {}, queueSlot: null, queueJoinedAt: null, transactionId: "qa-checkout-complete", x: 7.7, z: 2.85, targetX: 8.9, targetZ: 2.85, path: [[8.9, 2.85]], stateSince: 99_700 },
+    { ...structuredClone(shared), id: "qa-checkout-queue", identity: 3, state: "QUEUE_WAIT", shoppingList: [{ productId: "tomatoes", requested: 1, picked: 1 }], currentLine: 1, basket: { tomatoes: 1 }, queueSlot: 1, transactionId: null, x: 5.35, z: 2.85, targetX: 5.35, targetZ: 2.85, stateSince: 99_100 },
+    { ...structuredClone(shared), id: "qa-empty-shopper", identity: 4, state: "NAVIGATE_TO_QUEUE", shoppingList: [{ productId: "tomatoes", requested: 1, picked: 0 }], currentLine: 1, basket: {}, queueSlot: 2, transactionId: null, x: 5.35, z: 2.07, targetX: 5.35, targetZ: 2.07, path: [[5.35, 2.07]], stateSince: 99_300 },
     { ...structuredClone(shared), id: "qa-door-exit", identity: 5, state: "EXIT_STORE", shoppingList: [], currentLine: 0, basket: {}, queueSlot: null, queueJoinedAt: null, transactionId: null, hasCart: false, x: 0, z: 7.2, targetX: 0, targetZ: 15.4, path: [[0, 15.4]], currentSpeed: 1.45, stateSince: 99_800 },
   ];
   franchise.queueCustomerIds = ["qa-checkout-front", "qa-checkout-queue"];
@@ -119,6 +119,7 @@ const doorCheck = await page.evaluate(() => {
   const samples = structuredClone(window.__MARKET_DOOR_SAMPLES__);
   return { samples, violations: samples.filter((sample) => sample.z !== null && sample.z > 7.251 && sample.progress < 1) };
 });
+await page.screenshot({ path: path.join(output, "door-fully-open.png"), fullPage: true });
 const beforeUnattended = await snapshot(page);
 await page.waitForTimeout(1_500);
 const afterUnattended = await snapshot(page);

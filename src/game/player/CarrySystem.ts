@@ -60,6 +60,24 @@ export function nextStockingPulse(container: Pick<CarryState, "items">, shelves:
   return productId ? { productId, quantity: 1 as const } : null;
 }
 
+/** Executes the carry side of one shelf transfer.  The engine remains the
+ * authority for capacity and counters; this helper only guarantees that the
+ * basket removal and the shelf addition use the same confirmed integer amount. */
+export function transferCarryToShelf(
+  container: CarryState,
+  productId: ProductId,
+  shelfQuantity: number,
+  shelfCapacity: number,
+  requested = 1,
+) {
+  const safeShelfQuantity = Math.max(0, Math.floor(Number.isFinite(shelfQuantity) ? shelfQuantity : 0));
+  const safeShelfCapacity = Math.max(0, Math.floor(Number.isFinite(shelfCapacity) ? shelfCapacity : 0));
+  const safeRequested = Math.max(0, Math.floor(Number.isFinite(requested) ? requested : 0));
+  const removable = Math.min(carryQuantity(container, productId), safeRequested, Math.max(0, safeShelfCapacity - safeShelfQuantity));
+  const removed = removeFromCarry(container, productId, removable);
+  return { container: removed.container, shelfQuantity: safeShelfQuantity + removed.moved, moved: removed.moved };
+}
+
 export function addToCarry(container: CarryState, productId: ProductId, available: number, requested = 1) {
   if (available <= 0 || requested <= 0) return { container, moved: 0 };
   const moved = Math.max(0, Math.min(Math.floor(available), Math.floor(requested), container.capacity - carryTotal(container)));
