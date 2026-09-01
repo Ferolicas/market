@@ -2,7 +2,7 @@ export interface LevelDefinition { level: number; costMinor: number; objective: 
 
 const levelData: [number, string, string][] = [
   [0, "Cosecha 3 tomates, surte 3 y cobra 1 cliente", "Tomate, mesa y caja"], [4_000, "Completa el tutorial", "Segundo cultivo y +2 sockets"], [8_000, "Atiende 4 clientes", "Capacidad 5 y cola 4"],
-  [14_000, "Surte 12 productos", "Ampliación y trigo"], [22_000, "Procesa 6 trigos", "Molino y harina"], [32_000, "Vende 4 panes", "Horno y panadería"],
+  [14_000, "Surte 12 productos", "Ampliación y trigo"], [22_000, "Cosecha 6 trigos", "Molino y harina"], [32_000, "Vende 4 panes", "Horno y panadería"],
   [48_000, "Atiende 12 clientes", "Caja 0,34 s"], [65_000, "Vende 8 huevos", "Gallinero y huevos"], [85_000, "Mantén stock 80 %", "Reponedor"], [110_000, "Completa 20 ventas", "Ampliación lateral y rango 2"],
   [140_000, "Cosecha 20 maíces", "Maíz y mesa"], [180_000, "Camina 500 m", "Velocidad +8 %"], [230_000, "Vende 12 leches", "Vaca y refrigerador"], [290_000, "Atiende 30 clientes", "Cajero"], [370_000, "Transporta 40 unidades", "Capacidad 8"],
   [460_000, "Produce 10 quesos", "Quesera"], [580_000, "Reduce espera bajo 30 s", "Segunda caja"], [720_000, "Recibe 5 entregas", "Almacén y muelle"], [890_000, "Completa 8 pedidos", "Proveedores"], [1_100_000, "Atiende 50 clientes", "Ampliación trasera y rango 3"],

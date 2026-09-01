@@ -17,6 +17,14 @@ describe("customer AI", () => {
     expect(commitPickedProduct(picked.mind, picked.stock).picked).toBe(false);
   });
 
+  it("crea listas reales de cinco tipos cuando el objetivo del nivel 25 las exige", () => {
+    const unlocked: (keyof Inventory)[] = ["tomatoes", "apples", "bread", "eggs", "coffee", "corn", "milk"];
+    const mind = createCustomerMind("level-25", unlocked, 25, 25);
+
+    expect(mind.shoppingList).toHaveLength(5);
+    expect(new Set(mind.shoppingList.map((line) => line.productId)).size).toBe(5);
+  });
+
   it("covers the mandatory entrance and restock branches", () => {
     let mind = createCustomerMind("c2", ["tomatoes"], 7, 1);
     mind = transitionCustomer(mind, "spawned", 0);

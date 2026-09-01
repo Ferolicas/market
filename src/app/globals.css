@@ -335,6 +335,50 @@
   scrollbar-color: rgba(42, 104, 84, 0.28) transparent;
 }
 
+.mission-section-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 9px 3px 5px;
+  color: #286a55;
+}
+
+.mission-section-title.daily {
+  margin-top: 5px;
+  border-top: 1px solid var(--game-ui-line);
+  color: #8a651d;
+}
+
+.mission-section-title > div {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.mission-section-title strong,
+.mission-section-title > b {
+  font-size: 8px;
+  letter-spacing: 0.08em;
+}
+
+.mission-section-title small {
+  overflow: hidden;
+  color: var(--game-ui-muted);
+  font-size: 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mission-section-title > b {
+  flex: none;
+  padding: 3px 5px;
+  border-radius: 6px;
+  background: #fff0c9;
+  color: #865b12;
+  letter-spacing: 0;
+}
+
 .mission {
   grid-template-columns: 24px minmax(0, 1fr);
   gap: 7px;
@@ -354,6 +398,22 @@
 .mission:disabled {
   color: inherit;
   cursor: default;
+}
+
+.mission.level-requirement {
+  cursor: default;
+}
+
+.mission.level-requirement:hover {
+  background: transparent;
+}
+
+.level-requirement + .level-requirement {
+  border-top-color: rgba(39, 106, 85, 0.08);
+}
+
+.level-requirement .mission-track i {
+  background: #4bad84;
 }
 
 .mission > span {

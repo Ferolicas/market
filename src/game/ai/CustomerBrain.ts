@@ -18,7 +18,8 @@ export interface CustomerMind {
 export function createCustomerMind(id: string, unlocked: readonly ProductId[], seed: number, level: number): CustomerMind {
   const random = seededRandom(seed);
   const candidates = [...unlocked].sort(() => random() - 0.5);
-  const typeCount = Math.min(candidates.length, Math.max(1, Math.min(level >= 25 ? 5 : 3, 1 + Math.floor(random() * 3))));
+  const maximumTypes = level >= 25 ? 5 : 3;
+  const typeCount = Math.min(candidates.length, level >= 25 ? 5 : 1 + Math.floor(random() * maximumTypes));
   const shoppingList = candidates.slice(0, typeCount).map((productId) => ({ productId, requested: 1 + Math.floor(random() * 3), picked: 0 }));
   return { id, state: "SPAWN", shoppingList, currentLine: 0, basket: {}, patienceMs: 12_000 + Math.floor(random() * 12_000), waitingSince: null, reservedSocket: null, queueSlot: null };
 }

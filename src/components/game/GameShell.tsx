@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { authClient } from "@/lib/auth-client";
 import { COUNTRIES, HATS, PRODUCTS, ROLE_INFO, SUPPLIERS } from "@/game/catalog";
 import { canOperateMachine, canProcessCheckoutUnit, countryMoneyScale, employeeHiringQuote, formatMoney, upgradeQuote } from "@/game/engine";
+import { levelObjectiveTasks, type LevelObjectiveTask } from "@/game/progression/objectives";
+import { LEVELS } from "@/game/progression/levels";
 import { useMarketStore } from "@/game/store";
 import type { AvatarConfig, CountryCode, EmployeeRole, FranchiseState, GameState, ProductId } from "@/game/types";
 import { MarketScene, type InteractionId, type InteractionPrompt, type InteractionVisualEvent } from "./MarketScene";
@@ -250,12 +252,22 @@ export function GameShell({ playerName }: { playerName: string }) {
   const warehousePickupEnabled = canPickupWarehouse(franchise.warehouse, franchise.carry);
   const visualTransfer = deriveVisualTransferPresentation(franchise.carry, franchise.crops, franchise.shelves, transferEvents);
   const hour = `${String(Math.floor(game.minuteOfDay / 60) % 24).padStart(2, "0")}:${String(game.minuteOfDay % 60).padStart(2, "0")}`;
-  const progress = ((game.xp % Math.max(120, game.level * game.level * 120)) / Math.max(120, game.level * 120)) * 100;
   const avatarHat = HATS.find((item) => item.id === game.avatar.hat);
   const carriedProducts = carriedProductIds(visualTransfer.carry);
   const carriedQuantity = carryTotal(visualTransfer.carry);
   const completedMissions = game.missions.filter((mission) => mission.completed).length;
   const claimableMissions = game.missions.filter((mission) => mission.completed && !mission.claimed).length;
+  const objectiveTasks = levelObjectiveTasks(game.level, game);
+  const nextProject = game.level < 30 ? franchise.buildProjects.find((candidate) => candidate.level === game.level + 1) : undefined;
+  const objectiveStepsCompleted = objectiveTasks.filter((task) => task.progress >= task.target).length;
+  const levelRequirementCount = objectiveTasks.length + (nextProject ? 1 : 0);
+  const levelRequirementsCompleted = objectiveStepsCompleted + (nextProject?.completed ? 1 : 0);
+  const progressParts = [
+    ...objectiveTasks.map((task) => Math.min(1, task.progress / Math.max(task.target, Number.EPSILON))),
+    ...(nextProject ? [Math.min(1, nextProject.contributedMinor / Math.max(1, nextProject.costMinor))] : []),
+  ];
+  const levelProgress = progressParts.length ? progressParts.reduce((total, value) => total + value, 0) / progressParts.length * 100 : 100;
+  const nextUnlock = game.level < 30 ? LEVELS[game.level]?.unlock : undefined;
   const saveLabel = status === "saving" ? "Guardando…"
     : status === "offline" ? "Copia local"
       : status === "dirty" ? "Cambios pendientes"
@@ -272,17 +284,21 @@ export function GameShell({ playerName }: { playerName: string }) {
         <div className="hud-brand"><span><GameIcon name="store" /></span><div><strong>{franchise.name}</strong><small>{franchise.city}</small></div></div>
         <div className="hud-stat money"><small>Caja global</small><strong>{formatMoney(game.balanceMinor, game)}</strong></div>
         <div className="hud-stat earnings"><small>Ventas hoy</small><strong>{formatMoney(franchise.revenueTodayMinor, game)}</strong><small>Día {game.day} · {hour}</small></div>
-        <div className="hud-stat level"><small>Nivel {game.level}</small><div className="xp-track" role="progressbar" aria-label={`Progreso del nivel ${game.level}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(Math.min(100, progress))}><i style={{ width: `${Math.min(100, progress)}%` }}/></div></div>
+        <div className="hud-stat level"><small>Nivel {game.level}</small><div className="xp-track" role="progressbar" aria-label={`Progreso real para superar el nivel ${game.level}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(Math.min(100, levelProgress))}><i style={{ width: `${Math.min(100, levelProgress)}%` }}/></div></div>
         <button className={`store-status ${franchise.open ? "open" : "closed"}`} aria-pressed={franchise.open} aria-label={franchise.open ? "Cerrar el supermercado" : "Abrir el supermercado"} onClick={() => dispatch({ type: "TOGGLE_STORE" })}><i/>{franchise.open ? "ABIERTO" : "CERRADO"}</button>
       </header>
 
       <details className={`mission-card glass-panel${claimableMissions ? " has-reward" : ""}`} data-game-ui-interactive="true">
         <summary className="panel-heading">
           <span><GameIcon name={claimableMissions ? "gift" : "target"} /></span>
-          <div><strong>{claimableMissions ? `${claimableMissions} premio${claimableMissions > 1 ? "s" : ""} listo${claimableMissions > 1 ? "s" : ""}` : "Objetivos del día"}</strong><small>{completedMissions}/{game.missions.length} completados</small></div>
+          <div><strong>{game.level >= 30 ? "Nivel máximo alcanzado" : `Progreso al nivel ${game.level + 1}`}</strong><small>{levelRequirementsCompleted}/{levelRequirementCount} requisitos · <span>Objetivos del día</span> {completedMissions}/{game.missions.length}</small></div>
           <b className="mission-chevron"><GameIcon name="chevron" /></b>
         </summary>
         <div className="mission-list">
+          <div className="mission-section-title"><div><strong>{game.level >= 30 ? "PROGRESIÓN COMPLETADA" : `PARA SUBIR AL NIVEL ${game.level + 1}`}</strong>{nextUnlock && <small>Desbloqueas: {nextUnlock}</small>}</div></div>
+          {objectiveTasks.map((task) => <LevelRequirement key={task.id} task={task} />)}
+          {nextProject && <LevelRequirement task={{ id: nextProject.id, label: `Financia la ampliación al nivel ${nextProject.level}`, progress: nextProject.contributedMinor, target: nextProject.costMinor, unit: "money" }} game={game} />}
+          <div className="mission-section-title daily"><div><strong>BONOS DEL DÍA</strong><small>No bloquean tu avance de nivel</small></div>{claimableMissions > 0 && <b>{claimableMissions} por cobrar</b>}</div>
           {game.missions.map((mission) => {
             const missionProgress = Math.min(100, mission.progress / mission.target * 100);
             const canClaim = mission.completed && !mission.claimed;
@@ -353,6 +369,26 @@ function GameIcon({ name }: { name: GameIconName }) {
 
 function QuickButton({ icon, label, onClick }: { icon: GameIconName; label: string; onClick: () => void }) {
   return <button aria-label={label} title={label} onClick={onClick}><span><GameIcon name={icon} /></span><small>{label}</small></button>;
+}
+
+type LevelRequirementTask = LevelObjectiveTask | { id: string; label: string; progress: number; target: number; unit: "money" };
+
+function LevelRequirement({ task, game }: { task: LevelRequirementTask; game?: GameState }) {
+  const completed = task.progress >= task.target;
+  const progress = Math.min(100, task.progress / Math.max(task.target, Number.EPSILON) * 100);
+  const value = task.unit === "money" && game
+    ? `${formatMoney(Math.min(task.progress, task.target), game)} / ${formatMoney(task.target, game)}`
+    : task.unit === "percent"
+      ? `${Math.round(Math.min(task.progress, task.target) * 100)} % / ${Math.round(task.target * 100)} %`
+      : task.unit === "rating"
+        ? `${Math.min(task.progress, task.target).toFixed(2)} / ${task.target.toFixed(2)}`
+        : task.unit === "distance"
+          ? `${Math.floor(Math.min(task.progress, task.target))} / ${task.target} m`
+          : `${Math.floor(Math.min(task.progress, task.target))} / ${task.target}`;
+  return <div className={`mission level-requirement ${completed ? "done" : ""}`}>
+    <span><GameIcon name={completed ? "check" : "circle"} /></span>
+    <div><strong>{task.label}</strong><div className="mission-track" role="progressbar" aria-label={`Progreso de ${task.label}`} aria-valuemin={0} aria-valuemax={task.target} aria-valuenow={Math.min(task.progress, task.target)}><i style={{ width: `${progress}%` }} /></div><small>{completed ? "Completado" : value}</small></div>
+  </div>;
 }
 
 function LevelOneGuide({ game, franchise }: { game: GameState; franchise: FranchiseState }) {

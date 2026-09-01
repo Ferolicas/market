@@ -475,6 +475,21 @@ describe("motor económico", () => {
     expect(canProcessCheckoutUnit(state, franchise)).toBe(false);
   });
 
+  it("actualiza la valoración con la experiencia real para que el nivel 23 sea alcanzable", () => {
+    let state = createInitialGame("ES");
+    state.level = 23;
+    state.franchises[0].open = true;
+    state.franchises[0].lastCustomerSpawnAt = 999_999;
+    for (let customer = 0; customer < 7; customer += 1) {
+      addReadyCheckout(state, `rating-customer-${customer}`, "card");
+      state = applyGameAction(state, { type: "CHECKOUT", paymentMethod: "card" }).state;
+      for (let second = 0; second < 4; second += 1) state = advanceWorld(state, 1_000).state;
+    }
+
+    expect(state.franchises[0].rating).toBeGreaterThanOrEqual(4.25);
+    expect(state.franchises[0].rating).toBeLessThanOrEqual(5);
+  });
+
   it("el operador llena su cesta en un viaje y deja el resto en la máquina", () => {
     const state = createInitialGame("ES");
     const franchise = state.franchises[0];
@@ -676,6 +691,91 @@ describe("motor económico", () => {
     expect(colombia.balanceMinor).toBeGreaterThan(spain.balanceMinor * 1000);
     expect(colombia.franchises[1].purchaseCostMinor).toBeGreaterThan(spain.franchises[1].purchaseCostMinor * 1000);
     expect(colombia.missions[0].rewardMinor).toBeGreaterThan(spain.missions[0].rewardMinor * 1000);
+  });
+
+  it("ofrece tareas diarias alcanzables en nivel 1 aunque pasen varias jornadas", () => {
+    let state = createInitialGame("ES");
+    for (let day = 1; day < 6; day += 1) state = applyGameAction(state, { type: "CLOSE_DAY" }).state;
+
+    expect(state).toMatchObject({ level: 1, day: 6 });
+    expect(state.missions).toHaveLength(3);
+    expect(state.missions.map((mission) => mission.kind)).toEqual(["stock", "customers", "harvest"]);
+    expect(state.missions.find((mission) => mission.kind === "harvest")).toMatchObject({
+      id: "d6-harvest",
+      label: "Cosecha 5 productos",
+      target: 5,
+    });
+    expect(state.missions.some((mission) => mission.kind === "production")).toBe(false);
+  });
+
+  it("sube de nivel únicamente al completar la lista visible y su financiación", () => {
+    let state = createInitialGame("ES");
+    state.progression.counters = { "harvest:tomatoes": 3, "stock:tomatoes": 3, customers: 1 };
+
+    state = applyGameAction(state, { type: "SET_AVATAR", shirt: state.avatar.shirt }).state;
+    expect(state.level).toBe(1);
+    expect(state.progression.objectiveComplete).toBe(true);
+
+    const project = state.franchises[0].buildProjects.find((candidate) => candidate.level === 2)!;
+    state = applyGameAction(state, { type: "CONTRIBUTE_BUILD", amountMinor: project.costMinor }).state;
+    expect(state.level).toBe(2);
+    expect(state.progression.completedLevels).toContain(1);
+  });
+
+  it("repara la producción imposible de una partida guardada sin perder su avance ni premio", () => {
+    const legacy = createInitialGame("ES");
+    legacy.day = 6;
+    legacy.missions = [
+      { id: "d6-stock", label: "Repón 11 productos", kind: "stock", target: 11, progress: 4, rewardMinor: 36_000, completed: false, claimed: false },
+      { id: "d6-customers", label: "Atiende 6 clientes", kind: "customers", target: 6, progress: 6, rewardMinor: 48_000, completed: true, claimed: true },
+      { id: "d6-produce", label: "Completa 5 ciclos de producción", kind: "production", target: 5, progress: 2, rewardMinor: 57_000, completed: false, claimed: false },
+    ];
+
+    const recovered = normalizeGameState(legacy);
+
+    expect(recovered.missions).toEqual([
+      { id: "d6-stock", label: "Repón 11 productos", kind: "stock", target: 11, progress: 4, rewardMinor: 36_000, completed: false, claimed: false },
+      { id: "d6-customers", label: "Atiende 6 clientes", kind: "customers", target: 6, progress: 6, rewardMinor: 48_000, completed: true, claimed: true },
+      { id: "d6-harvest", label: "Cosecha 5 productos", kind: "harvest", target: 5, progress: 2, rewardMinor: 57_000, completed: false, claimed: false },
+    ]);
+    expect(normalizeGameState(recovered).missions).toEqual(recovered.missions);
+  });
+
+  it("conserva una tarea de cosecha válida al subir a nivel 5 a mitad del día", () => {
+    const state = createInitialGame("ES");
+    state.level = 5;
+    const harvest = state.missions.find((mission) => mission.kind === "harvest")!;
+    harvest.progress = 2;
+
+    const recovered = normalizeGameState(state);
+
+    expect(recovered.missions.find((mission) => mission.kind === "harvest")).toMatchObject({ progress: 2, target: 3 });
+    expect(recovered.missions.some((mission) => mission.kind === "production")).toBe(false);
+    const nextDay = applyGameAction(recovered, { type: "CLOSE_DAY" }).state;
+    expect(nextDay.missions.some((mission) => mission.kind === "production")).toBe(true);
+  });
+
+  it("habilita producción desde nivel 5 y cuenta solo ciclos realmente terminados", () => {
+    let state = createInitialGame("ES");
+    state.level = 5;
+    state = applyGameAction(state, { type: "CLOSE_DAY" }).state;
+    const franchise = state.franchises[0];
+    const mill = franchise.productionMachines.find((machine) => machine.id === "flour-mill-1")!;
+    Object.assign(mill, { status: "WAITING_INPUT" as const, input: {}, output: 0, startedAt: null, completesAt: null });
+    franchise.carry = { capacity: 3, items: { wheat: 2 } };
+
+    state = applyGameAction(state, { type: "OPERATE_MACHINE", machineId: mill.id }).state;
+    expect(state.missions.find((mission) => mission.kind === "production")?.progress).toBe(0);
+    expect(state.progression.counters["production:flour"]).toBeUndefined();
+
+    for (let second = 0; second < 4; second += 1) state = advanceWorld(state, 1_000).state;
+    expect(state.missions.find((mission) => mission.kind === "production")?.progress).toBe(1);
+    expect(state.progression.counters["production:flour"]).toBe(1);
+    expect(state.progression.counters["production:all"]).toBe(1);
+
+    state = advanceWorld(state, 1_000).state;
+    expect(state.missions.find((mission) => mission.kind === "production")?.progress).toBe(1);
+    expect(state.progression.counters["production:all"]).toBe(1);
   });
 
   it("migra partidas antiguas y permite cambiar por completo el personaje", () => {

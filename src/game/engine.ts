@@ -4,6 +4,7 @@ import { collectMachineOutputBatch, createCrop, createEmptyCrop, createMachine, 
 import { PRODUCT_CONFIG } from "./economy/products";
 import { createCustomerMind } from "./ai/CustomerBrain";
 import { LEVELS, stationTierModifiers } from "./progression/levels";
+import { averageShelfAvailability, levelObjectiveSatisfied, levelObjectiveTasks, unlockedCustomerProducts } from "./progression/objectives";
 import { CHECKOUT_LANES, checkoutQueueArrival, checkoutQueuePosition, type CheckoutLane } from "./stations/checkout-layout";
 import { retailServicePoint } from "./stations/retail-layout";
 import {
@@ -28,6 +29,7 @@ export const CHECKOUT_SCAN_UNIT_MS = 700;
 export const CHECKOUT_BAG_UNIT_MS = 650;
 export const CHECKOUT_PAYMENT_MS = 1_800;
 export const CHECKOUT_BAG_HANDOFF_MS = 900;
+export { levelObjectiveTasks, unlockedCustomerProducts };
 const DOOR_PASSAGE_Z = 7.8;
 const DOOR_OUTSIDE_WAIT_Z = 8.35;
 const DOOR_INSIDE_WAIT_Z = 7.25;
@@ -98,7 +100,7 @@ export function createInitialGame(countryCode: CountryCode = "ES"): GameState {
     currentFranchiseId: franchises[0].id,
     avatar: { ...DEFAULT_AVATAR },
     franchises,
-    missions: missionsForDay(1, moneyScale),
+    missions: missionsForDay(1, moneyScale, 1),
     pendingOrders: [],
     finances: { grossRevenueMinor: 0, costOfGoodsMinor: 0, payrollMinor: 0, operatingCostsMinor: 0, taxesMinor: 0, netProfitMinor: 0 },
     tutorialStep: 0,
@@ -201,6 +203,7 @@ export function normalizeGameState(input: unknown): GameState {
     }
     if (franchise.owned) synchronizeFranchiseProgression(state as GameState, franchise);
   }
+  state.missions = reconcileMissionsForCurrentLevel(state as GameState);
   return state as GameState;
 }
 
@@ -308,15 +311,15 @@ function applyGameActionInternal(input: GameState, action: GameAction, cloneInpu
           : `${PRODUCTS[crop.productId].name}: cosechaste ${harvested}; quedan ${nextCrop.available} unidades maduras.`);
       }
     case "LOAD_FLOUR_MILL":
-      return operateMachine(state, franchise, "flour-mill-1", "wheat", events, gain, success, fail);
+      return operateMachine(state, franchise, "flour-mill-1", "wheat", success, fail);
     case "BAKE_BREAD":
-      return operateMachine(state, franchise, "bread-oven-1", "flour", events, gain, success, fail);
+      return operateMachine(state, franchise, "bread-oven-1", "flour", success, fail);
     case "OPERATE_MACHINE": {
       const machine = franchise.productionMachines.find((candidate) => candidate.id === action.machineId);
       if (!machine || machine.status === "LOCKED") return fail("La estación todavía no está desbloqueada.");
       const ingredient = Object.keys(PRODUCT_CONFIG[machine.productId]?.recipe ?? {})[0] as ProductId | undefined;
       if (!ingredient && machine.output < 1) return fail("La estación sigue produciendo.");
-      return operateMachine(state, franchise, machine.id, ingredient ?? machine.productId, events, gain, success, fail);
+      return operateMachine(state, franchise, machine.id, ingredient ?? machine.productId, success, fail);
     }
     case "PICKUP_WAREHOUSE": {
       if (carryTotal(franchise.carry) >= franchise.carry.capacity) return fail("La cesta está llena.");
@@ -531,7 +534,7 @@ export function advanceWorld(input: GameState, deltaMs = 250, pathfinder?: World
 
   for (const franchise of state.franchises.filter((candidate) => candidate.owned)) {
     franchise.crops = franchise.crops.map((crop) => updateCrop(crop, state.simulationTimeMs));
-    franchise.productionMachines = franchise.productionMachines.map((machine) => updateMachine(machine, state.simulationTimeMs));
+    franchise.productionMachines = franchise.productionMachines.map((machine) => updateMachineWithProgress(state, machine));
     franchise.productionMachines = franchise.productionMachines.map((machine) => {
       if ((machine.productId !== "eggs" && machine.productId !== "milk") || machine.status === "LOCKED" || machine.status === "PROCESSING" || machine.output >= machine.outputCapacity) return machine;
       return loadMachine(machine, EMPTY_INVENTORY(), state.simulationTimeMs).machine;
@@ -594,7 +597,7 @@ function closeBusinessDay(state: GameState, events: GameEvent[]): ActionResult {
   if (tax > 0) events.push({ franchiseId: globalEventFranchiseId(state), category: "tax", description: `Provisión fiscal ${Math.round(country.corporateTaxRate * 100)}%`, amountMinor: -tax, payload: { scope: "global" } });
   state.day++;
   state.minuteOfDay = 7 * 60 + 30;
-  state.missions = missionsForDay(state.day, moneyScale);
+  state.missions = missionsForDay(state.day, moneyScale, state.level);
   state.revision++;
   stampEvents(state, events);
   return { state, ok: true, message: `Día ${state.day - 1} cerrado. Nóminas, operación e impuestos contabilizados.`, events };
@@ -944,7 +947,6 @@ function employeeDropoff(state: GameState, franchise: FranchiseState, employee: 
       const result = loadMachine(franchise.productionMachines[index], temporary, state.simulationTimeMs);
       franchise.productionMachines[index] = result.machine;
       quantity = result.inventory[productId];
-      if (result.loaded) { recordDomain(state, `production:${result.machine.productId}`, 1); recordDomain(state, "production:all", 1); }
       if (quantity > 0) franchise.warehouse[productId] += quantity;
     }
   } else franchise.warehouse[productId] += quantity;
@@ -1018,23 +1020,6 @@ const CUSTOMER_BAG_POINTS: Record<CheckoutLane, [number, number]> = {
   0: [...CHECKOUT_LANES[0].bagPickup],
   1: [...CHECKOUT_LANES[1].bagPickup],
 };
-const CUSTOMER_PRODUCT_UNLOCKS: readonly (readonly [ProductId, number])[] = [
-  ["tomatoes", 1],
-  ["apples", 2],
-  ["bread", 6],
-  ["eggs", 8],
-  ["coffee", 9],
-  ["corn", 11],
-  ["milk", 13],
-  ["cheese", 16],
-  ["juice", 21],
-];
-
-export function unlockedCustomerProducts(level: number): ProductId[] {
-  const normalizedLevel = Math.max(1, Math.floor(Number.isFinite(level) ? level : 1));
-  return CUSTOMER_PRODUCT_UNLOCKS.filter(([, unlockLevel]) => normalizedLevel >= unlockLevel).map(([productId]) => productId);
-}
-
 function spawnCustomerIfNeeded(state: GameState, franchise: FranchiseState, pathfinder?: WorldPathfinder) {
   const active = franchise.customers.filter((customer) => customer.state !== "DESPAWN");
   const maximum = state.level < 20 ? Math.min(12, 3 + Math.floor(state.level / 2)) : Math.min(30, 12 + Math.floor((state.level - 20) * 1.8));
@@ -1240,6 +1225,7 @@ function abandonCheckout(franchise: FranchiseState, customer: CustomerRuntimeSta
   customer.queueJoinedAt = null;
   customer.queueSlot = null;
   customer.transactionId = null;
+  franchise.rating = roundRating(Math.max(1, franchise.rating - 0.15));
   setCustomerState(customer, "NAVIGATE_TO_RETURNS", now);
   setCustomerPath(customer, navigatePath(pathfinder, [customer.x, customer.z], [...RETURNS_POINT]));
   events.push({ franchiseId: franchise.id, category: "returns", description: `Cliente ${customer.id} agotó sus 5 minutos de espera`, amountMinor: 0, payload: { customerId: customer.id } });
@@ -1366,6 +1352,12 @@ function commitCheckoutPayment(state: GameState, franchise: FranchiseState, tran
   state.finances.grossRevenueMinor += saleMinor;
   franchise.revenueTodayMinor += saleMinor;
   franchise.customersToday += 1;
+  const requestedUnits = customer.shoppingList.reduce((total, line) => total + line.requested, 0);
+  const fulfilledUnits = customer.shoppingList.reduce((total, line) => total + line.picked, 0);
+  const fulfillment = requestedUnits > 0 ? fulfilledUnits / requestedUnits : 1;
+  const queueSeconds = customer.queueJoinedAt == null ? 0 : (state.simulationTimeMs - customer.queueJoinedAt) / 1_000;
+  const serviceScore = Math.max(1, Math.min(5, 3.5 + fulfillment * 1.5 - Math.max(0, queueSeconds - 30) / 120));
+  franchise.rating = roundRating(franchise.rating * 0.9 + serviceScore * 0.1);
   state.reputation += 1;
   gain(state, 20, "customers", 1);
   recordDomain(state, "customers", 1);
@@ -1381,6 +1373,10 @@ function commitCheckoutPayment(state: GameState, franchise: FranchiseState, tran
   setCustomerState(customer, "NAVIGATE_TO_BAG", state.simulationTimeMs);
   const lane = transaction.checkoutLane ?? 0;
   setCustomerPath(customer, navigatePath(pathfinder, [customer.x, customer.z], CUSTOMER_BAG_POINTS[lane]));
+}
+
+function roundRating(value: number) {
+  return Math.round(value * 100) / 100;
 }
 
 function setCustomerState(customer: CustomerRuntimeState, state: CustomerRuntimeState["state"], now: number) {
@@ -1660,6 +1656,16 @@ function gain(state: GameState, xp: number, missionKind: Mission["kind"], amount
   }
 }
 
+function updateMachineWithProgress(state: GameState, machine: FranchiseState["productionMachines"][number]) {
+  const updated = updateMachine(machine, state.simulationTimeMs);
+  if (machine.status === "PROCESSING" && updated.status !== "PROCESSING") {
+    recordDomain(state, `production:${updated.productId}`, 1);
+    recordDomain(state, "production:all", 1);
+    gain(state, 24, "production", 1);
+  }
+  return updated;
+}
+
 function normalizeLevel(state: GameState) {
   state.progression.objectiveComplete = levelObjectiveSatisfied(state.level, state);
   const franchise = currentFranchise(state);
@@ -1790,50 +1796,6 @@ function recordDomain(state: GameState, counter: string, amount: number) {
   state.progression.counters[counter] = (state.progression.counters[counter] ?? 0) + amount;
 }
 
-function counter(state: GameState, id: string) { return state.progression.counters[id] ?? 0; }
-
-function levelObjectiveSatisfied(level: number, state: GameState) {
-  const franchise = currentFranchise(state);
-  switch (level) {
-    case 1: return counter(state, "harvest:tomatoes") >= 3 && counter(state, "stock:tomatoes") >= 3 && counter(state, "customers") >= 1;
-    case 2: return state.progression.completedLevels.includes(1);
-    case 3: return counter(state, "customers") >= 4;
-    case 4: return counter(state, "stock:all") >= 12;
-    case 5: return counter(state, "harvest:wheat") >= 6;
-    case 6: return counter(state, "sales:bread") >= 4;
-    case 7: return counter(state, "customers") >= 12;
-    case 8: return counter(state, "sales:eggs") >= 8;
-    case 9: return averageShelfAvailability(franchise) >= 0.8;
-    case 10: return counter(state, "sales:units") >= 20;
-    case 11: return counter(state, "harvest:corn") >= 20;
-    case 12: return counter(state, "distance:player") >= 500;
-    case 13: return counter(state, "sales:milk") >= 12;
-    case 14: return counter(state, "customers") >= 30;
-    case 15: return counter(state, "transport:all") >= 40;
-    case 16: return counter(state, "production:cheese") >= 10;
-    case 17: return counter(state, "queue:under30") >= 1;
-    case 18: return counter(state, "deliveries") >= 5;
-    case 19: return counter(state, "orders") >= 8;
-    case 20: return counter(state, "customers") >= 50;
-    case 21: return counter(state, "sales:juice") >= 15;
-    case 22: return counter(state, "harvest:all") >= 60;
-    case 23: return franchise.rating >= 4.25;
-    case 24: return counter(state, "stock:all") >= 100;
-    case 25: return counter(state, "lists:five") >= 1;
-    case 26: return counter(state, "production:all") >= 50;
-    case 27: return counter(state, "sales:units") >= 150;
-    case 28: return Object.values(franchise.stationTiers).every((tier) => tier >= 3);
-    case 29: return counter(state, "availability:sales") >= 50;
-    case 30: return true;
-    default: return false;
-  }
-}
-
-function averageShelfAvailability(franchise: FranchiseState) {
-  const unlocked = unlockedCustomerProducts(Math.max(1, franchise.storeRank * 10));
-  return unlocked.reduce((sum, productId) => sum + shelfFill(franchise, productId), 0) / Math.max(1, unlocked.length);
-}
-
 function applyLevelUnlock(state: GameState, franchise: FranchiseState, level: number) {
   const unlockArea = (id: string) => { if (!franchise.unlockedAreas.includes(id)) franchise.unlockedAreas.push(id); };
   if (level === 2) {
@@ -1927,13 +1889,44 @@ function hireUnlockedEmployee(franchise: FranchiseState, role: Employee["role"],
   franchise.employees.push({ id: `unlock-${role}-${index}`, name: EMPLOYEE_NAMES[index % EMPLOYEE_NAMES.length], role, level: 1, salaryMinor, energy: 100, hat: HATS[index % HATS.length].id, runtime: createEmployeeRuntime(role, index, now) });
 }
 
-function missionsForDay(day: number, moneyScale = 1): Mission[] {
+function missionsForDay(day: number, moneyScale = 1, level = 1): Mission[] {
   const scale = 1 + Math.floor(day / 3);
+  const productionUnlocked = level >= 5;
+  const activity: Mission = productionUnlocked
+    ? { id: `d${day}-produce`, label: `Completa ${2 + scale} ciclos de producción`, kind: "production", target: 2 + scale, progress: 0, rewardMinor: Math.round(19000 * scale * moneyScale), completed: false, claimed: false }
+    : { id: `d${day}-harvest`, label: `Cosecha ${2 + scale} productos`, kind: "harvest", target: 2 + scale, progress: 0, rewardMinor: Math.round(19000 * scale * moneyScale), completed: false, claimed: false };
   return [
     { id: `d${day}-stock`, label: `Repón ${5 + scale * 2} productos`, kind: "stock", target: 5 + scale * 2, progress: 0, rewardMinor: Math.round(12000 * scale * moneyScale), completed: false, claimed: false },
     { id: `d${day}-customers`, label: `Atiende ${3 + scale} clientes`, kind: "customers", target: 3 + scale, progress: 0, rewardMinor: Math.round(16000 * scale * moneyScale), completed: false, claimed: false },
-    { id: `d${day}-produce`, label: `Completa ${2 + scale} ciclos de producción`, kind: "production", target: 2 + scale, progress: 0, rewardMinor: Math.round(19000 * scale * moneyScale), completed: false, claimed: false },
+    activity,
   ];
+}
+
+function reconcileMissionsForCurrentLevel(state: GameState): Mission[] {
+  const expected = missionsForDay(state.day, countryMoneyScale(state.countryCode), state.level);
+  const existing = Array.isArray(state.missions) ? state.missions : [];
+  return expected.map((expectedTemplate) => {
+    const sameDayHarvest = expectedTemplate.kind === "production"
+      ? existing.find((mission) => mission?.id === `d${state.day}-harvest`)
+      : undefined;
+    const template: Mission = sameDayHarvest
+      ? { ...expectedTemplate, id: `d${state.day}-harvest`, label: `Cosecha ${expectedTemplate.target} productos`, kind: "harvest" }
+      : expectedTemplate;
+    const sameMission = existing.find((mission) => mission?.id === template.id);
+    const legacyActivity = template.kind === "harvest" && !sameDayHarvest
+      ? existing.find((mission) => mission?.id === `d${state.day}-produce`)
+      : undefined;
+    const previous = sameMission ?? legacyActivity;
+    if (!previous) return template;
+    const progress = Math.min(template.target, Math.max(0, Math.floor(Number(previous.progress) || 0)));
+    const completed = Boolean(previous.completed) || progress >= template.target;
+    return {
+      ...template,
+      progress,
+      completed,
+      claimed: completed && Boolean(previous.claimed),
+    };
+  });
 }
 
 export function formatMoney(amountMinor: number, state: Pick<GameState, "countryCode" | "currency">) {
@@ -2049,14 +2042,12 @@ function operateMachine(
   franchise: FranchiseState,
   machineId: string,
   ingredient: ProductId,
-  _events: GameEvent[],
-  gainXp: typeof gain,
   success: (message: string) => ActionResult,
   fail: (message: string) => ActionResult,
 ) {
   const machineIndex = franchise.productionMachines.findIndex((machine) => machine.id === machineId);
   if (machineIndex < 0) return fail("La estación todavía no está construida.");
-  let machine = updateMachine(franchise.productionMachines[machineIndex], state.simulationTimeMs);
+  let machine = updateMachineWithProgress(state, franchise.productionMachines[machineIndex]);
   if (machine.output > 0) {
     const freeCapacity = Math.max(0, franchise.carry.capacity - carryTotal(franchise.carry));
     if (freeCapacity < 1) return fail("La cesta está llena.");
@@ -2074,9 +2065,6 @@ function operateMachine(
   const consumed = carried - loaded.inventory[ingredient];
   franchise.carry = removeFromCarry(franchise.carry, ingredient, consumed).container;
   franchise.productionMachines[machineIndex] = loaded.machine;
-  recordDomain(state, `production:${loaded.machine.productId}`, 1);
-  recordDomain(state, "production:all", 1);
-  gainXp(state, 24, "production", 1);
   return success(`${PRODUCTS[machine.productId].name} en proceso.`);
 }
 
