@@ -1,4 +1,5 @@
 import { COUNTRIES } from "../catalog";
+import { MAX_WAREHOUSE_PICKUP_BATCH } from "../player/CarrySystem";
 import type { CarryState, GameEvent, GameState, Inventory, ProductId } from "../types";
 import { validatePendingEvents } from "./Snapshot";
 
@@ -32,8 +33,10 @@ export function validateSaveTransition(current: GameState, next: GameState, even
 
   const ids = new Set<string>();
   const idempotencyKeys = new Set<string>();
+  const ownedFranchiseIds = new Set(next.franchises.filter((franchise) => franchise.owned).map((franchise) => franchise.id));
   for (let index = 0; index < events.length; index += 1) {
     const event = events[index];
+    if (!ownedFranchiseIds.has(event.franchiseId)) return { ok: false, code: "INVALID_EVENTS" };
     if (!event.eventId || !event.idempotencyKey || event.sequence !== current.eventSequence + index + 1 || ids.has(event.eventId) || idempotencyKeys.has(event.idempotencyKey)) return { ok: false, code: "INVALID_SEQUENCE" };
     ids.add(event.eventId);
     idempotencyKeys.add(event.idempotencyKey);
@@ -58,7 +61,7 @@ function hasInvalidCarry(input: unknown) {
   if (!input || typeof input !== "object" || Array.isArray(input)) return true;
   const carry = input as Partial<CarryState>;
   const capacity = carry.capacity;
-  if (typeof capacity !== "number" || !Number.isSafeInteger(capacity) || capacity < 1 || capacity > 1_000_000) return true;
+  if (typeof capacity !== "number" || !Number.isSafeInteger(capacity) || capacity < 1 || capacity > MAX_WAREHOUSE_PICKUP_BATCH) return true;
   if (!carry.items || typeof carry.items !== "object" || Array.isArray(carry.items)) return true;
   const entries = Object.entries(carry.items);
   if (entries.some(([productId, quantity]) => !PRODUCT_IDS.includes(productId as ProductId) || !Number.isSafeInteger(quantity) || quantity < 0 || quantity > 1_000_000)) return true;

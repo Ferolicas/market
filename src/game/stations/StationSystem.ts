@@ -71,6 +71,22 @@ export function harvestCrop(cropInput: CropStation, nowMs: number, gameLevel = 1
   return { crop: createCrop(crop.id, crop.productId, nowMs, crop.tier, gameLevel), harvested: 1 };
 }
 
+/** Composes the authoritative one-unit transition into one capacity-bounded trip. */
+export function harvestCropBatch(cropInput: CropStation, nowMs: number, requested: number, gameLevel = 1) {
+  const readyCrop = updateCrop(cropInput, nowMs);
+  const safeRequested = Number.isFinite(requested) ? Math.max(0, Math.floor(requested)) : 0;
+  const harvestLimit = readyCrop.status === "READY" ? Math.min(safeRequested, readyCrop.available) : 0;
+  let crop = readyCrop;
+  let harvested = 0;
+  for (let unit = 0; unit < harvestLimit; unit += 1) {
+    const result = harvestCrop(crop, nowMs, gameLevel);
+    crop = result.crop;
+    harvested += result.harvested;
+    if (result.harvested < 1) break;
+  }
+  return { crop, harvested };
+}
+
 export function createMachine(id: string, productId: MachineStation["productId"], tier = 1): MachineStation {
   return { id, productId, status: "WAITING_INPUT", input: {}, output: 0, outputCapacity: Math.round((PRODUCT_CONFIG[productId]?.shelfCapacity ?? 8) * stationTierModifiers(tier).capacity), startedAt: null, completesAt: null, tier };
 }
@@ -78,7 +94,8 @@ export function createMachine(id: string, productId: MachineStation["productId"]
 export function loadMachine(machine: MachineStation, inventory: Inventory, nowMs: number) {
   const config = PRODUCT_CONFIG[machine.productId];
   const recipe = config?.recipe ?? {};
-  if (machine.status === "PROCESSING" || machine.output >= machine.outputCapacity) return { machine, inventory, loaded: false };
+  const canAcceptInput = machine.status === "IDLE" || machine.status === "WAITING_INPUT";
+  if (!canAcceptInput || machine.output > 0 || machine.output >= machine.outputCapacity) return { machine, inventory, loaded: false };
   for (const [productId, amount] of Object.entries(recipe) as [ProductId, number][]) {
     if ((inventory[productId] ?? 0) < amount) return { machine: { ...machine, status: "WAITING_INPUT" as const }, inventory, loaded: false };
   }
@@ -103,4 +120,19 @@ export function collectMachineOutput(machineInput: MachineStation, nowMs: number
   if (machine.output < 1) return { machine, collected: 0 };
   const output = machine.output - 1;
   return { machine: { ...machine, output, status: output ? "OUTPUT_READY" as const : "WAITING_INPUT" as const }, collected: 1 };
+}
+
+/** Collects one trip without exceeding either available output or free carry space. */
+export function collectMachineOutputBatch(machineInput: MachineStation, nowMs: number, requested: number) {
+  const safeRequested = Number.isFinite(requested) ? Math.max(0, Math.floor(requested)) : 0;
+  let machine = updateMachine(machineInput, nowMs);
+  const collectLimit = Math.min(safeRequested, machine.output);
+  let collected = 0;
+  for (let unit = 0; unit < collectLimit; unit += 1) {
+    const result = collectMachineOutput(machine, nowMs);
+    machine = result.machine;
+    collected += result.collected;
+    if (result.collected < 1) break;
+  }
+  return { machine, collected };
 }

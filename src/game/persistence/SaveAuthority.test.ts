@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyGameAction, createInitialGame } from "../engine";
+import { advanceSimulation, applyGameAction, createInitialGame } from "../engine";
 import { validateSaveTransition } from "./SaveAuthority";
 
 describe("server save authority", () => {
@@ -7,6 +7,20 @@ describe("server save authority", () => {
     const current = createInitialGame();
     const result = applyGameAction(current, { type: "SET_COUNTRY", countryCode: "CO" });
     expect(validateSaveTransition(current, result.state, result.events)).toEqual({ ok: true });
+    expect(result.events[0]).toMatchObject({
+      franchiseId: current.currentFranchiseId,
+      payload: { scope: "global", countryCode: "CO" },
+    });
+  });
+
+  it("rejects event attribution to an unknown or unowned franchise", () => {
+    const current = createInitialGame();
+    const ordered = applyGameAction(current, { type: "ORDER", supplierId: "campo", productId: "wheat", quantity: 1 });
+    const unknown = ordered.events.map((event) => ({ ...event, franchiseId: "forged-branch" }));
+    const unowned = ordered.events.map((event) => ({ ...event, franchiseId: current.franchises[1].id }));
+
+    expect(validateSaveTransition(current, ordered.state, unknown)).toEqual({ ok: false, code: "INVALID_EVENTS" });
+    expect(validateSaveTransition(current, ordered.state, unowned)).toEqual({ ok: false, code: "INVALID_EVENTS" });
   });
 
   it("rejects a forged balance, replayed sequence and removed inventory", () => {
@@ -31,6 +45,10 @@ describe("server save authority", () => {
     const unknown = structuredClone(current);
     (unknown.franchises[0].carry.items as Record<string, number>).potatoes = 1;
     expect(validateSaveTransition(current, unknown, [])).toEqual({ ok: false, code: "INVALID_STATE_TRANSITION" });
+
+    const oversizedContainer = structuredClone(current);
+    oversizedContainer.franchises[0].carry = { capacity: 21, items: {} };
+    expect(validateSaveTransition(current, oversizedContainer, [])).toEqual({ ok: false, code: "INVALID_STATE_TRANSITION" });
   });
 
   it("applies the v4 carry invariants to every persisted employee runtime", () => {
@@ -55,6 +73,18 @@ describe("server save authority", () => {
     const missingItems = structuredClone(hired.state);
     delete (missingItems.franchises[0].employees[0].runtime!.carry as { items?: unknown }).items;
     expect(validateSaveTransition(current, missingItems, hired.events)).toEqual({ ok: false, code: "INVALID_STATE_TRANSITION" });
+  });
+
+  it("accepts a persisted supplier delivery and capacity-safe warehouse pickup", () => {
+    const current = createInitialGame("ES");
+    const ordered = applyGameAction(current, { type: "ORDER", supplierId: "campo", productId: "wheat", quantity: 10 });
+    const delivered = advanceSimulation(ordered.state, 80);
+    const pickedUp = applyGameAction(delivered.state, { type: "PICKUP_WAREHOUSE" });
+    const stocked = applyGameAction(pickedUp.state, { type: "STOCK", productId: "wheat", quantity: 3, source: "carry" });
+
+    expect(ordered.ok && delivered.ok && pickedUp.ok && stocked.ok).toBe(true);
+    expect(validateSaveTransition(current, stocked.state, ordered.events)).toEqual({ ok: true });
+    expect(stocked.state.franchises[0].warehouse.wheat + stocked.state.franchises[0].shelves.wheat).toBe(10);
   });
 
   it("does not allow changing the registered country in a later save", () => {

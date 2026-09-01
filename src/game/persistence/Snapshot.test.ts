@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createInitialGame, normalizeGameState } from "../engine";
+import { applyGameAction, createInitialGame, normalizeGameState } from "../engine";
 import { cappedOfflineElapsed, chooseRecovery, createSnapshot, validatePendingEvents } from "./Snapshot";
 
 describe("snapshot persistence", () => {
@@ -19,5 +19,25 @@ describe("snapshot persistence", () => {
     const local = { state: localState, saveRevision: 4, pendingEvents: [] };
     expect(chooseRecovery(server, local).source).toBe("local");
     expect(validatePendingEvents([])).toBe(true);
+  });
+
+  it("validates event origins and migrates the explicit active-franchise fallback for legacy recovery", () => {
+    const serverState = createInitialGame("ES");
+    const ordered = applyGameAction(serverState, { type: "ORDER", supplierId: "campo", productId: "wheat", quantity: 1 });
+    expect(validatePendingEvents(ordered.events)).toBe(true);
+
+    const legacyEvent = structuredClone(ordered.events[0]) as unknown as Record<string, unknown>;
+    delete legacyEvent.franchiseId;
+    const legacyEvents = [legacyEvent] as unknown as typeof ordered.events;
+    expect(validatePendingEvents(legacyEvents)).toBe(false);
+
+    const selected = chooseRecovery(
+      { state: serverState, saveRevision: 4, pendingEvents: [] },
+      { state: ordered.state, saveRevision: 4, pendingEvents: legacyEvents },
+    );
+
+    expect(selected.source).toBe("local");
+    expect(selected.envelope.pendingEvents[0].franchiseId).toBe(ordered.state.currentFranchiseId);
+    expect(validatePendingEvents(selected.envelope.pendingEvents)).toBe(true);
   });
 });

@@ -18,6 +18,27 @@ export const DEFAULT_PLAYER_MOTION: PlayerMotionConfig = {
   maxTurnRate: Math.PI * 3,
 };
 
+/**
+ * The enlarged market uses the former walk speed as a calibration unit, not as
+ * the live tier-one cap.  Tier one is deliberately three times faster so a
+ * full shop/farm traversal stays short; later upgrades keep their existing
+ * percentage progression without making the first levels feel punitive.
+ * Acceleration and braking scale with the same multiplier so touch and keyboard
+ * input remain immediate instead of taking half a second to reach cruise speed.
+ */
+export const PLAYER_TIER_ONE_SPEED_MULTIPLIER = 3;
+
+export function playerMotionForTier(tier: number): PlayerMotionConfig {
+  const safeTier = Math.max(1, Math.floor(Number.isFinite(tier) ? tier : 1));
+  const tierMultiplier = 1 + Math.min(0.32, (safeTier - 1) * 0.08);
+  return {
+    ...DEFAULT_PLAYER_MOTION,
+    walkSpeed: DEFAULT_PLAYER_MOTION.walkSpeed * PLAYER_TIER_ONE_SPEED_MULTIPLIER * tierMultiplier,
+    acceleration: DEFAULT_PLAYER_MOTION.acceleration * PLAYER_TIER_ONE_SPEED_MULTIPLIER,
+    braking: DEFAULT_PLAYER_MOTION.braking * PLAYER_TIER_ONE_SPEED_MULTIPLIER,
+  };
+}
+
 export function cameraRelativeMovement(input: InputVector, cameraForward: Vector2): Vector2 {
   const forwardLength = Math.hypot(cameraForward.x, cameraForward.y) || 1;
   const forward = { x: cameraForward.x / forwardLength, y: cameraForward.y / forwardLength };

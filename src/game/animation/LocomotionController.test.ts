@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { AnimationClip, AnimationMixer, Object3D } from "three";
-import { GAIT_FOOT_CONTACT_PHASES, LocomotionController } from "./LocomotionController";
+import { GAIT_FOOT_CONTACT_PHASES, locomotionGroundingSupport, LocomotionController } from "./LocomotionController";
 
 describe("LocomotionController", () => {
   it("aplica histéresis, carga y giro sobre pies", () => {
@@ -31,6 +31,19 @@ describe("LocomotionController", () => {
     expect(controller.select(3.2, 0, false)).toBe("Run");
     expect(controller.select(2.9, 0, false)).toBe("Run");
     expect(controller.select(2.7, 0, false)).toBe("Walk");
+  });
+
+  it("mantiene los brazos de carga al correr con una cesta", () => {
+    const controller = new LocomotionController();
+    expect(controller.select(3.2, 0, true)).toBe("CarryRun");
+    expect(controller.select(2.9, 0, true)).toBe("CarryRun");
+    expect(controller.select(2.7, 0, true)).toBe("CarryWalk");
+  });
+
+  it("aplica apoyo completo de pies durante CarryRun", () => {
+    expect(locomotionGroundingSupport("CarryRun")).toBe(1);
+    expect(locomotionGroundingSupport("CarryWalk")).toBe(1);
+    expect(locomotionGroundingSupport("Idle")).toBe(0.25);
   });
 
   it("emite apoyos alternos y simétricos en la fase anatómica del paso", () => {

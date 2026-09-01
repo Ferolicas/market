@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cameraRelativeMovement, moveVelocity } from "./PlayerController";
+import { cameraRelativeMovement, DEFAULT_PLAYER_MOTION, moveVelocity, PLAYER_TIER_ONE_SPEED_MULTIPLIER, playerMotionForTier } from "./PlayerController";
 
 describe("player controller", () => {
   it("maps screen input through camera forward", () => {
@@ -13,5 +13,21 @@ describe("player controller", () => {
     expect(accelerated.x).toBeCloseTo(0.2);
     const stopped = moveVelocity({ x: 0.1, y: 0 }, { x: 0, y: 0 }, 1 / 60);
     expect(stopped).toEqual({ x: 0, y: 0 });
+  });
+
+  it("triplica la velocidad inicial sin perder la progresión por tier", () => {
+    const tierOne = playerMotionForTier(1);
+    const tierTwo = playerMotionForTier(2);
+
+    expect(tierOne.walkSpeed).toBeCloseTo(DEFAULT_PLAYER_MOTION.walkSpeed * PLAYER_TIER_ONE_SPEED_MULTIPLIER);
+    expect(tierOne.walkSpeed).toBeCloseTo(6.6);
+    expect(tierOne.acceleration).toBe(DEFAULT_PLAYER_MOTION.acceleration * 3);
+    expect(tierOne.braking).toBe(DEFAULT_PLAYER_MOTION.braking * 3);
+    expect(tierTwo.walkSpeed).toBeCloseTo(tierOne.walkSpeed * 1.08);
+  });
+
+  it("normaliza tiers persistidos inválidos antes de calcular movimiento", () => {
+    expect(playerMotionForTier(Number.NaN)).toEqual(playerMotionForTier(1));
+    expect(playerMotionForTier(-3)).toEqual(playerMotionForTier(1));
   });
 });

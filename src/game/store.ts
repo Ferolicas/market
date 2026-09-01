@@ -4,7 +4,8 @@ import { create } from "zustand";
 import { advanceSimulation, advanceWorld, applyGameAction, normalizeGameState } from "./engine";
 import type { ActionResult, GameAction, GameEvent, GameState, WorldInteractionAction } from "./types";
 import { ensureStoreNavigation, storePathfinder } from "./navigation/NavMeshService";
-import { chooseRecovery } from "./persistence/Snapshot";
+import { chooseRecovery, restorePendingEventOrigins } from "./persistence/Snapshot";
+import { marketQaFreezeEnabled } from "./debug/QaAccess";
 
 type SaveStatus = "idle" | "loading" | "dirty" | "saving" | "saved" | "offline" | "conflict" | "error";
 
@@ -13,6 +14,7 @@ interface MarketStore {
   saveRevision: number;
   saveStatus: SaveStatus;
   message: string;
+  messageRevision: number;
   pendingEvents: GameEvent[];
   loadGame: () => Promise<void>;
   dispatch: (action: GameAction) => ActionResult | null;
@@ -21,7 +23,6 @@ interface MarketStore {
   simulate: (minutes?: number) => void;
   tickWorld: (deltaMs?: number) => void;
   saveGame: () => Promise<void>;
-  dismissMessage: () => void;
 }
 
 const LOCAL_KEY = "mini-market-recovery-v1";
@@ -37,7 +38,12 @@ interface RecoverySnapshot {
 function readRecovery(): RecoverySnapshot | null {
   try {
     const value = localStorage.getItem(LOCAL_KEY);
-    return value ? JSON.parse(value) as RecoverySnapshot : null;
+    if (!value) return null;
+    const recovery = JSON.parse(value) as RecoverySnapshot;
+    if (recovery.pendingEvents?.length && recovery.state?.currentFranchiseId) {
+      recovery.pendingEvents = restorePendingEventOrigins(recovery.pendingEvents, recovery.state.currentFranchiseId);
+    }
+    return recovery;
   } catch {
     return null;
   }
@@ -57,21 +63,23 @@ function gameSessionId() {
 }
 
 function qaSimulationFrozen() {
-  return typeof window !== "undefined"
-    && new URLSearchParams(window.location.search).has("debug")
-    && sessionStorage.getItem("mini-market-qa-freeze") === "1";
+  if (typeof window === "undefined") return false;
+  return marketQaFreezeEnabled(window.location.search, sessionStorage.getItem("mini-market-qa-freeze"));
 }
 
 export const useMarketStore = create<MarketStore>((set, get) => {
   let lastWorldRecoveryWriteAt = 0;
   let pendingPlayerDistanceMeters = 0;
   let pendingInteractions: WorldInteractionAction[] = [];
+  let saveInFlight = false;
+  const messageOccurrence = (message: string) => ({ message, messageRevision: get().messageRevision + 1 });
 
   return {
   game: null,
   saveRevision: 0,
   saveStatus: "idle",
   message: "",
+  messageRevision: 0,
   pendingEvents: [],
 
   loadGame: async () => {
@@ -94,18 +102,18 @@ export const useMarketStore = create<MarketStore>((set, get) => {
         );
         if (selected.source === "local") {
           writeRecovery(selected.envelope.state, payload.saveRevision, selected.envelope.pendingEvents);
-          set({ game: selected.envelope.state, saveRevision: payload.saveRevision, saveStatus: "dirty", pendingEvents: selected.envelope.pendingEvents, message: "Recuperé cambios locales pendientes" });
+          set({ game: selected.envelope.state, saveRevision: payload.saveRevision, saveStatus: "dirty", pendingEvents: selected.envelope.pendingEvents, ...messageOccurrence("Recuperé cambios locales pendientes") });
           return;
         }
       }
       writeRecovery(serverState, payload.saveRevision);
-      set({ game: serverState, saveRevision: payload.saveRevision, saveStatus: "saved", message: "Progreso sincronizado" });
+      set({ game: serverState, saveRevision: payload.saveRevision, saveStatus: "saved", ...messageOccurrence("Progreso sincronizado") });
     } catch {
       const recovery = readRecovery();
       if (recovery) {
-        set({ game: normalizeGameState(recovery.state), saveRevision: recovery.saveRevision, saveStatus: "offline", pendingEvents: recovery.pendingEvents ?? [], message: "Modo sin conexión: progreso protegido localmente" });
+        set({ game: normalizeGameState(recovery.state), saveRevision: recovery.saveRevision, saveStatus: "offline", pendingEvents: recovery.pendingEvents ?? [], ...messageOccurrence("Modo sin conexión: progreso protegido localmente") });
       } else {
-        set({ saveStatus: "error", message: "No se pudo cargar la partida" });
+        set({ saveStatus: "error", ...messageOccurrence("No se pudo cargar la partida") });
       }
     }
   },
@@ -115,12 +123,12 @@ export const useMarketStore = create<MarketStore>((set, get) => {
     if (!game) return null;
     const result = applyGameAction(game, action);
     if (!result.ok) {
-      set({ message: result.message });
+      set(messageOccurrence(result.message));
       return result;
     }
     const pendingEvents = [...get().pendingEvents, ...result.events];
     writeRecovery(result.state, get().saveRevision, pendingEvents);
-    set({ game: result.state, saveStatus: "dirty", message: result.message, pendingEvents });
+    set({ game: result.state, saveStatus: saveInFlight ? "saving" : "dirty", pendingEvents, ...messageOccurrence(result.message) });
     return result;
   },
 
@@ -139,17 +147,17 @@ export const useMarketStore = create<MarketStore>((set, get) => {
   },
 
   simulate: (minutes = 10) => {
-    if (get().saveStatus === "saving" || qaSimulationFrozen()) return;
+    if (qaSimulationFrozen()) return;
     const game = get().game;
     if (!game) return;
     const result = advanceSimulation(game, minutes);
     const pendingEvents = [...get().pendingEvents, ...result.events];
     writeRecovery(result.state, get().saveRevision, pendingEvents);
-    set({ game: result.state, saveStatus: "dirty", pendingEvents });
+    set({ game: result.state, saveStatus: saveInFlight ? "saving" : "dirty", pendingEvents });
   },
 
   tickWorld: (deltaMs = 250) => {
-    if (get().saveStatus === "saving" || qaSimulationFrozen()) return;
+    if (qaSimulationFrozen()) return;
     const game = get().game;
     if (!game) return;
     const franchise = game.franchises.find((candidate) => candidate.id === game.currentFranchiseId) ?? game.franchises[0];
@@ -169,12 +177,13 @@ export const useMarketStore = create<MarketStore>((set, get) => {
       writeRecovery(result.state, get().saveRevision, pendingEvents);
       lastWorldRecoveryWriteAt = now;
     }
-    set({ game: result.state, saveStatus: "dirty", pendingEvents, ...(interactions.length ? { message: result.message } : {}) });
+    set({ game: result.state, saveStatus: saveInFlight ? "saving" : "dirty", pendingEvents, ...(interactions.length ? messageOccurrence(result.message) : {}) });
   },
 
   saveGame: async () => {
     const { game, saveRevision, saveStatus, pendingEvents } = get();
-    if (!game || saveStatus === "saving" || (saveStatus === "saved" && pendingEvents.length === 0)) return;
+    if (!game || saveInFlight || (saveStatus === "saved" && pendingEvents.length === 0)) return;
+    saveInFlight = true;
     set({ saveStatus: "saving" });
     try {
       const state = { ...game, lastSavedAt: new Date().toISOString() };
@@ -185,10 +194,21 @@ export const useMarketStore = create<MarketStore>((set, get) => {
       });
       const payload = await response.json();
       if (response.status === 409) {
-        localStorage.setItem(`mini-market-conflict-${Date.now()}`, JSON.stringify({ state, saveRevision }));
+        // World ticks and direct actions are allowed to continue during a slow
+        // PUT. If another session wins the revision race, back up the newest
+        // local snapshot and its unsent events — not the older request body —
+        // before accepting the authoritative server state.
+        const latest = get();
+        const conflictState = latest.game ?? state;
+        localStorage.setItem(`mini-market-conflict-${Date.now()}`, JSON.stringify({
+          state: conflictState,
+          saveRevision,
+          pendingEvents: latest.pendingEvents,
+          serverSaveRevision: payload.saveRevision,
+        }));
         const serverState = normalizeGameState(payload.state);
         writeRecovery(serverState, payload.saveRevision);
-        set({ game: serverState, saveRevision: payload.saveRevision, saveStatus: "conflict", pendingEvents: [], message: "Otra sesión guardó primero; cargué la versión más reciente y conservé una copia local" });
+        set({ game: serverState, saveRevision: payload.saveRevision, saveStatus: "conflict", pendingEvents: [], ...messageOccurrence("Otra sesión guardó primero; cargué la versión más reciente y conservé una copia local") });
         return;
       }
       if (!response.ok) throw new Error(payload.error ?? "SAVE_FAILED");
@@ -198,12 +218,12 @@ export const useMarketStore = create<MarketStore>((set, get) => {
       const hasNewerState = Boolean(latest.game && latest.game.revision > state.revision);
       const latestState = hasNewerState ? latest.game! : state;
       writeRecovery(latestState, payload.saveRevision, remainingEvents);
-      set({ game: latestState, saveRevision: payload.saveRevision, saveStatus: hasNewerState || remainingEvents.length ? "dirty" : "saved", pendingEvents: remainingEvents, message: hasNewerState || remainingEvents.length ? "Guardado parcial; sincronizando cambios nuevos" : "Partida guardada" });
+      set({ game: latestState, saveRevision: payload.saveRevision, saveStatus: hasNewerState || remainingEvents.length ? "dirty" : "saved", pendingEvents: remainingEvents, ...messageOccurrence(hasNewerState || remainingEvents.length ? "Guardado parcial; sincronizando cambios nuevos" : "Partida guardada") });
     } catch {
-      set({ saveStatus: "offline", message: "Sin conexión: los cambios siguen protegidos en este dispositivo" });
+      set({ saveStatus: "offline", ...messageOccurrence("Sin conexión: los cambios siguen protegidos en este dispositivo") });
+    } finally {
+      saveInFlight = false;
     }
   },
-
-  dismissMessage: () => set({ message: "" }),
   };
 });

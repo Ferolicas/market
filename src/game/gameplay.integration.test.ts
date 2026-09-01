@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { advanceWorld, applyGameAction, createInitialGame, normalizeGameState } from "./engine";
+import { advanceSimulation, advanceWorld, applyGameAction, createInitialGame, normalizeGameState } from "./engine";
 import type { CustomerRuntimeState, GameAction, GameState, ProductId } from "./types";
 
 function act(state: GameState, action: GameAction) {
@@ -64,6 +64,36 @@ describe("real supermarket loop", () => {
     expect(fullBasket.message).toContain("llena");
     expect(fullBasket.state.franchises[0].carry.items).toEqual({ tomatoes: 1, wheat: 1 });
     expect(fullBasket.state.franchises[0].crops.find((crop) => crop.id === corn.id)).toMatchObject({ status: "READY", available: 1 });
+  });
+
+  it("orders, receives, picks up and magnet-stocks a real supplier batch without seeded carry", () => {
+    const initial = createInitialGame("ES");
+    const balanceBefore = initial.balanceMinor;
+    const ordered = applyGameAction(initial, { type: "ORDER", supplierId: "campo", productId: "wheat", quantity: 10 });
+
+    expect(ordered.ok, ordered.message).toBe(true);
+    expect(Number.isSafeInteger(ordered.state.balanceMinor)).toBe(true);
+    expect(balanceBefore - ordered.state.balanceMinor).toBe(700);
+    expect(ordered.events).toHaveLength(1);
+    expect(ordered.events[0].amountMinor).toBe(-700);
+    expect(ordered.state.franchises[0].warehouse.wheat).toBe(0);
+
+    const delivered = advanceSimulation(ordered.state, 80);
+    expect(delivered.state.pendingOrders).toHaveLength(0);
+    expect(delivered.state.franchises[0].warehouse.wheat).toBe(10);
+
+    const pickedUp = applyGameAction(delivered.state, { type: "PICKUP_WAREHOUSE" });
+    expect(pickedUp.ok, pickedUp.message).toBe(true);
+    expect(pickedUp.state.franchises[0].carry).toEqual({ capacity: 3, items: { wheat: 3 } });
+    expect(pickedUp.state.franchises[0].warehouse.wheat).toBe(7);
+    expect(pickedUp.state.balanceMinor).toBe(ordered.state.balanceMinor);
+
+    const stocked = applyGameAction(pickedUp.state, { type: "STOCK", productId: "wheat", quantity: 3, source: "carry" });
+    expect(stocked.ok, stocked.message).toBe(true);
+    expect(stocked.state.franchises[0].carry.items).toEqual({});
+    expect(stocked.state.franchises[0].shelves.wheat).toBe(3);
+    expect(stocked.state.franchises[0].warehouse.wheat).toBe(7);
+    expect(stocked.state.franchises[0].warehouse.wheat + stocked.state.franchises[0].shelves.wheat).toBe(10);
   });
 
   it("harvests tomatoes, stocks visible inventory, queues a real customer and commits one payment", () => {

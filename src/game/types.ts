@@ -260,10 +260,11 @@ export type GameAction =
   | { type: "SET_AVATAR"; body?: CharacterId; hair?: HairId; hairColor?: string; skin?: string; shirt?: string; hat?: AvatarHatId }
   | { type: "TOGGLE_STORE" }
   | { type: "TEND_CROP"; cropId?: string; productId?: "tomatoes" | "wheat" | "corn" }
-  | { type: "HARVEST"; cropId?: string; productId?: "tomatoes" | "wheat" | "corn" }
+  | { type: "HARVEST"; cropId?: string; productId?: "tomatoes" | "wheat" | "corn"; quantity?: number }
   | { type: "LOAD_FLOUR_MILL" }
   | { type: "BAKE_BREAD" }
   | { type: "OPERATE_MACHINE"; machineId: string }
+  | { type: "PICKUP_WAREHOUSE"; productId?: ProductId; quantity?: number }
   | { type: "STOCK"; productId: ProductId; quantity?: number; source?: "warehouse" | "carry" }
   | { type: "CHECKOUT"; paymentMethod: PaymentMethod }
   | { type: "ORDER"; supplierId: string; productId: ProductId; quantity: number }
@@ -284,6 +285,7 @@ export type WorldInteractionAction = Extract<GameAction, { type:
   | "LOAD_FLOUR_MILL"
   | "BAKE_BREAD"
   | "OPERATE_MACHINE"
+  | "PICKUP_WAREHOUSE"
   | "STOCK"
   | "CHECKOUT"
   | "CONTRIBUTE_BUILD"
@@ -291,6 +293,7 @@ export type WorldInteractionAction = Extract<GameAction, { type:
 }>;
 
 export interface GameEvent {
+  franchiseId: string;
   category: string;
   description: string;
   amountMinor: number;

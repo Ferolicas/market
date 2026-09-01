@@ -87,7 +87,7 @@ export const FRANCHISE_TEMPLATES = [
   { id: "marina", name: "Market Marina", city: "Zona costera", unlockLevel: 10, purchaseCostMinor: 2200000 },
   { id: "aeropuerto", name: "Market Terminal", city: "Aeropuerto", unlockLevel: 16, purchaseCostMinor: 5800000 },
   { id: "campus", name: "Market Campus", city: "Ciudad universitaria", unlockLevel: 24, purchaseCostMinor: 14500000 },
-  { id: "megastore", name: "Olcas Mega Market", city: "Distrito financiero", unlockLevel: 32, purchaseCostMinor: 42000000 },
+  { id: "megastore", name: "Olcas Mega Market", city: "Distrito financiero", unlockLevel: 30, purchaseCostMinor: 42000000 },
 ] as const;
 
 export const EMPLOYEE_NAMES = ["Luna", "Mateo", "Sofía", "Leo", "Emma", "Nico", "Vera", "Bruno", "Mía", "Teo", "Alma", "Gael"];

@@ -3,6 +3,7 @@ import { normalizeGameState } from "../engine";
 import type { GameEvent, GameState } from "../types";
 
 export const domainEventSchema = z.object({
+  franchiseId: z.string().min(1).max(80),
   eventId: z.string().uuid(),
   sequence: z.number().int().positive(),
   occurredAt: z.string().datetime(),
@@ -22,9 +23,20 @@ export function createSnapshot(state: GameState, now = new Date()) {
 
 export function chooseRecovery(server: RecoveryEnvelope, local: RecoveryEnvelope) {
   if (local.saveRevision !== server.saveRevision || local.state.revision <= server.state.revision) return { source: "server" as const, envelope: server };
+  const pendingEvents = restorePendingEventOrigins(local.pendingEvents, local.state.currentFranchiseId);
   const serverEvents = new Set(server.state.processedEventIds);
-  if (local.pendingEvents.some((event) => event.eventId && serverEvents.has(event.eventId))) return { source: "server" as const, envelope: server };
-  return { source: "local" as const, envelope: { ...local, state: normalizeGameState(local.state) } };
+  if (pendingEvents.some((event) => event.eventId && serverEvents.has(event.eventId))) return { source: "server" as const, envelope: server };
+  return { source: "local" as const, envelope: { ...local, state: normalizeGameState(local.state), pendingEvents } };
+}
+
+/**
+ * Pending events written by builds predating per-franchise attribution cannot
+ * recover their original branch. The active branch stored in that same local
+ * snapshot is the only deterministic fallback; newly stamped events always
+ * carry their real source and never pass through this branch.
+ */
+export function restorePendingEventOrigins(events: GameEvent[], fallbackFranchiseId: string) {
+  return events.map((event) => event.franchiseId ? event : { ...event, franchiseId: fallbackFranchiseId });
 }
 
 export function validatePendingEvents(events: GameEvent[]) {

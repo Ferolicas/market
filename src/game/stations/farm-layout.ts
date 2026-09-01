@@ -10,12 +10,281 @@ export interface FarmPlotLayout {
   accent: string;
 }
 
+export interface FarmFacilityLayout {
+  position: readonly [number, number, number];
+}
+
+export interface FarmAnimalStationLayout extends FarmFacilityLayout {
+  workPosition: readonly [number, number, number];
+  facing: number;
+}
+
+export interface FarmObstacleLayout {
+  x: number;
+  z: number;
+  halfX: number;
+  halfZ: number;
+}
+
+/**
+ * The storefront sits on positive Z. The estate is intentionally beyond the
+ * rear wall on negative Z, reached by the open service lane on the east side.
+ * All values use the same unscaled layout coordinates consumed by navigation.
+ */
+const FARM_SERVICE_LANE_X = 12.15;
+
+/** One source for the visible gate, its physical solids and both approaches. */
+export const FARM_GATE = {
+  center: [10.4, 0, -11.55] as const,
+  frontPost: [10.4, 0, -10.35] as const,
+  innerPost: [10.4, 0, -12.75] as const,
+  openLeaf: { center: [10.4, 0, -13.43] as const, halfX: 0.07, halfZ: 0.85 },
+  rightFence: { center: [10.6, 0, -15.9175] as const, halfX: 0.07, halfZ: 2.259375 },
+  exteriorApproach: [FARM_SERVICE_LANE_X, -11.55] as const,
+  // Recast's first complete cell beyond the posts. Using the geometric fence
+  // line itself makes a capsule chase an unreachable projection after entry.
+  interiorApproach: [9.5, -11.55] as const,
+  postHalfSize: 0.11,
+} as const;
+
+export const FARM_FIELD = {
+  center: [0, 0, -14.15] as const,
+  size: [21.2, 0, 7.15] as const,
+  // Interior arrival remains aligned with the centre of the visible opening.
+  entrance: [FARM_GATE.interiorApproach[0], 0, FARM_GATE.interiorApproach[1]] as const,
+  serviceLaneX: FARM_SERVICE_LANE_X,
+} as const;
+
+export const FARM_WORKER_HOME = [-1.7, -11.7] as const;
+
+/** Footprint occupied by the retired facade farm in schema-v4 saves created
+ * before the estate moved behind the building. It covers all four old beds,
+ * both animal stations and their immediate work apron, but not the storefront
+ * entrance itself. Persisted workers and remaining route points use this only
+ * as a migration marker; it never participates in current navigation. */
+export const RETIRED_FRONT_FARM_BOUNDS = {
+  minX: -10.8,
+  maxX: -0.6,
+  minZ: 8.8,
+  maxZ: 13,
+} as const;
+
+export function isRetiredFrontFarmPoint(point: readonly [number, number]) {
+  return point[0] >= RETIRED_FRONT_FARM_BOUNDS.minX
+    && point[0] <= RETIRED_FRONT_FARM_BOUNDS.maxX
+    && point[1] >= RETIRED_FRONT_FARM_BOUNDS.minZ
+    && point[1] <= RETIRED_FRONT_FARM_BOUNDS.maxZ;
+}
+
+/** Values are local element units; the 3D scene applies STORE_ELEMENT_SCALE. */
+export const FARM_HARVEST_SENSOR = {
+  enterRadius: 1.28,
+  exitRadius: 1.42,
+  dwellMs: 35,
+  repeatEveryMs: 220,
+  exitGraceMs: 90,
+} as const;
+
+export function scaledFarmHarvestSensor(elementScale: number) {
+  return {
+    ...FARM_HARVEST_SENSOR,
+    enterRadius: FARM_HARVEST_SENSOR.enterRadius * elementScale,
+    exitRadius: FARM_HARVEST_SENSOR.exitRadius * elementScale,
+  };
+}
+
 export const FARM_PLOTS: readonly FarmPlotLayout[] = [
-  { id: "crop-tomato-1", productId: "tomatoes", position: [-9.45, 0, 10.1], accent: "#e34f3f" },
-  { id: "crop-tomato-2", productId: "tomatoes", position: [-7.05, 0, 10.1], accent: "#ef6a4b" },
-  { id: "crop-wheat-1", productId: "wheat", position: [-9.45, 0, 11.75], accent: "#e9b83f" },
-  { id: "crop-corn-1", productId: "corn", position: [-7.05, 0, 11.75], accent: "#f0c438" },
+  { id: "crop-tomato-1", productId: "tomatoes", position: [-6.3, 0, -12.72], accent: "#e34f3f" },
+  { id: "crop-tomato-2", productId: "tomatoes", position: [-3.55, 0, -12.72], accent: "#ef6a4b" },
+  { id: "crop-wheat-1", productId: "wheat", position: [-6.3, 0, -15.45], accent: "#e9b83f" },
+  { id: "crop-corn-1", productId: "corn", position: [-3.55, 0, -15.45], accent: "#f0c438" },
 ] as const;
+
+export const FARM_FACILITIES = {
+  tools: { position: [-9.05, 0, -11.72] },
+  compost: { position: [-9.35, 0, -16.55] },
+  greenhouse: { position: [8.4, 0, -16.25] },
+  scarecrow: { position: [-8.9, 0, -14.15] },
+  waterTank: { position: [-0.7, 0, -16.55] },
+} as const satisfies Record<string, FarmFacilityLayout>;
+
+export const FARM_ANIMAL_STATIONS = {
+  chicken: { position: [1.2, 0, -14.15], workPosition: [1.2, 0, -12.45], facing: Math.PI },
+  cow: { position: [5.35, 0, -14.45], workPosition: [5.35, 0, -12.45], facing: Math.PI },
+} as const satisfies Record<"chicken" | "cow", FarmAnimalStationLayout>;
+
+export const FARM_ACCESS_WAYPOINTS = [
+  [FARM_FIELD.serviceLaneX, 8.65],
+  [...FARM_GATE.exteriorApproach],
+  [FARM_FIELD.entrance[0], FARM_FIELD.entrance[2]],
+] as const satisfies readonly (readonly [number, number])[];
+
+/**
+ * A shared, obstacle-free spine inside the estate. Fallback employee routes
+ * use this corridor in both directions while Recast is still warming up, so
+ * a diagonal from the gate can never cut through a reserved animal paddock.
+ */
+export const FARM_INTERIOR_WAYPOINTS = {
+  entranceApron: [8.55, -11.65],
+  cropJunction: [-2, -11.65],
+  southCropJunction: [-2, -15.45],
+} as const satisfies Record<string, readonly [number, number]>;
+
+type FarmPoint = readonly [number, number];
+
+function sameFarmPoint(a: FarmPoint, b: FarmPoint) {
+  return Math.hypot(a[0] - b[0], a[1] - b[1]) <= 0.08;
+}
+
+function compactFarmRoute(start: FarmPoint, route: readonly FarmPoint[]) {
+  let previous = start;
+  return route.reduce<[number, number][]>((points, point) => {
+    if (sameFarmPoint(previous, point)) return points;
+    const next: [number, number] = [point[0], point[1]];
+    points.push(next);
+    previous = next;
+    return points;
+  }, []);
+}
+
+// Navigation obstacles are rendered at STORE_ELEMENT_SCALE (1.6) while route
+// coordinates are consumed at STORE_LAYOUT_SCALE (2). Keep the same 31 cm
+// actor clearance as the navmesh fallback checks before accepting a shortcut.
+function farmSegmentIsObstacleFree(start: FarmPoint, destination: FarmPoint) {
+  return !FARM_OBSTACLES.some((obstacle) => {
+    const halfX = obstacle.halfX * 0.8 + 0.31;
+    const halfZ = obstacle.halfZ * 0.8 + 0.31;
+    const deltaX = destination[0] - start[0];
+    const deltaZ = destination[1] - start[1];
+    let minimum = 0;
+    let maximum = 1;
+
+    for (const [origin, delta, center, half] of [
+      [start[0], deltaX, obstacle.x, halfX],
+      [start[1], deltaZ, obstacle.z, halfZ],
+    ] as const) {
+      const lower = center - half;
+      const upper = center + half;
+      if (Math.abs(delta) < 1e-8) {
+        if (origin < lower || origin > upper) return false;
+        continue;
+      }
+      const first = (lower - origin) / delta;
+      const second = (upper - origin) / delta;
+      minimum = Math.max(minimum, Math.min(first, second));
+      maximum = Math.min(maximum, Math.max(first, second));
+      if (minimum > maximum) return false;
+    }
+    return true;
+  });
+}
+
+function farmCorridorFromApron(destination: FarmPoint) {
+  const entrance: FarmPoint = [FARM_FIELD.entrance[0], FARM_FIELD.entrance[2]];
+  if (sameFarmPoint(destination, entrance)) return [];
+
+  const route: [number, number][] = [[...FARM_INTERIOR_WAYPOINTS.entranceApron]];
+  if (destination[0] <= 0) {
+    route.push([...FARM_INTERIOR_WAYPOINTS.cropJunction]);
+    if (destination[1] < -14) route.push([...FARM_INTERIOR_WAYPOINTS.southCropJunction]);
+  }
+  route.push([destination[0], destination[1]]);
+  return route;
+}
+
+/** Route after reaching the open farm gate; the gate itself is not repeated. */
+export function farmInteriorRouteFromEntrance(destination: FarmPoint) {
+  const entrance: FarmPoint = [FARM_FIELD.entrance[0], FARM_FIELD.entrance[2]];
+  return compactFarmRoute(entrance, farmCorridorFromApron(destination));
+}
+
+/** Route from an estate destination back through the open farm gate. */
+export function farmInteriorRouteToEntrance(start: FarmPoint) {
+  const entrance: FarmPoint = [FARM_FIELD.entrance[0], FARM_FIELD.entrance[2]];
+  if (sameFarmPoint(start, entrance)) return [];
+  return compactFarmRoute(start, [
+    ...farmCorridorFromApron(start).reverse(),
+    entrance,
+  ]);
+}
+
+/** Obstacle-safe fallback between two destinations already inside the farm. */
+export function farmInteriorRouteBetween(start: FarmPoint, destination: FarmPoint) {
+  if (sameFarmPoint(start, destination)) return [];
+  const entrance: FarmPoint = [FARM_FIELD.entrance[0], FARM_FIELD.entrance[2]];
+  const nodes = [
+    start,
+    destination,
+    entrance,
+    ...Object.values(FARM_INTERIOR_WAYPOINTS),
+  ].reduce<FarmPoint[]>((unique, point) => {
+    if (!unique.some((candidate) => sameFarmPoint(candidate, point))) unique.push(point);
+    return unique;
+  }, []);
+  const destinationIndex = nodes.findIndex((point) => sameFarmPoint(point, destination));
+  const distances = nodes.map(() => Number.POSITIVE_INFINITY);
+  const previous = nodes.map(() => -1);
+  const visited = nodes.map(() => false);
+  distances[0] = 0;
+
+  for (let step = 0; step < nodes.length; step += 1) {
+    let current = -1;
+    nodes.forEach((_, index) => {
+      if (!visited[index] && (current < 0 || distances[index] < distances[current])) current = index;
+    });
+    if (current < 0 || !Number.isFinite(distances[current])) break;
+    if (current === destinationIndex) break;
+    visited[current] = true;
+
+    nodes.forEach((candidate, index) => {
+      if (visited[index] || index === current || !farmSegmentIsObstacleFree(nodes[current], candidate)) return;
+      const distance = distances[current]
+        + Math.hypot(nodes[current][0] - candidate[0], nodes[current][1] - candidate[1]);
+      if (distance + 1e-8 < distances[index]) {
+        distances[index] = distance;
+        previous[index] = current;
+      }
+    });
+  }
+
+  if (destinationIndex >= 0 && Number.isFinite(distances[destinationIndex])) {
+    const shortest: FarmPoint[] = [];
+    for (let index = destinationIndex; index > 0; index = previous[index]) {
+      shortest.push(nodes[index]);
+      if (previous[index] < 0) break;
+    }
+    shortest.reverse();
+    if (shortest.at(-1) && sameFarmPoint(shortest.at(-1)!, destination)) {
+      return compactFarmRoute(start, shortest);
+    }
+  }
+
+  // Defensive fallback for an unforeseen saved position outside the visibility
+  // graph. Normal farm stations always resolve through the path above.
+  return compactFarmRoute(start, [entrance, ...farmInteriorRouteFromEntrance(destination)]);
+}
+
+// Permanent props, reserved paddocks and the perimeter fence participate in
+// both navigation and physics. Crop beds deliberately stay traversable: the
+// harvest loop is a walk-through magnet, not a stop-at-the-edge interaction.
+export const FARM_OBSTACLES = [
+  { x: FARM_FACILITIES.tools.position[0], z: FARM_FACILITIES.tools.position[2], halfX: 0.74, halfZ: 0.46 },
+  { x: FARM_FACILITIES.compost.position[0], z: FARM_FACILITIES.compost.position[2], halfX: 0.48, halfZ: 0.48 },
+  { x: FARM_FACILITIES.greenhouse.position[0], z: FARM_FACILITIES.greenhouse.position[2], halfX: 0.68, halfZ: 0.58 },
+  { x: FARM_FACILITIES.scarecrow.position[0], z: FARM_FACILITIES.scarecrow.position[2], halfX: 0.38, halfZ: 0.38 },
+  { x: FARM_FACILITIES.waterTank.position[0], z: FARM_FACILITIES.waterTank.position[2], halfX: 0.52, halfZ: 0.52 },
+  { x: FARM_FACILITIES.waterTank.position[0] + 0.9, z: FARM_FACILITIES.waterTank.position[2], halfX: 0.4, halfZ: 0.26 },
+  { x: FARM_ANIMAL_STATIONS.chicken.position[0], z: FARM_ANIMAL_STATIONS.chicken.position[2], halfX: 1.49, halfZ: 1.09 },
+  { x: FARM_ANIMAL_STATIONS.cow.position[0], z: FARM_ANIMAL_STATIONS.cow.position[2], halfX: 1.79, halfZ: 1.24 },
+  { x: 0, z: -17.725, halfX: 13.25, halfZ: 0.07 },
+  { x: -1.72, z: -10.575, halfX: 11.1, halfZ: 0.07 },
+  { x: -10.6, z: FARM_FIELD.center[2], halfX: 0.07, halfZ: 4.47 },
+  { x: FARM_GATE.rightFence.center[0], z: FARM_GATE.rightFence.center[2], halfX: FARM_GATE.rightFence.halfX, halfZ: FARM_GATE.rightFence.halfZ },
+  { x: FARM_GATE.frontPost[0], z: FARM_GATE.frontPost[2], halfX: FARM_GATE.postHalfSize, halfZ: FARM_GATE.postHalfSize },
+  { x: FARM_GATE.innerPost[0], z: FARM_GATE.innerPost[2], halfX: FARM_GATE.postHalfSize, halfZ: FARM_GATE.postHalfSize },
+  // The open gate leaf is folded against this east-perimeter section.
+  { x: FARM_GATE.openLeaf.center[0], z: FARM_GATE.openLeaf.center[2], halfX: FARM_GATE.openLeaf.halfX, halfZ: FARM_GATE.openLeaf.halfZ },
+] as const satisfies readonly FarmObstacleLayout[];
 
 const FARM_PLOT_BY_ID = new Map<string, FarmPlotLayout>(FARM_PLOTS.map((plot) => [plot.id, plot]));
 

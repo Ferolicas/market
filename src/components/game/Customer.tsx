@@ -2,16 +2,19 @@
 
 import { useAnimations, useGLTF } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
-import { forwardRef, useEffect, useEffectEvent, useMemo, useRef, useState, type RefObject } from "react";
+import { forwardRef, useEffect, useEffectEvent, useMemo, useRef, type RefObject } from "react";
 import * as THREE from "three";
+import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { dampFactor, frameDelta, turnTowards, type VisitorAnimation } from "@/game/locomotion";
 import type { CheckoutTransaction, CustomerRuntimeState, ProductId } from "@/game/types";
 import { scaleStorePoint, STORE_ELEMENT_SCALE, STORE_LAYOUT_SCALE, WORLD_SCALE } from "@/game/world-scale";
 import { FacialController, type FaceExpression } from "@/game/animation/FacialController";
-import { disposeCharacterMaterials, prepareCharacterModel } from "@/game/animation/CharacterPresentation";
+import { CHARACTER_FACE_UPDATE_INTERVAL, characterIsInView, characterModelPathForTier, createCharacterVisibilityScratch, disposeCharacterMaterials, prepareCharacterModel, useCharacterModelTier } from "@/game/animation/CharacterPresentation";
 import { captureCustomerMotion, projectCustomerMotion } from "@/game/animation/CustomerVisualMotion";
+import { marketQaQueryEnabled } from "@/game/debug/QaAccess";
 import { CUSTOMER_CART_WHEEL_RADIUS, CUSTOMER_CHECKOUT_ITEM_CYCLE_MS, CUSTOMER_PICKUP_DURATION_MS, CustomerCartGripSolver, assignCartGripTargets, cartSteeringAngle, checkoutCartInventory, checkoutLoadingPresentation, easedMotionProgress, motionProgress, productTransferPoint, shortestHeadingDelta, wheelRollDelta, type CartGripChain } from "@/game/animation/CustomerCartMotion";
 import { PRODUCT_RETAIL_DEPARTMENT, retailDisplayPosition } from "@/game/stations/retail-layout";
+import { CART_BAY_POINT } from "@/game/stations/store-service-layout";
 import { BasketProduct } from "./HarvestBasket";
 
 export type CustomerId = 1 | 2 | 3 | 4 | 5 | 6;
@@ -26,14 +29,15 @@ const MODEL_PATHS: Record<CustomerId, string> = {
   6: "/models/market/customers/customer_06_woman_senior.glb",
 };
 
-const LOD1_PATHS = Object.fromEntries(Object.entries(MODEL_PATHS).map(([id, path]) => [id, path.replace("/customers/", "/customers/lod1/")])) as Record<CustomerId, string>;
+const LOD1_PATHS = Object.fromEntries(Object.entries(MODEL_PATHS).map(([id, path]) => [id, characterModelPathForTier(path, 1)])) as Record<CustomerId, string>;
+const LOD2_PATHS = Object.fromEntries(Object.entries(MODEL_PATHS).map(([id, path]) => [id, characterModelPathForTier(path, 2)])) as Record<CustomerId, string>;
 const CUSTOMER_SCALE: Record<CustomerId, number> = { 1: 1.29, 2: 1.28, 3: 1.32, 4: 1.32, 5: 1.32, 6: 1.27 };
 const CART_SCALE = 0.92;
 const CART_HANDLE_Z = -0.43;
 const CART_HANDLE_Y = 0.82;
 const CART_HANDLE_BASE_WIDTH = 0.78;
 const CART_MAX_FOLLOW_LAG = 0.075;
-const CART_BAY_POSITION = scaleStorePoint([3.05, 6.55]);
+const CART_BAY_POSITION = scaleStorePoint([...CART_BAY_POINT]);
 const PICKUP_HEIGHT: Record<ProductId, number> = { tomatoes: 0.86, apples: 0.86, corn: 0.92, eggs: 0.92, milk: 1.02, cheese: 1.02, juice: 1.02, bread: 0.9, flour: 0.9, wheat: 0.9, coffee: 0.9 };
 
 export function Customer({ customer, checkoutTransaction, simulationTimeMs }: { customer: CustomerRuntimeState; checkoutTransaction?: CheckoutTransaction; simulationTimeMs: number }) {
@@ -45,14 +49,8 @@ export function Customer({ customer, checkoutTransaction, simulationTimeMs }: { 
   const cart = useRef<THREE.Group>(null);
   const cartHandle = useRef<THREE.Group>(null);
   const cartBasketSocket = useRef<THREE.Group>(null);
-  const cartCasterFrontLeft = useRef<THREE.Group>(null);
-  const cartCasterFrontRight = useRef<THREE.Group>(null);
-  const cartCasterRearLeft = useRef<THREE.Group>(null);
-  const cartCasterRearRight = useRef<THREE.Group>(null);
-  const cartWheelFrontLeft = useRef<THREE.Group>(null);
-  const cartWheelFrontRight = useRef<THREE.Group>(null);
-  const cartWheelRearLeft = useRef<THREE.Group>(null);
-  const cartWheelRearRight = useRef<THREE.Group>(null);
+  const cartCasters = useRef<THREE.InstancedMesh>(null);
+  const cartWheels = useRef<THREE.InstancedMesh>(null);
   const pickupVisual = useRef<THREE.Group>(null);
   const bag = useRef<THREE.Group>(null);
   const activeAnimation = useRef<CustomerAnimation>("Idle");
@@ -94,18 +92,20 @@ export function Customer({ customer, checkoutTransaction, simulationTimeMs }: { 
   const carryObjectWorldPosition = useRef(new THREE.Vector3());
   const headInitialized = useRef(false);
   const facial = useRef(new FacialController(customer.identity * 97));
+  const lastFacialUpdate = useRef(Number.NEGATIVE_INFINITY);
+  const visibilityScratch = useMemo(() => createCharacterVisibilityScratch(), []);
   const motionSnapshot = useRef(captureCustomerMotion(customer, nowMs()));
   const refreshMotionSnapshot = useEffectEvent(() => {
     motionSnapshot.current = captureCustomerMotion(customer, nowMs());
   });
-  // An orthographic camera does not make a character smaller as its world
-  // distance changes, so distance-based LOD was both visually inconsistent
-  // and forced all three GLBs to decode up front. Pick one appropriate source
-  // for the viewport and keep the highest-detail model on desktop/GPU play.
-  const [compactModel] = useState(() => typeof window !== "undefined" && window.innerWidth <= 640);
-  const gltf = useGLTF(compactModel ? LOD1_PATHS[id] : MODEL_PATHS[id]);
-  const model = useMemo(() => prepareCharacterModel(gltf.scene, { crowd: true }), [gltf.scene]);
-  const { actions } = useAnimations(gltf.animations, model);
+  // Orthographic distance does not change screen size, so select one source by
+  // live device capability rather than loading all LODs into GPU memory.
+  const modelTier = useCharacterModelTier();
+  const modelPath = modelTier === 2 ? LOD2_PATHS[id] : modelTier === 1 ? LOD1_PATHS[id] : MODEL_PATHS[id];
+  const gltf = useGLTF(modelPath);
+  const model = useMemo(() => prepareCharacterModel(gltf.scene, { crowd: true, reducedDetail: modelTier > 0 }), [gltf.scene, modelTier]);
+  const { actions, mixer } = useAnimations(gltf.animations, model);
+  const mixerRef = useRef(mixer);
   const morphMeshes = useMemo(() => collectMorphMeshes(model), [model]);
   const leftHand = useMemo(() => model.getObjectByName("Hand_L"), [model]);
   const rightHand = useMemo(() => model.getObjectByName("Hand_R"), [model]);
@@ -117,6 +117,10 @@ export function Customer({ customer, checkoutTransaction, simulationTimeMs }: { 
   const productDisplay = currentProduct ? retailDisplayPosition(PRODUCT_RETAIL_DEPARTMENT[currentProduct]) : null;
   const cartInventory = checkoutCartInventory(customer.basket, checkoutTransaction);
   const checkoutLoading = checkoutLoadingPresentation(customer.state, checkoutTransaction, simulationTimeMs);
+
+  useEffect(() => {
+    mixerRef.current = mixer;
+  }, [mixer]);
 
   useEffect(() => {
     actions.Idle?.reset().play();
@@ -139,7 +143,7 @@ export function Customer({ customer, checkoutTransaction, simulationTimeMs }: { 
     refreshMotionSnapshot();
   }, [customer.id, customer.state, simulationTimeMs]);
 
-  useFrame(({ clock }, delta) => {
+  useFrame(({ camera, clock }, delta) => {
     visualFrame.current += 1;
     const group = root.current;
     if (!group) return;
@@ -154,26 +158,6 @@ export function Customer({ customer, checkoutTransaction, simulationTimeMs }: { 
     const [x, z] = scaleStorePoint([projected.x, projected.z]);
     const animation = customerAnimation(customer, clock.elapsedTime, Boolean(checkoutLoading));
 
-    const expression: FaceExpression = animation === "Happy" || animation === "ReceiveBag" ? "Happy" : animation === "Confused" ? "Confused" : animation === "Impatient" || customer.state === "WAIT_RESTOCK" || customer.angry ? "Impatient" : "Neutral";
-    const weights = facial.current.weights(clock.elapsedTime + id * 0.21, expression);
-    const focus = animation === "Browse" || animation === "ReachShelf" || animation === "CheckoutItem" ? 0.22 : 0;
-    for (const mesh of morphMeshes) {
-      const dictionary = mesh.morphTargetDictionary;
-      const influences = mesh.morphTargetInfluences;
-      if (!dictionary || !influences) continue;
-      for (const name of ["Blink_L", "Blink_R", "EyeWide_L", "EyeWide_R", "BrowUp_L", "BrowUp_R", "BrowDown_L", "BrowDown_R", "Smile", "CheekUp", "Frown", "JawOpen", "MouthNarrow", "Surprise", "Confused"]) setMorph(dictionary, influences, name, weights[name] ?? 0);
-      if (focus) { setMorph(dictionary, influences, "BrowDown_L", focus); setMorph(dictionary, influences, "BrowDown_R", focus); }
-    }
-    if (head) {
-      desiredHeadQuaternion.current.copy(head.quaternion);
-      if (!headInitialized.current) {
-        stableHeadQuaternion.current.copy(desiredHeadQuaternion.current);
-        headInitialized.current = true;
-      } else {
-        stableHeadQuaternion.current.rotateTowards(desiredHeadQuaternion.current, frameDelta(delta) * 1.8);
-      }
-      head.quaternion.copy(stableHeadQuaternion.current);
-    }
     group.visible = customer.state !== "DESPAWN";
     const previousX = group.position.x; const previousZ = group.position.z;
     // The projected point is already the continuous interpolation of the
@@ -198,6 +182,40 @@ export function Customer({ customer, checkoutTransaction, simulationTimeMs }: { 
       characterRoot.current.rotation.z = THREE.MathUtils.lerp(characterRoot.current.rotation.z, turnLean, dampFactor(7, delta));
       characterRoot.current.rotation.x = THREE.MathUtils.lerp(characterRoot.current.rotation.x, locomotion ? -0.012 : 0, dampFactor(7, delta));
     }
+    const cartVisible = customer.hasCart || customer.state === "GET_CART";
+    const cartGroup = cart.current;
+    if (cartGroup) cartGroup.visible = cartVisible;
+    const inView = group.visible && characterIsInView(camera, group, visibilityScratch);
+    mixerRef.current.timeScale = inView ? 1 : 0;
+    if (!inView) {
+      cartWasVisible.current = false;
+      if (pickupVisual.current) pickupVisual.current.visible = false;
+      return;
+    }
+
+    if (clock.elapsedTime - lastFacialUpdate.current >= CHARACTER_FACE_UPDATE_INTERVAL || clock.elapsedTime < lastFacialUpdate.current) {
+      lastFacialUpdate.current = clock.elapsedTime;
+      const expression: FaceExpression = animation === "Happy" || animation === "ReceiveBag" ? "Happy" : animation === "Confused" ? "Confused" : animation === "Impatient" || customer.state === "WAIT_RESTOCK" || customer.angry ? "Impatient" : "Neutral";
+      const weights = facial.current.weights(clock.elapsedTime + id * 0.21, expression);
+      const focus = animation === "Browse" || animation === "ReachShelf" || animation === "CheckoutItem" ? 0.22 : 0;
+      for (const mesh of morphMeshes) {
+        const dictionary = mesh.morphTargetDictionary;
+        const influences = mesh.morphTargetInfluences;
+        if (!dictionary || !influences) continue;
+        for (const name of ["Blink_L", "Blink_R", "EyeWide_L", "EyeWide_R", "BrowUp_L", "BrowUp_R", "BrowDown_L", "BrowDown_R", "Smile", "CheekUp", "Frown", "JawOpen", "MouthNarrow", "Surprise", "Confused"]) setMorph(dictionary, influences, name, weights[name] ?? 0);
+        if (focus) { setMorph(dictionary, influences, "BrowDown_L", focus); setMorph(dictionary, influences, "BrowDown_R", focus); }
+      }
+    }
+    if (head) {
+      desiredHeadQuaternion.current.copy(head.quaternion);
+      if (!headInitialized.current) {
+        stableHeadQuaternion.current.copy(desiredHeadQuaternion.current);
+        headInitialized.current = true;
+      } else {
+        stableHeadQuaternion.current.rotateTowards(desiredHeadQuaternion.current, frameDelta(delta) * 1.8);
+      }
+      head.quaternion.copy(stableHeadQuaternion.current);
+    }
     if (characterRoot.current && carrySocket.current && leftHand) {
       characterRoot.current.updateWorldMatrix(true, false);
       leftHand.updateWorldMatrix(true, false);
@@ -205,13 +223,10 @@ export function Customer({ customer, checkoutTransaction, simulationTimeMs }: { 
       characterRoot.current.worldToLocal(carryLocalPosition.current.copy(leftHandWorldPosition.current));
       carrySocket.current.position.copy(carryLocalPosition.current);
     }
-    const cartVisible = customer.hasCart || customer.state === "GET_CART";
-    const cartGroup = cart.current;
     let handleGripDistance: number | null = null;
     let leftGripDistance: number | null = null;
     let rightGripDistance: number | null = null;
-    if (cartGroup) cartGroup.visible = cartVisible;
-    if (cartGroup && leftHand && rightHand && cartHandle.current) {
+    if (cartVisible && cartGroup && leftHand && rightHand && cartHandle.current) {
       group.updateWorldMatrix(true, false);
       leftHand.updateWorldMatrix(true, false);
       rightHand.updateWorldMatrix(true, false);
@@ -269,8 +284,6 @@ export function Customer({ customer, checkoutTransaction, simulationTimeMs }: { 
       const headingDelta = shortestHeadingDelta(previousHeading.current, group.rotation.y);
       const targetSteering = cartSteeringAngle(headingDelta, frameDelta(delta));
       cartSteering.current = THREE.MathUtils.lerp(cartSteering.current, targetSteering, dampFactor(10, delta));
-      for (const caster of [cartCasterFrontLeft.current, cartCasterFrontRight.current]) if (caster) caster.rotation.y = cartSteering.current;
-      for (const caster of [cartCasterRearLeft.current, cartCasterRearRight.current]) if (caster) caster.rotation.y = cartSteering.current * 0.32;
 
       cartGroup.getWorldPosition(cartWorldPosition.current);
       if (cartWasVisible.current && cartVisible) {
@@ -280,9 +293,9 @@ export function Customer({ customer, checkoutTransaction, simulationTimeMs }: { 
         const signedDistance = cartTravelDirection.current.dot(cartForwardDirection.current) >= 0 ? travelled : -travelled;
         const roll = wheelRollDelta(signedDistance / CART_SCALE, CUSTOMER_CART_WHEEL_RADIUS);
         cartWheelRotation.current -= roll;
-        for (const wheel of [cartWheelFrontLeft.current, cartWheelFrontRight.current, cartWheelRearLeft.current, cartWheelRearRight.current]) if (wheel) wheel.rotation.x -= roll;
       }
       previousCartWorldPosition.current.copy(cartWorldPosition.current);
+      updateCartInstances(cartCasters.current, cartWheels.current, cartSteering.current, cartWheelRotation.current);
 
       cartHandle.current.updateWorldMatrix(true, false);
       cartHandle.current.getWorldPosition(cartHandleWorldPosition.current);
@@ -370,7 +383,7 @@ export function Customer({ customer, checkoutTransaction, simulationTimeMs }: { 
     animationAction?.setEffectiveTimeScale(animationTimeScale);
 
     const qaWindow = window as typeof window & { __MARKET_QA__?: Record<string, unknown> };
-    if (qaWindow.__MARKET_QA__) {
+    if (qaWindow.__MARKET_QA__ && marketQaQueryEnabled(window.location.search)) {
       const visuals = (qaWindow.__MARKET_QA__.customerVisuals ??= {}) as Record<string, unknown>;
       let cartDistance: number | null = null;
       if (cart.current?.visible) {
@@ -399,6 +412,8 @@ export function Customer({ customer, checkoutTransaction, simulationTimeMs }: { 
         checkoutLoadedUnits: checkoutTransaction?.pendingItems.reduce((total, line) => total + line.loaded, 0) ?? 0,
         checkoutLoadingUnit: checkoutLoading?.unitIndex ?? null,
         checkoutLoadingProgress: checkoutLoading?.cycleProgress ?? null,
+        characterModelTier: modelTier,
+        cartBaseDrawCalls: customerCartBaseDrawCalls(cart.current),
         pickupVisible: pickupVisual.current?.visible ?? false,
         pickupProduct: customer.state === "PICK_PRODUCT" ? currentProduct : null,
         pickupProgress,
@@ -418,11 +433,11 @@ export function Customer({ customer, checkoutTransaction, simulationTimeMs }: { 
       ref={cart}
       inventory={cartInventory}
       bagged={customer.hasBag}
-      compact={compactModel}
+      compact={modelTier > 0}
       handleRef={cartHandle}
       basketSocketRef={cartBasketSocket}
-      casterRefs={[cartCasterFrontLeft, cartCasterFrontRight, cartCasterRearLeft, cartCasterRearRight]}
-      wheelRefs={[cartWheelFrontLeft, cartWheelFrontRight, cartWheelRearLeft, cartWheelRearRight]}
+      casterRef={cartCasters}
+      wheelRef={cartWheels}
     />
     {currentProduct && <group ref={pickupVisual} visible={false}>
       <BasketProduct productId={currentProduct} scale={1.35} />
@@ -565,29 +580,83 @@ const CART_TUBES: readonly CartTubeTransform[] = [
   cartTube("front-axle", [-0.34, 0.14, 0.27], [0.34, 0.14, 0.27], 0.016, true),
 ];
 
+const CART_FRAME_METAL_GEOMETRY = mergedGeometry(CART_TUBES
+  .filter((tube) => !tube.dark)
+  .map((tube) => transformedGeometry(CART_CYLINDER_GEOMETRY, tube.position, tube.quaternion, tube.scale)));
+const CART_FRAME_DARK_GEOMETRY = mergedGeometry([
+  ...CART_TUBES
+    .filter((tube) => tube.dark)
+    .map((tube) => transformedGeometry(CART_CYLINDER_GEOMETRY, tube.position, tube.quaternion, tube.scale)),
+  transformedGeometry(CART_BOX_GEOMETRY, [0, 0.27, 0.04], undefined, [0.64, 0.032, 0.5]),
+  transformedGeometry(CART_BOX_GEOMETRY, [0, 0.455, -0.205], undefined, [0.04, 0.15, 0.04]),
+]);
+const CART_PANEL_GEOMETRY = mergedGeometry([
+  transformedGeometry(CART_BOX_GEOMETRY, [0, 0.65, -0.265], new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.05, 0, 0)), [0.54, 0.21, 0.035]),
+  transformedGeometry(CART_BOX_GEOMETRY, [0, 0.545, -0.13], new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.08, 0, 0)), [0.5, 0.035, 0.24]),
+]);
+const CART_HANDLE_GRIP_GEOMETRY = transformedGeometry(
+  CART_CYLINDER_GEOMETRY,
+  [0, 0, 0],
+  new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, Math.PI / 2)),
+  [0.04, CART_HANDLE_BASE_WIDTH, 0.04],
+);
+const CART_HANDLE_END_GEOMETRY = mergedGeometry([-0.5, 0.5].map((side) => transformedGeometry(
+  CART_CYLINDER_GEOMETRY,
+  [side * CART_HANDLE_BASE_WIDTH, 0, 0],
+  new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, Math.PI / 2)),
+  [0.052, 0.07, 0.052],
+)));
+const CART_CASTER_GEOMETRY = mergedGeometry([
+  transformedGeometry(CART_CYLINDER_GEOMETRY, [0, 0.07, 0], undefined, [0.022, 0.14, 0.022]),
+  ...[-0.042, 0.042].map((x) => transformedGeometry(CART_BOX_GEOMETRY, [x, 0.025, 0], undefined, [0.012, 0.07, 0.026])),
+]);
+const CART_WHEEL_METAL_GEOMETRY = mergedGeometry([
+  transformedGeometry(CART_HUB_GEOMETRY, [0, 0, 0], new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, Math.PI / 2))),
+  transformedGeometry(CART_BOX_GEOMETRY, [0, 0.038, 0], undefined, [0.063, 0.01, 0.014]),
+]);
+const CART_WHEEL_ASSEMBLY_GEOMETRY = mergedGeometry([
+  transformedGeometry(CART_WHEEL_GEOMETRY, [0, 0, 0], new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, Math.PI / 2))),
+  CART_WHEEL_METAL_GEOMETRY,
+], true);
+const CART_CASTER_POSITIONS = [
+  [-0.3, 0.09, 0.27],
+  [0.3, 0.09, 0.27],
+  [-0.3, 0.09, -0.22],
+  [0.3, 0.09, -0.22],
+] as const;
+const CART_INSTANCE_MATRIX = new THREE.Matrix4();
+const CART_INSTANCE_POSITION = new THREE.Vector3();
+const CART_INSTANCE_YAW = new THREE.Quaternion();
+const CART_INSTANCE_ROLL = new THREE.Quaternion();
+const CART_INSTANCE_SCALE = new THREE.Vector3(1, 1, 1);
+const CART_Y_AXIS = new THREE.Vector3(0, 1, 0);
+const CART_X_AXIS = new THREE.Vector3(1, 0, 0);
+
+/** Static frame (3), handle (2), caster brackets (1) and two-material wheels
+ * (2). Products and the optional paper bag are inventory, not cart chassis. */
+export const CUSTOMER_CART_BASE_DRAW_CALLS = 8;
+
 type CustomerCartProps = {
   inventory: CustomerRuntimeState["basket"];
   bagged: boolean;
   compact: boolean;
   handleRef: RefObject<THREE.Group | null>;
   basketSocketRef: RefObject<THREE.Group | null>;
-  casterRefs: readonly RefObject<THREE.Group | null>[];
-  wheelRefs: readonly RefObject<THREE.Group | null>[];
+  casterRef: RefObject<THREE.InstancedMesh | null>;
+  wheelRef: RefObject<THREE.InstancedMesh | null>;
 };
 
-const CustomerCart = forwardRef<THREE.Group, CustomerCartProps>(function CustomerCart({ inventory, bagged, compact, handleRef, basketSocketRef, casterRefs, wheelRefs }, ref) {
+const CustomerCart = forwardRef<THREE.Group, CustomerCartProps>(function CustomerCart({ inventory, bagged, compact, handleRef, basketSocketRef, casterRef, wheelRef }, ref) {
   const units = (Object.entries(inventory) as [ProductId, number][])
     .flatMap(([productId, quantity]) => Array.from({ length: Math.min(quantity, compact ? 2 : 3) }, () => productId))
     .slice(0, compact ? 5 : 8);
   return <group ref={ref} position={[0, 0, 0.46]} scale={CART_SCALE} visible={false} dispose={null}>
-    {CART_TUBES.map((tube) => <mesh key={tube.key} geometry={CART_CYLINDER_GEOMETRY} material={tube.dark ? CART_DARK_METAL_MATERIAL : CART_METAL_MATERIAL} position={tube.position} quaternion={tube.quaternion} scale={tube.scale} />)}
-    <mesh geometry={CART_BOX_GEOMETRY} material={CART_DARK_METAL_MATERIAL} position={[0, 0.27, 0.04]} scale={[0.64, 0.032, 0.5]} />
-    <mesh geometry={CART_BOX_GEOMETRY} material={CART_PANEL_MATERIAL} position={[0, 0.65, -0.265]} rotation={[-0.05, 0, 0]} scale={[0.54, 0.21, 0.035]} />
-    <mesh geometry={CART_BOX_GEOMETRY} material={CART_PANEL_MATERIAL} position={[0, 0.545, -0.13]} rotation={[-0.08, 0, 0]} scale={[0.5, 0.035, 0.24]} />
-    <mesh geometry={CART_BOX_GEOMETRY} material={CART_DARK_METAL_MATERIAL} position={[0, 0.455, -0.205]} scale={[0.04, 0.15, 0.04]} />
+    <mesh name="CustomerCartFrameMetal" geometry={CART_FRAME_METAL_GEOMETRY} material={CART_METAL_MATERIAL} />
+    <mesh name="CustomerCartFrameDark" geometry={CART_FRAME_DARK_GEOMETRY} material={CART_DARK_METAL_MATERIAL} />
+    <mesh name="CustomerCartPanels" geometry={CART_PANEL_GEOMETRY} material={CART_PANEL_MATERIAL} />
     <group ref={handleRef} position={[0, CART_HANDLE_Y, CART_HANDLE_Z]}>
-      <mesh geometry={CART_CYLINDER_GEOMETRY} material={CART_GRIP_MATERIAL} rotation={[0, 0, Math.PI / 2]} scale={[0.04, CART_HANDLE_BASE_WIDTH, 0.04]} />
-      {[-0.5, 0.5].map((side) => <mesh key={side} geometry={CART_CYLINDER_GEOMETRY} material={CART_DARK_METAL_MATERIAL} position={[side * CART_HANDLE_BASE_WIDTH, 0, 0]} rotation={[0, 0, Math.PI / 2]} scale={[0.052, 0.07, 0.052]} />)}
+      <mesh name="CustomerCartHandleGrip" geometry={CART_HANDLE_GRIP_GEOMETRY} material={CART_GRIP_MATERIAL} />
+      <mesh name="CustomerCartHandleEnds" geometry={CART_HANDLE_END_GEOMETRY} material={CART_DARK_METAL_MATERIAL} />
     </group>
     <group ref={basketSocketRef} position={[0, 0.43, 0.05]}>
       {units.map((productId, index) => <BasketProduct
@@ -599,23 +668,59 @@ const CustomerCart = forwardRef<THREE.Group, CustomerCartProps>(function Custome
       />)}
       {bagged && <CustomerBagInCart />}
     </group>
-    <CartCaster casterRef={casterRefs[0]} wheelRef={wheelRefs[0]} position={[-0.3, 0.09, 0.27]} />
-    <CartCaster casterRef={casterRefs[1]} wheelRef={wheelRefs[1]} position={[0.3, 0.09, 0.27]} />
-    <CartCaster casterRef={casterRefs[2]} wheelRef={wheelRefs[2]} position={[-0.3, 0.09, -0.22]} />
-    <CartCaster casterRef={casterRefs[3]} wheelRef={wheelRefs[3]} position={[0.3, 0.09, -0.22]} />
+    <instancedMesh name="CustomerCartCasters" ref={casterRef} args={[CART_CASTER_GEOMETRY, CART_DARK_METAL_MATERIAL, 4]} />
+    <instancedMesh name="CustomerCartWheels" ref={wheelRef} args={[CART_WHEEL_ASSEMBLY_GEOMETRY, [CART_WHEEL_MATERIAL, CART_METAL_MATERIAL], 4]} />
   </group>;
 });
 
-function CartCaster({ casterRef, wheelRef, position }: { casterRef: RefObject<THREE.Group | null>; wheelRef: RefObject<THREE.Group | null>; position: [number, number, number] }) {
-  return <group ref={casterRef} position={position}>
-    <mesh geometry={CART_CYLINDER_GEOMETRY} material={CART_DARK_METAL_MATERIAL} position={[0, 0.07, 0]} scale={[0.022, 0.14, 0.022]} />
-    {[-0.042, 0.042].map((x) => <mesh key={x} geometry={CART_BOX_GEOMETRY} material={CART_DARK_METAL_MATERIAL} position={[x, 0.025, 0]} scale={[0.012, 0.07, 0.026]} />)}
-    <group ref={wheelRef}>
-      <mesh geometry={CART_WHEEL_GEOMETRY} material={CART_WHEEL_MATERIAL} rotation={[0, 0, Math.PI / 2]} />
-      <mesh geometry={CART_HUB_GEOMETRY} material={CART_METAL_MATERIAL} rotation={[0, 0, Math.PI / 2]} />
-      <mesh geometry={CART_BOX_GEOMETRY} material={CART_METAL_MATERIAL} position={[0, 0.038, 0]} scale={[0.063, 0.01, 0.014]} />
-    </group>
-  </group>;
+function updateCartInstances(casters: THREE.InstancedMesh | null, wheels: THREE.InstancedMesh | null, steering: number, wheelRotation: number) {
+  if (!casters || !wheels) return;
+  for (let index = 0; index < CART_CASTER_POSITIONS.length; index += 1) {
+    const yaw = index < 2 ? steering : steering * 0.32;
+    const [x, y, z] = CART_CASTER_POSITIONS[index];
+    CART_INSTANCE_POSITION.set(x, y, z);
+    CART_INSTANCE_YAW.setFromAxisAngle(CART_Y_AXIS, yaw);
+    CART_INSTANCE_MATRIX.compose(CART_INSTANCE_POSITION, CART_INSTANCE_YAW, CART_INSTANCE_SCALE);
+    casters.setMatrixAt(index, CART_INSTANCE_MATRIX);
+
+    CART_INSTANCE_ROLL.setFromAxisAngle(CART_X_AXIS, wheelRotation);
+    CART_INSTANCE_YAW.multiply(CART_INSTANCE_ROLL);
+    CART_INSTANCE_MATRIX.compose(CART_INSTANCE_POSITION, CART_INSTANCE_YAW, CART_INSTANCE_SCALE);
+    wheels.setMatrixAt(index, CART_INSTANCE_MATRIX);
+  }
+  casters.instanceMatrix.needsUpdate = true;
+  wheels.instanceMatrix.needsUpdate = true;
+}
+
+function transformedGeometry(
+  source: THREE.BufferGeometry,
+  position: readonly [number, number, number],
+  quaternion = new THREE.Quaternion(),
+  scale: readonly [number, number, number] = [1, 1, 1],
+) {
+  const matrix = new THREE.Matrix4().compose(
+    new THREE.Vector3(...position),
+    quaternion,
+    new THREE.Vector3(...scale),
+  );
+  return source.clone().applyMatrix4(matrix);
+}
+
+function mergedGeometry(geometries: THREE.BufferGeometry[], useGroups = false) {
+  const geometry = mergeGeometries(geometries, useGroups);
+  if (!geometry) throw new Error("Customer cart geometry attributes are incompatible");
+  geometry.computeBoundingSphere();
+  return geometry;
+}
+
+function customerCartBaseDrawCalls(cartRoot: THREE.Group | null) {
+  if (!cartRoot) return 0;
+  let draws = 0;
+  cartRoot.traverse((object) => {
+    if (!(object instanceof THREE.Mesh) || !object.name.startsWith("CustomerCart")) return;
+    draws += Array.isArray(object.material) ? Math.max(1, object.geometry.groups.length) : 1;
+  });
+  return draws;
 }
 
 function CustomerBagInCart() {

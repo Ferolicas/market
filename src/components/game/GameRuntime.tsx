@@ -5,6 +5,7 @@ import { useMarketStore } from "@/game/store";
 import { AudioFeedback } from "@/game/feedback/AudioFeedback";
 import { feedbackBus } from "@/game/feedback/FeedbackBus";
 import { WORLD_TICK_INTERVAL_MS } from "@/game/core/timing";
+import { marketQaFreezeEnabled } from "@/game/debug/QaAccess";
 
 export function GameRuntime() {
   const loadGame = useMarketStore((state) => state.loadGame);
@@ -23,7 +24,7 @@ export function GameRuntime() {
   useEffect(() => {
     // The real-browser persistence audit reloads once with simulation paused so
     // it can compare the restored snapshot byte-for-byte before the first tick.
-    if (new URLSearchParams(window.location.search).has("debug") && sessionStorage.getItem("mini-market-qa-freeze") === "1") return;
+    if (marketQaFreezeEnabled(window.location.search, sessionStorage.getItem("mini-market-qa-freeze"))) return;
     const worldTimer = window.setInterval(() => tickWorld(WORLD_TICK_INTERVAL_MS), WORLD_TICK_INTERVAL_MS);
     const simulationTimer = window.setInterval(() => simulate(1), 5000);
     const saveTimer = window.setInterval(() => void saveGame(), 15000);

@@ -60,6 +60,15 @@ importers:
       '@gltf-transform/cli':
         specifier: 4.4.2
         version: 4.4.2(@types/node@20.19.43)
+      '@gltf-transform/core':
+        specifier: 4.4.2
+        version: 4.4.2
+      '@gltf-transform/extensions':
+        specifier: 4.4.2
+        version: 4.4.2
+      '@gltf-transform/functions':
+        specifier: 4.4.2
+        version: 4.4.2(@types/node@20.19.43)
       '@tailwindcss/postcss':
         specifier: ^4
         version: 4.3.3
@@ -87,12 +96,18 @@ importers:
       gltf-validator:
         specifier: 2.0.0-dev.3.10
         version: 2.0.0-dev.3.10
+      meshoptimizer:
+        specifier: 1.1.1
+        version: 1.1.1
       playwright:
         specifier: 1.62.1
         version: 1.62.1
       prisma:
         specifier: 7.10.0
         version: 7.10.0(@types/react-dom@19.2.5(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(typescript@5.9.3)
+      sharp:
+        specifier: 0.34.5
+        version: 0.34.5
       tailwindcss:
         specifier: ^4
         version: 4.3.3

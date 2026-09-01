@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { authClient } from "@/lib/auth-client";
 import { COUNTRIES, HATS, PRODUCTS, ROLE_INFO, SUPPLIERS } from "@/game/catalog";
-import { countryMoneyScale, employeeHiringQuote, formatMoney, upgradeQuote } from "@/game/engine";
+import { canOperateMachine, canProcessCheckoutUnit, countryMoneyScale, employeeHiringQuote, formatMoney, upgradeQuote } from "@/game/engine";
 import { useMarketStore } from "@/game/store";
 import type { AvatarConfig, CountryCode, EmployeeRole, FranchiseState, GameState, ProductId } from "@/game/types";
 import { MarketScene, type InteractionId, type InteractionPrompt, type InteractionVisualEvent } from "./MarketScene";
@@ -11,9 +11,13 @@ import { GameRuntime } from "./GameRuntime";
 import { AvatarCustomizer } from "./AvatarCustomizer";
 import { GameInputSurface } from "./GameInputSurface";
 import { feedbackBus, type FeedbackCue } from "@/game/feedback/FeedbackBus";
+import { notificationOccurrenceKey, notificationPresentation } from "@/game/feedback/NotificationPolicy";
 import type { RendererMetrics } from "@/game/debug/PerformanceMonitor";
-import { carriedProductIds, carryQuantity, carryTotal, nextStockingPulse } from "@/game/player/CarrySystem";
+import { canPickupWarehouse, carriedProductIds, carryQuantity, carryTotal, nextStockingPulse } from "@/game/player/CarrySystem";
+import { deriveVisualTransferPresentation, updateVisualTransferRemaining } from "@/game/player/VisualTransferLedger";
 import { cropIdFromFarmInteraction, isFarmInteractionId } from "@/game/stations/farm-layout";
+import { isStockingInteractionId, retailDepartmentFromStockingInteraction, RETAIL_DEPARTMENTS } from "@/game/stations/retail-layout";
+import { marketQaQueryEnabled } from "@/game/debug/QaAccess";
 
 type Panel = "stock" | "suppliers" | "team" | "map" | "finance" | "build" | "avatar" | "help" | null;
 
@@ -22,6 +26,7 @@ export function GameShell({ playerName }: { playerName: string }) {
   const status = useMarketStore((state) => state.saveStatus);
   const saveRevision = useMarketStore((state) => state.saveRevision);
   const message = useMarketStore((state) => state.message);
+  const messageRevision = useMarketStore((state) => state.messageRevision);
   const dispatch = useMarketStore((state) => state.dispatch);
   const recordPlayerDistance = useMarketStore((state) => state.recordPlayerDistance);
   const queueInteraction = useMarketStore((state) => state.queueInteraction);
@@ -29,15 +34,30 @@ export function GameShell({ playerName }: { playerName: string }) {
   const [panel, setPanel] = useState<Panel>(null);
   const [prompt, setPrompt] = useState<InteractionPrompt | null>(null);
   const [lastInteraction, setLastInteraction] = useState<InteractionVisualEvent | null>(null);
-  const [debug] = useState(() => typeof window !== "undefined" && new URLSearchParams(window.location.search).has("debug"));
+  const [transferEvents, setTransferEvents] = useState<InteractionVisualEvent[]>([]);
+  const [debug] = useState(() => typeof window !== "undefined" && marketQaQueryEnabled(window.location.search));
   const [metrics, setMetrics] = useState<RendererMetrics | null>(null);
   const [worldReady, setWorldReady] = useState(false);
   const tutorialStep = game?.tutorialStep ?? 0;
   const interactionSequence = useRef(0);
   const activeInteractionId = useRef<InteractionId | null>(null);
   const interactionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const notification = notificationPresentation(message, status);
+  const notificationKey = notificationOccurrenceKey(notification, messageRevision);
+  const notificationLifecycle = notification?.lifecycle;
+  const notificationDurationMs = notification?.durationMs;
+  const [expiredNotificationKey, setExpiredNotificationKey] = useState("");
+  const showNotification = Boolean(notification)
+    && (notificationLifecycle === "persistent" || expiredNotificationKey !== notificationKey);
 
-  useEffect(() => () => { if (interactionTimer.current) clearTimeout(interactionTimer.current); }, []);
+  useEffect(() => () => {
+    if (interactionTimer.current) clearTimeout(interactionTimer.current);
+  }, []);
+  useEffect(() => {
+    if (notificationLifecycle !== "transient" || notificationDurationMs === null || notificationDurationMs === undefined) return;
+    const timeoutId = window.setTimeout(() => setExpiredNotificationKey(notificationKey), notificationDurationMs);
+    return () => window.clearTimeout(timeoutId);
+  }, [notificationDurationMs, notificationKey, notificationLifecycle]);
   useEffect(() => {
     if (tutorialStep === 0) return;
     let secondFrame = 0;
@@ -56,14 +76,37 @@ export function GameShell({ playerName }: { playerName: string }) {
     return () => window.removeEventListener("market-debug-metrics", receiveMetrics);
   }, [debug]);
   useEffect(() => {
+    if (!debug) return;
+    const qaWindow = window as typeof window & { __MARKET_QA__?: Record<string, unknown> };
+    qaWindow.__MARKET_QA__ ??= {};
+    const advanceMinutes = (minutes: number) => {
+      if (!Number.isFinite(minutes)) return;
+      const boundedMinutes = Math.max(0, Math.min(24 * 60, Math.floor(minutes)));
+      if (boundedMinutes > 0) useMarketStore.getState().simulate(boundedMinutes);
+    };
+    // Keep commands non-enumerable: QA snapshots intentionally clone the
+    // published data object and functions are not structured-cloneable.
+    Object.defineProperty(qaWindow.__MARKET_QA__, "advanceMinutes", {
+      value: advanceMinutes,
+      configurable: true,
+      enumerable: false,
+      writable: true,
+    });
+    return () => {
+      if (qaWindow.__MARKET_QA__?.advanceMinutes === advanceMinutes) delete qaWindow.__MARKET_QA__.advanceMinutes;
+    };
+  }, [debug]);
+  useEffect(() => {
     if (!debug || !game) return;
     const qaWindow = window as typeof window & { __MARKET_QA__?: Record<string, unknown> };
     qaWindow.__MARKET_QA__ ??= {};
     qaWindow.__MARKET_QA__.state = game;
     qaWindow.__MARKET_QA__.saveRevision = saveRevision;
     qaWindow.__MARKET_QA__.saveStatus = status;
+    qaWindow.__MARKET_QA__.message = message;
+    qaWindow.__MARKET_QA__.messageRevision = messageRevision;
     qaWindow.__MARKET_QA__.metrics = metrics;
-  }, [debug, game, metrics, saveRevision, status]);
+  }, [debug, game, message, messageRevision, metrics, saveRevision, status]);
   const interact = useCallback((id: InteractionId) => {
     let performed = true;
     let visualEvent: Omit<InteractionVisualEvent, "sequence"> = { id, kind: "work" };
@@ -73,43 +116,92 @@ export function GameShell({ playerName }: { playerName: string }) {
       const cropId = cropIdFromFarmInteraction(id);
       const crop = cropId ? currentFranchise?.crops.find((candidate) => candidate.id === cropId) : undefined;
       if (crop?.status === "READY" && currentFranchise && carryTotal(currentFranchise.carry) < currentFranchise.carry.capacity) {
-        queueInteraction({ type: "HARVEST", cropId: crop.id, productId: crop.productId });
-        visualEvent = { id, kind: "harvest", cropId: crop.id, productId: crop.productId };
+        const quantity = Math.min(crop.available, currentFranchise.carry.capacity - carryTotal(currentFranchise.carry));
+        queueInteraction({ type: "HARVEST", cropId: crop.id, productId: crop.productId, quantity });
+        visualEvent = {
+          id,
+          kind: "harvest",
+          cropId: crop.id,
+          productId: crop.productId,
+          quantity,
+          remainingQuantity: quantity,
+          carryStart: carryQuantity(currentFranchise.carry, crop.productId),
+          cropStart: crop.available,
+        };
       } else if (crop?.status === "EMPTY") {
         queueInteraction({ type: "TEND_CROP", cropId: crop.id, productId: crop.productId });
         visualEvent = { id, kind: "work", cropId: crop.id, productId: crop.productId };
       } else performed = false;
     }
-    if (id === "mill") queueInteraction({ type: "LOAD_FLOUR_MILL" });
-    if (id === "bakery") queueInteraction({ type: "BAKE_BREAD" });
-    if (id === "chicken") queueInteraction({ type: "OPERATE_MACHINE", machineId: "chicken-coop-1" });
-    if (id === "cow") queueInteraction({ type: "OPERATE_MACHINE", machineId: "cow-station-1" });
-    if (id === "cheese") queueInteraction({ type: "OPERATE_MACHINE", machineId: "cheese-maker-1" });
-    if (id === "juice") queueInteraction({ type: "OPERATE_MACHINE", machineId: "juice-machine-1" });
-    if (id === "shelf") {
+    const machineInteraction = ({
+      mill: { machineId: "flour-mill-1", action: { type: "LOAD_FLOUR_MILL" as const } },
+      bakery: { machineId: "bread-oven-1", action: { type: "BAKE_BREAD" as const } },
+      chicken: { machineId: "chicken-coop-1", action: { type: "OPERATE_MACHINE" as const, machineId: "chicken-coop-1" } },
+      cow: { machineId: "cow-station-1", action: { type: "OPERATE_MACHINE" as const, machineId: "cow-station-1" } },
+      cheese: { machineId: "cheese-maker-1", action: { type: "OPERATE_MACHINE" as const, machineId: "cheese-maker-1" } },
+      juice: { machineId: "juice-machine-1", action: { type: "OPERATE_MACHINE" as const, machineId: "juice-machine-1" } },
+    } as const)[id as "mill" | "bakery" | "chicken" | "cow" | "cheese" | "juice"];
+    if (machineInteraction) {
       const current = useMarketStore.getState().game;
       const currentFranchise = current?.franchises.find((item) => item.id === current.currentFranchiseId);
-      const pulse = currentFranchise ? nextStockingPulse(currentFranchise.carry, currentFranchise.shelves, currentFranchise.stationTiers["shelves-1"] ?? currentFranchise.shelvesLevel) : null;
+      if (current && currentFranchise && canOperateMachine(currentFranchise, machineInteraction.machineId, current.simulationTimeMs)) {
+        queueInteraction(machineInteraction.action);
+      } else performed = false;
+    }
+    if (isStockingInteractionId(id)) {
+      const current = useMarketStore.getState().game;
+      const currentFranchise = current?.franchises.find((item) => item.id === current.currentFranchiseId);
+      const departmentId = retailDepartmentFromStockingInteraction(id);
+      const pulse = currentFranchise && departmentId ? nextStockingPulse(
+        currentFranchise.carry,
+        currentFranchise.shelves,
+        currentFranchise.stationTiers["shelves-1"] ?? currentFranchise.shelvesLevel,
+        RETAIL_DEPARTMENTS[departmentId].products,
+      ) : null;
       if (pulse) {
         queueInteraction({ type: "STOCK", ...pulse, source: "carry" });
-        visualEvent = { id, kind: "stock", ...pulse };
+        visualEvent = {
+          id,
+          kind: "stock",
+          ...pulse,
+          remainingQuantity: pulse.quantity,
+          carryStart: currentFranchise ? carryQuantity(currentFranchise.carry, pulse.productId) : 0,
+          shelfStart: currentFranchise?.shelves[pulse.productId] ?? 0,
+        };
       }
       else performed = false;
     }
     if (id === "checkout") {
       const current = useMarketStore.getState().game;
       const currentFranchise = current?.franchises.find((item) => item.id === current.currentFranchiseId);
-      if (currentFranchise?.open) queueInteraction({ type: "CHECKOUT", paymentMethod: currentFranchise.customersToday % 2 ? "card" : "cash" });
+      if (current && currentFranchise?.open && canProcessCheckoutUnit(current, currentFranchise)) queueInteraction({ type: "CHECKOUT", paymentMethod: currentFranchise.customersToday % 2 ? "card" : "cash" });
       else performed = false;
     }
-    if (id === "supplier" || id === "door") performed = false;
+    if (id === "supplier") {
+      // Re-read the live authoritative snapshot at the sensor tick. The prop
+      // only controls presentation; this guard prevents stale renders from
+      // queueing repeated failures while the dock is empty or the basket full.
+      const current = useMarketStore.getState().game;
+      const currentFranchise = current?.franchises.find((item) => item.id === current.currentFranchiseId);
+      if (currentFranchise && canPickupWarehouse(currentFranchise.warehouse, currentFranchise.carry)) {
+        queueInteraction({ type: "PICKUP_WAREHOUSE" });
+      } else performed = false;
+    }
+    if (id === "door") performed = false;
     // Keep a work gesture active only when a real station action was queued.
     // Locomotion owns the body again as soon as the player leaves its pad.
     if (performed) {
       if (visualEvent.kind === "harvest" || visualEvent.kind === "stock" || activeInteractionId.current !== id) {
         activeInteractionId.current = id;
         interactionSequence.current += 1;
-        setLastInteraction({ ...visualEvent, sequence: interactionSequence.current });
+        const event = { ...visualEvent, sequence: interactionSequence.current };
+        setLastInteraction(event);
+        if (event.kind === "harvest" || event.kind === "stock") {
+          // Proximity pulses are intentionally faster than one flight. Keep
+          // every transfer alive independently so no tomato, egg or bottle is
+          // removed halfway between the basket and its destination.
+          setTransferEvents((current) => [...current, event].slice(-16));
+        }
       }
       if (interactionTimer.current) clearTimeout(interactionTimer.current);
       interactionTimer.current = setTimeout(() => {
@@ -117,10 +209,14 @@ export function GameShell({ playerName }: { playerName: string }) {
         setLastInteraction(null);
       }, 1050);
     }
-    const cue: Partial<Record<InteractionId, FeedbackCue>> = { mill: "machine", bakery: "machine", chicken: "pickup", cow: "pickup", cheese: "machine", juice: "machine", shelf: "stock", checkout: "scanner", door: "door" };
+    const cue: Partial<Record<InteractionId, FeedbackCue>> = { mill: "machine", bakery: "machine", chicken: "pickup", cow: "pickup", cheese: "machine", juice: "machine", checkout: "scanner", supplier: "pickup", door: "door" };
     if (performed && visualEvent.kind === "harvest") feedbackBus.emit("harvest", { source: "player", actorId: "player" });
+    else if (performed && visualEvent.kind === "stock") feedbackBus.emit("stock", { source: "player", actorId: "player" });
     else if (cue[id] && performed) feedbackBus.emit(cue[id], { source: "player", actorId: "player" });
   }, [queueInteraction]);
+  const updateTransferProgress = useCallback((sequence: number, remainingQuantity: number) => {
+    setTransferEvents((current) => updateVisualTransferRemaining(current, sequence, remainingQuantity));
+  }, []);
   const recordDistance = useCallback((meters: number) => { recordPlayerDistance(meters); }, [recordPlayerDistance]);
   const setDoorPresence = useCallback((active: boolean) => {
     // Persistence QA reloads with the simulation frozen so the restored
@@ -131,13 +227,29 @@ export function GameShell({ playerName }: { playerName: string }) {
     dispatch({ type: "DOOR_SENSOR", active });
   }, [debug, dispatch]);
 
-  if (!game) return <><GameRuntime/><div className="game-loading"><div className="loading-shop">🏪</div><strong>Preparando tu mercado…</strong><span>Sincronizando caja, empleados e inventario</span></div></>;
+  const notificationToast = showNotification && notification
+    ? <div
+      key={notificationKey}
+      className={`toast ${notification.tone} ${notification.lifecycle}`}
+      data-notification-lifecycle={notification.lifecycle}
+      role={notification.tone === "danger" ? "alert" : "status"}
+      aria-live={notification.tone === "danger" ? "assertive" : "polite"}
+      aria-atomic="true"
+    >
+      <GameIcon name={notification.tone === "danger" ? "warning" : notification.tone === "warning" ? "cloud" : "check"} />
+      <span>{notification.message}</span>
+    </div>
+    : null;
+
+  if (!game) return <><GameRuntime/><div className="game-loading"><div className="loading-shop">🏪</div><strong>Preparando tu mercado…</strong><span>Sincronizando caja, empleados e inventario</span></div>{notificationToast}</>;
   const franchise = game.franchises.find((item) => item.id === game.currentFranchiseId) ?? game.franchises[0];
+  const warehousePickupEnabled = canPickupWarehouse(franchise.warehouse, franchise.carry);
+  const visualTransfer = deriveVisualTransferPresentation(franchise.carry, franchise.crops, franchise.shelves, transferEvents);
   const hour = `${String(Math.floor(game.minuteOfDay / 60) % 24).padStart(2, "0")}:${String(game.minuteOfDay % 60).padStart(2, "0")}`;
   const progress = ((game.xp % Math.max(120, game.level * game.level * 120)) / Math.max(120, game.level * 120)) * 100;
   const avatarHat = HATS.find((item) => item.id === game.avatar.hat);
-  const carriedProducts = carriedProductIds(franchise.carry);
-  const carriedQuantity = carryTotal(franchise.carry);
+  const carriedProducts = carriedProductIds(visualTransfer.carry);
+  const carriedQuantity = carryTotal(visualTransfer.carry);
   const completedMissions = game.missions.filter((mission) => mission.completed).length;
   const claimableMissions = game.missions.filter((mission) => mission.completed && !mission.claimed).length;
   const saveLabel = status === "saving" ? "Guardando…"
@@ -147,13 +259,11 @@ export function GameShell({ playerName }: { playerName: string }) {
           : status === "error" ? "Error al guardar"
             : "Guardado";
   const showSaveStatus = status === "offline" || status === "conflict" || status === "error";
-  const notificationMessage = message === "Partida guardada" || message === "Progreso sincronizado" ? "" : message;
-  const notificationTone = status === "error" || status === "conflict" ? "danger" : status === "offline" ? "warning" : "info";
 
   return (<>
     <GameRuntime />
     <main className="game-shell">
-      {worldReady && <div className="world"><MarketScene avatar={game.avatar} carry={franchise.carry} checkoutLevel={franchise.checkoutLevel} playerSpeedTier={franchise.playerSpeedTier} customers={franchise.customers} checkoutTransactions={franchise.checkoutTransactions} returnsBin={franchise.returnsBin} returnedCartCount={franchise.returnedCartCount} crops={franchise.crops} productionMachines={franchise.productionMachines} shelves={franchise.shelves} shelfTier={franchise.stationTiers["shelves-1"] ?? franchise.shelvesLevel} unlockedAreas={franchise.unlockedAreas} lightsOn={franchise.lightsOn} simulationTimeMs={game.simulationTimeMs} employees={franchise.employees} open={franchise.open} doorState={franchise.doorState} doorProgress={franchise.doorProgress} onPrompt={setPrompt} onInteract={interact} onDistance={recordDistance} onDoorPresence={setDoorPresence} lastInteraction={lastInteraction} debug={debug} /><GameInputSurface /></div>}
+      {worldReady && <div className="world"><MarketScene avatar={game.avatar} carry={franchise.carry} visualCarry={visualTransfer.carry} warehousePickupEnabled={warehousePickupEnabled} checkoutLevel={franchise.checkoutLevel} playerSpeedTier={franchise.playerSpeedTier} customers={franchise.customers} checkoutTransactions={franchise.checkoutTransactions} returnsBin={franchise.returnsBin} returnedCartCount={franchise.returnedCartCount} crops={franchise.crops} visualCrops={visualTransfer.crops} productionMachines={franchise.productionMachines} shelves={franchise.shelves} visualShelves={visualTransfer.shelves} shelfTier={franchise.stationTiers["shelves-1"] ?? franchise.shelvesLevel} unlockedAreas={franchise.unlockedAreas} lightsOn={franchise.lightsOn} simulationTimeMs={game.simulationTimeMs} employees={franchise.employees} open={franchise.open} doorState={franchise.doorState} doorProgress={franchise.doorProgress} onPrompt={setPrompt} onInteract={interact} onDistance={recordDistance} onDoorPresence={setDoorPresence} lastInteraction={lastInteraction} transferEvents={transferEvents} onTransferProgress={updateTransferProgress} debug={debug} /><GameInputSurface /></div>}
       <header className="hud-top glass-panel" data-game-ui-interactive="true" aria-label="Estado de la tienda">
         <div className="hud-brand"><span><GameIcon name="store" /></span><div><strong>{franchise.name}</strong><small>{franchise.city}</small></div></div>
         <div className="hud-stat money"><small>Caja global</small><strong>{formatMoney(game.balanceMinor, game)}</strong></div>
@@ -194,12 +304,12 @@ export function GameShell({ playerName }: { playerName: string }) {
 
       <footer className="game-bottom" data-game-ui-interactive="true" aria-label="Estado del jugador">
         <div className={`save-chip ${status}`} data-visible={showSaveStatus} role="status" aria-live="polite" aria-hidden={!showSaveStatus}><i/>{saveLabel}</div>
-        {carriedQuantity > 0 && <div className="carry-chip" role="status" aria-label={`Cesta: ${carriedQuantity} de ${franchise.carry.capacity}. ${carriedProducts.map((productId) => PRODUCTS[productId].name).join(", ")}`}><span className="carry-preview" aria-hidden="true">{carriedProducts.slice(0, 3).map((productId) => <i key={productId}>{PRODUCTS[productId].emoji}</i>)}</span><div><small>Cesta · {carriedProducts.length} {carriedProducts.length === 1 ? "producto" : "productos"}</small><strong>{carriedQuantity}/{franchise.carry.capacity}</strong></div></div>}
+        {carriedQuantity > 0 && <div className="carry-chip" role="status" aria-label={`Cesta: ${carriedQuantity} de ${visualTransfer.carry.capacity}. ${carriedProducts.map((productId) => PRODUCTS[productId].name).join(", ")}`}><span className="carry-preview" aria-hidden="true">{carriedProducts.slice(0, 3).map((productId) => <i key={productId}>{PRODUCTS[productId].emoji}</i>)}</span><div><small>Cesta · {carriedProducts.length} {carriedProducts.length === 1 ? "producto" : "productos"}</small><strong>{carriedQuantity}/{visualTransfer.carry.capacity}</strong></div></div>}
         <div className="player-chip"><span title={avatarHat ? `Gorro ${avatarHat.name}` : "Sin gorro"}>{avatarHat?.emoji ?? "👤"}</span><div><strong>{playerName}</strong><small>Reputación {game.reputation}</small></div><button aria-label="Guardar ahora" title="Guardar ahora" onClick={() => void saveGame()}><GameIcon name="cloud" /></button></div>
       </footer>
 
       {prompt && <div className="interaction-prompt" role="status" aria-live="polite"><span className="prompt-signal" aria-hidden="true"><i /></span><strong>{prompt.label}</strong><small>{prompt.id === "door" ? "Sensor automático de la puerta" : "Actividad automática por proximidad"}</small></div>}
-      {notificationMessage && <div key={`${saveRevision}:${notificationMessage}`} className={`toast ${notificationTone}`} role="status" aria-live="polite"><GameIcon name={notificationTone === "danger" ? "warning" : notificationTone === "warning" ? "cloud" : "check"} /><span>{notificationMessage}</span></div>}
+      {notificationToast}
       {debug && <aside className="debug-overlay" data-game-ui-interactive="true"><strong>QA 3D EN VIVO</strong><span>FPS {metrics?.fps ?? "—"} · p95 {metrics?.p95FrameMs ?? "—"} ms</span><span>Draw calls {metrics?.drawCalls ?? "—"} · triángulos {metrics?.triangles.toLocaleString() ?? "—"}</span><span>Texturas {metrics?.textures ?? "—"} · programas {metrics?.programs ?? "—"}</span><span>Clientes {franchise.customers.length} · rutas {franchise.customers.filter((customer) => customer.path.length > customer.pathIndex).length}</span><span>NavMesh rev. {franchise.structureRevision} · colisiones/sensores visibles</span></aside>}
       {game.tutorialStep === 0 && <SetupPanel gameCountry={game.countryCode} gameAvatar={game.avatar} onComplete={(avatar, countryCode) => {
         dispatch({ type: "SET_AVATAR", ...avatar });

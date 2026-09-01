@@ -24,6 +24,7 @@ export const savePayloadSchema = z.object({
     pendingOrders: z.array(z.unknown()).max(200),
   }).passthrough(),
   events: z.array(z.object({
+    franchiseId: z.string().min(1).max(80),
     category: z.string().min(1).max(40),
     description: z.string().min(1).max(160),
     amountMinor: z.number().int().finite(),

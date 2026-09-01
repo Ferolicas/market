@@ -2,16 +2,17 @@
 
 import { useAnimations, useGLTF } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
-import { Suspense, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
+import { Suspense, useEffect, useMemo, useRef, type ReactNode, type RefObject } from "react";
 import * as THREE from "three";
 import type { AvatarHatId, CharacterId, HairId } from "@/game/types";
 import { CharacterHair, CharacterHat } from "./CharacterAccessories";
-import { LocomotionController } from "@/game/animation/LocomotionController";
+import { locomotionGroundingSupport, LocomotionController } from "@/game/animation/LocomotionController";
 import { FacialController, type FaceExpression } from "@/game/animation/FacialController";
 import { feedbackBus, type FeedbackSource } from "@/game/feedback/FeedbackBus";
 import { FootGroundingController } from "@/game/animation/FootGroundingController";
-import { disposeCharacterMaterials, prepareCharacterModel } from "@/game/animation/CharacterPresentation";
-import { composeCarryAnimations, placeCarrySocket } from "@/game/animation/CarrySocket";
+import { CHARACTER_FACE_UPDATE_INTERVAL, characterIsInView, characterModelPathForTier, createCharacterVisibilityScratch, disposeCharacterMaterials, prepareCharacterModel, priorityCustomerModelPathsForTier, scheduleCharacterModelPreload, useCharacterModelTier } from "@/game/animation/CharacterPresentation";
+import { CHARACTER_PALM_OFFSETS, composeCarryAnimations, createCarrySocketScratch, handPalmPoint, HARVEST_BASKET_GRIP_HALF_WIDTH, HARVEST_BASKET_GRIP_HEIGHT, HARVEST_BASKET_GRIP_REACH, mountedHarvestBasketHandle, placeCarrySocket, updateHarvestBasketHandle } from "@/game/animation/CarrySocket";
+import { marketQaQueryEnabled } from "@/game/debug/QaAccess";
 
 interface AvatarProps {
   skin: string;
@@ -31,7 +32,7 @@ interface AvatarProps {
   feedbackActorId?: string;
 }
 
-export type CharacterAnimation = "Idle" | "Walk" | "Run" | "TurnLeft" | "TurnRight" | "CarryIdle" | "CarryWalk" | "Enter" | "Wave" | "ReceiveOrder" | "LiftBox" | "CarryBox" | "PickupLow" | "StockLow" | "StockHigh" | "ScanItem" | "Pay" | "Plant" | "Harvest" | "Happy" | "Confused" | "Talk";
+export type CharacterAnimation = "Idle" | "Walk" | "Run" | "TurnLeft" | "TurnRight" | "CarryIdle" | "CarryWalk" | "CarryRun" | "Enter" | "Wave" | "ReceiveOrder" | "LiftBox" | "CarryBox" | "PickupLow" | "StockLow" | "StockHigh" | "ScanItem" | "Pay" | "Plant" | "Harvest" | "Happy" | "Confused" | "Talk";
 
 const MODEL_PATHS: Record<CharacterId, string> = {
   "adult-man": "/models/market/characters/owner_man.glb",
@@ -41,9 +42,11 @@ const MODEL_PATHS: Record<CharacterId, string> = {
 };
 
 const LOD1_MODEL_PATHS = Object.fromEntries(
-  Object.entries(MODEL_PATHS).map(([body, path]) => [body, path.replace("/characters/", "/characters/lod1/")]),
+  Object.entries(MODEL_PATHS).map(([body, path]) => [body, characterModelPathForTier(path, 1)]),
 ) as Record<CharacterId, string>;
-
+const LOD2_MODEL_PATHS = Object.fromEntries(
+  Object.entries(MODEL_PATHS).map(([body, path]) => [body, characterModelPathForTier(path, 2)]),
+) as Record<CharacterId, string>;
 const BODY_SCALE: Record<CharacterId, number> = {
   "adult-man": 1.32,
   "adult-woman": 1.36,
@@ -77,6 +80,7 @@ function RiggedAvatar({
   const groundingRoot = useRef<THREE.Group>(null);
   const appearanceRoot = useRef<THREE.Group>(null);
   const carrySocket = useRef<THREE.Group>(null);
+  const carryHandle = useRef<THREE.Object3D | null>(null);
   const relativeHeadMatrix = useRef(new THREE.Matrix4());
   const locomotion = useRef(new LocomotionController());
   const facial = useRef(new FacialController(({ "adult-man": 1, "adult-woman": 2, boy: 3, girl: 4 } as const)[body]));
@@ -85,18 +89,25 @@ function RiggedAvatar({
   const avatarWorldScale = useRef(new THREE.Vector3());
   const leftHandWorld = useRef(new THREE.Vector3());
   const rightHandWorld = useRef(new THREE.Vector3());
-  const leftHandLocal = useRef(new THREE.Vector3());
-  const rightHandLocal = useRef(new THREE.Vector3());
-  const handSpanLocal = useRef(new THREE.Vector3());
-  const carryLocalPosition = useRef(new THREE.Vector3());
-  const [compactModel] = useState(() => typeof window !== "undefined" && window.innerWidth <= 640);
-  const gltf = useGLTF(compactModel ? LOD1_MODEL_PATHS[body] : MODEL_PATHS[body]);
+  const leftPalmWorld = useRef(new THREE.Vector3());
+  const rightPalmWorld = useRef(new THREE.Vector3());
+  const leftPalmLocal = useRef(new THREE.Vector3());
+  const rightPalmLocal = useRef(new THREE.Vector3());
+  const leftGripWorld = useRef(new THREE.Vector3());
+  const rightGripWorld = useRef(new THREE.Vector3());
+  const carryScratch = useMemo(() => createCarrySocketScratch(), []);
+  const visibilityScratch = useMemo(() => createCharacterVisibilityScratch(), []);
+  const lastFacialUpdate = useRef(Number.NEGATIVE_INFINITY);
+  const modelTier = useCharacterModelTier();
+  const modelPath = modelTier === 2 ? LOD2_MODEL_PATHS[body] : modelTier === 1 ? LOD1_MODEL_PATHS[body] : MODEL_PATHS[body];
+  const gltf = useGLTF(modelPath);
   const model = useMemo(
-    () => prepareCharacterModel(gltf.scene, { build: body === "boy" || body === "girl" ? "child" : "adult" }),
-    [body, gltf.scene],
+    () => prepareCharacterModel(gltf.scene, { build: body === "boy" || body === "girl" ? "child" : "adult", reducedDetail: modelTier > 0 }),
+    [body, gltf.scene, modelTier],
   );
   const animations = useMemo(() => composeCarryAnimations(gltf.animations), [gltf.animations]);
-  const { actions } = useAnimations(animations, model);
+  const { actions, mixer } = useAnimations(animations, model);
+  const mixerRef = useRef(mixer);
   const fallbackClip: CharacterAnimation = animation ?? (walking ? carrying ? "CarryWalk" : "Walk" : carrying ? "CarryIdle" : "Idle");
   const head = model.getObjectByName("Head");
   const leftHand = model.getObjectByName("Hand_L");
@@ -111,16 +122,19 @@ function RiggedAvatar({
     return meshes;
   }, [model]);
 
-  useFrame(({ clock }) => {
+  useFrame(({ camera, clock }) => {
     const liveClip: CharacterAnimation = animation ?? locomotion.current.select(motion?.current.locomotionSpeed ?? motion?.current.speed ?? (walking ? 2.2 : 0), motion?.current.yawDelta ?? 0, carrying);
     const strideWorld = 0.72 * scale * BODY_SCALE[body];
-    const gaitScale = motion?.current.speed && ["Walk", "CarryWalk", "Run"].includes(liveClip) ? THREE.MathUtils.clamp(motion.current.speed / Math.max(0.1, strideWorld), 0.72, 2.8) : animationSpeed ?? (liveClip === "Walk" || liveClip === "CarryWalk" ? 1.3 : liveClip === "Run" ? 1.4 : 1);
+    const gaitScale = motion?.current.speed && ["Walk", "CarryWalk", "Run", "CarryRun"].includes(liveClip) ? THREE.MathUtils.clamp(motion.current.speed / Math.max(0.1, strideWorld), 0.72, 2.8) : animationSpeed ?? (liveClip === "Walk" || liveClip === "CarryWalk" ? 1.3 : liveClip === "Run" || liveClip === "CarryRun" ? 1.4 : 1);
     locomotion.current.transition(actions, liveClip, gaitScale);
+    const inView = !avatarRoot.current || characterIsInView(camera, avatarRoot.current, visibilityScratch);
+    mixerRef.current.timeScale = inView ? 1 : 0;
+    if (!inView) return;
     if (avatarRoot.current && groundingRoot.current && feet.length) {
       let lowest = Number.POSITIVE_INFINITY;
       for (const foot of feet) lowest = Math.min(lowest, foot.getWorldPosition(footWorldPosition.current).y);
       footGrounding.current.calibrate(lowest, 0);
-      const support = ["Walk", "CarryWalk", "Run", "TurnLeft", "TurnRight"].includes(liveClip) ? 1 : 0.25;
+      const support = locomotionGroundingSupport(liveClip);
       const correctionWorld = footGrounding.current.solve(lowest, 0, support);
       const rootScale = avatarRoot.current.getWorldScale(avatarWorldScale.current).y;
       groundingRoot.current.position.y = THREE.MathUtils.lerp(groundingRoot.current.position.y, correctionWorld / Math.max(0.001, rootScale), 0.24);
@@ -136,43 +150,74 @@ function RiggedAvatar({
       avatarRoot.current.updateWorldMatrix(true, true);
       leftHand.getWorldPosition(leftHandWorld.current);
       rightHand.getWorldPosition(rightHandWorld.current);
-      leftHandLocal.current.copy(leftHandWorld.current);
-      rightHandLocal.current.copy(rightHandWorld.current);
-      avatarRoot.current.worldToLocal(leftHandLocal.current);
-      avatarRoot.current.worldToLocal(rightHandLocal.current);
+      handPalmPoint(leftHand, CHARACTER_PALM_OFFSETS[body].left, leftPalmWorld.current);
+      handPalmPoint(rightHand, CHARACTER_PALM_OFFSETS[body].right, rightPalmWorld.current);
+      leftPalmLocal.current.copy(leftPalmWorld.current);
+      rightPalmLocal.current.copy(rightPalmWorld.current);
+      avatarRoot.current.worldToLocal(leftPalmLocal.current);
+      avatarRoot.current.worldToLocal(rightPalmLocal.current);
 
-      // The carry clips place both hands in front of the hips.  The basket used
-      // to sit directly on their midpoint, which put half of its depth inside
-      // the abdomen.  Keep the rear grips on the hands while moving the actual
-      // container completely in front of the body.  Aligning its width with
-      // the live hand span also prevents either hand from floating away during
-      // CarryIdle/CarryWalk.
-      placeCarrySocket(
+      const handleScale = placeCarrySocket(
         carrySocket.current,
-        leftHandLocal.current,
-        rightHandLocal.current,
-        carryLocalPosition.current,
-        handSpanLocal.current,
+        leftPalmLocal.current,
+        rightPalmLocal.current,
+        carryScratch,
       );
+      // React can unmount an empty basket and later mount a new one under the
+      // same socket. A detached handle still has its old basket as `parent`, so
+      // resolve the current descendant instead of trusting parent truthiness.
+      const mountedHandle = mountedHarvestBasketHandle(carrySocket.current);
+      if (carryHandle.current !== mountedHandle) carryHandle.current = mountedHandle;
+      if (carryHandle.current) updateHarvestBasketHandle(carryHandle.current, handleScale, carryScratch);
+
+      // Debug QA records the real animated palms and the rendered handle ends,
+      // not synthetic fixture coordinates. This remains inert outside ?debug=1.
+      if (feedbackActorId === "player" && typeof window !== "undefined" && marketQaQueryEnabled(window.location.search)) {
+        carrySocket.current.updateWorldMatrix(true, true);
+        carrySocket.current.localToWorld(leftGripWorld.current.set(-HARVEST_BASKET_GRIP_HALF_WIDTH * handleScale, HARVEST_BASKET_GRIP_HEIGHT, -HARVEST_BASKET_GRIP_REACH));
+        carrySocket.current.localToWorld(rightGripWorld.current.set(HARVEST_BASKET_GRIP_HALF_WIDTH * handleScale, HARVEST_BASKET_GRIP_HEIGHT, -HARVEST_BASKET_GRIP_REACH));
+        const rootScale = Math.max(1e-5, avatarRoot.current.getWorldScale(avatarWorldScale.current).x);
+        const qaWindow = window as typeof window & { __MARKET_QA__?: Record<string, unknown> };
+        qaWindow.__MARKET_QA__ ??= {};
+        qaWindow.__MARKET_QA__.carryGrip = {
+          clip: liveClip,
+          handleScale,
+          leftPalmToGrip: leftPalmWorld.current.distanceTo(leftGripWorld.current) / rootScale,
+          rightPalmToGrip: rightPalmWorld.current.distanceTo(rightGripWorld.current) / rootScale,
+          leftWristToGrip: leftHandWorld.current.distanceTo(leftGripWorld.current) / rootScale,
+          rightWristToGrip: rightHandWorld.current.distanceTo(rightGripWorld.current) / rootScale,
+        };
+      }
     }
 
-    const expression: FaceExpression = liveClip === "Happy" ? "Happy" : liveClip === "Confused" ? "Confused" : "Neutral";
-    const weights = facial.current.weights(clock.elapsedTime, expression);
-    const talk = liveClip === "Talk" ? Math.max(0, Math.sin(clock.elapsedTime * 10)) * 0.42 : 0;
-    for (const mesh of morphMeshes) {
-      const dictionary = mesh.morphTargetDictionary;
-      const influences = mesh.morphTargetInfluences;
-      if (!dictionary || !influences) continue;
-      for (const name of ["Blink_L", "Blink_R", "EyeWide_L", "EyeWide_R", "BrowUp_L", "BrowUp_R", "BrowDown_L", "BrowDown_R", "Smile", "CheekUp", "Frown", "JawOpen", "MouthNarrow", "Surprise", "Confused"]) setMorph(dictionary, influences, name, weights[name] ?? 0);
-      setMorph(dictionary, influences, "MouthOpen", talk);
+    if (clock.elapsedTime - lastFacialUpdate.current >= CHARACTER_FACE_UPDATE_INTERVAL || clock.elapsedTime < lastFacialUpdate.current) {
+      lastFacialUpdate.current = clock.elapsedTime;
+      const expression: FaceExpression = liveClip === "Happy" ? "Happy" : liveClip === "Confused" ? "Confused" : "Neutral";
+      const weights = facial.current.weights(clock.elapsedTime, expression);
+      const talk = liveClip === "Talk" ? Math.max(0, Math.sin(clock.elapsedTime * 10)) * 0.42 : 0;
+      for (const mesh of morphMeshes) {
+        const dictionary = mesh.morphTargetDictionary;
+        const influences = mesh.morphTargetInfluences;
+        if (!dictionary || !influences) continue;
+        for (const name of ["Blink_L", "Blink_R", "EyeWide_L", "EyeWide_R", "BrowUp_L", "BrowUp_R", "BrowDown_L", "BrowDown_R", "Smile", "CheekUp", "Frown", "JawOpen", "MouthNarrow", "Surprise", "Confused"]) setMorph(dictionary, influences, name, weights[name] ?? 0);
+        setMorph(dictionary, influences, "MouthOpen", talk);
+      }
     }
-    if (feedbackSource && ["Walk", "Run", "CarryWalk"].includes(liveClip)) {
+    if (feedbackSource && ["Walk", "Run", "CarryWalk", "CarryRun"].includes(liveClip)) {
       for (const event of locomotion.current.footEvents(actions[liveClip])) {
         void event;
         feedbackBus.emit("footstep", { source: feedbackSource, actorId: feedbackActorId });
       }
     }
   });
+
+  useEffect(() => {
+    mixerRef.current = mixer;
+  }, [mixer]);
+
+  useEffect(() => {
+    scheduleCharacterModelPreload(priorityCustomerModelPathsForTier(modelTier), (path) => useGLTF.preload(path));
+  }, [modelTier]);
 
   useEffect(() => {
     locomotion.current.transition(actions, fallbackClip, animationSpeed ?? 1);

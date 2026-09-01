@@ -150,12 +150,57 @@ const releasedAt = await player(); await page.waitForTimeout(500); const afterRe
 const beforeUi = await player(); await page.getByRole("button", { name: "Inventario" }).click(); await dwell(450); const afterUi = await player();
 await page.locator(".close-button").click();
 
-const FARM = [-10.4, 21.3]; const SHELF = [0, -1.6];
+const publishedFarmLayout = await page.evaluate(() => ({
+  target: structuredClone(window.__MARKET_QA__?.farmTargets?.find((candidate) => candidate.id === "crop-tomato-1") ?? null),
+  accessWaypoints: structuredClone(window.__MARKET_QA__?.farmAccessWaypoints ?? []),
+}));
+if (!publishedFarmLayout.target || publishedFarmLayout.accessWaypoints.length !== 3 || publishedFarmLayout.target.z >= -20) throw new Error(`Layout de finca trasera inválido: ${JSON.stringify(publishedFarmLayout)}`);
+const FARM = [publishedFarmLayout.target.x, publishedFarmLayout.target.z];
 const CHECKOUT = [10.5, 7.9]; const OFFICE = [14.1, -10.7]; const MILL = [-14.1, -8.1];
 const LEFT_AISLE_X = -4; const RIGHT_AISLE_X = 4; const BACK_AISLE_Z = -10;
-const toFarm = async () => { await moveTo([0, 14.35]); await dwell(1_200); await movePath([[0, 17.2], [-7, 19.2], FARM]); };
-const enterStore = async () => { await movePath([[-7, 19.2], [0, 17.2]]); await dwell(1_200); await movePath([[0, 13.8], [0, 7]]); };
-const farmToShelf = async () => { await enterStore(); await movePath([[LEFT_AISLE_X, 7], [LEFT_AISLE_X, 1]]); await moveTo(SHELF, 0.35); };
+const toFarm = async () => { await movePath(publishedFarmLayout.accessWaypoints); await moveTo(FARM, 0.35); };
+const enterStore = async () => { await movePath([...publishedFarmLayout.accessWaypoints].reverse()); await movePath([[0, 13.8], [0, 7]]); };
+const farmToShelf = async () => {
+  await enterStore();
+  for (let visit = 0; visit < 12; visit += 1) {
+    const stocking = await page.evaluate(() => {
+      const qaState = window.__MARKET_QA__;
+      const state = qaState.state;
+      const franchise = state.franchises.find((candidate) => candidate.id === state.currentFranchiseId) ?? state.franchises[0];
+      const carry = structuredClone(franchise.carry.items);
+      const targets = structuredClone(qaState.stockingTargets ?? []);
+      return { carry, targets, total: Object.values(carry).reduce((sum, quantity) => sum + (quantity ?? 0), 0) };
+    });
+    if (stocking.total <= 0) return;
+
+    const current = await player();
+    const candidates = stocking.targets
+      .filter((target) => target.sensorEnabled && target.productId && (stocking.carry[target.productId] ?? 0) > 0)
+      .sort((left, rightTarget) => Math.hypot(current.x - left.x, current.z - left.z) - Math.hypot(current.x - rightTarget.x, current.z - rightTarget.z));
+    const target = candidates[0];
+    if (!target) throw new Error(`No hay departamento surtible para la cesta actual: ${JSON.stringify(stocking)}`);
+
+    await moveTo([target.x, target.z], 0.5);
+    const beforeTotal = stocking.total;
+    const deadline = Date.now() + 5_000;
+    let remaining = beforeTotal;
+    while (remaining >= beforeTotal && Date.now() < deadline) {
+      await dwell(180);
+      remaining = await page.evaluate(() => {
+        const state = window.__MARKET_QA__.state;
+        const franchise = state.franchises.find((candidate) => candidate.id === state.currentFranchiseId) ?? state.franchises[0];
+        return Object.values(franchise.carry.items).reduce((sum, quantity) => sum + (quantity ?? 0), 0);
+      });
+    }
+    if (remaining >= beforeTotal) throw new Error(`El imán ${target.departmentId} no descargó la cesta: ${JSON.stringify({ target, stocking })}`);
+  }
+  const remainingCarry = await page.evaluate(() => {
+    const state = window.__MARKET_QA__.state;
+    const franchise = state.franchises.find((candidate) => candidate.id === state.currentFranchiseId) ?? state.franchises[0];
+    return structuredClone(franchise.carry.items);
+  });
+  throw new Error(`La ruta dinámica agotó sus visitas sin vaciar la cesta: ${JSON.stringify(remainingCarry)}`);
+};
 const shelfToCheckout = async () => { await movePath([[RIGHT_AISLE_X, 0], [RIGHT_AISLE_X, 3], [RIGHT_AISLE_X, 7.9]]); await moveTo(CHECKOUT, 0.35); };
 const checkoutToOffice = async () => { await movePath([[RIGHT_AISLE_X, 7.9], [RIGHT_AISLE_X, 1], [RIGHT_AISLE_X, BACK_AISLE_Z], [12, BACK_AISLE_Z]]); await moveTo(OFFICE, 0.35); };
 

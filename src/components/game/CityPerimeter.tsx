@@ -7,30 +7,30 @@ type Position = [number, number, number];
 const buildingColors = ["#d9a27d", "#d7c28d", "#9eb9b0", "#b79ab3", "#9cafc7", "#c9a58c"];
 
 export function CityPerimeter() {
-  return <Instances limit={180} castShadow={false} receiveShadow frustumCulled>
+  return <Instances limit={200} castShadow={false} receiveShadow frustumCulled>
     <boxGeometry />
     <meshStandardMaterial roughness={0.92} />
     <group>
-    <Block args={[54, 0.1, 52]} position={[0, -0.2, 3.5]} color="#abc7a6" />
-    <Road args={[36, 0.09, 3.8]} position={[0, -0.125, -12.35]} horizontal />
+    <Block args={[54, 0.1, 64]} position={[0, -0.2, -2]} color="#abc7a6" />
+    <Road args={[36, 0.09, 3.8]} position={[0, -0.125, -21.8]} horizontal />
     <Road args={[36, 0.09, 3.8]} position={[0, -0.125, 18.25]} horizontal />
-    <Road args={[3.8, 0.09, 34.4]} position={[-15.85, -0.12, 2.95]} />
-    <Road args={[3.8, 0.09, 34.4]} position={[15.85, -0.12, 2.95]} />
+    <Road args={[3.8, 0.09, 43.9]} position={[-15.85, -0.12, -1.75]} />
+    <Road args={[3.8, 0.09, 43.9]} position={[15.85, -0.12, -1.75]} />
 
-    <Block args={[26.8, 0.1, 1.1]} position={[0, -0.07, -10]} color="#d9d7c9" />
+    <Block args={[26.8, 0.1, 1.1]} position={[0, -0.07, -19.4]} color="#d9d7c9" />
     <Block args={[26.8, 0.1, 1.1]} position={[0, -0.07, 16.05]} color="#d9d7c9" />
-    <Block args={[1.1, 0.1, 25]} position={[-13.45, -0.07, 3]} color="#d9d7c9" />
-    <Block args={[1.1, 0.1, 25]} position={[13.45, -0.07, 3]} color="#d9d7c9" />
+    <Block args={[1.1, 0.1, 35.4]} position={[-13.45, -0.07, -1.65]} color="#d9d7c9" />
+    <Block args={[1.1, 0.1, 35.4]} position={[13.45, -0.07, -1.65]} color="#d9d7c9" />
 
     <Crosswalk position={[0, -0.065, 17.95]} />
     <Crosswalk position={[-15.55, -0.065, 9.2]} rotation />
     {[-11, -5.5, 5.5, 11].map((x) => <ParkingSpace key={`parking-${x}`} x={x} />)}
 
     {[
-      [-10.5, 0, -16.3, 5.2, 5.3, 3.6],
-      [-4.4, 0, -16.7, 4.7, 4.5, 3.2],
-      [1.3, 0, -16.5, 5.1, 6.1, 3.5],
-      [7.3, 0, -16.2, 5, 4.9, 3.4],
+      [-10.5, 0, -26.1, 5.2, 5.3, 3.6],
+      [-4.4, 0, -26.5, 4.7, 4.5, 3.2],
+      [1.3, 0, -26.3, 5.1, 6.1, 3.5],
+      [7.3, 0, -26, 5, 4.9, 3.4],
       [19.2, 0, -7.1, 4.6, 5.5, 3.1],
       [19.4, 0, -0.8, 4.8, 4.2, 3.2],
       [19.1, 0, 5.2, 4.5, 5.9, 3],
@@ -46,14 +46,14 @@ export function CityPerimeter() {
     />)}
 
     {[
-      [-12.7, -9.1], [-12.7, -4], [-12.7, 2], [-12.7, 8], [-12.7, 13.2],
-      [12.7, -9.1], [12.7, -4], [12.7, 2], [12.7, 8], [12.7, 13.2],
+      [-12.7, -19], [-12.7, -4], [-12.7, 2], [-12.7, 8], [-12.7, 13.2],
+      [12.7, -19], [12.7, -4], [12.7, 2], [12.7, 8], [12.7, 13.2],
       [-10, 20.7], [-4, 20.7], [4, 20.7], [10, 20.7],
     ].map(([x, z], index) => <Tree key={`tree-${index}`} position={[x, 0, z]} variant={index % 3} />)}
 
     {[
       [-13.1, -7], [-13.1, 5], [-13.1, 13], [13.1, -7], [13.1, 5], [13.1, 13],
-      [-8, -10.5], [8, -10.5], [-8, 16.55], [8, 16.55],
+      [-8, -19.35], [8, -19.35], [-8, 16.55], [8, 16.55],
     ].map(([x, z], index) => <StreetLight key={`light-${index}`} position={[x, 0, z]} />)}
 
     <Car position={[-8.2, 0, 18.25]} color="#d96d55" />
@@ -67,13 +67,15 @@ export function CityPerimeter() {
 }
 
 function Road({ args, position, horizontal = false }: { args: Position; position: Position; horizontal?: boolean }) {
-  const marks = horizontal ? [-14, -9.5, -5, -0.5, 4, 8.5, 13] : [-13, -8.5, -4, 0.5, 5, 9.5, 14];
+  const roadLength = horizontal ? args[0] : args[2];
+  const markCount = Math.max(1, Math.floor(roadLength / 4.5));
+  const marks = Array.from({ length: markCount }, (_, index) => (index - (markCount - 1) / 2) * 4.5);
   return <group>
     <Block args={args} position={position} color="#65716f" />
     {marks.map((offset) => <Block
       key={offset}
       args={horizontal ? [2.2, 0.018, 0.08] : [0.08, 0.018, 2.2]}
-      position={horizontal ? [offset, position[1] + 0.055, position[2]] : [position[0], position[1] + 0.055, offset + position[2] - 3]}
+      position={horizontal ? [offset + position[0], position[1] + 0.055, position[2]] : [position[0], position[1] + 0.055, offset + position[2]]}
       color="#f1df9b"
     />)}
   </group>;

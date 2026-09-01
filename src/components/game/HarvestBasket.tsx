@@ -4,14 +4,13 @@ import { RoundedBox } from "@react-three/drei";
 import { forwardRef } from "react";
 import * as THREE from "three";
 import type { CarryState, ProductId } from "@/game/types";
-import { carriedProductIds, carryQuantity, carryTotal } from "@/game/player/CarrySystem";
-import { HARVEST_BASKET_GRIP_HALF_WIDTH, HARVEST_BASKET_GRIP_HEIGHT, HARVEST_BASKET_GRIP_REACH } from "@/game/animation/CarrySocket";
+import { carriedProductIds, carryQuantity, carryTotal, MAX_WAREHOUSE_PICKUP_BATCH } from "@/game/player/CarrySystem";
 
 export const HarvestBasket = forwardRef<THREE.Group, { carry: CarryState }>(function HarvestBasket({ carry }, ref) {
   if (!carryTotal(carry)) return null;
   const visibleProducts = carriedProductIds(carry)
     .flatMap((productId) => Array.from({ length: carryQuantity(carry, productId) }, () => productId))
-    .slice(0, 12);
+    .slice(0, MAX_WAREHOUSE_PICKUP_BATCH);
 
   return <group ref={ref} name="HarvestBasket">
     <RoundedBox args={[0.62, 0.14, 0.36]} position={[0, -0.13, 0]} radius={0.055} smoothness={3} castShadow>
@@ -29,28 +28,31 @@ export const HarvestBasket = forwardRef<THREE.Group, { carry: CarryState }>(func
     {[-1, 1].flatMap((side) => [-0.09, 0.02, 0.13].map((y) => <RoundedBox key={`side-${side}-${y}`} args={[0.035, 0.035, 0.35]} position={[side * 0.305, y, 0]} radius={0.012} smoothness={2} castShadow>
       <meshStandardMaterial color={y === 0.13 ? "#e0a65a" : "#c7853d"} roughness={0.9} />
     </RoundedBox>))}
-    <mesh position={[0, 0.14, 0]} castShadow>
-      <torusGeometry args={[0.285, 0.022, 8, 28, Math.PI]} />
-      <meshStandardMaterial color="#e3ad68" roughness={0.88} />
-    </mesh>
-    {[-1, 1].map((side) => <group key={`grip-${side}`} name={side < 0 ? "BasketGripLeft" : "BasketGripRight"}>
-      <mesh position={[side * HARVEST_BASKET_GRIP_HALF_WIDTH, HARVEST_BASKET_GRIP_HEIGHT, -HARVEST_BASKET_GRIP_REACH / 2]} rotation={[Math.PI / 2, 0, 0]} castShadow>
-        <cylinderGeometry args={[0.023, 0.023, HARVEST_BASKET_GRIP_REACH, 10]} />
-        <meshStandardMaterial color="#d99d52" roughness={0.84} />
-      </mesh>
-      <mesh position={[side * HARVEST_BASKET_GRIP_HALF_WIDTH, HARVEST_BASKET_GRIP_HEIGHT, -HARVEST_BASKET_GRIP_REACH]} castShadow>
-        <sphereGeometry args={[0.037, 12, 8]} />
+    <group name="HarvestBasketAdaptiveHandle">
+      <mesh name="BasketGripBar" castShadow>
+        <cylinderGeometry args={[0.027, 0.027, 1, 12]} />
         <meshStandardMaterial color="#8d5228" roughness={0.78} />
       </mesh>
-    </group>)}
+      {[-1, 1].map((side) => <group key={`grip-${side}`}>
+        <mesh name={side < 0 ? "BasketHandleStayLeft" : "BasketHandleStayRight"} castShadow>
+          <cylinderGeometry args={[0.022, 0.022, 1, 10]} />
+          <meshStandardMaterial color="#d99d52" roughness={0.84} />
+        </mesh>
+        <mesh name={side < 0 ? "BasketGripLeft" : "BasketGripRight"} castShadow>
+          <sphereGeometry args={[0.033, 12, 8]} />
+          <meshStandardMaterial color="#8d5228" roughness={0.78} />
+        </mesh>
+      </group>)}
+    </group>
     <group position={[0, 0.08, 0]}>
       {visibleProducts.map((productId, index) => {
-        const column = index % 3;
-        const row = Math.floor(index / 3);
+        const column = index % 4;
+        const depth = Math.floor(index / 4) % 2;
+        const layer = Math.floor(index / 8);
         return <BasketProduct
           key={`${productId}-${index}`}
           productId={productId}
-          position={[(column - 1) * 0.15, row * 0.085, (row % 2 ? -1 : 1) * 0.055]}
+          position={[(column - 1.5) * 0.13, layer * 0.105, (depth - 0.5) * 0.13]}
           rotation={[0, (index * 1.71) % Math.PI, index % 2 ? -0.08 : 0.08]}
           scale={0.78}
         />;

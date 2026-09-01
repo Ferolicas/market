@@ -1,4 +1,4 @@
-const CACHE = "mini-market-v7";
+const CACHE = "mini-market-v8";
 const PRIVATE_CACHE = "mini-market-private-v1";
 const SHELL = ["/", "/manifest.webmanifest", "/icon.svg", "/icon-maskable.svg"];
 

@@ -85,7 +85,7 @@ export async function PUT(request: Request) {
           userId: session.user.id,
           saveRevision: nextRevision,
           day: payload.state.day,
-          franchiseId: payload.state.currentFranchiseId,
+          franchiseId: event.franchiseId,
           category: event.category,
           description: event.description,
           amountMinor: BigInt(event.amountMinor),

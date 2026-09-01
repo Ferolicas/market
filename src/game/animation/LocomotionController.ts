@@ -1,10 +1,16 @@
 import { LoopRepeat, MathUtils, type AnimationAction } from "three";
 
-export type LocomotionClip = "Idle" | "Walk" | "Run" | "TurnLeft" | "TurnRight" | "CarryIdle" | "CarryWalk";
+export type LocomotionClip = "Idle" | "Walk" | "Run" | "TurnLeft" | "TurnRight" | "CarryIdle" | "CarryWalk" | "CarryRun";
 export type FootstepEvent = "LeftFootDown" | "RightFootDown";
 
 /** Calibrated from the support minima in the authored market walk cycle. */
 export const GAIT_FOOT_CONTACT_PHASES = Object.freeze({ left: 0.125, right: 0.625 });
+const FULL_GROUNDING_SUPPORT: ReadonlySet<string> = new Set(["Walk", "CarryWalk", "Run", "CarryRun", "TurnLeft", "TurnRight"]);
+
+/** Work clips share the avatar controller, so unknown/non-gait names deliberately get partial support. */
+export function locomotionGroundingSupport(clip: string) {
+  return FULL_GROUNDING_SUPPORT.has(clip) ? 1 : 0.25;
+}
 
 export class LocomotionController {
   private active = "Idle";
@@ -18,7 +24,7 @@ export class LocomotionController {
     if (!moving && Math.abs(yawDelta) > 55 * Math.PI / 180) return yawDelta < 0 ? "TurnLeft" : "TurnRight";
     if (!moving) return carrying ? "CarryIdle" : "Idle";
     this.running = this.running ? speed >= 2.78 : speed > 3.15;
-    if (this.running) return "Run";
+    if (this.running) return carrying ? "CarryRun" : "Run";
     return carrying ? "CarryWalk" : "Walk";
   }
 
@@ -66,7 +72,7 @@ export class LocomotionController {
   current() { return this.active; }
 }
 
-const CYCLIC_GAITS = new Set(["Walk", "Run", "CarryWalk"]);
+const CYCLIC_GAITS = new Set(["Walk", "Run", "CarryWalk", "CarryRun"]);
 
 function isCyclicGait(name: string) {
   return CYCLIC_GAITS.has(name);

@@ -1,4 +1,5 @@
 import { CHECKOUT_LANES } from "./checkout-layout";
+import { FARM_ANIMAL_STATIONS } from "./farm-layout";
 import { retailServicePoint } from "./retail-layout";
 
 export type WorkstationId = "mill" | "bakery" | "chicken" | "cow" | "cheese" | "juice" | "shelf" | "checkout";
@@ -20,8 +21,8 @@ export const WORKSTATIONS: Record<WorkstationId, WorkstationLayout> = {
   bakery: { id: "bakery", label: "Hornear pan", position: [-7.05, 0, -0.45], facing: -Math.PI / 2, unlockArea: "bread-oven" },
   cheese: { id: "cheese", label: "Procesar queso", position: [-6.15, 0, -0.88], facing: Math.PI, unlockArea: "cheese-maker" },
   juice: { id: "juice", label: "Procesar zumo", position: [-7, 0, 1.55], facing: Math.PI / 2, unlockArea: "juice-machine" },
-  chicken: { id: "chicken", label: "Recoger huevos", position: [-3.45, 0, 9.65], facing: 0, unlockArea: "chicken-coop" },
-  cow: { id: "cow", label: "Recoger leche", position: [-1.5, 0, 9.65], facing: 0, unlockArea: "cow-station" },
+  chicken: { id: "chicken", label: "Recoger huevos", position: FARM_ANIMAL_STATIONS.chicken.workPosition, facing: FARM_ANIMAL_STATIONS.chicken.facing, unlockArea: "chicken-coop" },
+  cow: { id: "cow", label: "Recoger leche", position: FARM_ANIMAL_STATIONS.cow.workPosition, facing: FARM_ANIMAL_STATIONS.cow.facing, unlockArea: "cow-station" },
 };
 
 // Only hands-on store jobs live in the world. Farming has one invisible sensor
