@@ -59,6 +59,8 @@ const forward = normalize([-16, -25.75]);
 const right = [-forward[1], forward[0]];
 const routeEvidence = [];
 let rearDoorEvidence = null;
+const storefrontDoorEvidence = [];
+const farmSideFenceEvidence = [];
 
 async function dragPulse(worldDirection, duration = 360) {
   const direction = normalize(worldDirection);
@@ -105,7 +107,30 @@ try {
   const farmTarget = published.farmTargets?.find((candidate) => candidate.id === "crop-tomato-1");
   const farmAccess = published.farmAccessWaypoints ?? [];
   const rearDoor = published.rearDoor;
+  const storefrontDoor = published.storefrontDoor;
   if (!farmTarget || farmAccess.length !== 3 || !rearDoor || farmTarget.z >= -20) throw new Error(`Layout de finca trasera inválido: ${JSON.stringify({ farmTarget, farmAccess, rearDoor })}`);
+  if (!storefrontDoor) throw new Error("Sensor de puerta principal no publicado.");
+
+  for (const side of [-1, 1]) {
+    await moveTo([0, storefrontDoor.sensorCenterZ - storefrontDoor.sensorHalfDepth - 1.2], 0.5);
+    await page.waitForFunction(() => {
+      const state = window.__MARKET_QA__?.state;
+      const franchise = state?.franchises?.find((candidate) => candidate.id === state.currentFranchiseId) ?? state?.franchises?.[0];
+      return (franchise?.doorProgress ?? 1) <= 0.01;
+    }, null, { timeout: 4_000 });
+    const edgeTarget = [side * Math.min(2.6, storefrontDoor.sensorHalfWidth - 0.3), storefrontDoor.z - 0.8];
+    await moveTo(edgeTarget, 0.42);
+    await page.waitForFunction(() => {
+      const state = window.__MARKET_QA__?.state;
+      const franchise = state?.franchises?.find((candidate) => candidate.id === state.currentFranchiseId) ?? state?.franchises?.[0];
+      return (franchise?.doorProgress ?? 0) >= 0.99;
+    }, null, { timeout: 3_000 });
+    const edgeSnapshot = await qa();
+    const edgeFranchise = edgeSnapshot.state.franchises.find((candidate) => candidate.id === edgeSnapshot.state.currentFranchiseId) ?? edgeSnapshot.state.franchises[0];
+    if (Math.hypot(edgeSnapshot.player.x - edgeTarget[0], edgeSnapshot.player.z - edgeTarget[1]) > 0.65) throw new Error(`No se alcanzó el lateral ${side} de la puerta principal: ${JSON.stringify({ edgeTarget, player: edgeSnapshot.player })}`);
+    storefrontDoorEvidence.push({ side, target: edgeTarget, player: edgeSnapshot.player, progress: edgeFranchise.doorProgress });
+    await page.screenshot({ path: path.join(outputRoot, `front-door-${side < 0 ? "left" : "right"}-edge.png`), fullPage: true });
+  }
   const directFarmPath = await page.evaluate((target) => window.__MARKET_FIND_PLAYER_PATH__?.(target) ?? [], [farmTarget.x, farmTarget.z]);
   const crossing = crossingAtZ(directFarmPath, rearDoor.z);
   rearDoorEvidence = { layout: rearDoor, directFarmPath, crossing };
@@ -137,6 +162,30 @@ try {
       await page.waitForTimeout(900);
       await page.screenshot({ path: path.join(outputRoot, "farm-open-gate.png"), fullPage: true });
     }
+    if (farmShowcase && target[0] === farmAccess[1][0] && target[1] === farmAccess[1][1]) {
+      const connectors = (await qa()).farmSideConnectors ?? [];
+      if (connectors.length !== 2) throw new Error(`Cierres laterales no publicados: ${JSON.stringify(connectors)}`);
+      for (const connector of connectors) {
+        const side = Math.sign(connector.x);
+        const innerTarget = [connector.x - side * 1.15, connector.z];
+        await moveTo(innerTarget, 0.5);
+        const beforeImpact = await qa();
+        await dragPulse([side, 0], 1_050);
+        const impact = await qa();
+        const crossed = side < 0 ? impact.player.x < connector.x : impact.player.x > connector.x;
+        const advanced = Math.abs(impact.player.x - beforeImpact.player.x);
+        const collisions = impact.physics?.collisions ?? [];
+        const touchedConnector = collisions.some((collision) => (
+          Math.abs((collision?.colliderPosition?.[0] ?? Number.POSITIVE_INFINITY) - connector.x) < 0.02
+          && Math.abs((collision?.colliderPosition?.[2] ?? Number.POSITIVE_INFINITY) - connector.z) < 0.02
+          && Math.abs(collision?.normal?.[0] ?? 0) > 0.95
+        ));
+        farmSideFenceEvidence.push({ connector, innerTarget, before: beforeImpact.player, player: impact.player, advanced, collisions, touchedConnector, crossed });
+        await page.screenshot({ path: path.join(outputRoot, `farm-side-fence-${side < 0 ? "left" : "right"}-block.png`), fullPage: true });
+        if (crossed || advanced < 0.35 || !touchedConnector) throw new Error(`Impacto lateral inválido ${side}: ${JSON.stringify(farmSideFenceEvidence.at(-1))}`);
+        await moveTo(farmAccess[1], 0.6);
+      }
+    }
     if (farmShowcase && target[0] === farmTarget.x && target[1] === farmTarget.z) {
       const publishedTargets = (await qa()).farmTargets;
       const cropXs = publishedTargets.map((candidate) => candidate.x);
@@ -159,7 +208,7 @@ try {
   failure = error instanceof Error ? error.message : String(error);
 }
 
-const report = { generatedAt: new Date().toISOString(), failure, final: await qa(), rearDoorEvidence, routeEvidence, consoleErrors, pageErrors, failedResponses };
+const report = { generatedAt: new Date().toISOString(), failure, final: await qa(), storefrontDoorEvidence, farmSideFenceEvidence, rearDoorEvidence, routeEvidence, consoleErrors, pageErrors, failedResponses };
 await page.screenshot({ path: path.join(outputRoot, "player-navmesh.png"), fullPage: true });
 await fs.writeFile(path.join(outputRoot, "report.json"), JSON.stringify(report, null, 2));
 await browser.close();

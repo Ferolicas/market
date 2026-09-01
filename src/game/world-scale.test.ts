@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { CART_RETURN_POINT, RETURNS_POINT, RETURNS_TO_CART_FALLBACK, STORE_SERVICE_FIXTURE_IDS, STORE_SERVICE_FIXTURES } from "./stations/store-service-layout";
+import { FARM_GATE } from "./stations/farm-layout";
 import { overlapsStoreObstacle, scaleStorePoint, scaleStorePosition, STORE_ELEMENT_SCALE, STORE_LAYOUT_SCALE, STORE_OBSTACLES, STORE_PRODUCTION_FIXTURES, WORLD_SCALE } from "./world-scale";
 
 describe("store scale system", () => {
@@ -17,6 +18,18 @@ describe("store scale system", () => {
   it("detects enlarged furniture footprints", () => {
     expect(overlapsStoreObstacle(scaleStorePoint([0, -2.2]), 0.4)).toBe(true);
     expect(overlapsStoreObstacle(scaleStorePoint([2.2, 0.45]), 0.4)).toBe(false);
+  });
+
+  it("shares both farm-to-wall connector fences with physics and navigation", () => {
+    FARM_GATE.sideConnectors.forEach((connector) => {
+      const center = scaleStorePoint([connector.center[0], connector.center[2]]);
+      expect(overlapsStoreObstacle(center, 0)).toBe(true);
+      expect(STORE_OBSTACLES.some((obstacle) => (
+        obstacle.x === center[0]
+        && obstacle.z === center[1]
+        && obstacle.halfZ === connector.halfZ * STORE_ELEMENT_SCALE
+      ))).toBe(true);
+    });
   });
 
   it("shares solid service-fixture footprints while keeping their front sockets walkable", () => {

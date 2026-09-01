@@ -352,16 +352,22 @@ describe("farm employee destinations", () => {
     }];
 
     const migrated = normalizeGameState(legacy);
-    const path = migrated.franchises[0].employees[0].runtime!.path;
+    const runtime = migrated.franchises[0].employees[0].runtime!;
+    const path = runtime.path;
 
-    expect(path[0]).toEqual([FARM_FIELD.serviceLaneX, FARM_ACCESS_WAYPOINTS[1][1]]);
+    expect([runtime.x, runtime.z]).toEqual([
+      FARM_ANIMAL_STATIONS.chicken.workPosition[0],
+      FARM_ANIMAL_STATIONS.chicken.workPosition[2],
+    ]);
+    expect(path.some(([x]) => x >= FARM_FIELD.serviceLaneX - 0.7)).toBe(false);
+    expect(path).toContainEqual([...FARM_ACCESS_WAYPOINTS[2]]);
     expect(path).toContainEqual([...FARM_ACCESS_WAYPOINTS[1]]);
     expect(path).toContainEqual([...FARM_ACCESS_WAYPOINTS[0]]);
     expect(path.some(([, z]) => z >= 7.25)).toBe(false);
     expect(path.at(-1)).toEqual([7.35, -5.2]);
   });
 
-  it("routes a farmer saved at the retired rear-lane waypoint into the new farm gate", () => {
+  it("restores a farmer saved in the retired lane inside the sealed estate", () => {
     const state = createInitialGame();
     const franchise = state.franchises[0];
     Object.assign(franchise.crops[0], { status: "READY", available: 1, readyAt: 0 });
@@ -375,11 +381,35 @@ describe("farm employee destinations", () => {
     }];
 
     const next = advanceWorld(state, 400).state;
-    const path = next.franchises[0].employees[0].runtime!.path;
+    const runtime = next.franchises[0].employees[0].runtime!;
+    const path = runtime.path;
 
-    expect(path[0]).toEqual([FARM_FIELD.serviceLaneX, FARM_ACCESS_WAYPOINTS[1][1]]);
-    expect(path).toContainEqual([...FARM_ACCESS_WAYPOINTS[1]]);
-    expect(path).toContainEqual([...FARM_ACCESS_WAYPOINTS[2]]);
+    expect(runtime.x).toBeLessThan(FARM_FIELD.serviceLaneX - 0.7);
+    expect(runtime.z).toBeLessThan(FARM_FIELD.center[2] + FARM_FIELD.size[2] / 2 + 0.5);
+    expect(path.some(([x]) => x >= FARM_FIELD.serviceLaneX - 0.7)).toBe(false);
     expect(path.at(-1)).toEqual([FARM_PLOTS[0].position[0], FARM_PLOTS[0].position[2]]);
+  });
+
+  it("preserves an idle legacy basket and routes it through the gate to stockroom", () => {
+    const legacy = createInitialGame();
+    legacy.franchises[0].employees = [{
+      ...employee("farmer"),
+      runtime: {
+        state: "IDLE", assignedProduct: null, assignedStationId: null,
+        carry: { capacity: 2, items: { tomatoes: 2 } },
+        x: 12.15, z: -11.55, targetX: 12.15, targetZ: -11.55, path: [], pathIndex: 0,
+        speed: 1.5, currentSpeed: 0, stateSince: 0,
+      },
+    }];
+
+    const runtime = normalizeGameState(legacy).franchises[0].employees[0].runtime!;
+
+    expect(runtime.carry.items).toEqual({ tomatoes: 2 });
+    expect([runtime.x, runtime.z]).toEqual([...FARM_WORKER_HOME]);
+    expect(runtime.state).toBe("NAVIGATE_DROPOFF");
+    expect(runtime.path).toContainEqual([...FARM_ACCESS_WAYPOINTS[2]]);
+    expect(runtime.path).toContainEqual([...FARM_ACCESS_WAYPOINTS[1]]);
+    expect(runtime.path).toContainEqual([...FARM_ACCESS_WAYPOINTS[0]]);
+    expect(runtime.path.at(-1)).toEqual([7.35, -5.2]);
   });
 });

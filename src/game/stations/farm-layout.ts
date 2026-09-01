@@ -33,18 +33,32 @@ export interface FarmObstacleLayout {
  * All values use the same unscaled layout coordinates consumed by navigation.
  */
 const FARM_SERVICE_LANE_X = 12.15;
+const FARM_ELEMENT_TO_LAYOUT_RATIO = 0.8;
+const FARM_FRONT_FENCE_Z = -10.575;
+const FARM_SIDE_FENCE_X = 10.6;
+const STORE_REAR_WALL_OUTER_Z = STORE_REAR_DOOR.wallCenterZ - STORE_REAR_DOOR.wallDepth / 2;
+const CONNECTOR_FENCE_CENTER_Z = (FARM_FRONT_FENCE_Z + STORE_REAR_WALL_OUTER_Z) / 2;
+const CONNECTOR_FENCE_HALF_Z = Math.abs(FARM_FRONT_FENCE_Z - STORE_REAR_WALL_OUTER_Z)
+  / 2 / FARM_ELEMENT_TO_LAYOUT_RATIO;
 
 /** One source for the visible gate, its physical solids and both approaches. */
 export const FARM_GATE = {
-  center: [7.5, 0, -10.575] as const,
-  frontPost: [6.2, 0, -10.575] as const,
-  innerPost: [8.8, 0, -10.575] as const,
+  center: [7.5, 0, FARM_FRONT_FENCE_Z] as const,
+  frontPost: [6.2, 0, FARM_FRONT_FENCE_Z] as const,
+  innerPost: [8.8, 0, FARM_FRONT_FENCE_Z] as const,
   // The open leaf has the same rendered length as the 2.6-layout-unit gate
   // opening and starts flush behind the inner hinge post.
   openLeaf: { center: [8.8, 0, -11.875] as const, halfX: 0.07, halfZ: 1.625, terminalPostDepth: 0.09 },
-  rightFence: { center: [10.6, 0, -14.15] as const, halfX: 0.07, halfZ: 4.46875 },
-  leftFrontFence: { center: [-2.2, 0, -10.575] as const, halfX: 10.5, halfZ: 0.07 },
-  rightFrontFence: { center: [9.7, 0, -10.575] as const, halfX: 1.125, halfZ: 0.07 },
+  rightFence: { center: [FARM_SIDE_FENCE_X, 0, -14.15] as const, halfX: 0.07, halfZ: 4.46875 },
+  leftFrontFence: { center: [-2.2, 0, FARM_FRONT_FENCE_Z] as const, halfX: 10.5, halfZ: 0.07 },
+  rightFrontFence: { center: [9.7, 0, FARM_FRONT_FENCE_Z] as const, halfX: 1.125, halfZ: 0.07 },
+  // These close the former street shortcuts between the rear wall and the
+  // estate perimeter. Authored half extents account for StoreElement's 1.6
+  // render scale versus the 2.0 navigation layout scale.
+  sideConnectors: [
+    { center: [-FARM_SIDE_FENCE_X, 0, CONNECTOR_FENCE_CENTER_Z] as const, halfX: 0.07, halfZ: CONNECTOR_FENCE_HALF_Z },
+    { center: [FARM_SIDE_FENCE_X, 0, CONNECTOR_FENCE_CENTER_Z] as const, halfX: 0.07, halfZ: CONNECTOR_FENCE_HALF_Z },
+  ] as const,
   exteriorApproach: [STORE_REAR_DOOR.outsideApproach[0], -9.35] as const,
   // Recast's first complete cell beyond the posts. Using the geometric fence
   // line itself makes a capsule chase an unreachable projection after entry.
@@ -168,8 +182,8 @@ function compactFarmRoute(start: FarmPoint, route: readonly FarmPoint[]) {
 // actor clearance as the navmesh fallback checks before accepting a shortcut.
 function farmSegmentIsObstacleFree(start: FarmPoint, destination: FarmPoint) {
   return !FARM_OBSTACLES.some((obstacle) => {
-    const halfX = obstacle.halfX * 0.8 + 0.31;
-    const halfZ = obstacle.halfZ * 0.8 + 0.31;
+    const halfX = obstacle.halfX * FARM_ELEMENT_TO_LAYOUT_RATIO + 0.31;
+    const halfZ = obstacle.halfZ * FARM_ELEMENT_TO_LAYOUT_RATIO + 0.31;
     const deltaX = destination[0] - start[0];
     const deltaZ = destination[1] - start[1];
     let minimum = 0;
@@ -295,8 +309,14 @@ export const FARM_OBSTACLES = [
   { x: 0, z: -17.725, halfX: 13.25, halfZ: 0.07 },
   { x: FARM_GATE.leftFrontFence.center[0], z: FARM_GATE.leftFrontFence.center[2], halfX: FARM_GATE.leftFrontFence.halfX, halfZ: FARM_GATE.leftFrontFence.halfZ },
   { x: FARM_GATE.rightFrontFence.center[0], z: FARM_GATE.rightFrontFence.center[2], halfX: FARM_GATE.rightFrontFence.halfX, halfZ: FARM_GATE.rightFrontFence.halfZ },
-  { x: -10.6, z: FARM_FIELD.center[2], halfX: 0.07, halfZ: 4.47 },
+  { x: -FARM_SIDE_FENCE_X, z: FARM_FIELD.center[2], halfX: 0.07, halfZ: 4.47 },
   { x: FARM_GATE.rightFence.center[0], z: FARM_GATE.rightFence.center[2], halfX: FARM_GATE.rightFence.halfX, halfZ: FARM_GATE.rightFence.halfZ },
+  ...FARM_GATE.sideConnectors.map((connector) => ({
+    x: connector.center[0],
+    z: connector.center[2],
+    halfX: connector.halfX,
+    halfZ: connector.halfZ,
+  })),
   { x: FARM_GATE.frontPost[0], z: FARM_GATE.frontPost[2], halfX: FARM_GATE.postHalfSize, halfZ: FARM_GATE.postHalfSize },
   { x: FARM_GATE.innerPost[0], z: FARM_GATE.innerPost[2], halfX: FARM_GATE.postHalfSize, halfZ: FARM_GATE.postHalfSize },
   // The open gate leaf is folded against this east-perimeter section.

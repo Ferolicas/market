@@ -7,6 +7,7 @@ import {
   rearDoorLeafCenter,
   rearDoorWallPanels,
   rearDoorWallSegments,
+  storefrontDoorActorPresent,
   STORE_REAR_DOOR,
   STOREFRONT_LAYOUT,
   storefrontDoorClearWidth,
@@ -28,6 +29,22 @@ describe("storefront layout", () => {
     expect(storefrontDoorProgress(-1)).toBe(0);
     expect(storefrontDoorProgress(2)).toBe(1);
     expect(storefrontDoorProgress(Number.NaN)).toBe(0);
+  });
+
+  it("detects actors across the full storefront access from either side", () => {
+    const sensor = STOREFRONT_LAYOUT.sensor;
+    const left = sensor.centerX - sensor.actorHalfWidth;
+    const right = sensor.centerX + sensor.actorHalfWidth;
+    const inside = sensor.centerZ - sensor.actorHalfDepth;
+    const outside = sensor.centerZ + sensor.actorHalfDepth;
+
+    expect(storefrontDoorActorPresent([left, sensor.centerZ])).toBe(true);
+    expect(storefrontDoorActorPresent([right, sensor.centerZ])).toBe(true);
+    expect(storefrontDoorActorPresent([sensor.centerX, inside])).toBe(true);
+    expect(storefrontDoorActorPresent([sensor.centerX, outside])).toBe(true);
+    expect(storefrontDoorActorPresent([left - 0.01, sensor.centerZ])).toBe(false);
+    expect(storefrontDoorActorPresent([sensor.centerX, outside + 0.01])).toBe(false);
+    expect(sensor.actorHalfWidth).toBeGreaterThan(STOREFRONT_LAYOUT.door.outerPostX);
   });
 
   it("authors one aligned rear opening for render, physics and navigation", () => {

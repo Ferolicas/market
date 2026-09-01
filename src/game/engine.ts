@@ -20,7 +20,7 @@ import {
 } from "./stations/farm-layout";
 import { addToCarry, CAPACITY_TIERS, carryQuantity, carryTotal, MAX_WAREHOUSE_PICKUP_BATCH, primaryCarryProduct, removeFromCarry, transferCarryToShelf, transferWarehouseToCarry } from "./player/CarrySystem";
 import { CART_RETURN_POINT, RETURNS_POINT, RETURNS_TO_CART_FALLBACK, STORE_SERVICE_FIXTURES } from "./stations/store-service-layout";
-import { STORE_REAR_DOOR } from "./stations/storefront-layout";
+import { storefrontDoorActorPresent, STORE_REAR_DOOR, STOREFRONT_LAYOUT } from "./stations/storefront-layout";
 
 const EMPTY_INVENTORY = (): Inventory => ({ wheat: 0, flour: 0, bread: 0, corn: 0, milk: 0, eggs: 0, cheese: 0, apples: 0, tomatoes: 0, coffee: 0, juice: 0 });
 export const CHECKOUT_PATIENCE_MS = 5 * 60_000;
@@ -30,12 +30,10 @@ export const CHECKOUT_BAG_UNIT_MS = 650;
 export const CHECKOUT_PAYMENT_MS = 1_800;
 export const CHECKOUT_BAG_HANDOFF_MS = 900;
 export { levelObjectiveTasks, unlockedCustomerProducts };
-const DOOR_PASSAGE_Z = 7.8;
+const DOOR_PASSAGE_Z = STOREFRONT_LAYOUT.z;
 const DOOR_OUTSIDE_WAIT_Z = 8.35;
 const DOOR_INSIDE_WAIT_Z = 7.25;
-const DOOR_CUSTOMER_SENSOR_MIN_Z = 6.2;
-const DOOR_CUSTOMER_SENSOR_MAX_Z = 10.8;
-const DOOR_CUSTOMER_SENSOR_HALF_WIDTH = 2.35;
+const DOOR_PASSAGE_HALF_WIDTH = STOREFRONT_LAYOUT.door.outerPostX;
 export const DEFAULT_AVATAR: AvatarConfig = { body: "adult-man", hair: "side-part", hairColor: "#332b27", skin: "#bd815f", shirt: "#76aee5", hat: "none" };
 const LEGACY_DEFAULT_AVATAR: AvatarConfig = { ...DEFAULT_AVATAR, hat: "red-panda" };
 export type WorldPathfinder = (start: [number, number], end: [number, number]) => [number, number][];
@@ -605,18 +603,12 @@ function closeBusinessDay(state: GameState, events: GameEvent[]): ActionResult {
 
 function updateAutomaticDoor(franchise: FranchiseState, now: number, deltaMs: number) {
   const customerPresent = franchise.customers.some((customer) => (
-    (customer.state === "ENTER_STORE" || customer.state === "EXIT_STORE")
-    && customer.z >= DOOR_CUSTOMER_SENSOR_MIN_Z
-    && customer.z <= DOOR_CUSTOMER_SENSOR_MAX_Z
-    && Math.abs(customer.x) <= DOOR_CUSTOMER_SENSOR_HALF_WIDTH
+    customer.state !== "DESPAWN"
+    && storefrontDoorActorPresent([customer.x, customer.z])
   ));
   const employeePresent = franchise.employees.some((employee) => {
     const runtime = employee.runtime;
-    return Boolean(runtime
-      && (runtime.state === "NAVIGATE_PICKUP" || runtime.state === "NAVIGATE_DROPOFF" || runtime.state === "NAVIGATE_CHECKOUT")
-      && runtime.z >= DOOR_CUSTOMER_SENSOR_MIN_Z
-      && runtime.z <= DOOR_CUSTOMER_SENSOR_MAX_Z
-      && Math.abs(runtime.x) <= DOOR_CUSTOMER_SENSOR_HALF_WIDTH);
+    return Boolean(runtime && storefrontDoorActorPresent([runtime.x, runtime.z]));
   });
   const occupied = franchise.doorPlayerPresent || customerPresent || employeePresent;
   if (occupied) {
@@ -684,6 +676,17 @@ function normalizePersistedFarmEmployee(franchise: FranchiseState, employee: Emp
     runtime.currentSpeed = 0;
   };
 
+  // Schema-v4 saves may still place farm staff in the retired east service
+  // lane. That lane is outside the now sealed estate, so restore them to the
+  // farm station they came from before rebuilding a route through both doors.
+  const relocatedLegacyServiceLane = isLegacyFarmServiceLanePoint([runtime.x, runtime.z]);
+  if (relocatedLegacyServiceLane) {
+    relocate(assignedCrop ?? assignedFarmMachinePoint
+      ?? (employee.role === "farmer" ? FARM_WORKER_HOME : EMPLOYEE_HOME.operator));
+    runtime.path = [];
+    runtime.pathIndex = 0;
+  }
+
   // The old operator home sat inside the bakery's actor-clearance envelope.
   // Move that exact persisted resting pose into the aisle before calculating a
   // rear-door fallback, otherwise its first segment can graze the fixture.
@@ -694,7 +697,7 @@ function normalizePersistedFarmEmployee(franchise: FranchiseState, employee: Emp
   if (runtime.state === "IDLE" && !carryTotal(runtime.carry)) {
     if (employee.role === "farmer" && (atRetiredHome || currentAtRetiredFarm)) relocate(FARM_WORKER_HOME);
     else if (employee.role === "operator" && currentAtRetiredFarm) relocate(assignedFarmMachinePoint ?? EMPLOYEE_HOME.operator);
-    if (atRetiredHome || retiredRoute || relocatedLegacyOperatorHome) {
+    if (atRetiredHome || retiredRoute || relocatedLegacyOperatorHome || relocatedLegacyServiceLane) {
       runtime.path = [];
       runtime.pathIndex = 0;
     }
@@ -703,13 +706,13 @@ function normalizePersistedFarmEmployee(franchise: FranchiseState, employee: Emp
 
   const collecting = runtime.state === "NAVIGATE_PICKUP" || runtime.state === "PICKUP";
   const delivering = runtime.state === "NAVIGATE_DROPOFF" || runtime.state === "DROPOFF"
-    || (runtime.state === "IDLE" && carryTotal(runtime.carry) > 0 && retiredRoute);
+    || (runtime.state === "IDLE" && carryTotal(runtime.carry) > 0 && (retiredRoute || relocatedLegacyServiceLane));
   const expectedTarget = employee.role === "farmer"
     ? collecting ? assignedCrop : delivering ? STOCKROOM_POINT : undefined
     : collecting ? assignedFarmMachinePoint
       : delivering && assignedFarmMachinePoint
         ? assignedMachine?.productId === runtime.assignedProduct ? STOCKROOM_POINT : assignedFarmMachinePoint
-        : delivering && retiredRoute ? STOCKROOM_POINT : undefined;
+        : delivering && (retiredRoute || relocatedLegacyServiceLane) ? STOCKROOM_POINT : undefined;
   if (!expectedTarget) {
     if (!retiredRoute) return;
     const fallback = assignedCrop ?? assignedFarmMachinePoint
@@ -745,7 +748,7 @@ function normalizePersistedFarmEmployee(franchise: FranchiseState, employee: Emp
   const farmDeliveryNeedsFarmAccess = delivering && Boolean(assignedCrop || assignedFarmMachinePoint);
   const actionAtWrongPlace = (runtime.state === "PICKUP" || runtime.state === "DROPOFF")
     && Math.hypot(runtime.x - expectedTarget[0], runtime.z - expectedTarget[1]) >= 0.6;
-  if (!retiredRoute && !relocatedLegacyOperatorHome && endpointMatches && (!(transitionNeedsFarmAccess || farmDeliveryNeedsFarmAccess) || pathUsesRearDoor) && !actionAtWrongPlace) return;
+  if (!retiredRoute && !relocatedLegacyOperatorHome && !relocatedLegacyServiceLane && endpointMatches && (!(transitionNeedsFarmAccess || farmDeliveryNeedsFarmAccess) || pathUsesRearDoor) && !actionAtWrongPlace) return;
 
   runtime.state = collecting ? "NAVIGATE_PICKUP" : "NAVIGATE_DROPOFF";
   runtime.stateSince = now;
@@ -758,6 +761,9 @@ function createEmployeeRuntime(role: Employee["role"], index: number, now: numbe
 }
 
 function updateEmployee(state: GameState, franchise: FranchiseState, employee: Employee, deltaMs: number, events: GameEvent[], pathfinder?: WorldPathfinder) {
+  if (employee.runtime && isLegacyFarmServiceLanePoint([employee.runtime.x, employee.runtime.z])) {
+    normalizePersistedFarmEmployee(franchise, employee, state.simulationTimeMs);
+  }
   const runtime = employee.runtime!;
   runtime.carry.capacity = Math.min(8, 2 + employee.level);
   runtime.speed = Math.min(2.15, 1.42 + employee.level * 0.08);
@@ -979,8 +985,8 @@ function walkEmployeeThroughAutomaticDoor(runtime: EmployeeRuntimeState, franchi
 
   const nextTarget = runtime.path[runtime.pathIndex];
   const targetUsesDoor = Boolean(nextTarget
-    && Math.abs(beforeX) <= DOOR_CUSTOMER_SENSOR_HALF_WIDTH
-    && Math.abs(nextTarget[0]) <= DOOR_CUSTOMER_SENSOR_HALF_WIDTH);
+    && Math.abs(beforeX) <= DOOR_PASSAGE_HALF_WIDTH
+    && Math.abs(nextTarget[0]) <= DOOR_PASSAGE_HALF_WIDTH);
   const waitingToEnter = targetUsesDoor && beforeZ >= DOOR_PASSAGE_Z && nextTarget![1] < DOOR_PASSAGE_Z
     && beforeZ <= DOOR_OUTSIDE_WAIT_Z + 0.02;
   const waitingToExit = targetUsesDoor && beforeZ <= DOOR_PASSAGE_Z && nextTarget![1] > DOOR_PASSAGE_Z
@@ -997,8 +1003,8 @@ function walkEmployeeThroughAutomaticDoor(runtime: EmployeeRuntimeState, franchi
   // Employees are simulation actors rather than Rapier bodies. Clamp both
   // crossing directions at their visible waiting points until the same
   // authoritative automatic door used by players and customers is fully open.
-  const crossedDoorCorridor = Math.abs(beforeX) <= DOOR_CUSTOMER_SENSOR_HALF_WIDTH
-    && Math.abs(runtime.x) <= DOOR_CUSTOMER_SENSOR_HALF_WIDTH;
+  const crossedDoorCorridor = Math.abs(beforeX) <= DOOR_PASSAGE_HALF_WIDTH
+    && Math.abs(runtime.x) <= DOOR_PASSAGE_HALF_WIDTH;
   const entering = crossedDoorCorridor && beforeZ >= DOOR_PASSAGE_Z && runtime.z < DOOR_PASSAGE_Z;
   const exiting = crossedDoorCorridor && beforeZ <= DOOR_PASSAGE_Z && runtime.z > DOOR_PASSAGE_Z;
   if (entering) {

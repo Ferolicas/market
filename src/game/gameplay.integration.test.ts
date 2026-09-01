@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { advanceSimulation, advanceWorld, applyGameAction, createInitialGame, normalizeGameState } from "./engine";
 import type { CustomerRuntimeState, GameAction, GameState, ProductId } from "./types";
+import { STOREFRONT_LAYOUT } from "./stations/storefront-layout";
 
 function act(state: GameState, action: GameAction) {
   const result = applyGameAction(state, action);
@@ -216,6 +217,51 @@ describe("real supermarket loop", () => {
     state = act(state, { type: "CONTRIBUTE_BUILD", amountMinor: 700 });
     const restored = normalizeGameState(JSON.parse(JSON.stringify(state)));
     expect(restored.franchises[0].buildProjects[0].contributedMinor).toBe(700);
+  });
+
+  it("opens for customers and staff at either edge regardless of their current task", () => {
+    const sensor = STOREFRONT_LAYOUT.sensor;
+    const customerState = createInitialGame();
+    customerState.franchises[0].customers = [{
+      ...shopper("door-edge-customer", "tomatoes", 0),
+      state: "WAIT_CHECKOUT",
+      x: sensor.centerX - sensor.actorHalfWidth + 0.01,
+      z: sensor.centerZ,
+    }];
+
+    const customerTick = advanceWorld(customerState, 100).state;
+    expect(customerTick.franchises[0].doorState).toBe("OPENING");
+    expect(customerTick.franchises[0].doorProgress).toBeGreaterThan(0);
+
+    const employeeState = createInitialGame();
+    employeeState.franchises[0].employees = [{
+      id: "door-edge-stocker",
+      name: "Luna",
+      role: "stocker",
+      level: 1,
+      salaryMinor: 3_000,
+      energy: 100,
+      hat: "frog",
+      runtime: {
+        state: "IDLE",
+        assignedProduct: null,
+        assignedStationId: null,
+        carry: { capacity: 2, items: {} },
+        x: sensor.centerX + sensor.actorHalfWidth - 0.01,
+        z: sensor.centerZ,
+        targetX: sensor.centerX + sensor.actorHalfWidth - 0.01,
+        targetZ: sensor.centerZ,
+        path: [],
+        pathIndex: 0,
+        speed: 1.5,
+        currentSpeed: 0,
+        stateSince: 0,
+      },
+    }];
+
+    const employeeTick = advanceWorld(employeeState, 100).state;
+    expect(employeeTick.franchises[0].doorState).toBe("OPENING");
+    expect(employeeTick.franchises[0].doorProgress).toBeGreaterThan(0);
   });
 
   it("keeps customers on the correct side of the threshold until the doors are fully open", () => {

@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from "vitest";
-import { FARM_ACCESS_WAYPOINTS, FARM_ANIMAL_STATIONS, FARM_FIELD, FARM_PLOTS } from "../stations/farm-layout";
+import { FARM_ACCESS_WAYPOINTS, FARM_ANIMAL_STATIONS, FARM_FIELD, FARM_GATE, FARM_PLOTS } from "../stations/farm-layout";
 import { CART_RETURN_POINT, RETURNS_POINT } from "../stations/store-service-layout";
 import { STORE_REAR_DOOR } from "../stations/storefront-layout";
 import { ensureStoreNavigation, isStoreNavigationPoint, STORE_NAVIGATION_BOUNDS, storePathfinder } from "./NavMeshService";
@@ -44,6 +44,15 @@ describe("store and rear-farm navigation", () => {
     expect(STORE_NAVIGATION_BOUNDS.minZ).toBeLessThan(fieldRearEdge);
     expect(STORE_NAVIGATION_BOUNDS.minZ).toBeGreaterThan(fieldRearEdge - 0.75);
     expect(STORE_NAVIGATION_BOUNDS.maxX).toBeGreaterThan(FARM_FIELD.serviceLaneX);
+  });
+
+  it("blocks the direct side escapes between the rear wall and the farm", () => {
+    FARM_GATE.sideConnectors.forEach((connector) => {
+      expect(isStoreNavigationPoint([connector.center[0], connector.center[2]])).toBe(false);
+      const outside = [Math.sign(connector.center[0]) * 12.15, connector.center[2]] as [number, number];
+      const path = storePathfinder([...STORE_REAR_DOOR.outsideApproach], outside);
+      expect(pathLength(STORE_REAR_DOOR.outsideApproach, path)).toBeGreaterThan(12);
+    });
   });
 
   it("routes directly through the rear door to every farm destination", () => {

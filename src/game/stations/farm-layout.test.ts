@@ -135,6 +135,27 @@ describe("rear farm layout", () => {
     expectObstacleFreeRoute("rear door through farm gate", FARM_ACCESS_WAYPOINTS);
   });
 
+  it("seals both street shortcuts continuously from the estate to the rear wall", () => {
+    const elementToLayout = STORE_ELEMENT_SCALE / STORE_LAYOUT_SCALE;
+    const wallOuterZ = STORE_REAR_DOOR.wallCenterZ - STORE_REAR_DOOR.wallDepth / 2;
+    const estateFrontZ = FARM_FIELD.center[2] + FARM_FIELD.size[2] / 2;
+
+    expect(FARM_GATE.sideConnectors).toHaveLength(2);
+    FARM_GATE.sideConnectors.forEach((connector, index) => {
+      const connectorFront = connector.center[2] - connector.halfZ * elementToLayout;
+      const connectorWall = connector.center[2] + connector.halfZ * elementToLayout;
+      const expectedX = index === 0 ? FARM_FIELD.center[0] - FARM_FIELD.size[0] / 2 : FARM_FIELD.center[0] + FARM_FIELD.size[0] / 2;
+
+      expect(connector.center[0]).toBeCloseTo(expectedX, 6);
+      expect(connectorFront).toBeCloseTo(estateFrontZ, 6);
+      expect(connectorWall).toBeCloseTo(wallOuterZ, 6);
+      expect(isStoreNavigationPoint([connector.center[0], connector.center[2]])).toBe(false);
+      expect(isStoreNavigationPoint([connector.center[0] - Math.sign(connector.center[0]) * 0.5, connector.center[2]])).toBe(true);
+    });
+
+    expectObstacleFreeRoute("sealed rear access remains open", FARM_ACCESS_WAYPOINTS);
+  });
+
   it("keeps the visible open-leaf terminal post inside its canonical collider", () => {
     const terminal = farmGateOpenLeafTerminalPost(STORE_LAYOUT_SCALE, STORE_ELEMENT_SCALE);
     const directionZ = Math.sign(FARM_GATE.openLeaf.center[2] - FARM_GATE.innerPost[2]);

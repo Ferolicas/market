@@ -11,6 +11,17 @@ export const STOREFRONT_LAYOUT = {
     postWidth: 0.1,
     frameDepth: 0.14,
   },
+  // One rectangular approach volume shared by the player interaction layer
+  // and every simulated actor. The previous player-only circle reached barely
+  // half of the framed opening, so approaching either leaf did not open it.
+  sensor: {
+    centerX: 0,
+    centerZ: 8.5,
+    actorHalfWidth: 2.35,
+    actorHalfDepth: 2.3,
+    enterMargin: 0.08,
+    exitMargin: 0.24,
+  },
 } as const;
 
 /**
@@ -85,6 +96,14 @@ export function storefrontDoorLeafCenter(side: -1 | 1, progress: number) {
 export function storefrontDoorClearWidth(progress: number) {
   const door = STOREFRONT_LAYOUT.door;
   return Math.max(0, Math.abs(storefrontDoorLeafCenter(1, progress)) * 2 - door.leafWidth);
+}
+
+/** True from either side and across the complete storefront access. */
+export function storefrontDoorActorPresent(point: readonly [number, number]) {
+  const sensor = STOREFRONT_LAYOUT.sensor;
+  const epsilon = 1e-9;
+  return Math.abs(point[0] - sensor.centerX) <= sensor.actorHalfWidth + epsilon
+    && Math.abs(point[1] - sensor.centerZ) <= sensor.actorHalfDepth + epsilon;
 }
 
 export function rearDoorLeafCenter(side: -1 | 1, progress: number) {

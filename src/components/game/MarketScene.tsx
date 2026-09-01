@@ -28,7 +28,7 @@ import { CHECKOUT_CAMERA_FRAME, CHECKOUT_CAMERA_POSITION as CHECKOUT_CAMERA_POSI
 import { isStockingInteractionId, PRODUCT_RETAIL_DEPARTMENT, retailDepartmentFromStockingInteraction, retailDisplayPosition, retailStockingMagnet, retailStockLandingLocalPosition, RETAIL_DEPARTMENT_IDS, RETAIL_DEPARTMENTS, stockingInteractionId, type StockingInteractionId } from "@/game/stations/retail-layout";
 import { isWorkstationId, isWorkstationUnlocked, WORKSTATIONS, WORKSTATION_IDS, type WorkstationId } from "@/game/stations/workstation-layout";
 import { PRODUCTS } from "@/game/catalog";
-import { farmInteractionId, farmPlotById, FARM_ACCESS_WAYPOINTS, FARM_PLOTS, FARM_WORKER_HOME, scaledFarmHarvestSensor, type FarmInteractionId } from "@/game/stations/farm-layout";
+import { farmInteractionId, farmPlotById, FARM_ACCESS_WAYPOINTS, FARM_GATE, FARM_PLOTS, FARM_WORKER_HOME, scaledFarmHarvestSensor, type FarmInteractionId } from "@/game/stations/farm-layout";
 import { carryTotal, preferredStockingProduct } from "@/game/player/CarrySystem";
 import {
   advanceRearDoorMotion,
@@ -94,7 +94,7 @@ const ZONES: { id: InteractionId; label: string; position: [number, number, numb
     return { id: stockingInteractionId(departmentId), label: `Surtir ${department.label.toLowerCase()}`, position: [department.service[0], 0, department.service[1]] as [number, number, number] };
   }),
   { id: WAREHOUSE_PICKUP_STATION.interactionId, label: WAREHOUSE_PICKUP_STATION.label, position: [...WAREHOUSE_PICKUP_STATION.position] },
-  { id: "door", label: "Sensor de entrada", position: [0, 0, STOREFRONT_LAYOUT.z] },
+  { id: "door", label: "Sensor de entrada", position: [STOREFRONT_LAYOUT.sensor.centerX, 0, STOREFRONT_LAYOUT.sensor.centerZ] },
 ] satisfies { id: InteractionId; label: string; position: [number, number, number]; facing?: number }[]).map((zone) => ({ ...zone, position: scaleStorePosition(zone.position) }));
 
 interface MarketSceneProps {
@@ -188,6 +188,19 @@ export const MarketScene = memo(function MarketScene({ avatar, carry, visualCarr
       return { id: plot.id, productId: plot.productId, x, z };
     });
     qaWindow.__MARKET_QA__.farmAccessWaypoints = FARM_ACCESS_WAYPOINTS.map((point) => scaleStorePoint([...point]));
+    qaWindow.__MARKET_QA__.farmSideConnectors = FARM_GATE.sideConnectors.map((connector) => ({
+      x: connector.center[0] * STORE_LAYOUT_SCALE,
+      z: connector.center[2] * STORE_LAYOUT_SCALE,
+      halfX: connector.halfX * STORE_ELEMENT_SCALE,
+      halfZ: connector.halfZ * STORE_ELEMENT_SCALE,
+    }));
+    qaWindow.__MARKET_QA__.storefrontDoor = {
+      x: STOREFRONT_LAYOUT.sensor.centerX * STORE_LAYOUT_SCALE,
+      z: STOREFRONT_LAYOUT.z * STORE_LAYOUT_SCALE,
+      sensorCenterZ: STOREFRONT_LAYOUT.sensor.centerZ * STORE_LAYOUT_SCALE,
+      sensorHalfWidth: STOREFRONT_LAYOUT.sensor.actorHalfWidth * STORE_LAYOUT_SCALE,
+      sensorHalfDepth: STOREFRONT_LAYOUT.sensor.actorHalfDepth * STORE_LAYOUT_SCALE,
+    };
     qaWindow.__MARKET_QA__.serviceFixtureTargets = STORE_SERVICE_FIXTURE_IDS.map((fixtureId) => {
       const fixture = STORE_SERVICE_FIXTURES[fixtureId];
       const [x, z] = scaleStorePoint([fixture.position[0], fixture.position[2]]);
@@ -1011,16 +1024,25 @@ function interactionZoneConfigs(checkoutLevel = 1, unlockedAreas: readonly strin
   )).map((zone): InteractionZoneConfig => {
     const departmentId = retailDepartmentFromStockingInteraction(zone.id);
     const magnet = departmentId ? retailStockingMagnet(departmentId, STORE_LAYOUT_SCALE, STORE_ELEMENT_SCALE) : null;
+    const doorSensor = zone.id === "door" ? STOREFRONT_LAYOUT.sensor : null;
     return {
       id: zone.id,
       type: zone.id,
       x: magnet?.x ?? zone.position[0],
       z: magnet?.z ?? zone.position[2],
-      ...(magnet ? { halfExtents: magnet.halfExtents } : {}),
+      ...(magnet
+        ? { halfExtents: magnet.halfExtents }
+        : doorSensor
+          ? { halfExtents: [doorSensor.actorHalfWidth * STORE_LAYOUT_SCALE, doorSensor.actorHalfDepth * STORE_LAYOUT_SCALE] as const }
+          : {}),
       // Retail reach expands from every fixture edge; other stations retain
       // their radial proximity volume around a single walkable service point.
-      enterRadius: magnet?.enterRadius ?? (zone.id === "door" ? 1.3 : zone.id === "supplier" ? WAREHOUSE_PICKUP_STATION.enterRadius : isWorkstationId(zone.id) ? 0.44 : 0.75) * STORE_ELEMENT_SCALE,
-      exitRadius: magnet?.exitRadius ?? (zone.id === "door" ? 1.5 : zone.id === "supplier" ? WAREHOUSE_PICKUP_STATION.exitRadius : isWorkstationId(zone.id) ? 0.58 : 0.9) * STORE_ELEMENT_SCALE,
+      enterRadius: magnet?.enterRadius ?? (doorSensor
+        ? doorSensor.enterMargin * STORE_LAYOUT_SCALE
+        : (zone.id === "supplier" ? WAREHOUSE_PICKUP_STATION.enterRadius : isWorkstationId(zone.id) ? 0.44 : 0.75) * STORE_ELEMENT_SCALE),
+      exitRadius: magnet?.exitRadius ?? (doorSensor
+        ? doorSensor.exitMargin * STORE_LAYOUT_SCALE
+        : (zone.id === "supplier" ? WAREHOUSE_PICKUP_STATION.exitRadius : isWorkstationId(zone.id) ? 0.58 : 0.9) * STORE_ELEMENT_SCALE),
       actorMask: ["player"],
       priority: isStockingInteractionId(zone.id) ? 80 : ({ checkout: 100, mill: 70, bakery: 70, cheese: 70, juice: 70, chicken: 65, cow: 65, door: 20, supplier: 5 } as Partial<Record<InteractionId, number>>)[zone.id] ?? 10,
       dwellMs: zone.id === "supplier" ? WAREHOUSE_PICKUP_STATION.dwellMs : zone.id === "checkout" ? 180 : zone.id === "door" || isStockingInteractionId(zone.id) ? 0 : 80,
