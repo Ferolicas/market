@@ -3,6 +3,9 @@ import { FARM_OBSTACLES } from "./stations/farm-layout";
 import { RETAIL_DEPARTMENT_IDS, RETAIL_DEPARTMENTS } from "./stations/retail-layout";
 import { STORE_SERVICE_FIXTURE_IDS, STORE_SERVICE_FIXTURES } from "./stations/store-service-layout";
 import { STORE_REAR_DOOR } from "./stations/storefront-layout";
+import { PRODUCTION_CUBICLE, STORE_PRODUCTION_FIXTURES } from "./stations/production-layout";
+
+export { STORE_PRODUCTION_FIXTURES } from "./stations/production-layout";
 
 export type WorldPosition = [number, number, number];
 
@@ -19,41 +22,22 @@ export interface StoreObstacle {
   halfZ: number;
 }
 
-/**
- * Authored production furniture. `position` is the StoreElement origin while
- * `localFootprint` follows the actual GLB bounds inside that scaled group.
- * Rendering, Rapier and Recast all consume this table, preventing invisible
- * blockers before unlock and walk-through machinery afterwards.
- */
-export const STORE_PRODUCTION_FIXTURES = {
-  flourMill: {
-    obstacleId: "fixture:flour-mill",
-    position: [-8.75, 0, -4.05] as WorldPosition,
-    localFootprint: { centerX: 0, centerZ: -0.98, halfX: 0.65, halfZ: 0.98 },
-  },
-  breadOven: {
-    obstacleId: "fixture:bread-oven",
-    position: [-8.75, 0, -0.45] as WorldPosition,
-    localFootprint: { centerX: 0.6725, centerZ: -0.95, halfX: 1.3975, halfZ: 0.95 },
-  },
-  cheeseMaker: {
-    obstacleId: "fixture:cheese-maker",
-    position: [-6.15, 0, -2.2] as WorldPosition,
-    localFootprint: { centerX: 0, centerZ: -0.845, halfX: 0.6, halfZ: 0.845 },
-  },
-  juiceMachine: {
-    obstacleId: "fixture:juice-machine",
-    position: [-5.65, 0, 1.55] as WorldPosition,
-    localFootprint: { centerX: 0, centerZ: -0.845, halfX: 0.6, halfZ: 0.845 },
-  },
-} as const;
-
 const productionObstacles: StoreObstacle[] = Object.values(STORE_PRODUCTION_FIXTURES).map((fixture) => ({
   id: fixture.obstacleId,
   x: fixture.position[0] + fixture.localFootprint.centerX * STORE_ELEMENT_SCALE / STORE_LAYOUT_SCALE,
   z: fixture.position[2] + fixture.localFootprint.centerZ * STORE_ELEMENT_SCALE / STORE_LAYOUT_SCALE,
   halfX: fixture.localFootprint.halfX,
   halfZ: fixture.localFootprint.halfZ,
+}));
+
+const productionCubicleObstacles: StoreObstacle[] = PRODUCTION_CUBICLE.walls.map((wall) => ({
+  id: wall.id,
+  x: wall.position[0],
+  z: wall.position[2],
+  // BASE_STORE_OBSTACLES multiplies extents by the element scale. Convert
+  // authored layout dimensions first so walls land on their visible panes.
+  halfX: wall.halfX * STORE_LAYOUT_SCALE / STORE_ELEMENT_SCALE,
+  halfZ: wall.halfZ * STORE_LAYOUT_SCALE / STORE_ELEMENT_SCALE,
 }));
 
 const retailObstacles: StoreObstacle[] = RETAIL_DEPARTMENT_IDS.map((departmentId) => {
@@ -75,7 +59,7 @@ const BASE_STORE_OBSTACLES: StoreObstacle[] = [
   { x: CHECKOUT_LANES[0].counter[0], z: CHECKOUT_LANES[0].counter[2], halfX: 2.25, halfZ: 0.65 },
   { x: CHECKOUT_LANES[1].counter[0], z: CHECKOUT_LANES[1].counter[2], halfX: 2.25, halfZ: 0.65 },
   ...productionObstacles,
-  { x: -9, z: 2.05, halfX: 0.9, halfZ: 0.6 },
+  ...productionCubicleObstacles,
   { x: -7, z: 3.15, halfX: 1.05, halfZ: 0.7 },
   { x: 8.8, z: -2.65, halfX: 0.95, halfZ: 1.55 },
   { x: 8.8, z: -5.35, halfX: 0.95, halfZ: 0.7 },

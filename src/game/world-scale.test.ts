@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { CART_RETURN_POINT, RETURNS_POINT, RETURNS_TO_CART_FALLBACK, STORE_SERVICE_FIXTURE_IDS, STORE_SERVICE_FIXTURES } from "./stations/store-service-layout";
 import { FARM_GATE } from "./stations/farm-layout";
+import { PRODUCTION_CUBICLE } from "./stations/production-layout";
 import { overlapsStoreObstacle, scaleStorePoint, scaleStorePosition, STORE_ELEMENT_SCALE, STORE_LAYOUT_SCALE, STORE_OBSTACLES, STORE_PRODUCTION_FIXTURES, WORLD_SCALE } from "./world-scale";
 
 describe("store scale system", () => {
@@ -75,6 +76,18 @@ describe("store scale system", () => {
       expect(obstacle?.halfX).toBeCloseTo(fixture.localFootprint.halfX * STORE_ELEMENT_SCALE);
       expect(obstacle?.halfZ).toBeCloseTo(fixture.localFootprint.halfZ * STORE_ELEMENT_SCALE);
       expect(overlapsStoreObstacle([expectedX, expectedZ], 0), fixture.obstacleId).toBe(true);
+    }
+  });
+
+  it("shares every glass production-room wall with physics and navigation", () => {
+    for (const wall of PRODUCTION_CUBICLE.walls) {
+      const obstacle = STORE_OBSTACLES.find((candidate) => candidate.id === wall.id);
+      expect(obstacle, wall.id).toBeDefined();
+      expect(obstacle?.x).toBeCloseTo(wall.position[0] * STORE_LAYOUT_SCALE);
+      expect(obstacle?.z).toBeCloseTo(wall.position[2] * STORE_LAYOUT_SCALE);
+      expect(obstacle?.halfX).toBeCloseTo(wall.halfX * STORE_LAYOUT_SCALE);
+      expect(obstacle?.halfZ).toBeCloseTo(wall.halfZ * STORE_LAYOUT_SCALE);
+      expect(overlapsStoreObstacle(scaleStorePoint([wall.position[0], wall.position[2]]), 0)).toBe(true);
     }
   });
 

@@ -43,6 +43,7 @@ import {
 } from "@/game/stations/storefront-layout";
 import { STORE_SERVICE_FIXTURE_IDS, STORE_SERVICE_FIXTURES } from "@/game/stations/store-service-layout";
 import { WAREHOUSE_PICKUP_STATION } from "@/game/stations/warehouse-layout";
+import { isProductionWorkstationId, productionMachineMagnet, PRODUCTION_WORKSTATION_IDS } from "@/game/stations/production-layout";
 import { advanceAdaptiveQuality, INITIAL_ADAPTIVE_QUALITY_STATE } from "@/game/render/AdaptiveQuality";
 import { createStaticMeshBatch } from "@/game/render/StaticMeshBatch";
 
@@ -128,10 +129,11 @@ interface MarketSceneProps {
   doorState: "CLOSED" | "OPENING" | "OPEN" | "CLOSING" | "BLOCKED";
   doorProgress: number;
   onDoorPresence: (active: boolean) => void;
+  onSceneReady?: () => void;
   debug?: boolean;
 }
 
-export const MarketScene = memo(function MarketScene({ avatar, carry, visualCarry, warehousePickupEnabled, customers, checkoutTransactions, returnsBin, returnedCartCount, crops, visualCrops, productionMachines, shelves, visualShelves, shelfTier, unlockedAreas, lightsOn, simulationTimeMs, employees, onPrompt, onInteract, onDistance, onDoorPresence, lastInteraction, transferEvents, onTransferProgress, open, doorProgress, checkoutLevel, playerSpeedTier, debug = false }: MarketSceneProps) {
+export const MarketScene = memo(function MarketScene({ avatar, carry, visualCarry, warehousePickupEnabled, customers, checkoutTransactions, returnsBin, returnedCartCount, crops, visualCrops, productionMachines, shelves, visualShelves, shelfTier, unlockedAreas, lightsOn, simulationTimeMs, employees, onPrompt, onInteract, onDistance, onDoorPresence, onSceneReady, lastInteraction, transferEvents, onTransferProgress, open, doorProgress, checkoutLevel, playerSpeedTier, debug = false }: MarketSceneProps) {
   const playerFocus = useRef(new THREE.Vector3(...PLAYER_START));
   const basketTarget = useRef(new THREE.Vector3(...PLAYER_START));
   const [checkoutFocused, setCheckoutFocused] = useState(false);
@@ -208,6 +210,17 @@ export const MarketScene = memo(function MarketScene({ avatar, carry, visualCarr
       const service = "service" in fixture ? scaleStorePoint([...fixture.service]) : null;
       return { id: fixtureId, obstacleId: fixture.obstacleId, x, z, serviceX: service?.[0] ?? null, serviceZ: service?.[1] ?? null };
     });
+    qaWindow.__MARKET_QA__.productionTargets = PRODUCTION_WORKSTATION_IDS.map((id) => {
+      const magnet = productionMachineMagnet(id, STORE_LAYOUT_SCALE, STORE_ELEMENT_SCALE);
+      return {
+        id,
+        x: magnet.x,
+        z: magnet.z,
+        halfX: magnet.halfExtents[0],
+        halfZ: magnet.halfExtents[1],
+        reach: magnet.enterRadius,
+      };
+    });
   }, [debug, stockableByDepartment, stockableProduct, warehousePickupEnabled]);
   return (
     <Canvas dpr={canvasDpr} events={safeCanvasEvents} shadows="percentage" performance={MARKET_CANVAS_PERFORMANCE} gl={MARKET_CANVAS_GL}>
@@ -241,13 +254,14 @@ export const MarketScene = memo(function MarketScene({ avatar, carry, visualCarr
         <group name="perf:player"><Suspense fallback={null}><Player avatar={avatar} carry={visualCarry} crops={crops} checkoutLevel={checkoutLevel} playerSpeedTier={playerSpeedTier} unlockedAreas={unlockedAreas} warehousePickupEnabled={warehousePickupEnabled} debug={debug} onPrompt={onPrompt} onInteract={onInteract} onDistance={onDistance} onDoorPresence={onDoorPresence} onCheckoutFocus={setCheckoutFocused} lastInteraction={lastInteraction} playerFocus={playerFocus} basketTarget={basketTarget} interactionLabels={interactionLabels} /></Suspense></group>
       </Physics>
       <LocalEnvironment />
+      <SceneReadinessProbe onReady={onSceneReady} />
       {(debug || performanceProbe) && <DebugProbe inspectScene={debug} publishInventory={performanceProbe} />}
     </Canvas>
   );
 }, sameMarketSceneProps);
 
 function sameMarketSceneProps(previous: MarketSceneProps, next: MarketSceneProps) {
-  if (previous.debug !== next.debug || previous.warehousePickupEnabled !== next.warehousePickupEnabled || previous.checkoutLevel !== next.checkoutLevel || previous.playerSpeedTier !== next.playerSpeedTier || previous.shelfTier !== next.shelfTier || previous.open !== next.open || previous.doorState !== next.doorState || previous.doorProgress !== next.doorProgress) return false;
+  if (previous.debug !== next.debug || previous.onSceneReady !== next.onSceneReady || previous.warehousePickupEnabled !== next.warehousePickupEnabled || previous.checkoutLevel !== next.checkoutLevel || previous.playerSpeedTier !== next.playerSpeedTier || previous.shelfTier !== next.shelfTier || previous.open !== next.open || previous.doorState !== next.doorState || previous.doorProgress !== next.doorProgress) return false;
   if (previous.crops !== next.crops || previous.visualCrops !== next.visualCrops || previous.productionMachines !== next.productionMachines || previous.shelves !== next.shelves || previous.visualShelves !== next.visualShelves || previous.unlockedAreas !== next.unlockedAreas || previous.lightsOn !== next.lightsOn || previous.simulationTimeMs !== next.simulationTimeMs) return false;
   if (previous.customers !== next.customers || previous.checkoutTransactions !== next.checkoutTransactions || previous.returnsBin !== next.returnsBin || previous.returnedCartCount !== next.returnedCartCount) return false;
   if (previous.lastInteraction !== next.lastInteraction || previous.transferEvents !== next.transferEvents || previous.onTransferProgress !== next.onTransferProgress || previous.onInteract !== next.onInteract || previous.onPrompt !== next.onPrompt || previous.onDistance !== next.onDistance || previous.onDoorPresence !== next.onDoorPresence) return false;
@@ -275,6 +289,70 @@ function initialMarketCanvasDpr() {
   const deviceDpr = Math.max(0.85, Math.min(1.4, window.devicePixelRatio || 1));
   const mobile = window.matchMedia("(pointer: coarse)").matches || window.innerWidth <= 820;
   return mobile ? Math.max(0.85, deviceDpr * MARKET_CANVAS_PERFORMANCE.min) : deviceDpr;
+}
+
+/**
+ * Keep the first gameplay frame covered until assets and GPU programs are
+ * ready and several consecutive frames are stable. The simulation can warm
+ * up behind the loader without exposing a frozen employee or player pose.
+ */
+function SceneReadinessProbe({ onReady }: { onReady?: () => void }) {
+  const { gl, scene, camera } = useThree();
+  const compileGeneration = useRef(0);
+  const stableFrames = useRef(0);
+  const ready = useRef(false);
+  const sceneSignature = useRef("");
+  const phase = useRef<"observing" | "compiling" | "compiled">("observing");
+  const mountedAt = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!onReady || ready.current) return;
+    const timeout = window.setTimeout(() => {
+      if (ready.current) return;
+      ready.current = true;
+      onReady();
+    }, 10_000);
+    return () => window.clearTimeout(timeout);
+  }, [onReady]);
+
+  useFrame((state, delta) => {
+    if (!onReady || ready.current) return;
+    mountedAt.current ??= state.clock.elapsedTime * 1_000;
+    let objects = 0;
+    let meshes = 0;
+    scene.traverse((object) => {
+      objects += 1;
+      if (object instanceof THREE.Mesh || object instanceof THREE.InstancedMesh) meshes += 1;
+    });
+    const signature = `${objects}:${meshes}:${gl.info.memory.geometries}:${gl.info.memory.textures}`;
+    if (signature !== sceneSignature.current) {
+      sceneSignature.current = signature;
+      stableFrames.current = 0;
+      if (phase.current !== "observing") {
+        compileGeneration.current += 1;
+        phase.current = "observing";
+      }
+      return;
+    }
+
+    if (phase.current === "observing") stableFrames.current += 1;
+    if (phase.current === "observing" && state.clock.elapsedTime * 1_000 >= mountedAt.current + 1_200 && stableFrames.current >= 8) {
+      phase.current = "compiling";
+      stableFrames.current = 0;
+      const generation = ++compileGeneration.current;
+      void gl.compileAsync(scene, camera).catch(() => gl.compile(scene, camera)).then(() => {
+        if (generation === compileGeneration.current && !ready.current) phase.current = "compiled";
+      });
+      return;
+    }
+    if (phase.current !== "compiled") return;
+    stableFrames.current = delta <= 0.05 ? stableFrames.current + 1 : 0;
+    if (stableFrames.current < 30) return;
+    ready.current = true;
+    onReady?.();
+  });
+
+  return null;
 }
 
 function AdaptiveQualityController({ canvasDpr, onDprChange, publishDiagnostics }: { canvasDpr: number; onDprChange: (dpr: number) => void; publishDiagnostics: boolean }) {
@@ -986,11 +1064,11 @@ function RearDoorAssembly({ playerFocus, employees }: { playerFocus: RefObject<T
 }
 
 function highestPriorityWorkstation(activeZoneIds: readonly string[]) {
-  return WORKSTATION_IDS.find((id) => id !== "shelf" && activeZoneIds.includes(id)) ?? null;
+  return WORKSTATION_IDS.find((id) => id !== "shelf" && !isProductionWorkstationId(id) && activeZoneIds.includes(id)) ?? null;
 }
 
 function isMovementLockingWorkstation(id: string): id is WorkstationId {
-  return isWorkstationId(id) && id !== "shelf";
+  return isWorkstationId(id) && id !== "shelf" && !isProductionWorkstationId(id);
 }
 
 function workstationFacing(id: WorkstationId) {
@@ -1024,7 +1102,9 @@ function interactionZoneConfigs(checkoutLevel = 1, unlockedAreas: readonly strin
     && (!isWorkstationId(zone.id) || isWorkstationUnlocked(zone.id, unlockedAreas))
   )).map((zone): InteractionZoneConfig => {
     const departmentId = retailDepartmentFromStockingInteraction(zone.id);
-    const magnet = departmentId ? retailStockingMagnet(departmentId, STORE_LAYOUT_SCALE, STORE_ELEMENT_SCALE) : null;
+    const retailMagnet = departmentId ? retailStockingMagnet(departmentId, STORE_LAYOUT_SCALE, STORE_ELEMENT_SCALE) : null;
+    const productionMagnet = isProductionWorkstationId(zone.id) ? productionMachineMagnet(zone.id, STORE_LAYOUT_SCALE, STORE_ELEMENT_SCALE) : null;
+    const magnet = retailMagnet ?? productionMagnet;
     const doorSensor = zone.id === "door" ? STOREFRONT_LAYOUT.sensor : null;
     return {
       id: zone.id,
@@ -1036,8 +1116,8 @@ function interactionZoneConfigs(checkoutLevel = 1, unlockedAreas: readonly strin
         : doorSensor
           ? { halfExtents: [doorSensor.actorHalfWidth * STORE_LAYOUT_SCALE, doorSensor.actorHalfDepth * STORE_LAYOUT_SCALE] as const }
           : {}),
-      // Retail reach expands from every fixture edge; other stations retain
-      // their radial proximity volume around a single walkable service point.
+      // Retail and production transfer volumes wrap every fixture edge and
+      // rounded corner. Hands-on stations retain a radial service socket.
       enterRadius: magnet?.enterRadius ?? (doorSensor
         ? doorSensor.enterMargin * STORE_LAYOUT_SCALE
         : (zone.id === "supplier" ? WAREHOUSE_PICKUP_STATION.enterRadius : isWorkstationId(zone.id) ? 0.44 : 0.75) * STORE_ELEMENT_SCALE),
@@ -1046,8 +1126,8 @@ function interactionZoneConfigs(checkoutLevel = 1, unlockedAreas: readonly strin
         : (zone.id === "supplier" ? WAREHOUSE_PICKUP_STATION.exitRadius : isWorkstationId(zone.id) ? 0.58 : 0.9) * STORE_ELEMENT_SCALE),
       actorMask: ["player"],
       priority: isStockingInteractionId(zone.id) ? 80 : ({ checkout: 100, mill: 70, bakery: 70, cheese: 70, juice: 70, chicken: 65, cow: 65, door: 20, supplier: 5 } as Partial<Record<InteractionId, number>>)[zone.id] ?? 10,
-      dwellMs: zone.id === "supplier" ? WAREHOUSE_PICKUP_STATION.dwellMs : zone.id === "checkout" ? 180 : zone.id === "door" || isStockingInteractionId(zone.id) ? 0 : 80,
-      repeatEveryMs: zone.id === "supplier" ? WAREHOUSE_PICKUP_STATION.repeatEveryMs : isStockingInteractionId(zone.id) ? 180 : zone.id === "checkout" ? (checkoutLevel >= 2 ? 340 : 450) : zone.id === "door" ? 60_000 : 220,
+      dwellMs: zone.id === "supplier" ? WAREHOUSE_PICKUP_STATION.dwellMs : zone.id === "checkout" ? 180 : zone.id === "door" || isStockingInteractionId(zone.id) || isProductionWorkstationId(zone.id) ? 0 : 80,
+      repeatEveryMs: zone.id === "supplier" ? WAREHOUSE_PICKUP_STATION.repeatEveryMs : isStockingInteractionId(zone.id) || isProductionWorkstationId(zone.id) ? 180 : zone.id === "checkout" ? (checkoutLevel >= 2 ? 340 : 450) : zone.id === "door" ? 60_000 : 220,
       exitGraceMs: zone.id === "supplier" ? WAREHOUSE_PICKUP_STATION.exitGraceMs : 120,
       channel: zone.id === "door" || zone.id === "supplier" ? "passive" : zone.id === "checkout" ? "hands" : "transfer",
     };

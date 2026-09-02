@@ -4,7 +4,7 @@ import { RoundedBox, RoundedBoxGeometry, Text, useGLTF, useTexture } from "@reac
 import { useFrame } from "@react-three/fiber";
 import { memo, useCallback, useEffect, useMemo, useRef, type ReactNode } from "react";
 import * as THREE from "three";
-import { scaleStorePosition, STORE_ELEMENT_SCALE, STORE_LAYOUT_SCALE, STORE_PRODUCTION_FIXTURES } from "@/game/world-scale";
+import { scaleStorePosition, STORE_ELEMENT_SCALE, STORE_LAYOUT_SCALE } from "@/game/world-scale";
 import type { CheckoutTransaction, CropState, Inventory, ProductId, ProductionMachineState } from "@/game/types";
 import { cropHarvestYield, cropProgress } from "@/game/stations/StationSystem";
 import { CHECKOUT_LANES, activeCheckoutForLane, checkoutBagLocation, checkoutHandoffForLane } from "@/game/stations/checkout-layout";
@@ -13,6 +13,7 @@ import { FARM_ANIMAL_STATIONS, FARM_FACILITIES, FARM_FIELD, FARM_GATE, FARM_PLOT
 import { STORE_REAR_DOOR } from "@/game/stations/storefront-layout";
 import { RETAIL_DEPARTMENTS, RETAIL_FIXTURE_LEVELS, RETAIL_VISUAL_CAPACITY, retailDisplayPosition, retailStockLandingLocalPosition } from "@/game/stations/retail-layout";
 import { STORE_SERVICE_FIXTURES } from "@/game/stations/store-service-layout";
+import { PRODUCTION_CUBICLE, STORE_PRODUCTION_FIXTURES, type ProductionFixtureLayout } from "@/game/stations/production-layout";
 import { marketAsset } from "@/game/assets/AssetRegistry";
 import { sameFarmPresentation, sameFurniturePresentation, type FarmPresentationProps, type FurniturePresentationProps } from "@/game/render/MarketPresentation";
 import { createStaticMeshBatch } from "@/game/render/StaticMeshBatch";
@@ -336,8 +337,8 @@ export const KitFurniture = memo(function KitFurniture({ shelves, machines, cust
       : <StoreElement position={[...CHECKOUT_LANES[1].counter]}><ClosedCheckoutKit lane={1} /></StoreElement>}
     <StoreElement position={[...STORE_SERVICE_FIXTURES.returns.position]}><ReturnsCubicle inventory={returnsBin} /></StoreElement>
     <StoreElement position={[...STORE_SERVICE_FIXTURES.cartBay.position]}><CartBay position={[0, 0, 0]} count={returnedCartCount} /></StoreElement>
+    <ProductionBakeryCubicle />
     <StoreElement position={[...STORE_PRODUCTION_FIXTURES.breadOven.position]}><BakeryKit position={[0, 0, 0]} machine={machine("bread-oven-1")} /></StoreElement>
-    <StoreElement position={[-9.0, 0, 2.05]}><PrepSink position={[0, 0, 0]} /></StoreElement>
     <StoreElement position={[...STORE_PRODUCTION_FIXTURES.flourMill.position]}><MillMachine position={[0, 0, 0]} machine={machine("flour-mill-1")} /></StoreElement>
     <StoreElement position={[...STORE_PRODUCTION_FIXTURES.cheeseMaker.position]}><ProcessMachine kind="cheese" machine={machine("cheese-maker-1")} /></StoreElement>
     <StoreElement position={[...STORE_PRODUCTION_FIXTURES.juiceMachine.position]}><ProcessMachine kind="juice" machine={machine("juice-machine-1")} /></StoreElement>
@@ -793,37 +794,112 @@ function ShoppingCart({ position, scale = 1 }: { position: Position; scale?: num
   </group>;
 }
 
-function BakeryKit({ position, machine }: { position: Position; machine?: ProductionMachineState }) {
-  const processing = machine?.status === "PROCESSING";
-  return <group position={position}>
-    <EnvironmentModel id="equipment_bread_oven" onFrame={(model, delta) => model.traverse((node) => { if (node.name.startsWith("OvenGlass")) node.rotation.x = THREE.MathUtils.lerp(node.rotation.x, processing ? 0 : -0.55, 1 - Math.exp(-6 * delta)); })} />
-    <group position={[1.35, 0, 0]} scale={0.72}><EnvironmentModel id="display_bakery" /></group>
-    {processing && <pointLight position={[0, 0.95, 0.52]} intensity={0.8} distance={2.2} color="#df8b43" />}
+const PRODUCTION_LAYOUT_TO_LOCAL = STORE_LAYOUT_SCALE / STORE_ELEMENT_SCALE;
+
+function ProductionBakeryCubicle() {
+  const { bounds, center, walls } = PRODUCTION_CUBICLE;
+  const floorWidth = (bounds.right - bounds.left) * PRODUCTION_LAYOUT_TO_LOCAL;
+  const floorDepth = (bounds.front - bounds.rear) * PRODUCTION_LAYOUT_TO_LOCAL;
+  return <group name="production:professional-bakery">
+    <StoreElement position={[center[0], 0, center[1]]}>
+      <Box args={[floorWidth, 0.055, floorDepth]} position={[0, 0.025, 0]} color="#e7e1d3" radius={0.018} />
+      {Array.from({ length: 7 }, (_, index) => <Box key={`floor-line-x-${index}`} args={[0.016, 0.009, floorDepth - 0.08]} position={[(index - 3) * floorWidth / 7, 0.059, 0]} color="#c9c7bf" radius={0.002} />)}
+      {Array.from({ length: 8 }, (_, index) => <Box key={`floor-line-z-${index}`} args={[floorWidth - 0.08, 0.009, 0.016]} position={[0, 0.059, (index - 3.5) * floorDepth / 8]} color="#c9c7bf" radius={0.002} />)}
+    </StoreElement>
+    {walls.map((wall) => <StoreElement key={wall.id} position={[...wall.position]}>
+      <GlassPartition width={wall.halfX * 2 * PRODUCTION_LAYOUT_TO_LOCAL} depth={wall.halfZ * 2 * PRODUCTION_LAYOUT_TO_LOCAL} />
+    </StoreElement>)}
+    <StoreElement position={[center[0], 0, bounds.front]}>
+      <Box args={[2.05, 0.43, 0.14]} position={[0, 2.32, 0]} color="#233a34" radius={0.055} />
+      <Text position={[0, 2.35, 0.081]} fontSize={0.165} color="#fff3d2" anchorX="center" anchorY="middle" fontWeight={900}>PANADERÍA · OBRADOR</Text>
+      <Text position={[0, 2.35, -0.081]} rotation={[0, Math.PI, 0]} fontSize={0.165} color="#fff3d2" anchorX="center" anchorY="middle" fontWeight={900}>PANADERÍA · OBRADOR</Text>
+      <Box args={[1.85, 0.035, 0.5]} position={[0, 0.035, 0]} color="#3d514b" radius={0.008} />
+    </StoreElement>
   </group>;
 }
 
-function PrepSink({ position }: { position: Position }) {
-  return <group position={position} rotation={[0, Math.PI / 2, 0]}>
-    {[-0.65, 0.65].flatMap((x) => [-0.3, 0.3].map((z) => <Box key={`${x}-${z}`} args={[0.07, 0.82, 0.07]} position={[x, 0.41, z]} color={palette.metal} />))}
-    <Box args={[1.55, 0.18, 0.78]} position={[0, 0.82, 0]} color="#aeb9b6" radius={0.07} />
-    <Box args={[0.92, 0.12, 0.55]} position={[0, 0.8, 0]} color="#59635f" radius={0.09} />
-    <mesh position={[0, 1.13, -0.12]} rotation={[0, 0, Math.PI / 2]}><torusGeometry args={[0.2, 0.035, 8, 18, Math.PI]} /><meshStandardMaterial color="#929e9a" metalness={0.38} roughness={0.35} /></mesh>
-    <mesh position={[0.2, 1.12, 0.04]}><cylinderGeometry args={[0.035, 0.035, 0.26, 10]} /><meshStandardMaterial color="#929e9a" metalness={0.38} roughness={0.35} /></mesh>
-    <Box args={[1.38, 0.08, 0.64]} position={[0, 0.18, 0]} color={palette.metal} />
+function GlassPartition({ width, depth }: { width: number; depth: number }) {
+  const alongX = width >= depth;
+  const postPositions: Position[] = alongX
+    ? [[-width / 2, 1.2, 0], [width / 2, 1.2, 0]]
+    : [[0, 1.2, -depth / 2], [0, 1.2, depth / 2]];
+  return <group>
+    <mesh position={[0, 1.2, 0]} receiveShadow>
+      <boxGeometry args={[width, 2.28, depth]} />
+      <meshStandardMaterial color="#bde5df" transparent opacity={0.24} roughness={0.08} metalness={0.05} depthWrite={false} side={THREE.DoubleSide} />
+    </mesh>
+    {postPositions.map((position, index) => <Box key={index} args={[0.07, 2.48, 0.07]} position={position} color="#263c37" radius={0.012} />)}
+    <Box args={[alongX ? width + 0.05 : 0.075, 0.075, alongX ? 0.075 : depth + 0.05]} position={[0, 2.43, 0]} color="#263c37" radius={0.012} />
+    <Box args={[alongX ? width : 0.045, 0.15, alongX ? 0.045 : depth]} position={[0, 1.08, 0]} color="#d5eee8" radius={0.006} />
+    <Box args={[alongX ? width + 0.04 : 0.09, 0.12, alongX ? 0.09 : depth + 0.04]} position={[0, 0.08, 0]} color="#52645f" radius={0.012} />
+  </group>;
+}
+
+function machineStatus(machine?: ProductionMachineState) {
+  if (!machine || machine.status === "LOCKED") return { label: "BLOQUEADA", color: "#9ea7a3" };
+  if (machine.output > 0 || machine.status === "OUTPUT_READY" || machine.status === "FULL") return { label: "RECOGER", color: "#54d998" };
+  if (machine.status === "PROCESSING") return { label: "EN PROCESO", color: "#f0ad55" };
+  return { label: "CARGAR", color: "#7fc8e8" };
+}
+
+function ProductionMachineIdentity({ fixture, machine }: { fixture: ProductionFixtureLayout; machine?: ProductionMachineState }) {
+  const status = machineStatus(machine);
+  return <group>
+    <Box args={[1.22, 0.13, 1.05]} position={[0, 0.065, -0.53]} color="#55635f" radius={0.035} />
+    <Box args={[1.08, 0.06, 0.9]} position={[0, 0.145, -0.53]} color="#c7ceca" radius={0.02} />
+    <group position={[0, 2.08, 0.12]}>
+      <Box args={[1.24, 0.48, 0.12]} color="#223832" radius={0.045} />
+      <Text position={[0, 0.09, 0.068]} fontSize={0.155} color="#fff5d8" anchorX="center" anchorY="middle" fontWeight={900}>{fixture.label}</Text>
+      <Text position={[0, -0.095, 0.069]} fontSize={0.073} color={fixture.accent} anchorX="center" anchorY="middle" fontWeight={800}>{fixture.processLabel}</Text>
+      <Text position={[0, 0.09, -0.068]} rotation={[0, Math.PI, 0]} fontSize={0.155} color="#fff5d8" anchorX="center" anchorY="middle" fontWeight={900}>{fixture.label}</Text>
+    </group>
+    <group name="dynamic:machine-status" position={[0.49, 1.79, 0.16]}>
+      <mesh><sphereGeometry args={[0.045, 12, 8]} /><meshBasicMaterial color={status.color} toneMapped={false} /></mesh>
+      <Text position={[-0.12, 0, 0.008]} fontSize={0.064} color={status.color} anchorX="right" anchorY="middle" fontWeight={800}>{status.label}</Text>
+    </group>
+  </group>;
+}
+
+function BakeryKit({ position, machine }: { position: Position; machine?: ProductionMachineState }) {
+  const processing = machine?.status === "PROCESSING";
+  const fixture = STORE_PRODUCTION_FIXTURES.breadOven;
+  return <group position={position}>
+    <ProductionMachineIdentity fixture={fixture} machine={machine} />
+    <EnvironmentModel id="equipment_bread_oven" onFrame={(model, delta) => model.traverse((node) => { if (node.name.startsWith("OvenGlass")) node.rotation.x = THREE.MathUtils.lerp(node.rotation.x, processing ? 0 : -0.55, 1 - Math.exp(-6 * delta)); })} />
+    <Box args={[0.72, 0.16, 0.62]} position={[0, 1.86, -0.46]} color="#5a6663" radius={0.035} />
+    <mesh position={[0, 2.13, -0.48]}><cylinderGeometry args={[0.13, 0.16, 0.42, 14]} /><meshStandardMaterial color="#747f7c" metalness={0.58} roughness={0.31} /></mesh>
+    {[-0.24, 0, 0.24].map((x) => <RetailProduct key={x} productId="bread" position={[x, 0.69, 0.11]} scale={0.82} />)}
+    {processing && <pointLight position={[0, 0.95, 0.52]} intensity={0.8} distance={2.2} color="#df8b43" />}
   </group>;
 }
 
 function MillMachine({ position, machine }: { position: Position; machine?: ProductionMachineState }) {
   const processing = machine?.status === "PROCESSING";
+  const fixture = STORE_PRODUCTION_FIXTURES.flourMill;
   return <group position={position}>
+    <ProductionMachineIdentity fixture={fixture} machine={machine} />
     <EnvironmentModel id="equipment_flour_mill" onFrame={(model, delta) => { if (!processing) return; model.traverse((node) => { if (node.name.startsWith("Wheel")) node.rotation.z += delta * 4.8; }); }} />
+    <mesh position={[0, 1.72, -0.52]} rotation={[Math.PI, 0, 0]}><coneGeometry args={[0.38, 0.46, 16]} /><meshStandardMaterial color="#aeb7b3" metalness={0.42} roughness={0.38} /></mesh>
+    <RetailProduct productId="flour" position={[0.38, 0.32, 0.05]} scale={1.25} />
+    <RetailProduct productId="wheat" position={[-0.38, 0.32, 0.05]} scale={1.25} />
   </group>;
 }
 
 function ProcessMachine({ kind, machine }: { kind: "cheese" | "juice"; machine?: ProductionMachineState }) {
   const processing = machine?.status === "PROCESSING";
+  const fixture = kind === "cheese" ? STORE_PRODUCTION_FIXTURES.cheeseMaker : STORE_PRODUCTION_FIXTURES.juiceMachine;
   return <group>
+    <ProductionMachineIdentity fixture={fixture} machine={machine} />
     <EnvironmentModel id={kind === "cheese" ? "equipment_cheese_maker" : "equipment_juice_machine"} onFrame={(model, _, elapsed) => { if (processing) model.rotation.y = Math.sin(elapsed * 4) * 0.018; }} />
+    {kind === "cheese" ? <>
+      <Box args={[0.09, 0.78, 0.09]} position={[-0.4, 1.18, -0.35]} color="#4c5855" radius={0.012} />
+      <Box args={[0.88, 0.1, 0.12]} position={[0, 1.52, -0.35]} color="#4c5855" radius={0.015} />
+      <mesh position={[0, 0.58, 0.08]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[0.29, 0.29, 0.16, 18]} /><meshStandardMaterial color="#e7b938" roughness={0.72} /></mesh>
+    </> : <>
+      <mesh position={[0, 1.62, -0.48]} rotation={[Math.PI, 0, 0]}><coneGeometry args={[0.36, 0.38, 16]} /><meshStandardMaterial color="#8b9692" metalness={0.5} roughness={0.34} /></mesh>
+      {[[-0.16, 1.78, -0.47], [0.13, 1.76, -0.45], [0, 1.91, -0.48]].map((point, index) => <RetailProduct key={index} productId="tomatoes" position={point as Position} scale={1.35} />)}
+      <RetailProduct productId="juice" position={[0.34, 0.33, 0.12]} scale={1.22} />
+    </>}
     {processing && <pointLight position={[0, 0.65, 0.45]} intensity={0.45} distance={1.6} color={kind === "cheese" ? "#ffd75c" : "#ff6b43"} />}
     {Array.from({ length: Math.min(4, machine?.output ?? 0) }, (_, index) => <RetailProduct key={index} productId={kind} position={[0.34 + (index % 2) * 0.13, 0.16 + Math.floor(index / 2) * 0.12, 0.45]} scale={0.8} />)}
   </group>;
@@ -881,7 +957,12 @@ function SecurityCamera({ position, rotationY = 0 }: { position: Position; rotat
 }
 
 function HangingSign({ position, label }: { position: Position; label: string }) {
-  return <group position={position}><Box args={[1.35, 0.42, 0.08]} color={palette.darkGreen} radius={0.04} /><Text position={[0, 0, 0.05]} fontSize={0.15} color="#f6efd9">{label}</Text>{[-0.48, 0.48].map((x) => <Box key={x} args={[0.025, 0.55, 0.025]} position={[x, 0.45, 0]} color={palette.frame} />)}</group>;
+  return <group position={position}>
+    <Box args={[1.55, 0.46, 0.09]} color={palette.darkGreen} radius={0.04} />
+    <Text position={[0, 0, 0.052]} fontSize={0.175} color="#fff1cc" anchorX="center" anchorY="middle" fontWeight={900}>{label}</Text>
+    <Text position={[0, 0, -0.052]} rotation={[0, Math.PI, 0]} fontSize={0.175} color="#fff1cc" anchorX="center" anchorY="middle" fontWeight={900}>{label}</Text>
+    {[-0.56, 0.56].map((x) => <Box key={x} args={[0.025, 0.55, 0.025]} position={[x, 0.45, 0]} color={palette.frame} />)}
+  </group>;
 }
 
 function CeilingLamp({ position, on }: { position: Position; on: boolean }) {

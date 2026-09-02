@@ -3,6 +3,7 @@ import { advanceWorld, createInitialGame, normalizeGameState, type WorldPathfind
 import type { Employee, GameState } from "../types";
 import { STORE_LAYOUT_SCALE, STORE_OBSTACLES } from "../world-scale";
 import { FARM_ACCESS_WAYPOINTS, FARM_ANIMAL_STATIONS, FARM_FIELD, FARM_PLOTS, FARM_WORKER_HOME, farmInteriorRouteBetween, isRetiredFrontFarmPoint } from "./farm-layout";
+import { PRODUCTION_MACHINE_POINTS } from "./production-layout";
 
 function employee(role: Employee["role"]): Employee {
   return { id: `${role}-farm-layout`, name: "Luna", role, level: 1, salaryMinor: 3_000, energy: 100, hat: "frog" };
@@ -288,6 +289,30 @@ describe("farm employee destinations", () => {
     expect(runtime.path.at(-1)).toEqual([workPosition[0], workPosition[2]]);
     FARM_ACCESS_WAYPOINTS.forEach((waypoint) => expect(runtime.path).toContainEqual([...waypoint]));
     expect(runtime.path).not.toContainEqual([...retiredPoint]);
+  });
+
+  it.each([
+    ["flour-mill-1", "flour", [-7.55, -4.05]],
+    ["bread-oven-1", "bread", [-7.45, -0.45]],
+    ["cheese-maker-1", "cheese", [-6.15, -2.2]],
+    ["juice-machine-1", "juice", [-5.65, 1.55]],
+  ] as const)("repaths persisted indoor operator route %s into the new bakery room", (machineId, productId, retiredPoint) => {
+    const legacy = createInitialGame();
+    legacy.franchises[0].employees = [{
+      ...employee("operator"),
+      runtime: {
+        state: "NAVIGATE_PICKUP", assignedProduct: productId, assignedStationId: machineId, carry: { capacity: 2, items: {} },
+        x: -4.8, z: -0.9, targetX: retiredPoint[0], targetZ: retiredPoint[1], path: [[...retiredPoint]], pathIndex: 0,
+        speed: 1.5, currentSpeed: 0, stateSince: 0,
+      },
+    }];
+
+    const migrated = normalizeGameState(legacy);
+    const runtime = migrated.franchises[0].employees[0].runtime!;
+
+    expect(runtime.state).toBe("NAVIGATE_PICKUP");
+    expect(runtime.path.at(-1)).toEqual(PRODUCTION_MACHINE_POINTS[machineId]);
+    expect(runtime.path.at(-1)).not.toEqual([...retiredPoint]);
   });
 
   it.each([

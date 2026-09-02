@@ -40,6 +40,7 @@ export function GameShell({ playerName }: { playerName: string }) {
   const [debug] = useState(() => typeof window !== "undefined" && marketQaQueryEnabled(window.location.search));
   const [metrics, setMetrics] = useState<RendererMetrics | null>(null);
   const [worldReady, setWorldReady] = useState(false);
+  const [sceneReady, setSceneReady] = useState(false);
   const tutorialStep = game?.tutorialStep ?? 0;
   const interactionSequence = useRef(0);
   const activeInteractionId = useRef<InteractionId | null>(null);
@@ -61,7 +62,7 @@ export function GameShell({ playerName }: { playerName: string }) {
     return () => window.clearTimeout(timeoutId);
   }, [notificationDurationMs, notificationKey, notificationLifecycle]);
   useEffect(() => {
-    if (tutorialStep === 0) return;
+    if (tutorialStep === 0 || worldReady) return;
     let secondFrame = 0;
     const firstFrame = requestAnimationFrame(() => {
       secondFrame = requestAnimationFrame(() => setWorldReady(true));
@@ -70,7 +71,7 @@ export function GameShell({ playerName }: { playerName: string }) {
       cancelAnimationFrame(firstFrame);
       if (secondFrame) cancelAnimationFrame(secondFrame);
     };
-  }, [tutorialStep]);
+  }, [tutorialStep, worldReady]);
   useEffect(() => {
     if (!debug) return;
     const receiveMetrics = (event: Event) => setMetrics((event as CustomEvent<RendererMetrics>).detail);
@@ -224,6 +225,7 @@ export function GameShell({ playerName }: { playerName: string }) {
     setTransferEvents((current) => updateVisualTransferRemaining(current, sequence, remainingQuantity));
   }, []);
   const recordDistance = useCallback((meters: number) => { recordPlayerDistance(meters); }, [recordPlayerDistance]);
+  const revealScene = useCallback(() => setSceneReady(true), []);
   const setDoorPresence = useCallback((active: boolean) => {
     // Persistence QA reloads with the simulation frozen so the restored
     // snapshot can be inspected before any live-world input mutates it.  The
@@ -280,7 +282,8 @@ export function GameShell({ playerName }: { playerName: string }) {
   return (<>
     <GameRuntime />
     <main className="game-shell">
-      {worldReady && <div className="world"><MarketScene avatar={game.avatar} carry={franchise.carry} visualCarry={visualTransfer.carry} warehousePickupEnabled={warehousePickupEnabled} checkoutLevel={franchise.checkoutLevel} playerSpeedTier={franchise.playerSpeedTier} customers={franchise.customers} checkoutTransactions={franchise.checkoutTransactions} returnsBin={franchise.returnsBin} returnedCartCount={franchise.returnedCartCount} crops={franchise.crops} visualCrops={visualTransfer.crops} productionMachines={franchise.productionMachines} shelves={franchise.shelves} visualShelves={visualTransfer.shelves} shelfTier={franchise.stationTiers["shelves-1"] ?? franchise.shelvesLevel} unlockedAreas={franchise.unlockedAreas} lightsOn={franchise.lightsOn} simulationTimeMs={game.simulationTimeMs} employees={franchise.employees} open={franchise.open} doorState={franchise.doorState} doorProgress={franchise.doorProgress} onPrompt={setPrompt} onInteract={interact} onDistance={recordDistance} onDoorPresence={setDoorPresence} lastInteraction={lastInteraction} transferEvents={transferEvents} onTransferProgress={updateTransferProgress} debug={debug} /><GameInputSurface /></div>}
+      {worldReady && <div className={`world${sceneReady ? " scene-ready" : " scene-preparing"}`} aria-hidden={!sceneReady}><MarketScene avatar={game.avatar} carry={franchise.carry} visualCarry={visualTransfer.carry} warehousePickupEnabled={warehousePickupEnabled} checkoutLevel={franchise.checkoutLevel} playerSpeedTier={franchise.playerSpeedTier} customers={franchise.customers} checkoutTransactions={franchise.checkoutTransactions} returnsBin={franchise.returnsBin} returnedCartCount={franchise.returnedCartCount} crops={franchise.crops} visualCrops={visualTransfer.crops} productionMachines={franchise.productionMachines} shelves={franchise.shelves} visualShelves={visualTransfer.shelves} shelfTier={franchise.stationTiers["shelves-1"] ?? franchise.shelvesLevel} unlockedAreas={franchise.unlockedAreas} lightsOn={franchise.lightsOn} simulationTimeMs={game.simulationTimeMs} employees={franchise.employees} open={franchise.open} doorState={franchise.doorState} doorProgress={franchise.doorProgress} onPrompt={setPrompt} onInteract={interact} onDistance={recordDistance} onDoorPresence={setDoorPresence} onSceneReady={revealScene} lastInteraction={lastInteraction} transferEvents={transferEvents} onTransferProgress={updateTransferProgress} debug={debug} />{sceneReady && <GameInputSurface />}</div>}
+      {worldReady && !sceneReady && <div className="game-loading world-preparing" role="status" aria-live="polite"><div className="loading-shop">🏪</div><strong>Preparando la tienda…</strong><span>Cargando personajes y maquinaria sin interrupciones</span></div>}
       <header className="hud-top glass-panel" data-game-ui-interactive="true" aria-label="Estado de la tienda">
         <div className="hud-brand"><span><GameIcon name="store" /></span><div><strong>{franchise.name}</strong><small>{franchise.city}</small></div></div>
         <div className="hud-stat money"><small>Caja global</small><strong>{formatMoney(game.balanceMinor, game)}</strong></div>

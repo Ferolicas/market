@@ -21,6 +21,7 @@ import {
 import { addToCarry, CAPACITY_TIERS, carryQuantity, carryTotal, MAX_WAREHOUSE_PICKUP_BATCH, primaryCarryProduct, removeFromCarry, transferCarryToShelf, transferWarehouseToCarry } from "./player/CarrySystem";
 import { CART_RETURN_POINT, RETURNS_POINT, RETURNS_TO_CART_FALLBACK, STORE_SERVICE_FIXTURES } from "./stations/store-service-layout";
 import { storefrontDoorActorPresent, STORE_REAR_DOOR, STOREFRONT_LAYOUT } from "./stations/storefront-layout";
+import { PRODUCTION_MACHINE_POINTS } from "./stations/production-layout";
 
 const EMPTY_INVENTORY = (): Inventory => ({ wheat: 0, flour: 0, bread: 0, corn: 0, milk: 0, eggs: 0, cheese: 0, apples: 0, tomatoes: 0, coffee: 0, juice: 0 });
 export const CHECKOUT_PATIENCE_MS = 5 * 60_000;
@@ -657,10 +658,7 @@ const CASHIER_WORK_POINTS: Record<CheckoutLane, [number, number]> = {
 const STOCKROOM_POINT: [number, number] = [7.35, -5.2];
 const CROP_POINTS: Record<string, [number, number]> = Object.fromEntries(FARM_PLOTS.map((plot) => [plot.id, [plot.position[0], plot.position[2]]]));
 const MACHINE_POINTS: Record<string, [number, number]> = {
-  "flour-mill-1": [-7.55, -4.05],
-  "bread-oven-1": [-7.45, -0.45],
-  "cheese-maker-1": [-6.15, -2.2],
-  "juice-machine-1": [-5.65, 1.55],
+  ...PRODUCTION_MACHINE_POINTS,
   "chicken-coop-1": [FARM_ANIMAL_STATIONS.chicken.workPosition[0], FARM_ANIMAL_STATIONS.chicken.workPosition[2]],
   "cow-station-1": [FARM_ANIMAL_STATIONS.cow.workPosition[0], FARM_ANIMAL_STATIONS.cow.workPosition[2]],
 };
@@ -674,8 +672,9 @@ function normalizePersistedFarmEmployee(franchise: FranchiseState, employee: Emp
   const assignedMachine = employee.role === "operator" && runtime.assignedStationId
     ? franchise.productionMachines.find((machine) => machine.id === runtime.assignedStationId)
     : undefined;
+  const assignedMachinePoint = assignedMachine ? MACHINE_POINTS[assignedMachine.id] : undefined;
   const assignedFarmMachinePoint = assignedMachine && (assignedMachine.id === "chicken-coop-1" || assignedMachine.id === "cow-station-1")
-    ? MACHINE_POINTS[assignedMachine.id]
+    ? assignedMachinePoint
     : undefined;
   const currentPoint: [number, number] = [runtime.x, runtime.z];
   const currentAtRetiredFarm = isRetiredFrontFarmPoint(currentPoint);
@@ -724,9 +723,9 @@ function normalizePersistedFarmEmployee(franchise: FranchiseState, employee: Emp
     || (runtime.state === "IDLE" && carryTotal(runtime.carry) > 0 && (retiredRoute || relocatedLegacyServiceLane));
   const expectedTarget = employee.role === "farmer"
     ? collecting ? assignedCrop : delivering ? STOCKROOM_POINT : undefined
-    : collecting ? assignedFarmMachinePoint
-      : delivering && assignedFarmMachinePoint
-        ? assignedMachine?.productId === runtime.assignedProduct ? STOCKROOM_POINT : assignedFarmMachinePoint
+    : collecting ? assignedMachinePoint
+      : delivering && assignedMachinePoint
+        ? assignedMachine?.productId === runtime.assignedProduct ? STOCKROOM_POINT : assignedMachinePoint
         : delivering && (retiredRoute || relocatedLegacyServiceLane) ? STOCKROOM_POINT : undefined;
   if (!expectedTarget) {
     if (!retiredRoute) return;
