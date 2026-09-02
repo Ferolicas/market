@@ -3,6 +3,7 @@ import { advanceWorld, applyGameAction, canOperateMachine, canProcessCheckoutUni
 import type { CheckoutTransaction, CustomerRuntimeState, GameState, PaymentMethod } from "./types";
 import { CHECKOUT_LANES, checkoutQueueArrival } from "./stations/checkout-layout";
 import { createCustomerMind } from "./ai/CustomerBrain";
+import { ensureStoreNavigation, storePathfinder } from "./navigation/NavMeshService";
 
 function addReadyCheckout(state: GameState, id: string, paymentMethod: PaymentMethod) {
   const customer = {
@@ -656,6 +657,38 @@ describe("motor económico", () => {
     expect(runtime.state).toBe("NAVIGATE_CHECKOUT");
     expect(runtime.path.at(-1)).toEqual([CHECKOUT_LANES[0].cashierWork[0], CHECKOUT_LANES[0].cashierWork[2]]);
     expect(next.franchises[0].checkoutTransactions[0].pendingItems[0].scanned).toBe(0);
+  });
+
+  it("mantiene al cajero contratado dentro del puesto al llegar con la malla real", async () => {
+    expect(await ensureStoreNavigation(92_002)).toBe(true);
+    let state = createInitialGame("ES");
+    state.level = 5;
+    state.franchises[0].open = true;
+    addReadyCheckout(state, "hired-cashier-customer", "card");
+
+    const hired = applyGameAction(state, { type: "HIRE", role: "cashier" });
+    expect(hired.ok).toBe(true);
+    state = hired.state;
+
+    let arrived = false;
+    for (let tick = 0; tick < 200; tick += 1) {
+      state = advanceWorld(state, 100, storePathfinder).state;
+      if (state.franchises[0].employees[0].runtime?.state === "OPERATE_CHECKOUT") {
+        arrived = true;
+        break;
+      }
+    }
+
+    expect(arrived).toBe(true);
+    const runtime = state.franchises[0].employees[0].runtime!;
+    expect(Math.hypot(
+      runtime.x - CHECKOUT_LANES[0].cashierWork[0],
+      runtime.z - CHECKOUT_LANES[0].cashierWork[2],
+    )).toBeLessThan(0.01);
+
+    const working = advanceWorld(state, 100, storePathfinder).state;
+    expect(working.franchises[0].employees[0].runtime?.state).toBe("OPERATE_CHECKOUT");
+    expect(working.franchises[0].checkoutTransactions[0].pendingItems[0].scanned).toBe(1);
   });
 
   it("no cobra solo y envía la compra a devoluciones al agotar cinco minutos", () => {

@@ -831,6 +831,17 @@ function updateCashierEmployee(state: GameState, franchise: FranchiseState, empl
 
   if (runtime.state === "NAVIGATE_CHECKOUT") {
     if (walkEmployeeThroughAutomaticDoor(runtime, franchise, deltaMs)) {
+      // Recast projects authored destinations to the centre of its nearest
+      // cell. At checkout that leaves the cashier up to 24 cm outside the
+      // exact work marker, so the following tick used to route them again
+      // forever. Employees are simulation actors, therefore finish the short
+      // projected remainder at the authoritative station socket.
+      runtime.x = workPoint[0];
+      runtime.z = workPoint[1];
+      runtime.targetX = workPoint[0];
+      runtime.targetZ = workPoint[1];
+      runtime.path = [];
+      runtime.pathIndex = 0;
       runtime.state = "OPERATE_CHECKOUT";
       runtime.stateSince = state.simulationTimeMs;
       runtime.currentSpeed = 0;
