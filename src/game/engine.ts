@@ -144,6 +144,9 @@ export function normalizeGameState(input: unknown): GameState {
     if (!franchise.productionMachines.some((machine) => machine.id === "cow-station-1")) franchise.productionMachines.push({ ...createMachine("cow-station-1", "milk"), status: state.level >= 13 ? "WAITING_INPUT" : "LOCKED" });
     franchise.productionMachines = franchise.productionMachines.map((machine) => normalizeMachineClock(machine, state.simulationTimeMs, state.lastServerTime));
     franchise.buildProjects ??= [];
+    franchise.buildProjects = franchise.buildProjects
+      .filter((project) => Number.isInteger(project.level) && project.level >= 2 && project.level <= 30)
+      .map((project) => normalizeBuildProject(project, state.countryCode));
     ensureNextBuildProject(state as GameState, franchise);
     franchise.checkoutTransactions ??= [];
     franchise.customers ??= [];
@@ -239,7 +242,14 @@ function applyGameActionInternal(input: GameState, action: GameAction, cloneInpu
       state.countryCode = country.code;
       state.currency = country.currency;
       state.balanceMinor = Math.round(state.balanceMinor * ratio);
-      state.franchises.forEach((item) => { item.purchaseCostMinor = Math.round(item.purchaseCostMinor * ratio); });
+      state.franchises.forEach((item) => {
+        item.purchaseCostMinor = Math.round(item.purchaseCostMinor * ratio);
+        item.buildProjects = item.buildProjects.map((project) => ({
+          ...project,
+          costMinor: Math.round(project.costMinor * ratio),
+          contributedMinor: Math.round(project.contributedMinor * ratio),
+        }));
+      });
       state.missions.forEach((item) => { item.rewardMinor = Math.round(item.rewardMinor * ratio); });
       state.tutorialStep = 1;
       events.push({ franchiseId: globalEventFranchiseId(state), category: "configuration", description: `Capital inicial convertido a ${country.currency}`, amountMinor: state.balanceMinor - balanceBefore, payload: { scope: "global", countryCode: country.code } });
@@ -426,7 +436,12 @@ function applyGameActionInternal(input: GameState, action: GameAction, cloneInpu
       project.contributedMinor += contribution;
       project.completed = project.contributedMinor >= project.costMinor;
       events.push({ franchiseId: franchise.id, category: "capital", description: `Aporte ampliación nivel ${project.level}`, amountMinor: -contribution, payload: { projectId: project.id, contributedMinor: project.contributedMinor } });
-      return success(project.completed ? "Financiación completa; termina el objetivo para inaugurar." : "La construcción sigue avanzando.");
+      const levelWillAdvance = project.completed && levelObjectiveSatisfied(state.level, state);
+      return success(levelWillAdvance
+        ? `Ampliación completada. Nivel ${project.level} desbloqueado.`
+        : project.completed
+          ? "Financiación completa; falta terminar el objetivo del nivel."
+          : `Aporte confirmado. Faltan ${formatMoney(project.costMinor - project.contributedMinor, state)} para completar la obra.`);
     }
     case "CONTRIBUTE_UPGRADE": {
       const target = upgradeTarget(state, franchise, action.upgrade);
@@ -1845,11 +1860,7 @@ function applyLevelUnlock(state: GameState, franchise: FranchiseState, level: nu
   if (level === 24) {
     franchise.carry.capacity = Math.max(12, franchise.carry.capacity);
     franchise.playerCapacityTier = carryCapacityTier(franchise.carry.capacity);
-    for (const id of Object.keys(franchise.stationTiers)) {
-      franchise.stationTiers[id] = Math.max(3, franchise.stationTiers[id]);
-      const crop = franchise.crops.find((candidate) => candidate.id === id); if (crop) crop.tier = Math.max(3, crop.tier);
-      const machine = franchise.productionMachines.find((candidate) => candidate.id === id); if (machine) machine.tier = Math.max(3, machine.tier);
-    }
+    franchise.stationTiers["shelves-1"] = Math.max(3, franchise.stationTiers["shelves-1"] ?? franchise.shelvesLevel);
     franchise.shelvesLevel = Math.max(3, franchise.shelvesLevel);
   }
   if (level === 26) hireUnlockedEmployee(franchise, "operator", state.countryCode, state.simulationTimeMs);
@@ -1876,6 +1887,21 @@ function ensureNextBuildProject(state: GameState, franchise: FranchiseState) {
     contributedMinor: 0,
     completed: false,
   });
+}
+
+function normalizeBuildProject(project: FranchiseState["buildProjects"][number], countryCode: CountryCode) {
+  const expectedCost = Math.round(LEVELS[project.level - 1].costMinor * countryMoneyScale(countryCode));
+  const previousCost = Number.isSafeInteger(project.costMinor) && project.costMinor > 0 ? project.costMinor : expectedCost;
+  const previousContribution = Number.isSafeInteger(project.contributedMinor) ? Math.max(0, project.contributedMinor) : 0;
+  const fundedRatio = project.completed ? 1 : Math.min(1, previousContribution / Math.max(1, previousCost));
+  const contributedMinor = project.completed ? expectedCost : Math.min(expectedCost, Math.round(expectedCost * fundedRatio));
+  return {
+    ...project,
+    id: `level-${project.level}`,
+    costMinor: expectedCost,
+    contributedMinor,
+    completed: contributedMinor >= expectedCost,
+  };
 }
 
 function unlockCrop(franchise: FranchiseState, id: string, now: number, gameLevel: number) {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { advanceWorld, applyGameAction, canOperateMachine, canProcessCheckoutUnit, CHECKOUT_SCAN_UNIT_MS, createInitialGame, employeeHiringQuote, normalizeGameState, unlockedCustomerProducts, upgradeQuote } from "./engine";
+import { advanceWorld, applyGameAction, canOperateMachine, canProcessCheckoutUnit, CHECKOUT_SCAN_UNIT_MS, countryMoneyScale, createInitialGame, employeeHiringQuote, normalizeGameState, unlockedCustomerProducts, upgradeQuote } from "./engine";
 import type { CheckoutTransaction, CustomerRuntimeState, GameState, PaymentMethod } from "./types";
 import { CHECKOUT_LANES, checkoutQueueArrival } from "./stations/checkout-layout";
 import { createCustomerMind } from "./ai/CustomerBrain";
@@ -717,9 +717,60 @@ describe("motor económico", () => {
     expect(state.progression.objectiveComplete).toBe(true);
 
     const project = state.franchises[0].buildProjects.find((candidate) => candidate.level === 2)!;
-    state = applyGameAction(state, { type: "CONTRIBUTE_BUILD", amountMinor: project.costMinor }).state;
+    const funded = applyGameAction(state, { type: "CONTRIBUTE_BUILD", amountMinor: project.costMinor });
+    state = funded.state;
     expect(state.level).toBe(2);
     expect(state.progression.completedLevels).toContain(1);
+    expect(funded.message).toBe("Ampliación completada. Nivel 2 desbloqueado.");
+  });
+
+  it("desbloquea el nivel 4 al asignar a la obra los 75 euros restantes del caso real", () => {
+    const entered = createInitialGame("ES");
+    entered.level = 3;
+    entered.progression.completedLevels = [1, 2];
+    entered.progression.counters.customers = 60;
+    entered.balanceMinor = 142_431;
+    const state = normalizeGameState(entered);
+    const project = state.franchises[0].buildProjects.find((candidate) => candidate.level === 4)!;
+    Object.assign(project, { costMinor: 14_000, contributedMinor: 6_500, completed: false });
+
+    const funded = applyGameAction(state, { type: "CONTRIBUTE_BUILD", amountMinor: 7_500 });
+
+    expect(funded.ok).toBe(true);
+    expect(funded.state.level).toBe(4);
+    expect(funded.state.balanceMinor).toBe(134_931);
+    expect(funded.message).toBe("Ampliación completada. Nivel 4 desbloqueado.");
+  });
+
+  it("convierte la financiación existente al elegir país y repara costes antiguos sin perder el porcentaje aportado", () => {
+    const changed = applyGameAction(createInitialGame("ES"), { type: "SET_COUNTRY", countryCode: "CO" });
+    const expectedCost = Math.round(4_000 * countryMoneyScale("CO"));
+
+    expect(changed.ok).toBe(true);
+    expect(changed.state.franchises.every((franchise) => franchise.buildProjects[0].costMinor === expectedCost)).toBe(true);
+
+    const legacy = createInitialGame("CO");
+    const legacyProject = legacy.franchises[0].buildProjects[0];
+    Object.assign(legacyProject, { costMinor: 4_000, contributedMinor: 2_000, completed: false });
+    const recovered = normalizeGameState(legacy);
+    const recoveredProject = recovered.franchises[0].buildProjects[0];
+
+    expect(recoveredProject.costMinor).toBe(expectedCost);
+    expect(recoveredProject.contributedMinor).toBe(Math.round(expectedCost / 2));
+    expect(recoveredProject.completed).toBe(false);
+  });
+
+  it("deja pendiente el hito de estaciones T3 después del premio del nivel 24", () => {
+    const state = createInitialGame("ES");
+    state.level = 24;
+    state.franchises[0].stationTiers = { "crop-tomato-1": 1, "shelves-1": 1, "checkout-1": 1 };
+
+    const recovered = normalizeGameState(state);
+
+    expect(recovered.franchises[0].carry.capacity).toBe(12);
+    expect(recovered.franchises[0].stationTiers["shelves-1"]).toBe(3);
+    expect(recovered.franchises[0].stationTiers["crop-tomato-1"]).toBe(1);
+    expect(recovered.franchises[0].stationTiers["checkout-1"]).toBe(2);
   });
 
   it("repara la producción imposible de una partida guardada sin perder su avance ni premio", () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createInitialGame } from "../engine";
+import { createInitialGame, normalizeGameState } from "../engine";
 import type { GameState } from "../types";
 import { averageShelfAvailability, levelObjectiveSatisfied, levelObjectiveTasks, unlockedCustomerProducts } from "./objectives";
 
@@ -21,7 +21,7 @@ describe("level objectives", () => {
 
   it("keeps all 30 level gates aligned with the authoritative counters", () => {
     const scenarios: [number, (state: GameState) => void][] = [
-      [2, (state) => { state.progression.completedLevels.push(1); }],
+      [2, withCounter("customers", 2)],
       [3, withCounter("customers", 4)],
       [4, withCounter("stock:all", 12)],
       [5, withCounter("harvest:wheat", 6)],
@@ -64,6 +64,28 @@ describe("level objectives", () => {
     ]);
     expect(levelObjectiveSatisfied(30, createInitialGame())).toBe(true);
     expect(levelObjectiveSatisfied(31, createInitialGame())).toBe(false);
+  });
+
+  it("keeps every newly reached level pending until its own visible work is done", () => {
+    for (let level = 1; level < 30; level += 1) {
+      const state = createInitialGame();
+      state.level = level;
+      state.progression.completedLevels = Array.from({ length: Math.max(0, level - 1) }, (_, index) => index + 1);
+      const entered = normalizeGameState(state);
+      const tasks = levelObjectiveTasks(level, entered);
+
+      expect(tasks.length, `level ${level} should expose work`).toBeGreaterThan(0);
+      expect(tasks.every((task) => Number.isFinite(task.progress) && Number.isFinite(task.target) && task.target > 0), `level ${level} should have valid progress`).toBe(true);
+      expect(levelObjectiveSatisfied(level, entered), `level ${level} should not complete on entry`).toBe(false);
+    }
+  });
+
+  it("describes the exact events counted by the ambiguous milestones", () => {
+    const state = createInitialGame();
+    expect(levelObjectiveTasks(2, state)[0]).toMatchObject({ id: "customers", label: "Atiende 2 clientes en total", target: 2 });
+    expect(levelObjectiveTasks(17, state)[0]).toMatchObject({ id: "queue:under30", label: "Completa 1 venta con espera menor a 30 s", target: 1 });
+    expect(levelObjectiveTasks(19, state)[0]).toMatchObject({ id: "orders", label: "Realiza 8 pedidos en total", target: 8 });
+    expect(levelObjectiveTasks(29, state)[0]).toMatchObject({ id: "availability:sales", label: "Completa 50 ventas con estantes al 90 %", target: 50 });
   });
 
   it("uses the same product unlocks and tier-aware shelf capacity as the simulation", () => {

@@ -1,16 +1,36 @@
-export interface LevelDefinition { level: number; costMinor: number; objective: string; unlock: string; }
+export interface LevelDefinition { level: number; costMinor: number; unlock: string; }
 
-const levelData: [number, string, string][] = [
-  [0, "Cosecha 3 tomates, surte 3 y cobra 1 cliente", "Tomate, mesa y caja"], [4_000, "Completa el tutorial", "Segundo cultivo y +2 sockets"], [8_000, "Atiende 4 clientes", "Capacidad 5 y cola 4"],
-  [14_000, "Surte 12 productos", "Ampliación y trigo"], [22_000, "Cosecha 6 trigos", "Molino y harina"], [32_000, "Vende 4 panes", "Horno y panadería"],
-  [48_000, "Atiende 12 clientes", "Caja 0,34 s"], [65_000, "Vende 8 huevos", "Gallinero y huevos"], [85_000, "Mantén stock 80 %", "Reponedor"], [110_000, "Completa 20 ventas", "Ampliación lateral y rango 2"],
-  [140_000, "Cosecha 20 maíces", "Maíz y mesa"], [180_000, "Camina 500 m", "Velocidad +8 %"], [230_000, "Vende 12 leches", "Vaca y refrigerador"], [290_000, "Atiende 30 clientes", "Cajero"], [370_000, "Transporta 40 unidades", "Capacidad 8"],
-  [460_000, "Produce 10 quesos", "Quesera"], [580_000, "Reduce espera bajo 30 s", "Segunda caja"], [720_000, "Recibe 5 entregas", "Almacén y muelle"], [890_000, "Completa 8 pedidos", "Proveedores"], [1_100_000, "Atiende 50 clientes", "Ampliación trasera y rango 3"],
-  [1_350_000, "Vende 15 zumos", "Máquina de zumo"], [1_650_000, "Cosecha 60 productos", "Granjero"], [2_000_000, "Mantén satisfacción 85 %", "Luces y fachada"], [2_400_000, "Surte 100 unidades", "Capacidad 12 y estantes tier 3"], [2_900_000, "Completa listas de 5 productos", "Listas y gestos"],
-  [3_500_000, "Produce 50 lotes", "Operador"], [4_200_000, "Vende 150 unidades", "Tercera zona y endcap"], [5_000_000, "Mejora todas las estaciones", "Fríos, puertas y caja premium"], [6_000_000, "50 ventas con disponibilidad ≥90 %", "Objetivo de satisfacción"], [7_500_000, "Completa todos los hitos", "Rango 4, fachada y franquicia"],
+// Objective copy and progress live exclusively in objectives.ts. Keeping a
+// second copy here previously allowed the level list and the real gate to
+// describe different work.
+const levelData: [number, string][] = [
+  [0, "Tomate, mesa y caja"], [4_000, "Segundo cultivo y demanda de manzanas"], [8_000, "Capacidad 5 y hasta 4 clientes"],
+  [14_000, "Ampliación y trigo"], [22_000, "Molino y harina"], [32_000, "Horno y panadería"],
+  [48_000, "Caja más rápida"], [65_000, "Gallinero y huevos"], [85_000, "Reponedor"], [110_000, "Ampliación lateral y rango 2"],
+  [140_000, "Maíz y mesa"], [180_000, "Velocidad +8 %"], [230_000, "Vaca y refrigerador"], [290_000, "Cajero"], [370_000, "Capacidad 8"],
+  [460_000, "Quesera"], [580_000, "Segunda caja"], [720_000, "Almacén y muelle"], [890_000, "Hito de proveedores"], [1_100_000, "Ampliación trasera y rango 3"],
+  [1_350_000, "Máquina de zumo"], [1_650_000, "Granjero"], [2_000_000, "Luces y fachada"], [2_400_000, "Capacidad 12 y estantes T3"], [2_900_000, "Listas y gestos"],
+  [3_500_000, "Operador"], [4_200_000, "Tercera zona y endcap"], [5_000_000, "Fríos, puertas y caja premium"], [6_000_000, "Último hito operativo"], [7_500_000, "Rango 4, fachada y franquicia"],
 ];
 
-export const LEVELS: LevelDefinition[] = levelData.map(([costMinor, objective, unlock], index) => ({ level: index + 1, costMinor, objective, unlock }));
+export const LEVELS: LevelDefinition[] = levelData.map(([costMinor, unlock], index) => ({ level: index + 1, costMinor, unlock }));
+
+export function buildFundingQuote(
+  balanceMinor: number,
+  project: { costMinor: number; contributedMinor: number; completed: boolean },
+) {
+  const costMinor = Math.max(0, Math.floor(Number.isFinite(project.costMinor) ? project.costMinor : 0));
+  const contributedMinor = Math.min(costMinor, Math.max(0, Math.floor(Number.isFinite(project.contributedMinor) ? project.contributedMinor : 0)));
+  const remainingMinor = project.completed ? 0 : Math.max(0, costMinor - contributedMinor);
+  const availableMinor = Math.max(0, Math.floor(Number.isFinite(balanceMinor) ? balanceMinor : 0));
+  return {
+    costMinor,
+    contributedMinor,
+    remainingMinor,
+    contributionMinor: Math.min(availableMinor, remainingMinor),
+    completed: project.completed || remainingMinor === 0,
+  };
+}
 
 export function stationTierModifiers(tierInput: number) {
   const tier = Math.max(1, Math.min(10, Math.floor(tierInput)));

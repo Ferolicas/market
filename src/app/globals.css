@@ -437,6 +437,31 @@
   font-size: 8px;
 }
 
+.mission .funding-explanation {
+  color: #536f66;
+  line-height: 1.35;
+}
+
+.level-funding-action {
+  width: max-content;
+  max-width: 100%;
+  min-height: 27px;
+  margin-top: 2px;
+  padding: 5px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #4bad84, #2d7b62);
+  color: #fff;
+  font-size: 8px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.level-funding-action:disabled {
+  background: #d9e3df;
+  color: #71857e;
+}
+
 .mission-track {
   height: 5px;
 }

@@ -78,10 +78,12 @@ describe("real supermarket loop", () => {
     expect(ordered.events).toHaveLength(1);
     expect(ordered.events[0].amountMinor).toBe(-700);
     expect(ordered.state.franchises[0].warehouse.wheat).toBe(0);
+    expect(ordered.state.progression.counters.orders).toBe(1);
 
     const delivered = advanceSimulation(ordered.state, 80);
     expect(delivered.state.pendingOrders).toHaveLength(0);
     expect(delivered.state.franchises[0].warehouse.wheat).toBe(10);
+    expect(delivered.state.progression.counters.deliveries).toBe(1);
 
     const pickedUp = applyGameAction(delivered.state, { type: "PICKUP_WAREHOUSE" });
     expect(pickedUp.ok, pickedUp.message).toBe(true);

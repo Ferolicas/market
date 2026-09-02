@@ -5,7 +5,7 @@ import { authClient } from "@/lib/auth-client";
 import { COUNTRIES, HATS, PRODUCTS, ROLE_INFO, SUPPLIERS } from "@/game/catalog";
 import { canOperateMachine, canProcessCheckoutUnit, countryMoneyScale, employeeHiringQuote, formatMoney, upgradeQuote } from "@/game/engine";
 import { levelObjectiveTasks, type LevelObjectiveTask } from "@/game/progression/objectives";
-import { LEVELS } from "@/game/progression/levels";
+import { buildFundingQuote, LEVELS } from "@/game/progression/levels";
 import { useMarketStore } from "@/game/store";
 import type { AvatarConfig, CountryCode, EmployeeRole, FranchiseState, GameState, ProductId } from "@/game/types";
 import { MarketScene, type InteractionId, type InteractionPrompt, type InteractionVisualEvent } from "./MarketScene";
@@ -259,6 +259,7 @@ export function GameShell({ playerName }: { playerName: string }) {
   const claimableMissions = game.missions.filter((mission) => mission.completed && !mission.claimed).length;
   const objectiveTasks = levelObjectiveTasks(game.level, game);
   const nextProject = game.level < 30 ? franchise.buildProjects.find((candidate) => candidate.level === game.level + 1) : undefined;
+  const nextFunding = nextProject ? buildFundingQuote(game.balanceMinor, nextProject) : undefined;
   const objectiveStepsCompleted = objectiveTasks.filter((task) => task.progress >= task.target).length;
   const levelRequirementCount = objectiveTasks.length + (nextProject ? 1 : 0);
   const levelRequirementsCompleted = objectiveStepsCompleted + (nextProject?.completed ? 1 : 0);
@@ -297,7 +298,17 @@ export function GameShell({ playerName }: { playerName: string }) {
         <div className="mission-list">
           <div className="mission-section-title"><div><strong>{game.level >= 30 ? "PROGRESIÓN COMPLETADA" : `PARA SUBIR AL NIVEL ${game.level + 1}`}</strong>{nextUnlock && <small>Desbloqueas: {nextUnlock}</small>}</div></div>
           {objectiveTasks.map((task) => <LevelRequirement key={task.id} task={task} />)}
-          {nextProject && <LevelRequirement task={{ id: nextProject.id, label: `Financia la ampliación al nivel ${nextProject.level}`, progress: nextProject.contributedMinor, target: nextProject.costMinor, unit: "money" }} game={game} />}
+          {nextProject && nextFunding && <LevelRequirement
+            task={{ id: nextProject.id, label: `Financia la ampliación al nivel ${nextProject.level}`, progress: nextFunding.contributedMinor, target: nextFunding.costMinor, unit: "money" }}
+            game={game}
+            action={nextFunding.completed ? undefined : {
+              disabled: nextFunding.contributionMinor <= 0,
+              label: nextFunding.contributionMinor <= 0
+                ? "Necesitas dinero en caja"
+                : `${nextFunding.contributionMinor < nextFunding.remainingMinor ? "Aportar" : "Financiar"} ${formatMoney(nextFunding.contributionMinor, game)}`,
+              onClick: () => dispatch({ type: "CONTRIBUTE_BUILD", amountMinor: nextFunding.contributionMinor }),
+            }}
+          />}
           <div className="mission-section-title daily"><div><strong>BONOS DEL DÍA</strong><small>No bloquean tu avance de nivel</small></div>{claimableMissions > 0 && <b>{claimableMissions} por cobrar</b>}</div>
           {game.missions.map((mission) => {
             const missionProgress = Math.min(100, mission.progress / mission.target * 100);
@@ -373,11 +384,15 @@ function QuickButton({ icon, label, onClick }: { icon: GameIconName; label: stri
 
 type LevelRequirementTask = LevelObjectiveTask | { id: string; label: string; progress: number; target: number; unit: "money" };
 
-function LevelRequirement({ task, game }: { task: LevelRequirementTask; game?: GameState }) {
+function LevelRequirement({ task, game, action }: {
+  task: LevelRequirementTask;
+  game?: GameState;
+  action?: { disabled: boolean; label: string; onClick: () => void };
+}) {
   const completed = task.progress >= task.target;
   const progress = Math.min(100, task.progress / Math.max(task.target, Number.EPSILON) * 100);
   const value = task.unit === "money" && game
-    ? `${formatMoney(Math.min(task.progress, task.target), game)} / ${formatMoney(task.target, game)}`
+    ? `${formatMoney(Math.min(task.progress, task.target), game)} aportados · faltan ${formatMoney(Math.max(0, task.target - task.progress), game)}`
     : task.unit === "percent"
       ? `${Math.round(Math.min(task.progress, task.target) * 100)} % / ${Math.round(task.target * 100)} %`
       : task.unit === "rating"
@@ -387,7 +402,7 @@ function LevelRequirement({ task, game }: { task: LevelRequirementTask; game?: G
           : `${Math.floor(Math.min(task.progress, task.target))} / ${task.target}`;
   return <div className={`mission level-requirement ${completed ? "done" : ""}`}>
     <span><GameIcon name={completed ? "check" : "circle"} /></span>
-    <div><strong>{task.label}</strong><div className="mission-track" role="progressbar" aria-label={`Progreso de ${task.label}`} aria-valuemin={0} aria-valuemax={task.target} aria-valuenow={Math.min(task.progress, task.target)}><i style={{ width: `${progress}%` }} /></div><small>{completed ? "Completado" : value}</small></div>
+    <div><strong>{task.label}</strong><div className="mission-track" role="progressbar" aria-label={`Progreso de ${task.label}`} aria-valuemin={0} aria-valuemax={task.target} aria-valuenow={Math.min(task.progress, task.target)}><i style={{ width: `${progress}%` }} /></div><small>{completed ? "Completado" : value}</small>{task.unit === "money" && !completed && <small className="funding-explanation">Las ventas llenan tu caja; la obra avanza al confirmar este aporte.</small>}{action && <button className="level-funding-action" disabled={action.disabled} onClick={action.onClick}>{action.label}</button>}</div>
   </div>;
 }
 
@@ -454,6 +469,7 @@ function SetupPanel({ gameCountry, gameAvatar, onComplete }: { gameCountry: Coun
 function ManagementPanel({ panel, close }: { panel: Exclude<Panel, null>; close: () => void }) {
   const game = useMarketStore((state) => state.game)!; const dispatch = useMarketStore((state) => state.dispatch); const franchise = game.franchises.find((item) => item.id === game.currentFranchiseId)!;
   const project = franchise.buildProjects.find((candidate) => candidate.level === game.level + 1);
+  const projectFunding = project ? buildFundingQuote(game.balanceMinor, project) : null;
   const stationQuote = upgradeQuote(game, "station");
   const speedQuote = upgradeQuote(game, "player-speed");
   const capacityQuote = upgradeQuote(game, "player-capacity");
@@ -467,7 +483,7 @@ function ManagementPanel({ panel, close }: { panel: Exclude<Panel, null>; close:
       {panel === "map" && <div className="franchise-map"><div className="map-line"/>{game.franchises.map((item, index) => <article key={item.id} className={`${item.owned ? "owned" : ""} ${item.id === game.currentFranchiseId ? "current" : ""}`}><span>{index === game.franchises.length - 1 ? "🏙️" : "🏪"}</span><div><small>NIVEL {item.unlockLevel}</small><strong>{item.name}</strong><p>{item.city}</p><b>{item.owned ? `${item.employees.length} empleados · ★ ${item.rating.toFixed(1)}` : formatMoney(item.purchaseCostMinor, game)}</b></div>{item.owned ? <button disabled={item.id === game.currentFranchiseId} onClick={() => { dispatch({ type: "TRAVEL", franchiseId: item.id }); close(); }}>{item.id === game.currentFranchiseId ? "Estás aquí" : "Viajar"}</button> : <button disabled={game.level < item.unlockLevel} onClick={() => dispatch({ type: "BUY_FRANCHISE", franchiseId: item.id })}>Comprar</button>}</article>)}</div>}
       {panel === "finance" && <FinancePanel />}
       {panel === "build" && <div className="upgrade-grid">
-        <article><span>🏗️</span><div><strong>Ampliación de nivel</strong><p>{buildProgress(franchise, game.level)}. La obra se inaugura al completar financiación y objetivo.</p></div>{project && !project.completed ? <button disabled={game.balanceMinor < project.costMinor - project.contributedMinor} onClick={() => dispatch({ type: "CONTRIBUTE_BUILD", amountMinor: project.costMinor - project.contributedMinor })}>Financiar · {formatMoney(project.costMinor - project.contributedMinor, game)}</button> : <b>{project?.completed ? "Financiada" : "Rango máximo"}</b>}</article>
+        <article><span>🏗️</span><div><strong>Ampliación de nivel</strong><p>{buildProgress(franchise, game.level)}. Las ventas aumentan la caja; la obra avanza al confirmar un aporte y se inaugura al completar también el objetivo.</p></div>{project && projectFunding && !projectFunding.completed ? <button disabled={projectFunding.contributionMinor <= 0} onClick={() => dispatch({ type: "CONTRIBUTE_BUILD", amountMinor: projectFunding.contributionMinor })}>{projectFunding.contributionMinor <= 0 ? "Sin caja disponible" : `${projectFunding.contributionMinor < projectFunding.remainingMinor ? "Aportar" : "Financiar"} · ${formatMoney(projectFunding.contributionMinor, game)}`}</button> : <b>{projectFunding?.completed ? "Financiada" : "Rango máximo"}</b>}</article>
         <UpgradePurchase icon="⚙️" title="Estación prioritaria" description="Mejora primero la estación desbloqueada con menor nivel." quote={stationQuote} game={game} onBuy={() => stationQuote && dispatch({ type: "CONTRIBUTE_UPGRADE", upgrade: "station", amountMinor: stationQuote.remainingMinor })} />
         <UpgradePurchase icon="🏃" title="Velocidad del vendedor" description={`Movimiento actual T${franchise.playerSpeedTier}.`} quote={speedQuote} game={game} onBuy={() => speedQuote && dispatch({ type: "CONTRIBUTE_UPGRADE", upgrade: "player-speed", amountMinor: speedQuote.remainingMinor })} />
         <UpgradePurchase icon="🧺" title="Capacidad de cesta" description={`Carga actual: ${franchise.carry.capacity} unidades mezcladas.`} quote={capacityQuote} game={game} onBuy={() => capacityQuote && dispatch({ type: "CONTRIBUTE_UPGRADE", upgrade: "player-capacity", amountMinor: capacityQuote.remainingMinor })} />
