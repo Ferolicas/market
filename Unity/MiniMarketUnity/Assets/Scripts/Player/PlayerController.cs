@@ -16,12 +16,15 @@ namespace MiniMarket.Player
     [RequireComponent(typeof(CharacterController))]
     public sealed class PlayerController : MonoBehaviour
     {
-        // Exact presentation-space values used by the current Next runtime.
-        // Unity works in the scene before Next's outer WORLD_SCALE (3x), so the
-        // tier-one 17.82 world-unit cap becomes 5.94 Unity units/second.
-        [SerializeField] float walkSpeed = 5.94f;
-        [SerializeField] float acceleration = 32.4f;
-        [SerializeField] float braking = 43.2f;
+        // Next's tier-one cap is 17.82 world units, and this used to be that
+        // figure divided by Next's outer WORLD_SCALE of 3, because the cast was
+        // presented at a third of world size. The cast is now presented at full
+        // size, so the divisor is gone: at 5.94 a character three times taller
+        // covered the same ground in the same time and read as a giant walking
+        // in slow motion. Acceleration and braking keep their old proportion.
+        [SerializeField] float walkSpeed = 17.82f;
+        [SerializeField] float acceleration = 97.2f;
+        [SerializeField] float braking = 129.6f;
         [SerializeField] float turnTime = .13f;
         [SerializeField] float maxTurnRate = 540f;
         CharacterController controller;
