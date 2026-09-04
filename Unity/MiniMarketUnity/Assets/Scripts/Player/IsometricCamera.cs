@@ -80,7 +80,7 @@ namespace MiniMarket.Player
         // Both frames are pulled back by the same amount, so the cut to the
         // checkout keeps its relationship with the overview. This is the only
         // knob that departs from Next's framing parity.
-        const float PullBack = 1.15f;
+        const float PullBack = 1.38f;
         float OverviewSize() => PullBack * Mathf.Max(28.5f * 1.15f / 6f, 32f * 1.15f / (6f * Aspect));
         // CHECKOUT_CAMERA_FRAME = { width: 39, height: 27 }, no distance factor.
         float CheckoutSize() => PullBack * Mathf.Max(27f / 6f, 39f / (6f * Aspect));
