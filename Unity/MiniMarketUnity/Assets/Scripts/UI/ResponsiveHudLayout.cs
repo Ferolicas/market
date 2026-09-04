@@ -11,7 +11,7 @@ namespace MiniMarket.UI
     /// </summary>
     public sealed class ResponsiveHudLayout : MonoBehaviour
     {
-        RectTransform actions;RectTransform drawer;GridLayoutGroup grid;List<RectTransform> buttons;RectTransform handle;RectTransform sheetClose;RectTransform topBar;RectTransform guide;CanvasScaler scaler;bool drawerOpen;bool narrowNow;readonly List<(LayoutElement element,float width)> topCells=new();readonly List<(Text label,int size)> topLabels=new();int width,height;
+        RectTransform actions;RectTransform drawer;GridLayoutGroup grid;List<RectTransform> buttons;RectTransform handle;RectTransform sheetClose;RectTransform topBar;RectTransform guide;CanvasScaler scaler;bool drawerOpen;bool narrowNow;readonly List<(LayoutElement element,float width)> topCells=new();readonly List<(Text label,int size)> topLabels=new();LayoutElement statusCell;int width,height;
 
         public void Bind(RectTransform actionBar,RectTransform drawerPanel,GridLayoutGroup actionGrid,List<RectTransform> quickButtons,RectTransform dragHandle=null,RectTransform closeRow=null,RectTransform top=null,RectTransform guideCard=null)
         {
@@ -22,6 +22,8 @@ namespace MiniMarket.UI
                     topCells.Add((element,element.preferredWidth));
                 foreach(var label in topBar.GetComponentsInChildren<Text>())
                     topLabels.Add((label,label.fontSize));
+                var status=topBar.Find("CERRADO");
+                if(status)statusCell=status.GetComponent<LayoutElement>();
             }
             Apply();
         }
@@ -108,19 +110,25 @@ namespace MiniMarket.UI
                 // not been rebuilt yet at the moment the layout switches, so its
                 // width still reports the desktop figure.
                 var available=(scaler?scaler.referenceResolution.x:topBar.rect.width)-84f;
-                var total=0f;foreach(var (element,cell) in topCells)total+=cell;
-                var scale=total>0f?Mathf.Clamp(available/total,.5f,1f):1f;
+                // The store pill keeps its width: it is one indivisible word beside
+                // a chevron, and at the uniform scale its caption wraps to CERR/ADO.
+                const float statusFloor=104f;
+                var total=0f;foreach(var (element,cell) in topCells)if(element!=statusCell)total+=cell;
+                var room=available-(statusCell?statusFloor:0f);
+                var scale=total>0f?Mathf.Clamp(room/total,.4f,1f):1f;
                 foreach(var (element,cell) in topCells)
                 {
                     if(!element)continue;
-                    element.preferredWidth=cell*scale;element.minWidth=cell*scale;
+                    var width=element==statusCell?statusFloor:cell*scale;
+                    element.preferredWidth=width;element.minWidth=width;
                 }
                 // The captions shrink with their cells; left at desktop size they
                 // simply spill past the narrower columns.
                 foreach(var (label,size) in topLabels)
                 {
                     if(!label)continue;
-                    label.fontSize=Mathf.Max(8,Mathf.RoundToInt(size*scale));
+                    var keep=statusCell&&label.transform.parent==statusCell.transform;
+                    label.fontSize=keep?size:Mathf.Max(8,Mathf.RoundToInt(size*scale));
                     label.resizeTextMaxSize=label.fontSize;
                 }
             }
