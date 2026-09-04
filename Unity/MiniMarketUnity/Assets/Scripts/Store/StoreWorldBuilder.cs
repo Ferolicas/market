@@ -184,9 +184,12 @@ namespace MiniMarket.Store
             // Visuals come exclusively from the supplied mosaic GLBs. Four
             // modules fill the exact two 19.06 m storefront spans while the
             // central 7.48 m automatic-door opening remains unchanged.
-            foreach(var x in new[]{-17.935f,-8.405f,8.405f,17.935f})
+            // Two modules a side still fill the span, resized for the wider
+            // entrance: from its edge at 5.42 out to the same 22.70 as before.
+            const float storefrontModule=8.64f;
+            foreach(var x in new[]{-18.38f,-9.74f,9.74f,18.38f})
             {
-                var window=await PlaceFitted("StorefrontWindow",new Vector3(x,0,15.6f),Quaternion.identity,new Vector3(9.53f,5.6f,.72f),root,false);
+                var window=await PlaceFitted("StorefrontWindow",new Vector3(x,0,15.6f),Quaternion.identity,new Vector3(storefrontModule,5.6f,.72f),root,false);
                 window.AddComponent<StorefrontCameraCutaway>();
             }
             // The entrance stays on screen. Next never hides its storefront --
@@ -194,8 +197,15 @@ namespace MiniMarket.Store
             // focus -- because its glass is transparent (opacity .12 to .28 with
             // transmission), so the shop reads straight through the facade. Ours
             // now does the same, which is what makes a cutaway unnecessary.
+            // The wall beside the opening was 0.428 wide on the delivered mesh
+            // against a leaf-and-frame of 0.648, so a door open enough to clear
+            // its own opening always left a fifth of itself past the building.
+            // The piers were widened by 0.26 each, and the fitted width grows in
+            // the same proportion so the doorway, the sign and the frame keep
+            // the size they had: 2.518 of model at the original 4.305 a unit.
+            const float entranceWidth=10.84f;
             var door=await PlaceFitted("StoreEntrance",new Vector3(0,0,15.9f),Quaternion.identity,
-                                       new Vector3(8.6f,6.2f,4.4f),root,false);
+                                       new Vector3(entranceWidth,6.2f,4.4f),root,false);
             // The entrance carries its own plinth: 0.107 of the model's 1.764
             // height, which at the fitted 6.2 becomes 0.376 in the world. Resting
             // its lowest point on y = 0 put that step above the plane everyone
@@ -205,7 +215,7 @@ namespace MiniMarket.Store
             RestOnFloor(door,-entrancePlinth);
             // The facade either side of the opening is solid. The doorway itself
             // is left clear so the automatic door is what governs entry.
-            var frameHalf=8.6f*.5f;const float openingHalf=2.95f;
+            var frameHalf=entranceWidth*.5f;const float openingHalf=2.95f;
             var pierWidth=frameHalf-openingHalf;
             foreach(var side in new[]{-1f,1f})
                 PhysicsBox(root,$"EntrancePier_{(side<0?"Left":"Right")}",
@@ -236,8 +246,8 @@ namespace MiniMarket.Store
 
             // Physics remains independent from art: side facade collision is
             // exact, while the automatic doorway keeps its Next.js opening.
-            PhysicsBox(root,"StorefrontCollider_Left",new Vector3(19.06f,5.6f,.64f),new Vector3(-13.17f,2.8f,15.6f));
-            PhysicsBox(root,"StorefrontCollider_Right",new Vector3(19.06f,5.6f,.64f),new Vector3(13.17f,2.8f,15.6f));
+            PhysicsBox(root,"StorefrontCollider_Left",new Vector3(17.28f,5.6f,.64f),new Vector3(-14.06f,2.8f,15.6f));
+            PhysicsBox(root,"StorefrontCollider_Right",new Vector3(17.28f,5.6f,.64f),new Vector3(14.06f,2.8f,15.6f));
             var sensor=new GameObject("StorefrontDoorSensor");sensor.transform.SetParent(root,false);sensor.transform.localPosition=new Vector3(0,2f,15.9f);var trigger=sensor.AddComponent<BoxCollider>();trigger.isTrigger=true;trigger.size=new Vector3(11f,5f,15f);var body=sensor.AddComponent<Rigidbody>();body.isKinematic=true;body.useGravity=false;
             // Drive the entrance's own leaves from the sensor. The presenter
             // existed but was never wired to anything, so the door has never
@@ -251,6 +261,17 @@ namespace MiniMarket.Store
                 // See LeafTravel: the run is bounded by the wall beside the
                 // opening, not by the facade's outer bounds.
                 presenter.Bind(doorLeaves.left,doorLeaves.right,LeafTravel(width),doorFrames.left,doorFrames.right);
+                foreach(var piece in new[]{doorLeaves.left,doorLeaves.right,doorFrames.left,doorFrames.right})
+                {
+                    if(!piece)continue;
+                    var r=piece.GetComponent<Renderer>();
+                    Debug.Log($"MINIMARKET_DOOR pieza={piece.name} x=[{r.bounds.min.x:0.00},{r.bounds.max.x:0.00}] z=[{r.bounds.min.z:0.00},{r.bounds.max.z:0.00}]");
+                }
+                foreach(var w in root.GetComponentsInChildren<Renderer>(true))
+                {
+                    if(w.transform.parent==null||!w.transform.parent.name.Contains("StorefrontWindow"))continue;
+                    Debug.Log($"MINIMARKET_DOOR escaparate={w.transform.parent.name} x=[{w.bounds.min.x:0.00},{w.bounds.max.x:0.00}] z=[{w.bounds.min.z:0.00},{w.bounds.max.z:0.00}]");
+                }
             }
             else
             {
@@ -316,17 +337,14 @@ namespace MiniMarket.Store
             return (forLeft,forRight);
         }
 
-        /// How far a leaf can run before it shows past the wall.
+        /// How far a leaf runs to clear the opening.
         ///
-        /// The facade's own bounds are the wrong ruler: the plinth and the
-        /// bollards stretch them to 0.999 of the model while the wall beside
-        /// the opening stops at 0.861, so a run measured against the bounds
-        /// left the pane hanging in the air beyond the building. Measured on
-        /// the delivered mesh, a leaf closes with its outer edge at 0.611 and
-        /// the wall ends at 0.861, which is 0.25 of travel out of a 0.595 leaf.
-        /// The doorway therefore cannot open its full width without the glass
-        /// leaving the wall; it opens as far as the wall can hide it.
-        static float LeafTravel(float width)=>width*.67f;
+        /// A pane closes with its inner edge on the middle and the pier's inner
+        /// edge sits 0.404 out, so 0.70 of a leaf's width carries it clear. Its
+        /// frame half then finishes at 1.081 against a widened pier that reaches
+        /// 1.121, which is why the pier had to grow: at the delivered 0.861 the
+        /// same run left the door hanging over the street.
+        static float LeafTravel(float width)=>width*.70f;
 
         static (Transform left,Transform right) FindDoorLeaves(Transform root)
         {
