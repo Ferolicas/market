@@ -24,7 +24,13 @@ namespace MiniMarket.Animations
             clips.Clear();
             foreach (var animation in legacyAnimations)
                 foreach (AnimationState clip in animation)
+                {
+                    // Nothing set a wrap mode, so a clip could stop dead at its
+                    // last frame instead of carrying on. Every motion here is a
+                    // cycle or a gesture that reads fine repeated.
+                    clip.wrapMode = WrapMode.Loop;
                     if (!clips.ContainsKey(clip.name)) clips[clip.name] = clip.name;
+                }
             faces = GetComponentsInChildren<SkinnedMeshRenderer>(true);
             var names = new HashSet<string>();
             foreach (var face in faces)

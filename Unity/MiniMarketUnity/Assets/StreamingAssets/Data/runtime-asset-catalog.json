@@ -7,32 +7,32 @@
       "kind": "character",
       "path": "Art/Characters/AdultFemale/LOD0.glb",
       "source": "KIT MARKET/PERSONAJES/NUEVOSPERSONAJES/AdultFemale.zip",
-      "bytes": 8529760,
-      "sha256": "798509a570b6eefe04415d6a9d94ad5dd1032fdb6d01c85c22763d5b3f9226e1"
+      "bytes": 11726204,
+      "sha256": "30fd3257c7456abc0d35c9466f0f37cd1e1abda8b7806827cc8827236af67532"
     },
     {
       "id": "AdultFemale:LOD2",
       "kind": "character",
       "path": "Art/Characters/AdultFemale/LOD2.glb",
       "source": "KIT MARKET/PERSONAJES/NUEVOSPERSONAJES/AdultFemale.zip",
-      "bytes": 4927816,
-      "sha256": "8e500f296f5be3a3286969a96acebdbfc7779c878f7b2d7ba8411c51af6368f0"
+      "bytes": 8674336,
+      "sha256": "65ff0579fdadb4da1b26263904f1ee2a33a6844c92844be06ae6ea6fe4394a2f"
     },
     {
       "id": "AdultMale:LOD0",
       "kind": "character",
       "path": "Art/Characters/AdultMale/LOD0.glb",
       "source": "KIT MARKET/PERSONAJES/NUEVOSPERSONAJES/AdultMale.zip",
-      "bytes": 8440604,
-      "sha256": "c7c07497e56dc7b9a569827072b15b5934beb375f92f59a10e7d3ab65df2decd"
+      "bytes": 11828636,
+      "sha256": "f01b64b8e1ce558ab9ead644654d670d9f5b765bedd3c39218dd9b7ac9e8f807"
     },
     {
       "id": "AdultMale:LOD2",
       "kind": "character",
       "path": "Art/Characters/AdultMale/LOD2.glb",
       "source": "KIT MARKET/PERSONAJES/NUEVOSPERSONAJES/AdultMale.zip",
-      "bytes": 4896172,
-      "sha256": "42ae5e617b1c13d7abd342e87bb3fbbb57f7ceebcd0209d9bdd317207e2ebb8d"
+      "bytes": 8780560,
+      "sha256": "8502450c493df34ed939c7f46163daa610db67ee928252632de78abcc88c035d"
     },
     {
       "id": "Apple",
@@ -111,16 +111,16 @@
       "kind": "character",
       "path": "Art/Characters/Boy/LOD0.glb",
       "source": "KIT MARKET/PERSONAJES/NUEVOSPERSONAJES/Boy.zip",
-      "bytes": 8447640,
-      "sha256": "0c0191f033f10d4841c1b0407a64e69de865c0016c9d3959c84c19075342581c"
+      "bytes": 12371052,
+      "sha256": "e83d0993469057189437685bdc00ce4e2433c8e9bc294a9bfa3623a3c24eaeb9"
     },
     {
       "id": "Boy:LOD2",
       "kind": "character",
       "path": "Art/Characters/Boy/LOD2.glb",
       "source": "KIT MARKET/PERSONAJES/NUEVOSPERSONAJES/Boy.zip",
-      "bytes": 4881104,
-      "sha256": "69abcc20dcdd5d54af13a6890ed9a91f470d0ffbe369f046405c0bb7706e6afc"
+      "bytes": 8775836,
+      "sha256": "3af3a9aac56f459215a9898869b1a2979ddac21d84c29cfbb6745adbd2592881"
     },
     {
       "id": "Bread",
@@ -415,80 +415,80 @@
       "kind": "character",
       "path": "Art/Characters/CustomerFemale01/LOD0.glb",
       "source": "KIT MARKET/PERSONAJES/NUEVOSPERSONAJES/CustomerFemale01.zip",
-      "bytes": 9491764,
-      "sha256": "600e934964f315ef05bd15457094f80d651a123e93311dbd872e05a9a1cd7c7d"
+      "bytes": 12382024,
+      "sha256": "35b9293b47dacc275cf27c5670df69d64416f406a436de9e0214969c27d4287c"
     },
     {
       "id": "CustomerFemale01:LOD2",
       "kind": "character",
       "path": "Art/Characters/CustomerFemale01/LOD2.glb",
       "source": "KIT MARKET/PERSONAJES/NUEVOSPERSONAJES/CustomerFemale01.zip",
-      "bytes": 5889820,
-      "sha256": "980c8fc6ef15fa209a00d96d051525f28aba1b2dba58aa12b93452e2c9d0dceb"
+      "bytes": 8780744,
+      "sha256": "ce6a38efe4098ded4005dbb7a832602a3c7cfad634b77437c288c96f9a52e6ca"
     },
     {
       "id": "CustomerFemale02:LOD0",
       "kind": "character",
       "path": "Art/Characters/CustomerFemale02/LOD0.glb",
       "source": "KIT MARKET/PERSONAJES/NUEVOSPERSONAJES/CustomerFemale02.zip",
-      "bytes": 8681860,
-      "sha256": "dc4a813363263ebf6d700659aa62e2099e4abd05c5547c472a22171a53f428f3"
+      "bytes": 12088680,
+      "sha256": "6be56d61fff02d50d3897ad596f9123aed5cfd1f142467e93e2b61411e809f90"
     },
     {
       "id": "CustomerFemale02:LOD2",
       "kind": "character",
       "path": "Art/Characters/CustomerFemale02/LOD2.glb",
       "source": "KIT MARKET/PERSONAJES/NUEVOSPERSONAJES/CustomerFemale02.zip",
-      "bytes": 5079916,
-      "sha256": "8514f7d487c923c7dd563bda942c980e4f76fc1c4e350cf918390783481d1400"
+      "bytes": 9037780,
+      "sha256": "8e66a92577aa4bc81cf75d0c363fa4351c047a0b4304eed0abce9475f7006ec4"
     },
     {
       "id": "CustomerFemale03:LOD0",
       "kind": "character",
       "path": "Art/Characters/CustomerFemale03/LOD0.glb",
       "source": "KIT MARKET/PERSONAJES/NUEVOSPERSONAJES/CustomerFemale03.zip",
-      "bytes": 9463392,
-      "sha256": "bbf31242bc2d3718b4010756419e4c0847cb1d0c471a937885e789fe0e78bb0e"
+      "bytes": 12072908,
+      "sha256": "3d3c3575151f042c3cf4ffb07e433569fa22cf872583025c54b2e4f73546b2b0"
     },
     {
       "id": "CustomerFemale03:LOD2",
       "kind": "character",
       "path": "Art/Characters/CustomerFemale03/LOD2.glb",
       "source": "KIT MARKET/PERSONAJES/NUEVOSPERSONAJES/CustomerFemale03.zip",
-      "bytes": 5861448,
-      "sha256": "d6abc901f11c35997027f6be178895979b707807a8a46780153bf10bc9740994"
+      "bytes": 9020680,
+      "sha256": "e1cfbb6d645cd4eaad615b22ddc97e3f2c361c9e8b9707711e3027ec67469896"
     },
     {
       "id": "CustomerFemale04:LOD0",
       "kind": "character",
       "path": "Art/Characters/CustomerFemale04/LOD0.glb",
       "source": "KIT MARKET/PERSONAJES/NUEVOSPERSONAJES/CustomerFemale04.zip",
-      "bytes": 8350156,
-      "sha256": "9c4ed917311c649cdba4de5b6bd19f08840a1ad5e01eed664f95d8376e6f3fa3"
+      "bytes": 11664620,
+      "sha256": "b340f5ad2070c68879ec7b530045618691b7caf70ac3163ca2425606ae59918a"
     },
     {
       "id": "CustomerFemale04:LOD2",
       "kind": "character",
       "path": "Art/Characters/CustomerFemale04/LOD2.glb",
       "source": "KIT MARKET/PERSONAJES/NUEVOSPERSONAJES/CustomerFemale04.zip",
-      "bytes": 4748212,
-      "sha256": "cbe69762f17a3139497fea0a4134814b6cace4d8557031ccc9dd8850bfd8f563"
+      "bytes": 8613540,
+      "sha256": "7e7a8b6afdc0d510ddb64742695ee876bed48ceecfa03e491a5056817af30ee3"
     },
     {
       "id": "CustomerMale01:LOD0",
       "kind": "character",
       "path": "Art/Characters/CustomerMale01/LOD0.glb",
       "source": "KIT MARKET/PERSONAJES/NUEVOSPERSONAJES/CustomerMale01.zip",
-      "bytes": 8566776,
-      "sha256": "08b4a9e2d0471913f449d7edd628de8a4e45034e7120adf96fb04554c9a5d571"
+      "bytes": 12115292,
+      "sha256": "78be1dbd6e8eb2f9cce1a900b757f4ceef7d7d8fc5f4ca8732cc8a54c88d1f10"
     },
     {
       "id": "CustomerMale01:LOD2",
       "kind": "character",
       "path": "Art/Characters/CustomerMale01/LOD2.glb",
       "source": "KIT MARKET/PERSONAJES/NUEVOSPERSONAJES/CustomerMale01.zip",
-      "bytes": 5000240,
-      "sha256": "5755a682142d398d4ae1c733dccdb1f09b28f66f2dc4ee98563b1905f8b81f4a"
+      "bytes": 9067760,
+      "sha256": "9ec36971e5df3e1d9a66efd3705071bba501f1fcde9c140a304eea14a76fbbcd"
     },
     {
       "id": "DeliveryDock",
@@ -703,16 +703,16 @@
       "kind": "character",
       "path": "Art/Characters/Girl/LOD0.glb",
       "source": "KIT MARKET/PERSONAJES/NUEVOSPERSONAJES/Girl.zip",
-      "bytes": 8676336,
-      "sha256": "58ccd607f80262e472732f1628335b99cfa2357d5f3be1e82fe0c9c83004a5f7"
+      "bytes": 11997540,
+      "sha256": "b7a87a3d12f0df84fb583bd0e06fda748ac065b85359ca977e2d0599b08fd035"
     },
     {
       "id": "Girl:LOD2",
       "kind": "character",
       "path": "Art/Characters/Girl/LOD2.glb",
       "source": "KIT MARKET/PERSONAJES/NUEVOSPERSONAJES/Girl.zip",
-      "bytes": 5074392,
-      "sha256": "46ee353f952eff397d35298b86327b5197d3ad6ee0735dfb7768069a4bee56ed"
+      "bytes": 8947080,
+      "sha256": "b19163ed7e2f1a6a3f12c19941aca1058035fabc627be6cb6fcdc55ceb09e983"
     },
     {
       "id": "GlassPartition",
@@ -1455,72 +1455,72 @@
       "kind": "character-motion",
       "path": "Art/Characters/AdultMale/Motion.glb",
       "source": "derived-from:AdultMale:LOD0",
-      "bytes": 3521216,
-      "sha256": "3c40387cad3caf42aa379af389a776548f0e126b6457d9986784ab281a207349"
+      "bytes": 2995236,
+      "sha256": "0a39c1ec03f04a4a98f60e55fbbf45202db2177e00008d74a22f531696c709d3"
     },
     {
       "id": "AdultFemale:Motion",
       "kind": "character-motion",
       "path": "Art/Characters/AdultFemale/Motion.glb",
       "source": "derived-from:AdultFemale:LOD0",
-      "bytes": 3578496,
-      "sha256": "e7d3174b8ec5ec39ee26883514d414bdf7dac6682c4e295242b24f81db88998b"
+      "bytes": 2999076,
+      "sha256": "c526dc644608cdac588b1094e0813d3868723a7c9814eb094e7f74bb0b7d5f1c"
     },
     {
       "id": "Boy:Motion",
       "kind": "character-motion",
       "path": "Art/Characters/Boy/Motion.glb",
       "source": "derived-from:Boy:LOD0",
-      "bytes": 3543036,
-      "sha256": "7fe0d986f9fd7c579e2248d7260056f0eb53c99c313f6242bbc0190700e9fad7"
+      "bytes": 3531904,
+      "sha256": "5020e333ce9645745512b1eb7379e16cde999b0a9dcfe1661f827c792bd0942c"
     },
     {
       "id": "Girl:Motion",
       "kind": "character-motion",
       "path": "Art/Characters/Girl/Motion.glb",
       "source": "derived-from:Girl:LOD0",
-      "bytes": 3578384,
-      "sha256": "47563e788f9d2f4b209805f6fb7c871cab42fbb57dec62c2742e32de5eeabb10"
+      "bytes": 2997776,
+      "sha256": "04c442b777b717f75a5c69783c84728dd184688520e6ec910215777b95484f3e"
     },
     {
       "id": "CustomerFemale01:Motion",
       "kind": "character-motion",
       "path": "Art/Characters/CustomerFemale01/Motion.glb",
       "source": "derived-from:CustomerFemale01:LOD0",
-      "bytes": 3578464,
-      "sha256": "9b8bd76624fb7aceb0206a56c2b8e60d3dedef07cb4927b27d2050e3616fc45e"
+      "bytes": 3537692,
+      "sha256": "fea097c06385f38a822d55009404c44cc4857289b57ba6635a9fd48a8327084f"
     },
     {
       "id": "CustomerFemale02:Motion",
       "kind": "character-motion",
       "path": "Art/Characters/CustomerFemale02/Motion.glb",
       "source": "derived-from:CustomerFemale02:LOD0",
-      "bytes": 3578428,
-      "sha256": "4ff06287b1623534a5101666961b64c958a23d7d000b0b5729813009daeccbd2"
+      "bytes": 2998088,
+      "sha256": "082602e5718de1f9e34d902e40a8dcb659e8f0aff560fb2e01f0434110a78689"
     },
     {
       "id": "CustomerFemale03:Motion",
       "kind": "character-motion",
       "path": "Art/Characters/CustomerFemale03/Motion.glb",
       "source": "derived-from:CustomerFemale03:LOD0",
-      "bytes": 3578532,
-      "sha256": "ffba25116b3f5ff54a6412b35e0ac40a506ebe9abe2685c0234d585920deca10"
+      "bytes": 2999168,
+      "sha256": "367b9b9f8bdc4f884ddd8c1d10fbc2347342239448f7cd313aabd90f0a84821a"
     },
     {
       "id": "CustomerFemale04:Motion",
       "kind": "character-motion",
       "path": "Art/Characters/CustomerFemale04/Motion.glb",
       "source": "derived-from:CustomerFemale04:LOD0",
-      "bytes": 3578536,
-      "sha256": "a43e699a711cb5e299b49654243c018fd1a9c2a378f5e902eb20048858ac2d1c"
+      "bytes": 2998676,
+      "sha256": "e25c7fbcc98b54f52244b21d5ae1a81095dd34dde2700923d0d776290b09a377"
     },
     {
       "id": "CustomerMale01:Motion",
       "kind": "character-motion",
       "path": "Art/Characters/CustomerMale01/Motion.glb",
       "source": "derived-from:CustomerMale01:LOD0",
-      "bytes": 3543140,
-      "sha256": "7df3b41492aa75e56096750f47a2dd3c7abac3e757b7bb1ca3bdc64b03e9b0b8"
+      "bytes": 2994856,
+      "sha256": "7732d1a2e1688fe53b1f8c63d2e5f13b4d67dc8519c69acf86637a885418638e"
     }
   ],
   "counts": {
@@ -1532,5 +1532,5 @@
     "metadata": 1,
     "character-motion": 9
   },
-  "totalBytes": 248878370
+  "totalBytes": 307790474
 }
