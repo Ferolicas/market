@@ -83,7 +83,7 @@ namespace MiniMarket.Store
             // the storefront: their transforms moved their full travel and the
             // picture did not change by a single pixel.
             var detached = new List<(Transform leaf, Transform parent)>();
-            foreach (var leaf in new[] { doorLeaves.left, doorLeaves.right })
+            foreach (var leaf in new[] { doorLeaves.left, doorLeaves.right, doorFrames.left, doorFrames.right })
             {
                 if (!leaf) continue;
                 detached.Add((leaf, leaf.parent));
@@ -212,11 +212,18 @@ namespace MiniMarket.Store
                            new Vector3(pierWidth,5.2f,1.6f),
                            new Vector3(side*(openingHalf+pierWidth*.5f),2.6f,15.9f));
             doorLeaves=FindDoorLeaves(door.transform);
-            // The centre post was separated out of the frame so it stops
-            // standing in the middle of an opening it belongs to. Each half is
-            // handed to whichever leaf shares its side -- matched by measured
-            // position, not by name, because glTFast mirrors X on import.
-            AttachMullions(door.transform,doorLeaves);
+            // The frame arrived as one fixed grid while only the panes moved, so
+            // opening the door left jambs, head, sill and centre post standing in
+            // the opening. It is split down the seam between the panes and each
+            // half is driven with its own leaf.
+            doorFrames=FindFrameHalves(door.transform,doorLeaves);
+            // glTFast hands the panes the opaque shader graph even though the
+            // glTF material asks for BLEND: the runtime reported queue 3000 and
+            // _Surface 1 on "Shader Graphs/glTF-pbrMetallicRoughness", and
+            // dropping the file's alpha from 0.26 to 0.035 did not change a
+            // single pixel on screen. They are moved onto the same transparent
+            // material the cold-room door already uses, which does blend.
+            GlazePanes(door.transform);
             // PlaceFitted marks every child static, and static batching bakes the
             // geometry in place: the leaf transforms moved their full travel and
             // not one pixel changed on screen. The leaves have to stay dynamic.
@@ -241,12 +248,9 @@ namespace MiniMarket.Store
                 var presenter=sensor.AddComponent<StorefrontDoorPresenter>();
                 var leafRenderer=doorLeaves.left.GetComponent<Renderer>();
                 var width=leafRenderer?leafRenderer.localBounds.size.x:1f;
-                // The run is solved from the geometry rather than guessed as a
-                // fraction of the leaf: a pane stops with its outer edge just
-                // inside the facade. At 72% of its width the edge finished at
-                // 1.04 against a facade that ends at 1.00, and the glass hung
-                // over the street.
-                presenter.Bind(doorLeaves.left,doorLeaves.right,LeafTravel(door.transform,doorLeaves.left,width));
+                // See LeafTravel: the run is bounded by the wall beside the
+                // opening, not by the facade's outer bounds.
+                presenter.Bind(doorLeaves.left,doorLeaves.right,LeafTravel(width),doorFrames.left,doorFrames.right);
             }
             else
             {
@@ -255,6 +259,7 @@ namespace MiniMarket.Store
         }
 
         (Transform left,Transform right) doorLeaves;
+        (Transform left,Transform right) doorFrames;
 
         /// FitLocalSize only scales; the mosaic exports are centred on their own
         /// origin, so an instance placed at floor level ends up half sunk.
@@ -271,45 +276,57 @@ namespace MiniMarket.Store
         /// pair of thin, similar panels sitting either side of the doorway's
         /// centre. Matching on the mosaic's part names works only until an export
         /// renames them, and then the door silently stops opening.
-        static void AttachMullions(Transform door,(Transform left,Transform right) leaves)
+        static void GlazePanes(Transform door)
         {
-            if(!leaves.left||!leaves.right)return;
-            foreach(var piece in door.GetComponentsInChildren<Transform>(true))
+            var glass=TransparentRuntimeMaterial("EntranceGlass",new Color(.60f,.71f,.74f,.14f));
+            var glazed=0;
+            foreach(var renderer in door.GetComponentsInChildren<Renderer>(true))
             {
-                if(!piece.name.StartsWith("EntranceMullion"))continue;
-                var renderer=piece.GetComponent<Renderer>();
-                if(!renderer)continue;
-                var mine=renderer.bounds.center.x;
-                var host=Mathf.Abs(mine-leaves.left.GetComponent<Renderer>().bounds.center.x)
-                       <=Mathf.Abs(mine-leaves.right.GetComponent<Renderer>().bounds.center.x)
-                       ?leaves.left:leaves.right;
-                piece.SetParent(host,true);
+                var shared=renderer.sharedMaterials;
+                var touched=false;
+                for(var i=0;i<shared.Length;i++)
+                {
+                    if(shared[i]==null||!shared[i].name.ToLowerInvariant().Contains("cristal"))continue;
+                    shared[i]=glass;touched=true;
+                }
+                if(!touched)continue;
+                renderer.sharedMaterials=shared;glazed++;
             }
+            Debug.Log($"MINIMARKET_DOOR cristales acristalados={glazed}");
         }
 
-        /// How far a leaf can run before it leaves the front of the building.
-        /// Measured in the leaf's own local units, which is what the presenter
-        /// moves, with a margin so the pane tucks in rather than ending flush.
-        static float LeafTravel(Transform door,Transform leaf,float width)
+        static (Transform left,Transform right) FindFrameHalves(Transform door,(Transform left,Transform right) leaves)
         {
-            var leafRenderer=leaf.GetComponent<Renderer>();
-            if(!leafRenderer)return width*.58f;
-            var facade=new Bounds();var first=true;
-            foreach(var r in door.GetComponentsInChildren<Renderer>(true))
+            Transform forLeft=null,forRight=null;
+            if(!leaves.left||!leaves.right)return (null,null);
+            var leftAt=leaves.left.GetComponent<Renderer>();
+            var rightAt=leaves.right.GetComponent<Renderer>();
+            if(!leftAt||!rightAt)return (null,null);
+            foreach(var piece in door.GetComponentsInChildren<Transform>(true))
             {
-                if(first){facade=r.bounds;first=false;}else facade.Encapsulate(r.bounds);
+                if(!piece.name.StartsWith("EntranceFrame"))continue;
+                var renderer=piece.GetComponent<Renderer>();
+                if(!renderer)continue;
+                // Matched by measured position, never by name: glTFast mirrors X
+                // on import, so the half called Left arrives on the right.
+                var mine=renderer.bounds.center.x;
+                if(Mathf.Abs(mine-leftAt.bounds.center.x)<=Mathf.Abs(mine-rightAt.bounds.center.x))
+                    forLeft=piece; else forRight=piece;
             }
-            if(first)return width*.58f;
-            // Both edges come back to the leaf's own space, since that is where
-            // the slide is applied.
-            var toLeaf=leaf.worldToLocalMatrix;
-            var leafEdge=Mathf.Abs(toLeaf.MultiplyPoint3x4(leafRenderer.bounds.center).x)
-                         +leafRenderer.localBounds.extents.x;
-            var facadeEdge=Mathf.Abs(toLeaf.MultiplyPoint3x4(
-                facade.center+Vector3.right*facade.extents.x).x);
-            const float margin=.96f;
-            return Mathf.Clamp(facadeEdge*margin-leafEdge,width*.25f,width*.95f);
+            return (forLeft,forRight);
         }
+
+        /// How far a leaf can run before it shows past the wall.
+        ///
+        /// The facade's own bounds are the wrong ruler: the plinth and the
+        /// bollards stretch them to 0.999 of the model while the wall beside
+        /// the opening stops at 0.861, so a run measured against the bounds
+        /// left the pane hanging in the air beyond the building. Measured on
+        /// the delivered mesh, a leaf closes with its outer edge at 0.611 and
+        /// the wall ends at 0.861, which is 0.25 of travel out of a 0.595 leaf.
+        /// The doorway therefore cannot open its full width without the glass
+        /// leaving the wall; it opens as far as the wall can hide it.
+        static float LeafTravel(float width)=>width*.67f;
 
         static (Transform left,Transform right) FindDoorLeaves(Transform root)
         {
@@ -323,6 +340,10 @@ namespace MiniMarket.Store
             Transform left=null,right=null;float leftScore=0,rightScore=0;
             foreach(var r in root.GetComponentsInChildren<Renderer>(true))
             {
+                // The frame halves are thin, tall and narrow too, and each has
+                // more area than the pane it carries, so without this they won
+                // the search and the door slid its frame while the glass stayed.
+                if(r.name.StartsWith("EntranceFrame"))continue;
                 var size=r.bounds.size;
                 var thin=size.z<bounds.size.z*.28f;                 // a panel, not the shell
                 var tall=size.y>bounds.size.y*.35f;

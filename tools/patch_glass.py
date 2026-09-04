@@ -23,15 +23,31 @@ for material in doc.get("materials", []):
     colour = pbr.get("baseColorFactor", [1, 1, 1, 1])
     # A cool, barely tinted pane at low opacity, and enough roughness that the
     # highlight stays a highlight.
-    pbr["baseColorFactor"] = [0.62, 0.72, 0.74, 0.13]
-    pbr["roughnessFactor"] = 0.16
+    # The pane is 2185 faces across 0.046 of thickness -- a crinkled slab,
+    # not a sheet -- so a sightline crosses several surfaces and each one
+    # blends again. At 0.13 the stack came out milky white; the opacity is
+    # set for the stack, not for one layer.
+    pbr["baseColorFactor"] = [0.60, 0.71, 0.74, 0.035]
+    pbr["roughnessFactor"] = 0.38
     pbr["metallicFactor"] = 0.0
     material["alphaMode"] = "BLEND"
-    material["doubleSided"] = True
+    # Front faces only: rendered double sided, a pane blends its own colour
+    # twice and comes out milkier than its alpha says.
+    material["doubleSided"] = False
+    # Without this the pane defaults to a specular factor of 1.0 while every
+    # other surface on the entrance sits at 0.56, so the glass mirrored the sky
+    # and read as white board no matter how low its opacity went.
+    material.setdefault("extensions", {})["KHR_materials_specular"] = {
+        "specularFactor": 0.10
+    }
     changed.append((colour, pbr["baseColorFactor"]))
 
 if not changed:
     raise SystemExit("no se encontro el material cristal")
+
+used = doc.setdefault("extensionsUsed", [])
+if "KHR_materials_specular" not in used:
+    used.append("KHR_materials_specular")
 
 blob = json.dumps(doc, separators=(",", ":")).encode("utf-8")
 blob += b" " * ((4 - len(blob) % 4) % 4)

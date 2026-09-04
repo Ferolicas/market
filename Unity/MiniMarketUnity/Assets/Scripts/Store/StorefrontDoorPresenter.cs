@@ -14,6 +14,12 @@ namespace MiniMarket.Store
     {
         static readonly Collider[] Hits = new Collider[16];
         Transform left; Transform right;
+        // The frame halves ride with their leaf. They are driven, not
+        // parented: re-parenting them under a leaf that lives inside a
+        // fitted, scaled instance threw them across the storefront even
+        // with the door shut.
+        Transform leftFrame; Transform rightFrame;
+        float closedLeftFrame; float closedRightFrame;
         float closedLeft; float closedRight; float travel = 5.4f;
         float leftDir = -1f; float rightDir = 1f;
         BoxCollider sensor; Vector3 doorway;
@@ -21,9 +27,13 @@ namespace MiniMarket.Store
         /// <param name="slide">How far each leaf runs, in the leaves' own local
         /// units. The entrance is scaled to fit the doorway, so its children live
         /// in a scaled space and a world-space distance would tear them apart.</param>
-        public void Bind(Transform leftLeaf, Transform rightLeaf, float slide = 5.4f)
+        public void Bind(Transform leftLeaf, Transform rightLeaf, float slide = 5.4f,
+                         Transform leftLeafFrame = null, Transform rightLeafFrame = null)
         {
             left = leftLeaf; right = rightLeaf;
+            leftFrame = leftLeafFrame; rightFrame = rightLeafFrame;
+            if (leftFrame) closedLeftFrame = leftFrame.localPosition.x;
+            if (rightFrame) closedRightFrame = rightFrame.localPosition.x;
             closedLeft = left.localPosition.x; closedRight = right.localPosition.x;
             travel = Mathf.Abs(slide);
             // Each leaf runs away from the middle of the doorway, decided by
@@ -40,6 +50,16 @@ namespace MiniMarket.Store
             doorway = transform.position;
             Debug.Log($"MINIMARKET_DOOR ligada izquierda={left.name} derecha={right.name} recorrido={travel:F3}");
         }
+
+        void Slide(Transform piece, float target)
+        {
+            var at = piece.localPosition;
+            at.x = Mathf.MoveTowards(at.x, target, SlideRate * Time.deltaTime);
+            piece.localPosition = at;
+        }
+
+        float SlideRate => (open_ ? 11.9f : 10.2f) * Mathf.Max(travel / 5.4f, .2f);
+        bool open_;
 
         Transform player;
 
@@ -88,7 +108,7 @@ namespace MiniMarket.Store
         void Update()
         {
             if (!left || !right) return;
-            var open = Occupied();
+            var open = Occupied(); open_ = open;
             if (reported != open)
             {
                 reported = open;
@@ -100,6 +120,8 @@ namespace MiniMarket.Store
             }
             var leftTarget = open ? closedLeft + leftDir * travel : closedLeft;
             var rightTarget = open ? closedRight + rightDir * travel : closedRight;
+            if (leftFrame) Slide(leftFrame, open ? closedLeftFrame + leftDir * travel : closedLeftFrame);
+            if (rightFrame) Slide(rightFrame, open ? closedRightFrame + rightDir * travel : closedRightFrame);
             var speed = (open ? 11.9f : 10.2f) * Mathf.Max(travel / 5.4f, .2f);
             var l = left.localPosition; l.x = Mathf.MoveTowards(l.x, leftTarget, speed * Time.deltaTime); left.localPosition = l;
             var r = right.localPosition; r.x = Mathf.MoveTowards(r.x, rightTarget, speed * Time.deltaTime); right.localPosition = r;
