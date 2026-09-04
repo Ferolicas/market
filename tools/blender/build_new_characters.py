@@ -30,17 +30,28 @@ RENAME = {
 # One delivered motion can stand in for several of the names the game plays.
 # Everything the delivery does not cover falls back to the nearest motion so an
 # actor never freezes mid-action; those are reported, not hidden.
+# The delivered presets are authored for this skeleton, so they own every name
+# they can honestly cover. Everything else comes from the retargeted pack.
 CLIP_MAP = {
-    "idle":              ["Idle", "LookAround", "CarryIdle"],
-    "walk":              ["Walk", "CarryWalk", "Enter", "Exit"],
-    "wait":              ["Wait", "Queue", "Browse", "ReachShelf"],
+    "idle":              ["Idle", "LookAround"],
+    "walk":              ["Walk", "Enter", "Exit"],
+    "wait":              ["Wait", "Queue"],
     "angry_01":          ["Impatient"],
-    "fold_arms":         ["Confused", "CarryBasket", "CarryBox"],
-    "greet_02":          ["Talk", "ReceiveOrder", "ReceiveBag"],
-    "make_a_call_02":    ["Phone", "ScanItem", "CheckoutScan", "CheckoutItem", "CheckoutBag", "Pay"],
+    "fold_arms":         ["Confused"],
+    "greet_02":          ["Talk"],
+    "make_a_call_02":    ["Phone"],
     "wave_goodbye_02":   ["Wave", "Happy"],
 }
-# No crouch, reach or lift was delivered; these read as the standing motion.
+# Nothing in the delivery crouches, reaches or lifts. These names come from the
+# retired rig's pack instead, retargeted onto this skeleton.
+RETARGET_CLIPS = {
+    "Run", "PickupLow", "PickupHigh", "HarvestLow", "HarvestHigh", "Harvest",
+    "StockLow", "StockMid", "StockHigh", "Plant", "LiftBox", "CarryBox",
+    "CarryBasket", "CarryIdle", "CarryWalk", "ReachShelf",
+    "CheckoutScan", "CheckoutBag", "CheckoutItem", "ScanItem", "Pay",
+    "ReceiveBag", "ReceiveOrder", "Browse",
+}
+# Anything the retarget does not supply still has to resolve to something.
 FALLBACK = {
     "idle": ["PickupLow", "PickupHigh", "HarvestLow", "HarvestHigh", "Harvest",
              "StockLow", "StockMid", "StockHigh", "Plant", "LiftBox"],
@@ -120,53 +131,107 @@ for action in list(bpy.data.actions):
     retarget_paths(action)
     library[preset_name(action)] = action
 
+RETARGET_BONES = ["Root", "Hips", "Spine", "Chest", "Neck", "Head",
+                  "Rig_Leg_L", "Shin_L", "Foot_L", "Toe_L",
+                  "Rig_Leg_R", "Shin_R", "Foot_R", "Toe_R",
+                  "Rig_Arm_L", "Forearm_L", "Hand_L",
+                  "Rig_Arm_R", "Forearm_R", "Hand_R"]
+
+
+def hierarchy_order(armature, names):
+    """Parents first.
+
+    Setting a pose bone's armature-space matrix is resolved against its parent
+    as it stands right now, so a child written before its parent is undone the
+    moment the parent moves. Dictionary order put Root last and folded every
+    limb backwards.
+    """
+    depth = {}
+    for name in names:
+        bone = armature.data.bones[name]
+        steps = 0
+        parent = bone.parent
+        while parent:
+            steps += 1
+            parent = parent.parent
+        depth[name] = steps
+    return sorted(names, key=lambda n: depth[n])
+
+
+def retarget(donor, source, target_arm, name):
+    """Carry one clip from the retired rig onto this cast's skeleton.
+
+    The two skeletons hold their bones at different rest orientations, so the
+    transfer goes through both rest poses: the rotation the donor bone adds to
+    its own rest is the rotation the target bone adds to its own.
+    """
+    shared = [b for b in RETARGET_BONES
+              if donor.pose.bones.get(b) and target_arm.pose.bones.get(b)]
+    shared = hierarchy_order(target_arm, shared)
+    if not donor.animation_data:
+        donor.animation_data_create()
+    donor.animation_data.action = source
+    if hasattr(source, "slots") and source.slots:
+        donor.animation_data.action_slot = source.slots[0]
+
+    rest_donor = {b: donor.data.bones[b].matrix_local.to_3x3() for b in shared}
+    rest_target = {b: target_arm.data.bones[b].matrix_local.to_3x3() for b in shared}
+    # The retired rig rests with its hips at the origin and the clip is what
+    # lifts it, so its resting hip height is no reference at all -- taking a
+    # ratio against it comes out negative and throws the cast into the sky. The
+    # standing height is read off the clip's own first frame instead.
+    donor.animation_data.action = source
+    bpy.context.scene.frame_set(int(source.frame_range[0]))
+    bpy.context.view_layer.update()
+    donor_stand = donor.pose.bones["Hips"].matrix.to_translation().z
+    target_stand = target_arm.data.bones["Hips"].head_local.z
+    ratio = target_stand / donor_stand if abs(donor_stand) > 1e-3 else 1.0
+
+    baked = bpy.data.actions.new(f"__rt_{name}")
+    target_arm.animation_data.action = baked
+    first, last = (int(v) for v in source.frame_range)
+    for frame in range(first, last + 1):
+        bpy.context.scene.frame_set(frame)
+        bpy.context.view_layer.update()
+        wanted = {}
+        for bone in shared:
+            donor_bone = donor.pose.bones[bone]
+            wanted[bone] = (donor_bone.matrix.to_3x3()
+                            @ rest_donor[bone].inverted()
+                            @ rest_target[bone])
+        travel = donor.pose.bones["Hips"].matrix.to_translation() * ratio
+        for bone in shared:
+            pose_bone = target_arm.pose.bones[bone]
+            keep = travel if bone == "Hips" else pose_bone.matrix.to_translation()
+            pose_bone.matrix = Matrix.Translation(keep) @ wanted[bone].to_4x4()
+            # Each bone has to land before the next one is measured against it.
+            bpy.context.view_layer.update()
+            pose_bone.keyframe_insert("rotation_quaternion", frame=frame)
+            if bone == "Hips":
+                pose_bone.keyframe_insert("location", frame=frame)
+    target_arm.animation_data.action = None
+    return baked
+
+
 if RUN:
-    # Run was never delivered with this cast, so it is lifted from the rig the
-    # game shipped with. Renaming the channels is not enough: the two rigs hold
-    # their bones at different rest orientations, and the same local rotation
-    # then folds the legs backwards. Each frame is transferred through both rest
-    # poses instead, so the limb ends up where the donor put it in space.
+    # The retired rig carries the whole gameplay set -- crouching, reaching,
+    # lifting, the checkout -- none of which was delivered with this cast. Those
+    # clips are retargeted here; anything the delivery does cover keeps the
+    # delivered motion, which is authored for this skeleton and always better.
     before_objects = set(bpy.data.objects)
     before_actions = set(bpy.data.actions)
     load(RUN)
     arrived_objects = [o for o in bpy.data.objects if o not in before_objects]
     arrived = [a for a in bpy.data.actions if a not in before_actions]
-    donor_run = next((o for o in arrived_objects if o.type == "ARMATURE"), None)
-    source_run = next((a for a in arrived if preset_name(a).lower() in ("run", "tripo_run")), None)
-    if donor_run and source_run:
-        pairs = [(old, new) for old, new in RENAME.items()] + [("Root", "Root"), ("Head", "Head")]
-        pairs = [(old, new) for old, new in pairs if donor_run.pose.bones.get(new) and arm.pose.bones.get(new)]
-        if not donor_run.animation_data:
-            donor_run.animation_data_create()
-        donor_run.animation_data.action = source_run
-        if hasattr(source_run, "slots") and source_run.slots:
-            donor_run.animation_data.action_slot = source_run.slots[0]
-        if not arm.animation_data:
-            arm.animation_data_create()
-        target = bpy.data.actions.new("__run_source")
-        arm.animation_data.action = target
-        rest_donor = {new: donor_run.data.bones[new].matrix_local.to_3x3()
-                      for _, new in pairs}
-        rest_target = {new: arm.data.bones[new].matrix_local.to_3x3()
-                       for _, new in pairs}
-        first, last = (int(v) for v in source_run.frame_range)
-        for frame in range(first, last + 1):
-            bpy.context.scene.frame_set(frame)
-            bpy.context.view_layer.update()
-            for _, name in pairs:
-                donor_bone = donor_run.pose.bones[name]
-                delta = donor_bone.matrix.to_3x3() @ rest_donor[name].inverted()
-                bone = arm.pose.bones[name]
-                keep = bone.matrix.to_translation()
-                bone.matrix = (Matrix.Translation(keep)
-                               @ (delta @ rest_target[name]).to_4x4())
-                bone.keyframe_insert("rotation_quaternion", frame=frame)
-            hips = arm.pose.bones.get("Hips")
-            if hips:
-                hips.keyframe_insert("location", frame=frame)
-        arm.animation_data.action = None
-        library["run"] = target
-        CLIP_MAP.setdefault("run", []).append("Run")
+    donor_rig = next((o for o in arrived_objects if o.type == "ARMATURE"), None)
+    if not arm.animation_data:
+        arm.animation_data_create()
+    if donor_rig:
+        for action in arrived:
+            label = preset_name(action)
+            if label in RETARGET_CLIPS:
+                library[f"rt:{label}"] = retarget(donor_rig, action, arm, label)
+                CLIP_MAP.setdefault(f"rt:{label}", []).append(label)
     for action in arrived:
         bpy.data.actions.remove(action)
     for obj in arrived_objects:
@@ -187,6 +252,15 @@ for preset, names in CLIP_MAP.items():
 for preset, names in FALLBACK.items():
     for target in names:
         plan.append((preset, target))
+
+seen = set()
+ordered = []
+for preset, target in plan:
+    if target in seen:
+        continue
+    seen.add(target)
+    ordered.append((preset, target))
+plan = ordered
 
 for preset, target in plan:
     source = library.get(preset)

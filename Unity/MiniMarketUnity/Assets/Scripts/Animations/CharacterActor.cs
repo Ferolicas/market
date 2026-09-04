@@ -47,9 +47,9 @@ namespace MiniMarket.Animations
             var resolved = Resolve(requested);
             if (resolved == null && requested == "Run")
             {
-                // The cast ships no run. Retargeting the retired rig's clip folds
-                // the knees backwards -- the two skeletons do not share a rest
-                // orientation -- so running is the delivered walk, carried faster.
+                // Every character carries a retargeted Run; this stands in only
+                // for one that somehow does not, so a sprint never freezes the
+                // actor mid-stride.
                 resolved = Resolve("Walk");
                 speed = 1.7f;
             }
