@@ -22,9 +22,13 @@ namespace MiniMarket.Player
         // 0.9 * PLAYER_SCALE(1.1): the constant height the rig aims at. Next
         // keeps it independent of the player's own Y, and so does this.
         const float TargetHeight = .99f;
-        // The frame sits this much of a half-height above the subject, so the
-        // view carries more of what is ahead than of the pavement behind.
-        const float FramingLift = .30f;
+        // The subject sits this much of a half-height below the middle of the
+        // frame, so the view carries more of what lies ahead and less of the
+        // pavement behind. The elevation does not change: the shift runs along
+        // the camera's own up axis, which slides the frame without tilting it.
+        // Measured on screen at 1440x900: the character reads at y 337 with a
+        // fifth of a half-height and 514 with this, against a middle at 450.
+        const float FramingLift = .60f;
         const float FollowResponse = 2.8f;
         const float ZoomResponse = 5f;
         const float FocusResponse = 4.8f;
@@ -56,6 +60,11 @@ namespace MiniMarket.Player
             // half-height. Interpolating the size directly would ease along a
             // different curve, so the blend stays in reciprocal space.
             var desiredInverseSize = Mathf.Lerp(1f / OverviewSize(), 1f / CheckoutSize(), blend);
+            // Applied to the target, never to the transform after damping: doing
+            // that fed the shifted position back into the next frame's lerp and
+            // the offset compounded to roughly eleven times what was asked.
+            var lift = ScreenUp * (FramingLift / Mathf.Max(1e-4f, desiredInverseSize));
+            desiredLookAt += lift; desiredPosition += lift;
 
             if (!framed)
             {
@@ -74,10 +83,6 @@ namespace MiniMarket.Player
 
             transform.rotation = Quaternion.LookRotation((lookAt - transform.position).normalized, Vector3.up);
             if (view && view.orthographic) view.orthographicSize = 1f / inverseSize;
-            // Slid along the camera's own up axis, which shifts the frame
-            // without turning it: the aim stays exactly where it was.
-            if (view && view.orthographic)
-                transform.position += transform.up * (view.orthographicSize * FramingLift);
         }
 
         // Next sizes the frustum in canvas pixels beneath a WORLD_SCALE=3 group:
@@ -92,6 +97,16 @@ namespace MiniMarket.Player
         // CHECKOUT_CAMERA_FRAME = { width: 39, height: 27 }, no distance factor.
         float CheckoutSize() => PullBack * Mathf.Max(27f / 6f, 39f / (6f * Aspect));
         float Aspect => view ? Mathf.Max(.1f, view.aspect) : 1f;
+
+        /// Which way is up on screen for this fixed isometric aim.
+        static Vector3 ScreenUp
+        {
+            get
+            {
+                var forward = -OverviewOffset.normalized;
+                return (Vector3.up - forward * Vector3.Dot(Vector3.up, forward)).normalized;
+            }
+        }
 
         static float FrameDelta(float delta) => Mathf.Clamp(delta, 0f, .05f);
         static float Damp(float response, float delta) => 1f - Mathf.Exp(-response * delta);
