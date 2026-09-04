@@ -1,11 +1,14 @@
-"""Widen the wall either side of the entrance's opening.
+"""Thicken the wall either side of the entrance's opening.
 
-The pier beside the doorway is 0.428 wide on the delivered mesh while a leaf
-with its frame half is 0.648, so a door that opens far enough to clear its own
-opening always leaves a fifth of itself hanging past the building. The shell is
-widened outward from the pier's inner edge: everything outboard of the opening
-moves out bodily, so the doorway, the sign and the frame keep their size and
-place and only the wall grows.
+The pier beside the doorway is 0.457 thick on the delivered mesh while a leaf
+with its frame half is 0.648, so a door open far enough to clear its own
+opening always leaves a fifth of itself hanging past the building.
+
+The pier is stretched away from the opening rather than moved: the inner edge
+stays exactly where it is, so the doorway keeps its width, and only the wall
+grows outward. Moving the whole outboard block instead widens the opening and
+leaves the wall as thin as it was. The bollards travel through the same
+mapping, so they stay in the recesses the plinth carries for them.
 """
 import bpy, sys
 from mathutils import Vector
@@ -14,27 +17,65 @@ argv = sys.argv[sys.argv.index("--") + 1:]
 opts = dict(a.split("=", 1) for a in argv)
 SOURCE = opts["source"]
 OUT = opts["out"]
-GROW = float(opts.get("grow", 0.24))
-SHELL = opts.get("shell", "tripo_part_3")
 # Where the opening ends and the pier begins, measured on the delivered mesh.
-INNER = float(opts.get("inner", 0.40))
+INNER = float(opts.get("inner", 0.404))
+# Thickness the pier has to reach to hide a leaf and its frame half.
+TARGET = float(opts.get("target", 0.72))
+OUTER = float(opts.get("outer", 0.861))
 
 bpy.ops.wm.read_factory_settings(use_empty=True)
 bpy.ops.import_scene.gltf(filepath=SOURCE)
-shell = bpy.data.objects[SHELL]
 
-before = [v.co.x for v in shell.data.vertices]
+stretch = TARGET / (OUTER - INNER)
+
+
+def remap(x):
+    """Push a coordinate away from the opening, leaving the inner edge fixed."""
+    if x > INNER:
+        return INNER + (x - INNER) * stretch
+    if x < -INNER:
+        return -INNER + (x + INNER) * stretch
+    return x
+
+
+# Only the shell is stretched. The frame, the panes, the sign and its letters
+# reach past the opening too, and stretching those would widen the door and the
+# sign along with the wall.
+SHELL = opts.get("shell", "tripo_part_3")
+# The bollards are carried bodily to where their recesses end up; stretching
+# them would leave two ovals squashed into the paving.
+RIGID = [n for n in opts.get("rigid", "tripo_part_29,tripo_part_30").split(",") if n]
+
+touched = {}
+shell = bpy.data.objects[SHELL]
 moved = 0
 for v in shell.data.vertices:
     world = shell.matrix_world @ v.co
-    if world.x > INNER:
-        v.co.x += GROW; moved += 1
-    elif world.x < -INNER:
-        v.co.x -= GROW; moved += 1
+    wanted = remap(world.x)
+    if abs(wanted - world.x) < 1e-6:
+        continue
+    v.co.x += wanted - world.x
+    moved += 1
 shell.data.update()
+touched[SHELL] = moved
 
-pts = [shell.matrix_world @ v.co for v in shell.data.vertices]
-print(f"MOVIDOS {moved} de {len(shell.data.vertices)}")
+for name in RIGID:
+    obj = bpy.data.objects.get(name)
+    if not obj:
+        continue
+    pts = [obj.matrix_world @ v.co for v in obj.data.vertices]
+    centre = sum(p.x for p in pts) / len(pts)
+    shift = remap(centre) - centre
+    if abs(shift) < 1e-6:
+        continue
+    for v in obj.data.vertices:
+        v.co.x += shift
+    obj.data.update()
+    touched[name] = round(shift, 3)
+
+print(f"ESTIRADO x{stretch:.3f}, piezas tocadas: {touched}")
+pts = [o.matrix_world @ v.co for o in bpy.data.objects if o.type == "MESH"
+       for v in o.data.vertices]
 print(f"ANCHO x=[{min(p.x for p in pts):+.3f},{max(p.x for p in pts):+.3f}]")
 
 bpy.ops.object.select_all(action="SELECT")
