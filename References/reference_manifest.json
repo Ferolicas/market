@@ -1,0 +1,251 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-02",
+  "sourceRoot": "/home/ferney_oliveros/Descargas/KIT MARKET",
+  "organizedRoot": "References",
+  "referenceCount": 15,
+  "policy": {
+    "originalsAreAuthoritative": true,
+    "copiesMustRemainByteIdentical": true,
+    "inventMissingViews": false,
+    "mosaicsRemainUncropped": true
+  },
+  "references": [
+    {
+      "originalFile": "PERSONAJES.png",
+      "originalLocation": "/home/ferney_oliveros/Descargas/KIT MARKET/PERSONAJES.png",
+      "organizedCopy": "References/Characters/OwnerCast_TurnaroundMosaic.png",
+      "sha256": "815a2693c139866a8c963050aaf639de04251aaec128ce41d81e6871ca30c380",
+      "category": "character",
+      "represents": ["AdultMale", "AdultFemale", "Boy", "Girl"],
+      "views": [
+        "AdultMale: cuerpo completo frontal, perfil y espalda",
+        "AdultFemale: cuerpo completo frontal, perfil y espalda",
+        "Boy: cuerpo completo frontal, perfil y espalda",
+        "Girl: cuerpo completo frontal, perfil y espalda"
+      ],
+      "isMosaic": true,
+      "notes": "Mosaico de cuatro filas por tres vistas. No contiene vistas aisladas ni detalles separados."
+    },
+    {
+      "originalFile": "VENDEDOR HOMBRE.png",
+      "originalLocation": "/home/ferney_oliveros/Descargas/KIT MARKET/VENDEDOR HOMBRE.png",
+      "organizedCopy": "References/Characters/AdultMale_TurnaroundMosaic.png",
+      "sha256": "28745d68574d84c7ac245c042a9bf125116594d547805ccc6d17c61a90ccd195",
+      "category": "character",
+      "represents": ["AdultMale"],
+      "views": [
+        "ocho paneles alrededor del personaje",
+        "frontal",
+        "perfiles",
+        "espalda",
+        "vistas de tres cuartos delanteras y traseras"
+      ],
+      "isMosaic": true,
+      "notes": "Turnaround más completo disponible para AdultMale; se conserva como un único mosaico sin recortes."
+    },
+    {
+      "originalFile": "POSES DUEÑO.png",
+      "originalLocation": "/home/ferney_oliveros/Descargas/KIT MARKET/POSES DUEÑO.png",
+      "organizedCopy": "References/Characters/AdultMale_ActionPoseMosaic.png",
+      "sha256": "364a35b97e0c98e91a70d33a855cb6b0f00f7dab64b2f63666b332e7181d7387",
+      "category": "character",
+      "represents": ["AdultMale", "owner action and pose direction"],
+      "views": [
+        "múltiples poses frontales y de tres cuartos",
+        "idle, caminar, correr, puerta y saludo",
+        "cajas, carro, palé, surtido y checkout",
+        "limpieza, riego, siembra y cosecha",
+        "gestos y expresiones"
+      ],
+      "isMosaic": true,
+      "notes": "Mosaico de acciones; no es un turnaround ortográfico. Es byte idéntico a ANIMACIONES.png y se conserva por procedencia."
+    },
+    {
+      "originalFile": "cliente1.png",
+      "originalLocation": "/home/ferney_oliveros/Descargas/KIT MARKET/cliente1.png",
+      "organizedCopy": "References/Characters/CustomerMale01_ActionMosaic.png",
+      "sha256": "09c4bf459db4571265c79ed4081028db341c2886d628c052241c3eaf70c3e0e4",
+      "category": "character",
+      "represents": ["CustomerMale01"],
+      "views": [
+        "cuerpo completo frontal y de tres cuartos",
+        "caminar, entrar y salir",
+        "carro, cesta, estante, checkout, pago y bolsa",
+        "primeros planos de expresiones"
+      ],
+      "isMosaic": true,
+      "notes": "Hoja de acciones y expresiones; no incluye un turnaround ortográfico aislado."
+    },
+    {
+      "originalFile": "cliente2.png",
+      "originalLocation": "/home/ferney_oliveros/Descargas/KIT MARKET/cliente2.png",
+      "organizedCopy": "References/Characters/CustomerMale02_ActionMosaic.png",
+      "sha256": "65cad27440e30f2560df7c49e73a9a3f810a481d12dd1ea7488128ae3c82c38a",
+      "category": "character",
+      "represents": ["CustomerMale02"],
+      "views": [
+        "cuerpo completo frontal y de tres cuartos",
+        "caminar, puerta, fila, cesta y estante",
+        "checkout, pago, bolsa y salida",
+        "primeros planos de expresiones"
+      ],
+      "isMosaic": true,
+      "notes": "Hoja de acciones y expresiones; no incluye un turnaround ortográfico aislado."
+    },
+    {
+      "originalFile": "cliente3.png",
+      "originalLocation": "/home/ferney_oliveros/Descargas/KIT MARKET/cliente3.png",
+      "organizedCopy": "References/Characters/CustomerFemale01_ActionMosaic.png",
+      "sha256": "24f2a868eeb4880a6f62878b55aa2dee55688cef6c0517d685a56fd3cd737212",
+      "category": "character",
+      "represents": ["CustomerFemale01"],
+      "views": [
+        "cuerpo completo frontal y de tres cuartos",
+        "caminar, puerta, carro, espera y estante",
+        "cesta, checkout, pago y bolsa",
+        "primeros planos de expresiones"
+      ],
+      "isMosaic": true,
+      "notes": "Hoja de acciones y expresiones; no incluye un turnaround ortográfico aislado."
+    },
+    {
+      "originalFile": "cliente4.png",
+      "originalLocation": "/home/ferney_oliveros/Descargas/KIT MARKET/cliente4.png",
+      "organizedCopy": "References/Characters/CustomerFemale02_ActionMosaic.png",
+      "sha256": "1f0ea98128b1c837bec0db9c5cdbf1c1642df2471fd46158c3aa9510ac279ab5",
+      "category": "character",
+      "represents": ["CustomerFemale02"],
+      "views": [
+        "cuerpo completo frontal y de tres cuartos",
+        "caminar, puerta, cesta, espera y estante",
+        "checkout, pago, bolsa y salida",
+        "primeros planos de expresiones"
+      ],
+      "isMosaic": true,
+      "notes": "Hoja de acciones y expresiones; no incluye un turnaround ortográfico aislado."
+    },
+    {
+      "originalFile": "cliente5.png",
+      "originalLocation": "/home/ferney_oliveros/Descargas/KIT MARKET/cliente5.png",
+      "organizedCopy": "References/Characters/CustomerFemale03_ActionMosaic.png",
+      "sha256": "071303b575fb6fd50cd14f94681d5bb65548579cfe4b657a1bd404e7e458a319",
+      "category": "character",
+      "represents": ["CustomerFemale03"],
+      "views": [
+        "cuerpo completo frontal y de tres cuartos",
+        "caminar, puerta, fila, carro, cesta y estante",
+        "checkout, pago, bolsa y salida",
+        "primeros planos de expresiones"
+      ],
+      "isMosaic": true,
+      "notes": "Hoja de acciones y expresiones; no incluye un turnaround ortográfico aislado."
+    },
+    {
+      "originalFile": "cliente6.png",
+      "originalLocation": "/home/ferney_oliveros/Descargas/KIT MARKET/cliente6.png",
+      "organizedCopy": "References/Characters/CustomerFemale04_ActionMosaic.png",
+      "sha256": "84726c1f67351ddc8c5cb5c9ac68c1f677a8715c9bbdac98496a4dc476dcc808",
+      "category": "archived-character-reference",
+      "represents": [],
+      "activeRosterStatus": "archived-unassigned; no fourth female customer exists",
+      "views": [
+        "cuerpo completo frontal y de tres cuartos",
+        "caminar, puerta, fila, carro, cesta y estante",
+        "checkout, pago, bolsa y salida",
+        "primeros planos de expresiones"
+      ],
+      "isMosaic": true,
+      "notes": "Hoja histórica conservada byte idéntica por procedencia. No incluye un turnaround ortográfico aislado y no corresponde a ningún personaje del reparto activo."
+    },
+    {
+      "originalFile": "PEINADOS.png",
+      "originalLocation": "/home/ferney_oliveros/Descargas/KIT MARKET/PEINADOS.png",
+      "organizedCopy": "References/Hair/Hair_01-16_CatalogMosaic.png",
+      "sha256": "47260f83089bb009ca6222fea3b2338d4397b3e02aef7d81054d90d8e9e20c0b",
+      "category": "hair",
+      "represents": [
+        "Hair_01_SidePart", "Hair_02_Fade", "Hair_03_Wavy", "Hair_04_SlickBack",
+        "Hair_05_Bob", "Hair_06_Ponytail", "Hair_07_LongWavy", "Hair_08_Bun",
+        "Hair_09_MessyMale", "Hair_10_CurlyMale", "Hair_11_SideSweepMale", "Hair_12_SpikyMale",
+        "Hair_13_FemaleBobBangs", "Hair_14_Pigtails", "Hair_15_SideBraid", "Hair_16_HighPonytail"
+      ],
+      "views": ["mosaico 4×4", "una vista frontal o de tres cuartos por peinado"],
+      "isMosaic": true,
+      "notes": "El orden visual se lee de izquierda a derecha y de arriba abajo. No contiene laterales o traseras independientes."
+    },
+    {
+      "originalFile": "GORROS.png",
+      "originalLocation": "/home/ferney_oliveros/Descargas/KIT MARKET/GORROS.png",
+      "organizedCopy": "References/Hats/Hat_01-12_CatalogMosaic.png",
+      "sha256": "dcb991f6ffef364983c289a0489cd6be36d1376646450020fabbbbd2a56fba25",
+      "category": "hat",
+      "represents": [
+        "Hat_01_RedPanda", "Hat_02_Fox", "Hat_03_Chicken", "Hat_04_Owl",
+        "Hat_05_Elephant", "Hat_06_Rhino", "Hat_07_Giraffe", "Hat_08_Panda",
+        "Hat_09_Frog", "Hat_10_Cow", "Hat_11_Rabbit", "Hat_12_Capybara"
+      ],
+      "views": ["mosaico 3×4", "una vista frontal o ligeramente de tres cuartos por gorro"],
+      "isMosaic": true,
+      "notes": "El orden visual se lee de izquierda a derecha y de arriba abajo. No contiene laterales o traseras independientes."
+    },
+    {
+      "originalFile": "MOBILIARIO.png",
+      "originalLocation": "/home/ferney_oliveros/Descargas/KIT MARKET/MOBILIARIO.png",
+      "organizedCopy": "References/Furniture/Furniture_EquipmentCatalog_Mosaic.png",
+      "sha256": "bc3a175fffa83ddadc3ca1be33417ca7d5c33d635d17af2e626958b1575e20f2",
+      "category": "furniture",
+      "represents": [
+        "building modules", "checkout equipment", "shopping cart", "basket",
+        "bakery and utility equipment", "cold storage", "stockroom props", "signage and security props"
+      ],
+      "views": ["catálogo de piezas aisladas en vistas isométricas o de tres cuartos"],
+      "isMosaic": true,
+      "notes": "No contiene ortográficas aisladas ni medidas. Se conserva como catálogo completo."
+    },
+    {
+      "originalFile": "MOBILIARIO2.png",
+      "originalLocation": "/home/ferney_oliveros/Descargas/KIT MARKET/MOBILIARIO2.png",
+      "organizedCopy": "References/Furniture/Furniture_DisplayCatalog_Mosaic.png",
+      "sha256": "65befa69c6af99696fc825991423ceb5406f737bad4b75c766774862ca2b4f0c",
+      "category": "furniture",
+      "represents": [
+        "wall shelves", "gondolas", "endcaps", "produce displays",
+        "refrigerated displays", "display accessories", "wooden crate", "shopping basket"
+      ],
+      "views": ["catálogo de piezas aisladas en vistas isométricas o de tres cuartos"],
+      "isMosaic": true,
+      "notes": "No contiene ortográficas aisladas ni medidas. Se conserva como catálogo completo."
+    },
+    {
+      "originalFile": "ANIMACIONES.png",
+      "originalLocation": "/home/ferney_oliveros/Descargas/KIT MARKET/ANIMACIONES.png",
+      "organizedCopy": "References/Other/Animation_ActionCatalog_Mosaic.png",
+      "sha256": "364a35b97e0c98e91a70d33a855cb6b0f00f7dab64b2f63666b332e7181d7387",
+      "category": "other",
+      "represents": ["AdultMale", "animation and interaction direction"],
+      "views": [
+        "múltiples poses frontales y de tres cuartos",
+        "locomoción, puerta, saludo, transporte y surtido",
+        "checkout, limpieza, cultivo y cosecha",
+        "gestos y expresiones"
+      ],
+      "isMosaic": true,
+      "notes": "Mosaico de acciones; no es un turnaround ortográfico. Es byte idéntico a POSES DUEÑO.png y se conserva por procedencia."
+    },
+    {
+      "originalFile": "HUERTA.png",
+      "originalLocation": "/home/ferney_oliveros/Descargas/KIT MARKET/HUERTA.png",
+      "organizedCopy": "References/Other/FarmCatalog_Mosaic.png",
+      "sha256": "a2236aed71c45923d0e01f7b6912b449f4bead0e064d70a30c524ada90c2d447",
+      "category": "other",
+      "represents": [
+        "farm plots and soil states", "fences and gate", "irrigation props",
+        "seed and compost props", "crop growth stages", "scarecrow", "greenhouse"
+      ],
+      "views": ["catálogo de piezas aisladas en vistas isométricas o de tres cuartos"],
+      "isMosaic": true,
+      "notes": "Incluye estados y variantes visuales en un único mosaico; no contiene ortográficas aisladas ni medidas."
+    }
+  ]
+}

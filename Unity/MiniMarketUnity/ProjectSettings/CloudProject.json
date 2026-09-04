@@ -1,0 +1,10 @@
+{
+  "projectId": "9198091a-0143-4dd2-999e-f6add58b7d25",
+  "projectName": "MiniMarketUnity",
+  "services": {
+    "analytics": false,
+    "crashReporting": false,
+    "cloudSave": false
+  },
+  "note": "El backend existente sigue siendo la autoridad. Unity Cloud no reemplaza la persistencia del juego."
+}

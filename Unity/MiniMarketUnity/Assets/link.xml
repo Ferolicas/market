@@ -1,0 +1,10 @@
+<linker>
+  <!-- GameObject.CreatePrimitive resolves these collider types natively by
+       name in IL2CPP. Preserve them so runtime furniture can be generated
+       without noisy "class does not exist" errors in WebGL. -->
+  <assembly fullname="UnityEngine.PhysicsModule">
+    <type fullname="UnityEngine.BoxCollider" preserve="all" />
+    <type fullname="UnityEngine.CapsuleCollider" preserve="all" />
+    <type fullname="UnityEngine.SphereCollider" preserve="all" />
+  </assembly>
+</linker>

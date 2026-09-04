@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="9" result="Passed" total="9" passed="9" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-09-03 04:03:12Z" end-time="2026-09-03 04:03:12Z" duration="0.3087697">
+  <test-suite type="TestSuite" id="1000" name="Mini Market" fullname="Mini Market" runstate="Runnable" testcasecount="9" result="Passed" start-time="2026-09-03 04:03:12Z" end-time="2026-09-03 04:03:12Z" duration="0.308770" total="9" passed="9" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="EditMode" />
+    </properties>
+    <test-suite type="Assembly" id="1010" name="MiniMarket.Tests.dll" fullname="/home/ferney_oliveros/Mini Market/Unity/MiniMarketUnity/Library/ScriptAssemblies/MiniMarket.Tests.dll" runstate="Runnable" testcasecount="8" result="Passed" start-time="2026-09-03 04:03:12Z" end-time="2026-09-03 04:03:12Z" duration="0.304704" total="8" passed="8" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="258265" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="EditMode" />
+        <property name="EditorOnly" value="True" />
+      </properties>
+      <test-suite type="TestSuite" id="1011" name="MiniMarket" fullname="MiniMarket" runstate="Runnable" testcasecount="8" result="Passed" start-time="2026-09-03 04:03:12Z" end-time="2026-09-03 04:03:12Z" duration="0.304512" total="8" passed="8" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="1012" name="Tests" fullname="MiniMarket.Tests" runstate="Runnable" testcasecount="8" result="Passed" start-time="2026-09-03 04:03:12Z" end-time="2026-09-03 04:03:12Z" duration="0.304450" total="8" passed="8" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestFixture" id="1001" name="CoreSystemsTests" fullname="MiniMarket.Tests.CoreSystemsTests" classname="MiniMarket.Tests.CoreSystemsTests" runstate="Runnable" testcasecount="8" result="Passed" start-time="2026-09-03 04:03:12Z" end-time="2026-09-03 04:03:12Z" duration="0.303991" total="8" passed="8" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-case id="1005" name="BuildProgressionRequiresFundingAndObjective" fullname="MiniMarket.Tests.CoreSystemsTests.BuildProgressionRequiresFundingAndObjective" methodname="BuildProgressionRequiresFundingAndObjective" classname="MiniMarket.Tests.CoreSystemsTests" runstate="Runnable" seed="1375151244" result="Passed" start-time="2026-09-03 04:03:12Z" end-time="2026-09-03 04:03:12Z" duration="0.066875" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1009" name="FarmerPrioritizesWheatWhenBreadChainIsEmpty" fullname="MiniMarket.Tests.CoreSystemsTests.FarmerPrioritizesWheatWhenBreadChainIsEmpty" methodname="FarmerPrioritizesWheatWhenBreadChainIsEmpty" classname="MiniMarket.Tests.CoreSystemsTests" runstate="Runnable" seed="1637619481" result="Passed" start-time="2026-09-03 04:03:12Z" end-time="2026-09-03 04:03:12Z" duration="0.031846" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1004" name="InventoryAndCheckoutUseExtractedNextEconomy" fullname="MiniMarket.Tests.CoreSystemsTests.InventoryAndCheckoutUseExtractedNextEconomy" methodname="InventoryAndCheckoutUseExtractedNextEconomy" classname="MiniMarket.Tests.CoreSystemsTests" runstate="Runnable" seed="2017892708" result="Passed" start-time="2026-09-03 04:03:12Z" end-time="2026-09-03 04:03:12Z" duration="0.049694" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1008" name="LockedJuiceMachineCannotProduceAtLevelFour" fullname="MiniMarket.Tests.CoreSystemsTests.LockedJuiceMachineCannotProduceAtLevelFour" methodname="LockedJuiceMachineCannotProduceAtLevelFour" classname="MiniMarket.Tests.CoreSystemsTests" runstate="Runnable" seed="348375418" result="Passed" start-time="2026-09-03 04:03:12Z" end-time="2026-09-03 04:03:12Z" duration="0.049646" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1006" name="PlayerCanAlwaysReturnCarryWithoutLosingItems" fullname="MiniMarket.Tests.CoreSystemsTests.PlayerCanAlwaysReturnCarryWithoutLosingItems" methodname="PlayerCanAlwaysReturnCarryWithoutLosingItems" classname="MiniMarket.Tests.CoreSystemsTests" runstate="Runnable" seed="825388907" result="Passed" start-time="2026-09-03 04:03:12Z" end-time="2026-09-03 04:03:12Z" duration="0.050192" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1007" name="ProductAvailabilityIsConsistentAcrossCustomersAndMachines" fullname="MiniMarket.Tests.CoreSystemsTests.ProductAvailabilityIsConsistentAcrossCustomersAndMachines" methodname="ProductAvailabilityIsConsistentAcrossCustomersAndMachines" classname="MiniMarket.Tests.CoreSystemsTests" runstate="Runnable" seed="929250370" result="Passed" start-time="2026-09-03 04:03:12Z" end-time="2026-09-03 04:03:12Z" duration="0.048886" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1002" name="QueueCompactsWithoutDuplicatingCustomers" fullname="MiniMarket.Tests.CoreSystemsTests.QueueCompactsWithoutDuplicatingCustomers" methodname="QueueCompactsWithoutDuplicatingCustomers" classname="MiniMarket.Tests.CoreSystemsTests" runstate="Runnable" seed="1409608034" result="Passed" start-time="2026-09-03 04:03:12Z" end-time="2026-09-03 04:03:12Z" duration="0.000757" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1003" name="RemotePersistenceCadenceIsExactlyThirtyMinutes" fullname="MiniMarket.Tests.CoreSystemsTests.RemotePersistenceCadenceIsExactlyThirtyMinutes" methodname="RemotePersistenceCadenceIsExactlyThirtyMinutes" classname="MiniMarket.Tests.CoreSystemsTests" runstate="Runnable" seed="1468094857" result="Passed" start-time="2026-09-03 04:03:12Z" end-time="2026-09-03 04:03:12Z" duration="0.000334" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+    <test-suite type="Assembly" id="1015" name="Unity.Addressables.DocExampleCode.Editor.Tests.dll" fullname="/home/ferney_oliveros/Mini Market/Unity/MiniMarketUnity/Library/ScriptAssemblies/Unity.Addressables.DocExampleCode.Editor.Tests.dll" runstate="Runnable" testcasecount="1" result="Passed" start-time="2026-09-03 04:03:12Z" end-time="2026-09-03 04:03:12Z" duration="0.000599" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="258265" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="EditMode" />
+        <property name="EditorOnly" value="True" />
+      </properties>
+      <test-suite type="TestSuite" id="1016" name="AddressableAssets" fullname="AddressableAssets" runstate="Runnable" testcasecount="1" result="Passed" start-time="2026-09-03 04:03:12Z" end-time="2026-09-03 04:03:12Z" duration="0.000524" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="1017" name="DocExampleCode" fullname="AddressableAssets.DocExampleCode" runstate="Runnable" testcasecount="1" result="Passed" start-time="2026-09-03 04:03:12Z" end-time="2026-09-03 04:03:12Z" duration="0.000475" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestFixture" id="1013" name="TestStub" fullname="AddressableAssets.DocExampleCode.TestStub" classname="AddressableAssets.DocExampleCode.TestStub" runstate="Runnable" testcasecount="1" result="Passed" start-time="2026-09-03 04:03:12Z" end-time="2026-09-03 04:03:12Z" duration="0.000422" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-case id="1014" name="RequiredTest" fullname="AddressableAssets.DocExampleCode.TestStub.RequiredTest" methodname="RequiredTest" classname="AddressableAssets.DocExampleCode.TestStub" runstate="Runnable" seed="575143686" result="Passed" start-time="2026-09-03 04:03:12Z" end-time="2026-09-03 04:03:12Z" duration="0.000155" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+              <output><![CDATA[Saving results to: /home/ferney_oliveros/.config/unity3d/Olcas/Mini Market/TestResults.xml
+]]></output>
+            </test-case>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>

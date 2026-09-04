@@ -1,0 +1,3953 @@
+{
+  "schemaVersion": 1,
+  "source": "Next.js/React Three Mini Market",
+  "generatedFromTrackedSources": true,
+  "catalog": {
+    "CHARACTERS": [
+      {
+        "id": "adult-man",
+        "name": "Hombre",
+        "description": "Adulto"
+      },
+      {
+        "id": "adult-woman",
+        "name": "Mujer",
+        "description": "Adulta"
+      },
+      {
+        "id": "boy",
+        "name": "Niño",
+        "description": "Joven"
+      },
+      {
+        "id": "girl",
+        "name": "Niña",
+        "description": "Joven"
+      }
+    ],
+    "COUNTRIES": {
+      "ES": {
+        "code": "ES",
+        "name": "España",
+        "currency": "EUR",
+        "locale": "es-ES",
+        "corporateTaxRate": 0.25,
+        "salesTaxRate": 0.21,
+        "payrollBurdenRate": 0.31,
+        "startingCapitalMinor": 220000
+      },
+      "US": {
+        "code": "US",
+        "name": "Estados Unidos",
+        "currency": "USD",
+        "locale": "en-US",
+        "corporateTaxRate": 0.21,
+        "salesTaxRate": 0.07,
+        "payrollBurdenRate": 0.153,
+        "startingCapitalMinor": 250000
+      },
+      "CO": {
+        "code": "CO",
+        "name": "Colombia",
+        "currency": "COP",
+        "locale": "es-CO",
+        "corporateTaxRate": 0.35,
+        "salesTaxRate": 0.19,
+        "payrollBurdenRate": 0.3,
+        "startingCapitalMinor": 900000000
+      },
+      "MX": {
+        "code": "MX",
+        "name": "México",
+        "currency": "MXN",
+        "locale": "es-MX",
+        "corporateTaxRate": 0.3,
+        "salesTaxRate": 0.16,
+        "payrollBurdenRate": 0.28,
+        "startingCapitalMinor": 4200000
+      },
+      "AR": {
+        "code": "AR",
+        "name": "Argentina",
+        "currency": "ARS",
+        "locale": "es-AR",
+        "corporateTaxRate": 0.35,
+        "salesTaxRate": 0.21,
+        "payrollBurdenRate": 0.29,
+        "startingCapitalMinor": 380000000
+      },
+      "CL": {
+        "code": "CL",
+        "name": "Chile",
+        "currency": "CLP",
+        "locale": "es-CL",
+        "corporateTaxRate": 0.27,
+        "salesTaxRate": 0.19,
+        "payrollBurdenRate": 0.24,
+        "startingCapitalMinor": 180000000
+      },
+      "PE": {
+        "code": "PE",
+        "name": "Perú",
+        "currency": "PEN",
+        "locale": "es-PE",
+        "corporateTaxRate": 0.295,
+        "salesTaxRate": 0.18,
+        "payrollBurdenRate": 0.23,
+        "startingCapitalMinor": 780000
+      }
+    },
+    "EMPLOYEE_NAMES": [
+      "Luna",
+      "Mateo",
+      "Sofía",
+      "Leo",
+      "Emma",
+      "Nico",
+      "Vera",
+      "Bruno",
+      "Mía",
+      "Teo",
+      "Alma",
+      "Gael"
+    ],
+    "FRANCHISE_TEMPLATES": [
+      {
+        "id": "barrio",
+        "name": "Mercado del Barrio",
+        "city": "Distrito inicial",
+        "unlockLevel": 1,
+        "purchaseCostMinor": 0
+      },
+      {
+        "id": "estacion",
+        "name": "Market Estación",
+        "city": "Centro",
+        "unlockLevel": 5,
+        "purchaseCostMinor": 850000
+      },
+      {
+        "id": "marina",
+        "name": "Market Marina",
+        "city": "Zona costera",
+        "unlockLevel": 10,
+        "purchaseCostMinor": 2200000
+      },
+      {
+        "id": "aeropuerto",
+        "name": "Market Terminal",
+        "city": "Aeropuerto",
+        "unlockLevel": 16,
+        "purchaseCostMinor": 5800000
+      },
+      {
+        "id": "campus",
+        "name": "Market Campus",
+        "city": "Ciudad universitaria",
+        "unlockLevel": 24,
+        "purchaseCostMinor": 14500000
+      },
+      {
+        "id": "megastore",
+        "name": "Olcas Mega Market",
+        "city": "Distrito financiero",
+        "unlockLevel": 30,
+        "purchaseCostMinor": 42000000
+      }
+    ],
+    "HAIRSTYLES": [
+      {
+        "id": "side-part",
+        "name": "Raya lateral"
+      },
+      {
+        "id": "fade",
+        "name": "Degradado"
+      },
+      {
+        "id": "waves",
+        "name": "Ondulado"
+      },
+      {
+        "id": "swept",
+        "name": "Peinado atrás"
+      },
+      {
+        "id": "bob",
+        "name": "Bob"
+      },
+      {
+        "id": "ponytail",
+        "name": "Coleta"
+      },
+      {
+        "id": "long-wavy",
+        "name": "Largo ondulado"
+      },
+      {
+        "id": "bun",
+        "name": "Moño"
+      },
+      {
+        "id": "messy",
+        "name": "Despeinado"
+      },
+      {
+        "id": "curls",
+        "name": "Rizos"
+      },
+      {
+        "id": "short-fringe",
+        "name": "Flequillo corto"
+      },
+      {
+        "id": "quiff",
+        "name": "Tupé"
+      },
+      {
+        "id": "blunt-bob",
+        "name": "Bob recto"
+      },
+      {
+        "id": "pigtails",
+        "name": "Dos coletas"
+      },
+      {
+        "id": "braid",
+        "name": "Trenza"
+      },
+      {
+        "id": "high-ponytail",
+        "name": "Coleta alta"
+      }
+    ],
+    "HATS": [
+      {
+        "id": "red-panda",
+        "name": "Panda rojo",
+        "emoji": "🦊",
+        "color": "#b84f2f"
+      },
+      {
+        "id": "red-fox",
+        "name": "Zorro rojo",
+        "emoji": "🦊",
+        "color": "#e26436"
+      },
+      {
+        "id": "chicken",
+        "name": "Gallina",
+        "emoji": "🐔",
+        "color": "#fff1c9"
+      },
+      {
+        "id": "owl",
+        "name": "Búho",
+        "emoji": "🦉",
+        "color": "#7d5d42"
+      },
+      {
+        "id": "elephant",
+        "name": "Elefante",
+        "emoji": "🐘",
+        "color": "#84a2ad"
+      },
+      {
+        "id": "rhino",
+        "name": "Rinoceronte",
+        "emoji": "🦏",
+        "color": "#8f9699"
+      },
+      {
+        "id": "giraffe",
+        "name": "Jirafa",
+        "emoji": "🦒",
+        "color": "#e3a945"
+      },
+      {
+        "id": "panda",
+        "name": "Panda",
+        "emoji": "🐼",
+        "color": "#f4f0df"
+      },
+      {
+        "id": "frog",
+        "name": "Sapo",
+        "emoji": "🐸",
+        "color": "#70b85d"
+      },
+      {
+        "id": "cow",
+        "name": "Vaca",
+        "emoji": "🐮",
+        "color": "#f5efe1"
+      },
+      {
+        "id": "rabbit",
+        "name": "Conejo",
+        "emoji": "🐰",
+        "color": "#f2eee6"
+      },
+      {
+        "id": "capybara",
+        "name": "Capibara",
+        "emoji": "🤎",
+        "color": "#9a6d4d"
+      }
+    ],
+    "PRODUCTS": {
+      "wheat": {
+        "name": "Trigo",
+        "emoji": "🌾",
+        "wholesaleMinor": 70,
+        "saleMinor": 110,
+        "supplier": "campo"
+      },
+      "flour": {
+        "name": "Harina",
+        "emoji": "🥣",
+        "wholesaleMinor": 120,
+        "saleMinor": 210,
+        "supplier": "campo"
+      },
+      "bread": {
+        "name": "Pan",
+        "emoji": "🥖",
+        "wholesaleMinor": 180,
+        "saleMinor": 350,
+        "supplier": "panal"
+      },
+      "corn": {
+        "name": "Maíz",
+        "emoji": "🌽",
+        "wholesaleMinor": 90,
+        "saleMinor": 700,
+        "supplier": "campo"
+      },
+      "milk": {
+        "name": "Leche",
+        "emoji": "🥛",
+        "wholesaleMinor": 130,
+        "saleMinor": 260,
+        "supplier": "fresco"
+      },
+      "eggs": {
+        "name": "Huevos",
+        "emoji": "🥚",
+        "wholesaleMinor": 160,
+        "saleMinor": 310,
+        "supplier": "fresco"
+      },
+      "cheese": {
+        "name": "Queso",
+        "emoji": "🧀",
+        "wholesaleMinor": 260,
+        "saleMinor": 2600,
+        "supplier": "fresco"
+      },
+      "apples": {
+        "name": "Manzanas",
+        "emoji": "🍎",
+        "wholesaleMinor": 90,
+        "saleMinor": 190,
+        "supplier": "fresco"
+      },
+      "tomatoes": {
+        "name": "Tomates",
+        "emoji": "🍅",
+        "wholesaleMinor": 80,
+        "saleMinor": 175,
+        "supplier": "fresco"
+      },
+      "coffee": {
+        "name": "Café",
+        "emoji": "☕",
+        "wholesaleMinor": 280,
+        "saleMinor": 540,
+        "supplier": "andes"
+      },
+      "juice": {
+        "name": "Zumo",
+        "emoji": "🧃",
+        "wholesaleMinor": 170,
+        "saleMinor": 330,
+        "supplier": "fresco"
+      }
+    },
+    "ROLE_INFO": {
+      "farmer": {
+        "name": "Granjero",
+        "salaryMinor": 2800,
+        "unlockLevel": 2,
+        "description": "Cultiva trigo y lleva materia prima."
+      },
+      "operator": {
+        "name": "Operario",
+        "salaryMinor": 3200,
+        "unlockLevel": 4,
+        "description": "Carga molinos y hornos."
+      },
+      "stocker": {
+        "name": "Reponedor",
+        "salaryMinor": 3000,
+        "unlockLevel": 3,
+        "description": "Surte todas las estanterías."
+      },
+      "cashier": {
+        "name": "Cajero",
+        "salaryMinor": 3400,
+        "unlockLevel": 5,
+        "description": "Atiende cobros y métodos de pago."
+      },
+      "builder": {
+        "name": "Constructor",
+        "salaryMinor": 4200,
+        "unlockLevel": 7,
+        "description": "Reduce el coste de ampliaciones."
+      },
+      "manager": {
+        "name": "Gerente",
+        "salaryMinor": 5600,
+        "unlockLevel": 12,
+        "description": "Coordina el negocio cuando viajas."
+      }
+    },
+    "SUPPLIERS": [
+      {
+        "id": "campo",
+        "name": "Campo Cercano",
+        "leadMinutes": 80,
+        "discount": 0,
+        "unlockLevel": 1
+      },
+      {
+        "id": "fresco",
+        "name": "Ruta Fresca",
+        "leadMinutes": 110,
+        "discount": 0.04,
+        "unlockLevel": 2
+      },
+      {
+        "id": "panal",
+        "name": "Panal Mayorista",
+        "leadMinutes": 65,
+        "discount": 0.07,
+        "unlockLevel": 5
+      },
+      {
+        "id": "andes",
+        "name": "Origen Andes",
+        "leadMinutes": 140,
+        "discount": 0.11,
+        "unlockLevel": 9
+      }
+    ]
+  },
+  "productConfig": {
+    "tomatoes": {
+      "id": "tomatoes",
+      "growMs": 4000,
+      "yield": 1,
+      "saleMinor": 400,
+      "shelfCapacity": 12
+    },
+    "wheat": {
+      "id": "wheat",
+      "growMs": 6000,
+      "yield": 1
+    },
+    "corn": {
+      "id": "corn",
+      "growMs": 7000,
+      "yield": 1,
+      "saleMinor": 700,
+      "shelfCapacity": 12
+    },
+    "eggs": {
+      "id": "eggs",
+      "cycleMs": 8000,
+      "yield": 1,
+      "saleMinor": 900,
+      "shelfCapacity": 10
+    },
+    "milk": {
+      "id": "milk",
+      "cycleMs": 10000,
+      "yield": 1,
+      "saleMinor": 1000,
+      "shelfCapacity": 10
+    },
+    "flour": {
+      "id": "flour",
+      "cycleMs": 4000,
+      "yield": 1,
+      "recipe": {
+        "wheat": 2
+      }
+    },
+    "bread": {
+      "id": "bread",
+      "cycleMs": 6000,
+      "yield": 1,
+      "saleMinor": 1400,
+      "shelfCapacity": 8,
+      "recipe": {
+        "flour": 1
+      }
+    },
+    "cheese": {
+      "id": "cheese",
+      "cycleMs": 8000,
+      "yield": 1,
+      "saleMinor": 2600,
+      "shelfCapacity": 8,
+      "recipe": {
+        "milk": 2
+      }
+    },
+    "juice": {
+      "id": "juice",
+      "cycleMs": 5000,
+      "yield": 1,
+      "saleMinor": 1100,
+      "shelfCapacity": 8,
+      "recipe": {
+        "tomatoes": 2
+      }
+    }
+  },
+  "levels": [
+    {
+      "level": 1,
+      "costMinor": 0,
+      "unlock": "Tomate, mesa y caja"
+    },
+    {
+      "level": 2,
+      "costMinor": 4000,
+      "unlock": "Segundo cultivo y demanda de manzanas"
+    },
+    {
+      "level": 3,
+      "costMinor": 8000,
+      "unlock": "Capacidad 5 y hasta 4 clientes"
+    },
+    {
+      "level": 4,
+      "costMinor": 14000,
+      "unlock": "Ampliación y trigo"
+    },
+    {
+      "level": 5,
+      "costMinor": 22000,
+      "unlock": "Molino y harina"
+    },
+    {
+      "level": 6,
+      "costMinor": 32000,
+      "unlock": "Horno y panadería"
+    },
+    {
+      "level": 7,
+      "costMinor": 48000,
+      "unlock": "Caja más rápida"
+    },
+    {
+      "level": 8,
+      "costMinor": 65000,
+      "unlock": "Gallinero y huevos"
+    },
+    {
+      "level": 9,
+      "costMinor": 85000,
+      "unlock": "Reponedor"
+    },
+    {
+      "level": 10,
+      "costMinor": 110000,
+      "unlock": "Ampliación lateral y rango 2"
+    },
+    {
+      "level": 11,
+      "costMinor": 140000,
+      "unlock": "Maíz y mesa"
+    },
+    {
+      "level": 12,
+      "costMinor": 180000,
+      "unlock": "Velocidad +8 %"
+    },
+    {
+      "level": 13,
+      "costMinor": 230000,
+      "unlock": "Vaca y refrigerador"
+    },
+    {
+      "level": 14,
+      "costMinor": 290000,
+      "unlock": "Cajero"
+    },
+    {
+      "level": 15,
+      "costMinor": 370000,
+      "unlock": "Capacidad 8"
+    },
+    {
+      "level": 16,
+      "costMinor": 460000,
+      "unlock": "Quesera"
+    },
+    {
+      "level": 17,
+      "costMinor": 580000,
+      "unlock": "Segunda caja"
+    },
+    {
+      "level": 18,
+      "costMinor": 720000,
+      "unlock": "Almacén y muelle"
+    },
+    {
+      "level": 19,
+      "costMinor": 890000,
+      "unlock": "Hito de proveedores"
+    },
+    {
+      "level": 20,
+      "costMinor": 1100000,
+      "unlock": "Ampliación trasera y rango 3"
+    },
+    {
+      "level": 21,
+      "costMinor": 1350000,
+      "unlock": "Máquina de zumo"
+    },
+    {
+      "level": 22,
+      "costMinor": 1650000,
+      "unlock": "Granjero"
+    },
+    {
+      "level": 23,
+      "costMinor": 2000000,
+      "unlock": "Luces y fachada"
+    },
+    {
+      "level": 24,
+      "costMinor": 2400000,
+      "unlock": "Capacidad 12 y estantes T3"
+    },
+    {
+      "level": 25,
+      "costMinor": 2900000,
+      "unlock": "Listas y gestos"
+    },
+    {
+      "level": 26,
+      "costMinor": 3500000,
+      "unlock": "Operador"
+    },
+    {
+      "level": 27,
+      "costMinor": 4200000,
+      "unlock": "Tercera zona y endcap"
+    },
+    {
+      "level": 28,
+      "costMinor": 5000000,
+      "unlock": "Fríos, puertas y caja premium"
+    },
+    {
+      "level": 29,
+      "costMinor": 6000000,
+      "unlock": "Último hito operativo"
+    },
+    {
+      "level": 30,
+      "costMinor": 7500000,
+      "unlock": "Rango 4, fachada y franquicia"
+    }
+  ],
+  "initialState": {
+    "schemaVersion": 4,
+    "revision": 0,
+    "countryCode": "ES",
+    "currency": "EUR",
+    "balanceMinor": 220000,
+    "level": 1,
+    "xp": 0,
+    "reputation": 0,
+    "day": 1,
+    "minuteOfDay": 450,
+    "currentFranchiseId": "barrio",
+    "avatar": {
+      "body": "adult-man",
+      "hair": "side-part",
+      "hairColor": "#332b27",
+      "skin": "#bd815f",
+      "shirt": "#76aee5",
+      "hat": "none"
+    },
+    "franchises": [
+      {
+        "id": "barrio",
+        "name": "Mercado del Barrio",
+        "city": "Distrito inicial",
+        "unlockLevel": 1,
+        "purchaseCostMinor": 0,
+        "owned": true,
+        "open": false,
+        "licenseActive": true,
+        "licenseDaysLeft": 7,
+        "expansionLevel": 1,
+        "shelvesLevel": 1,
+        "checkoutLevel": 1,
+        "warehouse": {
+          "wheat": 0,
+          "flour": 0,
+          "bread": 0,
+          "corn": 0,
+          "milk": 0,
+          "eggs": 0,
+          "cheese": 0,
+          "apples": 0,
+          "tomatoes": 0,
+          "coffee": 0,
+          "juice": 0
+        },
+        "shelves": {
+          "wheat": 0,
+          "flour": 0,
+          "bread": 0,
+          "corn": 0,
+          "milk": 8,
+          "eggs": 6,
+          "cheese": 0,
+          "apples": 8,
+          "tomatoes": 0,
+          "coffee": 0,
+          "juice": 0
+        },
+        "machines": {
+          "flourMillLevel": 1,
+          "bakeryLevel": 1,
+          "flourQueue": 0,
+          "breadQueue": 0
+        },
+        "carry": {
+          "capacity": 3,
+          "items": {}
+        },
+        "crops": [
+          {
+            "id": "crop-tomato-1",
+            "productId": "tomatoes",
+            "status": "GROWING",
+            "plantedAt": 0,
+            "readyAt": 4000,
+            "available": 0,
+            "tier": 1
+          },
+          {
+            "id": "crop-wheat-1",
+            "productId": "wheat",
+            "status": "LOCKED",
+            "plantedAt": 0,
+            "readyAt": 0,
+            "available": 0,
+            "tier": 1
+          },
+          {
+            "id": "crop-corn-1",
+            "productId": "corn",
+            "status": "LOCKED",
+            "plantedAt": 0,
+            "readyAt": 0,
+            "available": 0,
+            "tier": 1
+          }
+        ],
+        "productionMachines": [
+          {
+            "id": "flour-mill-1",
+            "productId": "flour",
+            "status": "LOCKED",
+            "input": {},
+            "output": 0,
+            "outputCapacity": 8,
+            "startedAt": null,
+            "completesAt": null,
+            "tier": 1
+          },
+          {
+            "id": "bread-oven-1",
+            "productId": "bread",
+            "status": "LOCKED",
+            "input": {},
+            "output": 0,
+            "outputCapacity": 8,
+            "startedAt": null,
+            "completesAt": null,
+            "tier": 1
+          },
+          {
+            "id": "cheese-maker-1",
+            "productId": "cheese",
+            "status": "LOCKED",
+            "input": {},
+            "output": 0,
+            "outputCapacity": 8,
+            "startedAt": null,
+            "completesAt": null,
+            "tier": 1
+          },
+          {
+            "id": "juice-machine-1",
+            "productId": "juice",
+            "status": "LOCKED",
+            "input": {},
+            "output": 0,
+            "outputCapacity": 8,
+            "startedAt": null,
+            "completesAt": null,
+            "tier": 1
+          },
+          {
+            "id": "chicken-coop-1",
+            "productId": "eggs",
+            "status": "LOCKED",
+            "input": {},
+            "output": 0,
+            "outputCapacity": 10,
+            "startedAt": null,
+            "completesAt": null,
+            "tier": 1
+          },
+          {
+            "id": "cow-station-1",
+            "productId": "milk",
+            "status": "LOCKED",
+            "input": {},
+            "output": 0,
+            "outputCapacity": 10,
+            "startedAt": null,
+            "completesAt": null,
+            "tier": 1
+          }
+        ],
+        "buildProjects": [
+          {
+            "id": "level-2",
+            "level": 2,
+            "costMinor": 4000,
+            "contributedMinor": 0,
+            "completed": false
+          }
+        ],
+        "checkoutTransactions": [],
+        "returnsBin": {
+          "wheat": 0,
+          "flour": 0,
+          "bread": 0,
+          "corn": 0,
+          "milk": 0,
+          "eggs": 0,
+          "cheese": 0,
+          "apples": 0,
+          "tomatoes": 0,
+          "coffee": 0,
+          "juice": 0
+        },
+        "returnedCartCount": 6,
+        "customers": [],
+        "nextCustomerSequence": 1,
+        "lastCustomerSpawnAt": -3000,
+        "queueCustomerIds": [],
+        "unlockedAreas": [
+          "store-floor",
+          "farm-tomato",
+          "checkout-1"
+        ],
+        "stationTiers": {
+          "crop-tomato-1": 1,
+          "shelves-1": 1,
+          "checkout-1": 1
+        },
+        "upgradeContributions": {},
+        "playerSpeedTier": 1,
+        "playerCapacityTier": 1,
+        "storeRank": 1,
+        "structureRevision": 1,
+        "doorState": "CLOSED",
+        "doorProgress": 0,
+        "doorPlayerPresent": false,
+        "doorEmptySince": null,
+        "lightsOn": false,
+        "employees": [],
+        "revenueTodayMinor": 0,
+        "expensesTodayMinor": 0,
+        "customersToday": 0,
+        "rating": 3.5
+      },
+      {
+        "id": "estacion",
+        "name": "Market Estación",
+        "city": "Centro",
+        "unlockLevel": 5,
+        "purchaseCostMinor": 850000,
+        "owned": false,
+        "open": false,
+        "licenseActive": false,
+        "licenseDaysLeft": 0,
+        "expansionLevel": 1,
+        "shelvesLevel": 1,
+        "checkoutLevel": 1,
+        "warehouse": {
+          "wheat": 0,
+          "flour": 0,
+          "bread": 0,
+          "corn": 0,
+          "milk": 0,
+          "eggs": 0,
+          "cheese": 0,
+          "apples": 0,
+          "tomatoes": 0,
+          "coffee": 0,
+          "juice": 0
+        },
+        "shelves": {
+          "wheat": 0,
+          "flour": 0,
+          "bread": 0,
+          "corn": 0,
+          "milk": 0,
+          "eggs": 0,
+          "cheese": 0,
+          "apples": 0,
+          "tomatoes": 0,
+          "coffee": 0,
+          "juice": 0
+        },
+        "machines": {
+          "flourMillLevel": 1,
+          "bakeryLevel": 1,
+          "flourQueue": 0,
+          "breadQueue": 0
+        },
+        "carry": {
+          "capacity": 3,
+          "items": {}
+        },
+        "crops": [
+          {
+            "id": "crop-tomato-1",
+            "productId": "tomatoes",
+            "status": "GROWING",
+            "plantedAt": 0,
+            "readyAt": 4000,
+            "available": 0,
+            "tier": 1
+          },
+          {
+            "id": "crop-wheat-1",
+            "productId": "wheat",
+            "status": "LOCKED",
+            "plantedAt": 0,
+            "readyAt": 0,
+            "available": 0,
+            "tier": 1
+          },
+          {
+            "id": "crop-corn-1",
+            "productId": "corn",
+            "status": "LOCKED",
+            "plantedAt": 0,
+            "readyAt": 0,
+            "available": 0,
+            "tier": 1
+          }
+        ],
+        "productionMachines": [
+          {
+            "id": "flour-mill-1",
+            "productId": "flour",
+            "status": "LOCKED",
+            "input": {},
+            "output": 0,
+            "outputCapacity": 8,
+            "startedAt": null,
+            "completesAt": null,
+            "tier": 1
+          },
+          {
+            "id": "bread-oven-1",
+            "productId": "bread",
+            "status": "LOCKED",
+            "input": {},
+            "output": 0,
+            "outputCapacity": 8,
+            "startedAt": null,
+            "completesAt": null,
+            "tier": 1
+          },
+          {
+            "id": "cheese-maker-1",
+            "productId": "cheese",
+            "status": "LOCKED",
+            "input": {},
+            "output": 0,
+            "outputCapacity": 8,
+            "startedAt": null,
+            "completesAt": null,
+            "tier": 1
+          },
+          {
+            "id": "juice-machine-1",
+            "productId": "juice",
+            "status": "LOCKED",
+            "input": {},
+            "output": 0,
+            "outputCapacity": 8,
+            "startedAt": null,
+            "completesAt": null,
+            "tier": 1
+          },
+          {
+            "id": "chicken-coop-1",
+            "productId": "eggs",
+            "status": "LOCKED",
+            "input": {},
+            "output": 0,
+            "outputCapacity": 10,
+            "startedAt": null,
+            "completesAt": null,
+            "tier": 1
+          },
+          {
+            "id": "cow-station-1",
+            "productId": "milk",
+            "status": "LOCKED",
+            "input": {},
+            "output": 0,
+            "outputCapacity": 10,
+            "startedAt": null,
+            "completesAt": null,
+            "tier": 1
+          }
+        ],
+        "buildProjects": [
+          {
+            "id": "level-2",
+            "level": 2,
+            "costMinor": 4000,
+            "contributedMinor": 0,
+            "completed": false
+          }
+        ],
+        "checkoutTransactions": [],
+        "returnsBin": {
+          "wheat": 0,
+          "flour": 0,
+          "bread": 0,
+          "corn": 0,
+          "milk": 0,
+          "eggs": 0,
+          "cheese": 0,
+          "apples": 0,
+          "tomatoes": 0,
+          "coffee": 0,
+          "juice": 0
+        },
+        "returnedCartCount": 6,
+        "customers": [],
+        "nextCustomerSequence": 1,
+        "lastCustomerSpawnAt": -3000,
+        "queueCustomerIds": [],
+        "unlockedAreas": [
+          "store-floor",
+          "farm-tomato",
+          "checkout-1"
+        ],
+        "stationTiers": {
+          "crop-tomato-1": 1,
+          "shelves-1": 1,
+          "checkout-1": 1
+        },
+        "upgradeContributions": {},
+        "playerSpeedTier": 1,
+        "playerCapacityTier": 1,
+        "storeRank": 1,
+        "structureRevision": 1,
+        "doorState": "CLOSED",
+        "doorProgress": 0,
+        "doorPlayerPresent": false,
+        "doorEmptySince": null,
+        "lightsOn": false,
+        "employees": [],
+        "revenueTodayMinor": 0,
+        "expensesTodayMinor": 0,
+        "customersToday": 0,
+        "rating": 3.5
+      },
+      {
+        "id": "marina",
+        "name": "Market Marina",
+        "city": "Zona costera",
+        "unlockLevel": 10,
+        "purchaseCostMinor": 2200000,
+        "owned": false,
+        "open": false,
+        "licenseActive": false,
+        "licenseDaysLeft": 0,
+        "expansionLevel": 1,
+        "shelvesLevel": 1,
+        "checkoutLevel": 1,
+        "warehouse": {
+          "wheat": 0,
+          "flour": 0,
+          "bread": 0,
+          "corn": 0,
+          "milk": 0,
+          "eggs": 0,
+          "cheese": 0,
+          "apples": 0,
+          "tomatoes": 0,
+          "coffee": 0,
+          "juice": 0
+        },
+        "shelves": {
+          "wheat": 0,
+          "flour": 0,
+          "bread": 0,
+          "corn": 0,
+          "milk": 0,
+          "eggs": 0,
+          "cheese": 0,
+          "apples": 0,
+          "tomatoes": 0,
+          "coffee": 0,
+          "juice": 0
+        },
+        "machines": {
+          "flourMillLevel": 1,
+          "bakeryLevel": 1,
+          "flourQueue": 0,
+          "breadQueue": 0
+        },
+        "carry": {
+          "capacity": 3,
+          "items": {}
+        },
+        "crops": [
+          {
+            "id": "crop-tomato-1",
+            "productId": "tomatoes",
+            "status": "GROWING",
+            "plantedAt": 0,
+            "readyAt": 4000,
+            "available": 0,
+            "tier": 1
+          },
+          {
+            "id": "crop-wheat-1",
+            "productId": "wheat",
+            "status": "LOCKED",
+            "plantedAt": 0,
+            "readyAt": 0,
+            "available": 0,
+            "tier": 1
+          },
+          {
+            "id": "crop-corn-1",
+            "productId": "corn",
+            "status": "LOCKED",
+            "plantedAt": 0,
+            "readyAt": 0,
+            "available": 0,
+            "tier": 1
+          }
+        ],
+        "productionMachines": [
+          {
+            "id": "flour-mill-1",
+            "productId": "flour",
+            "status": "LOCKED",
+            "input": {},
+            "output": 0,
+            "outputCapacity": 8,
+            "startedAt": null,
+            "completesAt": null,
+            "tier": 1
+          },
+          {
+            "id": "bread-oven-1",
+            "productId": "bread",
+            "status": "LOCKED",
+            "input": {},
+            "output": 0,
+            "outputCapacity": 8,
+            "startedAt": null,
+            "completesAt": null,
+            "tier": 1
+          },
+          {
+            "id": "cheese-maker-1",
+            "productId": "cheese",
+            "status": "LOCKED",
+            "input": {},
+            "output": 0,
+            "outputCapacity": 8,
+            "startedAt": null,
+            "completesAt": null,
+            "tier": 1
+          },
+          {
+            "id": "juice-machine-1",
+            "productId": "juice",
+            "status": "LOCKED",
+            "input": {},
+            "output": 0,
+            "outputCapacity": 8,
+            "startedAt": null,
+            "completesAt": null,
+            "tier": 1
+          },
+          {
+            "id": "chicken-coop-1",
+            "productId": "eggs",
+            "status": "LOCKED",
+            "input": {},
+            "output": 0,
+            "outputCapacity": 10,
+            "startedAt": null,
+            "completesAt": null,
+            "tier": 1
+          },
+          {
+            "id": "cow-station-1",
+            "productId": "milk",
+            "status": "LOCKED",
+            "input": {},
+            "output": 0,
+            "outputCapacity": 10,
+            "startedAt": null,
+            "completesAt": null,
+            "tier": 1
+          }
+        ],
+        "buildProjects": [
+          {
+            "id": "level-2",
+            "level": 2,
+            "costMinor": 4000,
+            "contributedMinor": 0,
+            "completed": false
+          }
+        ],
+        "checkoutTransactions": [],
+        "returnsBin": {
+          "wheat": 0,
+          "flour": 0,
+          "bread": 0,
+          "corn": 0,
+          "milk": 0,
+          "eggs": 0,
+          "cheese": 0,
+          "apples": 0,
+          "tomatoes": 0,
+          "coffee": 0,
+          "juice": 0
+        },
+        "returnedCartCount": 6,
+        "customers": [],
+        "nextCustomerSequence": 1,
+        "lastCustomerSpawnAt": -3000,
+        "queueCustomerIds": [],
+        "unlockedAreas": [
+          "store-floor",
+          "farm-tomato",
+          "checkout-1"
+        ],
+        "stationTiers": {
+          "crop-tomato-1": 1,
+          "shelves-1": 1,
+          "checkout-1": 1
+        },
+        "upgradeContributions": {},
+        "playerSpeedTier": 1,
+        "playerCapacityTier": 1,
+        "storeRank": 1,
+        "structureRevision": 1,
+        "doorState": "CLOSED",
+        "doorProgress": 0,
+        "doorPlayerPresent": false,
+        "doorEmptySince": null,
+        "lightsOn": false,
+        "employees": [],
+        "revenueTodayMinor": 0,
+        "expensesTodayMinor": 0,
+        "customersToday": 0,
+        "rating": 3.5
+      },
+      {
+        "id": "aeropuerto",
+        "name": "Market Terminal",
+        "city": "Aeropuerto",
+        "unlockLevel": 16,
+        "purchaseCostMinor": 5800000,
+        "owned": false,
+        "open": false,
+        "licenseActive": false,
+        "licenseDaysLeft": 0,
+        "expansionLevel": 1,
+        "shelvesLevel": 1,
+        "checkoutLevel": 1,
+        "warehouse": {
+          "wheat": 0,
+          "flour": 0,
+          "bread": 0,
+          "corn": 0,
+          "milk": 0,
+          "eggs": 0,
+          "cheese": 0,
+          "apples": 0,
+          "tomatoes": 0,
+          "coffee": 0,
+          "juice": 0
+        },
+        "shelves": {
+          "wheat": 0,
+          "flour": 0,
+          "bread": 0,
+          "corn": 0,
+          "milk": 0,
+          "eggs": 0,
+          "cheese": 0,
+          "apples": 0,
+          "tomatoes": 0,
+          "coffee": 0,
+          "juice": 0
+        },
+        "machines": {
+          "flourMillLevel": 1,
+          "bakeryLevel": 1,
+          "flourQueue": 0,
+          "breadQueue": 0
+        },
+        "carry": {
+          "capacity": 3,
+          "items": {}
+        },
+        "crops": [
+          {
+            "id": "crop-tomato-1",
+            "productId": "tomatoes",
+            "status": "GROWING",
+            "plantedAt": 0,
+            "readyAt": 4000,
+            "available": 0,
+            "tier": 1
+          },
+          {
+            "id": "crop-wheat-1",
+            "productId": "wheat",
+            "status": "LOCKED",
+            "plantedAt": 0,
+            "readyAt": 0,
+            "available": 0,
+            "tier": 1
+          },
+          {
+            "id": "crop-corn-1",
+            "productId": "corn",
+            "status": "LOCKED",
+            "plantedAt": 0,
+            "readyAt": 0,
+            "available": 0,
+            "tier": 1
+          }
+        ],
+        "productionMachines": [
+          {
+            "id": "flour-mill-1",
+            "productId": "flour",
+            "status": "LOCKED",
+            "input": {},
+            "output": 0,
+            "outputCapacity": 8,
+            "startedAt": null,
+            "completesAt": null,
+            "tier": 1
+          },
+          {
+            "id": "bread-oven-1",
+            "productId": "bread",
+            "status": "LOCKED",
+            "input": {},
+            "output": 0,
+            "outputCapacity": 8,
+            "startedAt": null,
+            "completesAt": null,
+            "tier": 1
+          },
+          {
+            "id": "cheese-maker-1",
+            "productId": "cheese",
+            "status": "LOCKED",
+            "input": {},
+            "output": 0,
+            "outputCapacity": 8,
+            "startedAt": null,
+            "completesAt": null,
+            "tier": 1
+          },
+          {
+            "id": "juice-machine-1",
+            "productId": "juice",
+            "status": "LOCKED",
+            "input": {},
+            "output": 0,
+            "outputCapacity": 8,
+            "startedAt": null,
+            "completesAt": null,
+            "tier": 1
+          },
+          {
+            "id": "chicken-coop-1",
+            "productId": "eggs",
+            "status": "LOCKED",
+            "input": {},
+            "output": 0,
+            "outputCapacity": 10,
+            "startedAt": null,
+            "completesAt": null,
+            "tier": 1
+          },
+          {
+            "id": "cow-station-1",
+            "productId": "milk",
+            "status": "LOCKED",
+            "input": {},
+            "output": 0,
+            "outputCapacity": 10,
+            "startedAt": null,
+            "completesAt": null,
+            "tier": 1
+          }
+        ],
+        "buildProjects": [
+          {
+            "id": "level-2",
+            "level": 2,
+            "costMinor": 4000,
+            "contributedMinor": 0,
+            "completed": false
+          }
+        ],
+        "checkoutTransactions": [],
+        "returnsBin": {
+          "wheat": 0,
+          "flour": 0,
+          "bread": 0,
+          "corn": 0,
+          "milk": 0,
+          "eggs": 0,
+          "cheese": 0,
+          "apples": 0,
+          "tomatoes": 0,
+          "coffee": 0,
+          "juice": 0
+        },
+        "returnedCartCount": 6,
+        "customers": [],
+        "nextCustomerSequence": 1,
+        "lastCustomerSpawnAt": -3000,
+        "queueCustomerIds": [],
+        "unlockedAreas": [
+          "store-floor",
+          "farm-tomato",
+          "checkout-1"
+        ],
+        "stationTiers": {
+          "crop-tomato-1": 1,
+          "shelves-1": 1,
+          "checkout-1": 1
+        },
+        "upgradeContributions": {},
+        "playerSpeedTier": 1,
+        "playerCapacityTier": 1,
+        "storeRank": 1,
+        "structureRevision": 1,
+        "doorState": "CLOSED",
+        "doorProgress": 0,
+        "doorPlayerPresent": false,
+        "doorEmptySince": null,
+        "lightsOn": false,
+        "employees": [],
+        "revenueTodayMinor": 0,
+        "expensesTodayMinor": 0,
+        "customersToday": 0,
+        "rating": 3.5
+      },
+      {
+        "id": "campus",
+        "name": "Market Campus",
+        "city": "Ciudad universitaria",
+        "unlockLevel": 24,
+        "purchaseCostMinor": 14500000,
+        "owned": false,
+        "open": false,
+        "licenseActive": false,
+        "licenseDaysLeft": 0,
+        "expansionLevel": 1,
+        "shelvesLevel": 1,
+        "checkoutLevel": 1,
+        "warehouse": {
+          "wheat": 0,
+          "flour": 0,
+          "bread": 0,
+          "corn": 0,
+          "milk": 0,
+          "eggs": 0,
+          "cheese": 0,
+          "apples": 0,
+          "tomatoes": 0,
+          "coffee": 0,
+          "juice": 0
+        },
+        "shelves": {
+          "wheat": 0,
+          "flour": 0,
+          "bread": 0,
+          "corn": 0,
+          "milk": 0,
+          "eggs": 0,
+          "cheese": 0,
+          "apples": 0,
+          "tomatoes": 0,
+          "coffee": 0,
+          "juice": 0
+        },
+        "machines": {
+          "flourMillLevel": 1,
+          "bakeryLevel": 1,
+          "flourQueue": 0,
+          "breadQueue": 0
+        },
+        "carry": {
+          "capacity": 3,
+          "items": {}
+        },
+        "crops": [
+          {
+            "id": "crop-tomato-1",
+            "productId": "tomatoes",
+            "status": "GROWING",
+            "plantedAt": 0,
+            "readyAt": 4000,
+            "available": 0,
+            "tier": 1
+          },
+          {
+            "id": "crop-wheat-1",
+            "productId": "wheat",
+            "status": "LOCKED",
+            "plantedAt": 0,
+            "readyAt": 0,
+            "available": 0,
+            "tier": 1
+          },
+          {
+            "id": "crop-corn-1",
+            "productId": "corn",
+            "status": "LOCKED",
+            "plantedAt": 0,
+            "readyAt": 0,
+            "available": 0,
+            "tier": 1
+          }
+        ],
+        "productionMachines": [
+          {
+            "id": "flour-mill-1",
+            "productId": "flour",
+            "status": "LOCKED",
+            "input": {},
+            "output": 0,
+            "outputCapacity": 8,
+            "startedAt": null,
+            "completesAt": null,
+            "tier": 1
+          },
+          {
+            "id": "bread-oven-1",
+            "productId": "bread",
+            "status": "LOCKED",
+            "input": {},
+            "output": 0,
+            "outputCapacity": 8,
+            "startedAt": null,
+            "completesAt": null,
+            "tier": 1
+          },
+          {
+            "id": "cheese-maker-1",
+            "productId": "cheese",
+            "status": "LOCKED",
+            "input": {},
+            "output": 0,
+            "outputCapacity": 8,
+            "startedAt": null,
+            "completesAt": null,
+            "tier": 1
+          },
+          {
+            "id": "juice-machine-1",
+            "productId": "juice",
+            "status": "LOCKED",
+            "input": {},
+            "output": 0,
+            "outputCapacity": 8,
+            "startedAt": null,
+            "completesAt": null,
+            "tier": 1
+          },
+          {
+            "id": "chicken-coop-1",
+            "productId": "eggs",
+            "status": "LOCKED",
+            "input": {},
+            "output": 0,
+            "outputCapacity": 10,
+            "startedAt": null,
+            "completesAt": null,
+            "tier": 1
+          },
+          {
+            "id": "cow-station-1",
+            "productId": "milk",
+            "status": "LOCKED",
+            "input": {},
+            "output": 0,
+            "outputCapacity": 10,
+            "startedAt": null,
+            "completesAt": null,
+            "tier": 1
+          }
+        ],
+        "buildProjects": [
+          {
+            "id": "level-2",
+            "level": 2,
+            "costMinor": 4000,
+            "contributedMinor": 0,
+            "completed": false
+          }
+        ],
+        "checkoutTransactions": [],
+        "returnsBin": {
+          "wheat": 0,
+          "flour": 0,
+          "bread": 0,
+          "corn": 0,
+          "milk": 0,
+          "eggs": 0,
+          "cheese": 0,
+          "apples": 0,
+          "tomatoes": 0,
+          "coffee": 0,
+          "juice": 0
+        },
+        "returnedCartCount": 6,
+        "customers": [],
+        "nextCustomerSequence": 1,
+        "lastCustomerSpawnAt": -3000,
+        "queueCustomerIds": [],
+        "unlockedAreas": [
+          "store-floor",
+          "farm-tomato",
+          "checkout-1"
+        ],
+        "stationTiers": {
+          "crop-tomato-1": 1,
+          "shelves-1": 1,
+          "checkout-1": 1
+        },
+        "upgradeContributions": {},
+        "playerSpeedTier": 1,
+        "playerCapacityTier": 1,
+        "storeRank": 1,
+        "structureRevision": 1,
+        "doorState": "CLOSED",
+        "doorProgress": 0,
+        "doorPlayerPresent": false,
+        "doorEmptySince": null,
+        "lightsOn": false,
+        "employees": [],
+        "revenueTodayMinor": 0,
+        "expensesTodayMinor": 0,
+        "customersToday": 0,
+        "rating": 3.5
+      },
+      {
+        "id": "megastore",
+        "name": "Olcas Mega Market",
+        "city": "Distrito financiero",
+        "unlockLevel": 30,
+        "purchaseCostMinor": 42000000,
+        "owned": false,
+        "open": false,
+        "licenseActive": false,
+        "licenseDaysLeft": 0,
+        "expansionLevel": 1,
+        "shelvesLevel": 1,
+        "checkoutLevel": 1,
+        "warehouse": {
+          "wheat": 0,
+          "flour": 0,
+          "bread": 0,
+          "corn": 0,
+          "milk": 0,
+          "eggs": 0,
+          "cheese": 0,
+          "apples": 0,
+          "tomatoes": 0,
+          "coffee": 0,
+          "juice": 0
+        },
+        "shelves": {
+          "wheat": 0,
+          "flour": 0,
+          "bread": 0,
+          "corn": 0,
+          "milk": 0,
+          "eggs": 0,
+          "cheese": 0,
+          "apples": 0,
+          "tomatoes": 0,
+          "coffee": 0,
+          "juice": 0
+        },
+        "machines": {
+          "flourMillLevel": 1,
+          "bakeryLevel": 1,
+          "flourQueue": 0,
+          "breadQueue": 0
+        },
+        "carry": {
+          "capacity": 3,
+          "items": {}
+        },
+        "crops": [
+          {
+            "id": "crop-tomato-1",
+            "productId": "tomatoes",
+            "status": "GROWING",
+            "plantedAt": 0,
+            "readyAt": 4000,
+            "available": 0,
+            "tier": 1
+          },
+          {
+            "id": "crop-wheat-1",
+            "productId": "wheat",
+            "status": "LOCKED",
+            "plantedAt": 0,
+            "readyAt": 0,
+            "available": 0,
+            "tier": 1
+          },
+          {
+            "id": "crop-corn-1",
+            "productId": "corn",
+            "status": "LOCKED",
+            "plantedAt": 0,
+            "readyAt": 0,
+            "available": 0,
+            "tier": 1
+          }
+        ],
+        "productionMachines": [
+          {
+            "id": "flour-mill-1",
+            "productId": "flour",
+            "status": "LOCKED",
+            "input": {},
+            "output": 0,
+            "outputCapacity": 8,
+            "startedAt": null,
+            "completesAt": null,
+            "tier": 1
+          },
+          {
+            "id": "bread-oven-1",
+            "productId": "bread",
+            "status": "LOCKED",
+            "input": {},
+            "output": 0,
+            "outputCapacity": 8,
+            "startedAt": null,
+            "completesAt": null,
+            "tier": 1
+          },
+          {
+            "id": "cheese-maker-1",
+            "productId": "cheese",
+            "status": "LOCKED",
+            "input": {},
+            "output": 0,
+            "outputCapacity": 8,
+            "startedAt": null,
+            "completesAt": null,
+            "tier": 1
+          },
+          {
+            "id": "juice-machine-1",
+            "productId": "juice",
+            "status": "LOCKED",
+            "input": {},
+            "output": 0,
+            "outputCapacity": 8,
+            "startedAt": null,
+            "completesAt": null,
+            "tier": 1
+          },
+          {
+            "id": "chicken-coop-1",
+            "productId": "eggs",
+            "status": "LOCKED",
+            "input": {},
+            "output": 0,
+            "outputCapacity": 10,
+            "startedAt": null,
+            "completesAt": null,
+            "tier": 1
+          },
+          {
+            "id": "cow-station-1",
+            "productId": "milk",
+            "status": "LOCKED",
+            "input": {},
+            "output": 0,
+            "outputCapacity": 10,
+            "startedAt": null,
+            "completesAt": null,
+            "tier": 1
+          }
+        ],
+        "buildProjects": [
+          {
+            "id": "level-2",
+            "level": 2,
+            "costMinor": 4000,
+            "contributedMinor": 0,
+            "completed": false
+          }
+        ],
+        "checkoutTransactions": [],
+        "returnsBin": {
+          "wheat": 0,
+          "flour": 0,
+          "bread": 0,
+          "corn": 0,
+          "milk": 0,
+          "eggs": 0,
+          "cheese": 0,
+          "apples": 0,
+          "tomatoes": 0,
+          "coffee": 0,
+          "juice": 0
+        },
+        "returnedCartCount": 6,
+        "customers": [],
+        "nextCustomerSequence": 1,
+        "lastCustomerSpawnAt": -3000,
+        "queueCustomerIds": [],
+        "unlockedAreas": [
+          "store-floor",
+          "farm-tomato",
+          "checkout-1"
+        ],
+        "stationTiers": {
+          "crop-tomato-1": 1,
+          "shelves-1": 1,
+          "checkout-1": 1
+        },
+        "upgradeContributions": {},
+        "playerSpeedTier": 1,
+        "playerCapacityTier": 1,
+        "storeRank": 1,
+        "structureRevision": 1,
+        "doorState": "CLOSED",
+        "doorProgress": 0,
+        "doorPlayerPresent": false,
+        "doorEmptySince": null,
+        "lightsOn": false,
+        "employees": [],
+        "revenueTodayMinor": 0,
+        "expensesTodayMinor": 0,
+        "customersToday": 0,
+        "rating": 3.5
+      }
+    ],
+    "missions": [
+      {
+        "id": "d1-stock",
+        "label": "Repón 7 productos",
+        "kind": "stock",
+        "target": 7,
+        "progress": 0,
+        "rewardMinor": 12000,
+        "completed": false,
+        "claimed": false
+      },
+      {
+        "id": "d1-customers",
+        "label": "Atiende 4 clientes",
+        "kind": "customers",
+        "target": 4,
+        "progress": 0,
+        "rewardMinor": 16000,
+        "completed": false,
+        "claimed": false
+      },
+      {
+        "id": "d1-harvest",
+        "label": "Cosecha 3 productos",
+        "kind": "harvest",
+        "target": 3,
+        "progress": 0,
+        "rewardMinor": 19000,
+        "completed": false,
+        "claimed": false
+      }
+    ],
+    "pendingOrders": [],
+    "finances": {
+      "grossRevenueMinor": 0,
+      "costOfGoodsMinor": 0,
+      "payrollMinor": 0,
+      "operatingCostsMinor": 0,
+      "taxesMinor": 0,
+      "netProfitMinor": 0
+    },
+    "tutorialStep": 0,
+    "progression": {
+      "completedLevels": [],
+      "counters": {},
+      "objectiveComplete": false,
+      "lastUnlockAt": 0
+    },
+    "eventSequence": 0,
+    "processedEventIds": [],
+    "lastServerTime": 0,
+    "simulationTimeMs": 0,
+    "lastSavedAt": "1970-01-01T00:00:00.000Z"
+  },
+  "layouts": {
+    "checkout": {
+      "CHECKOUT_CAMERA_FRAME": {
+        "width": 39,
+        "height": 27
+      },
+      "CHECKOUT_CAMERA_POSITION": [
+        8.3,
+        7.2,
+        8.8
+      ],
+      "CHECKOUT_CAMERA_TARGET": [
+        8.3,
+        1.35,
+        3.8
+      ],
+      "CHECKOUT_LANES": {
+        "0": {
+          "counter": [
+            7.55,
+            0,
+            3.95
+          ],
+          "cashierWork": [
+            8.05,
+            0.018,
+            5.12
+          ],
+          "customerFront": [
+            7,
+            2.85
+          ],
+          "queueStart": [
+            5.35,
+            2.85
+          ],
+          "bagPickup": [
+            8.9,
+            2.85
+          ]
+        },
+        "1": {
+          "counter": [
+            7.55,
+            0,
+            0.95
+          ],
+          "cashierWork": [
+            8.05,
+            0.018,
+            2.12
+          ],
+          "customerFront": [
+            7,
+            -0.15
+          ],
+          "queueStart": [
+            5.35,
+            -0.15
+          ],
+          "bagPickup": [
+            8.9,
+            -0.15
+          ]
+        }
+      }
+    },
+    "farm": {
+      "FARM_ACCESS_WAYPOINTS": [
+        [
+          7.5,
+          -6.9
+        ],
+        [
+          7.5,
+          -9.35
+        ],
+        [
+          7.5,
+          -11.55
+        ]
+      ],
+      "FARM_ANIMAL_STATIONS": {
+        "chicken": {
+          "position": [
+            1.2,
+            0,
+            -14.15
+          ],
+          "workPosition": [
+            1.2,
+            0,
+            -12.45
+          ],
+          "facing": 3.141592653589793
+        },
+        "cow": {
+          "position": [
+            5.35,
+            0,
+            -14.45
+          ],
+          "workPosition": [
+            5.35,
+            0,
+            -12.45
+          ],
+          "facing": 3.141592653589793
+        }
+      },
+      "FARM_FACILITIES": {
+        "tools": {
+          "position": [
+            -9.05,
+            0,
+            -11.72
+          ]
+        },
+        "compost": {
+          "position": [
+            -9.35,
+            0,
+            -16.55
+          ]
+        },
+        "greenhouse": {
+          "position": [
+            8.4,
+            0,
+            -16.25
+          ]
+        },
+        "scarecrow": {
+          "position": [
+            -8.9,
+            0,
+            -14.15
+          ]
+        },
+        "waterTank": {
+          "position": [
+            -0.7,
+            0,
+            -16.55
+          ]
+        }
+      },
+      "FARM_FIELD": {
+        "center": [
+          0,
+          0,
+          -14.15
+        ],
+        "size": [
+          21.2,
+          0,
+          7.15
+        ],
+        "entrance": [
+          7.5,
+          0,
+          -11.55
+        ],
+        "serviceLaneX": 12.15
+      },
+      "FARM_GATE": {
+        "center": [
+          7.5,
+          0,
+          -10.575
+        ],
+        "frontPost": [
+          6.2,
+          0,
+          -10.575
+        ],
+        "innerPost": [
+          8.8,
+          0,
+          -10.575
+        ],
+        "openLeaf": {
+          "center": [
+            8.8,
+            0,
+            -11.875
+          ],
+          "halfX": 0.07,
+          "halfZ": 1.625,
+          "terminalPostDepth": 0.09
+        },
+        "rightFence": {
+          "center": [
+            10.6,
+            0,
+            -14.15
+          ],
+          "halfX": 0.07,
+          "halfZ": 4.46875
+        },
+        "leftFrontFence": {
+          "center": [
+            -2.2,
+            0,
+            -10.575
+          ],
+          "halfX": 10.5,
+          "halfZ": 0.07
+        },
+        "rightFrontFence": {
+          "center": [
+            9.7,
+            0,
+            -10.575
+          ],
+          "halfX": 1.125,
+          "halfZ": 0.07
+        },
+        "accessCorridorFences": [
+          {
+            "side": -1,
+            "center": [
+              6.2,
+              0,
+              -9.5625
+            ],
+            "halfX": 0.07,
+            "halfZ": 1.2656250000000002
+          },
+          {
+            "side": 1,
+            "center": [
+              8.8,
+              0,
+              -9.5625
+            ],
+            "halfX": 0.07,
+            "halfZ": 1.2656250000000002
+          }
+        ],
+        "perimeterWallFences": [
+          {
+            "side": -1,
+            "center": [
+              -10.6,
+              0,
+              -9.6425
+            ],
+            "halfX": 0.07,
+            "halfZ": 1.165624999999999
+          },
+          {
+            "side": 1,
+            "center": [
+              10.6,
+              0,
+              -9.6425
+            ],
+            "halfX": 0.07,
+            "halfZ": 1.165624999999999
+          }
+        ],
+        "exteriorApproach": [
+          7.5,
+          -9.35
+        ],
+        "interiorApproach": [
+          7.5,
+          -11.55
+        ],
+        "postHalfSize": 0.11
+      },
+      "FARM_HARVEST_SENSOR": {
+        "enterRadius": 1.28,
+        "exitRadius": 1.42,
+        "dwellMs": 35,
+        "repeatEveryMs": 220,
+        "exitGraceMs": 90
+      },
+      "FARM_INTERIOR_WAYPOINTS": {
+        "entranceApron": [
+          7.7,
+          -11.65
+        ],
+        "cropJunction": [
+          -2,
+          -11.65
+        ],
+        "southCropJunction": [
+          -2,
+          -15.45
+        ]
+      },
+      "FARM_OBSTACLES": [
+        {
+          "x": -9.05,
+          "z": -11.72,
+          "halfX": 0.74,
+          "halfZ": 0.46
+        },
+        {
+          "x": -9.35,
+          "z": -16.55,
+          "halfX": 0.48,
+          "halfZ": 0.48
+        },
+        {
+          "x": 8.4,
+          "z": -16.25,
+          "halfX": 0.68,
+          "halfZ": 0.58
+        },
+        {
+          "x": -8.9,
+          "z": -14.15,
+          "halfX": 0.38,
+          "halfZ": 0.38
+        },
+        {
+          "x": -0.7,
+          "z": -16.55,
+          "halfX": 0.52,
+          "halfZ": 0.52
+        },
+        {
+          "x": 0.20000000000000007,
+          "z": -16.55,
+          "halfX": 0.4,
+          "halfZ": 0.26
+        },
+        {
+          "x": 1.2,
+          "z": -14.15,
+          "halfX": 1.49,
+          "halfZ": 1.09
+        },
+        {
+          "x": 5.35,
+          "z": -14.45,
+          "halfX": 1.79,
+          "halfZ": 1.24
+        },
+        {
+          "x": 0,
+          "z": -17.725,
+          "halfX": 13.25,
+          "halfZ": 0.07
+        },
+        {
+          "x": -2.2,
+          "z": -10.575,
+          "halfX": 10.5,
+          "halfZ": 0.07
+        },
+        {
+          "x": 9.7,
+          "z": -10.575,
+          "halfX": 1.125,
+          "halfZ": 0.07
+        },
+        {
+          "x": -10.6,
+          "z": -14.15,
+          "halfX": 0.07,
+          "halfZ": 4.47
+        },
+        {
+          "x": 10.6,
+          "z": -14.15,
+          "halfX": 0.07,
+          "halfZ": 4.46875
+        },
+        {
+          "x": 6.2,
+          "z": -9.5625,
+          "halfX": 0.07,
+          "halfZ": 1.2656250000000002
+        },
+        {
+          "x": 8.8,
+          "z": -9.5625,
+          "halfX": 0.07,
+          "halfZ": 1.2656250000000002
+        },
+        {
+          "x": -10.6,
+          "z": -9.6425,
+          "halfX": 0.07,
+          "halfZ": 1.165624999999999
+        },
+        {
+          "x": 10.6,
+          "z": -9.6425,
+          "halfX": 0.07,
+          "halfZ": 1.165624999999999
+        },
+        {
+          "x": 6.2,
+          "z": -10.575,
+          "halfX": 0.11,
+          "halfZ": 0.11
+        },
+        {
+          "x": 8.8,
+          "z": -10.575,
+          "halfX": 0.11,
+          "halfZ": 0.11
+        },
+        {
+          "x": 8.8,
+          "z": -11.875,
+          "halfX": 0.07,
+          "halfZ": 1.625
+        }
+      ],
+      "FARM_PLOTS": [
+        {
+          "id": "crop-tomato-1",
+          "productId": "tomatoes",
+          "position": [
+            -6.3,
+            0,
+            -12.72
+          ],
+          "accent": "#e34f3f"
+        },
+        {
+          "id": "crop-tomato-2",
+          "productId": "tomatoes",
+          "position": [
+            -3.55,
+            0,
+            -12.72
+          ],
+          "accent": "#ef6a4b"
+        },
+        {
+          "id": "crop-wheat-1",
+          "productId": "wheat",
+          "position": [
+            -6.3,
+            0,
+            -15.45
+          ],
+          "accent": "#e9b83f"
+        },
+        {
+          "id": "crop-corn-1",
+          "productId": "corn",
+          "position": [
+            -3.55,
+            0,
+            -15.45
+          ],
+          "accent": "#f0c438"
+        }
+      ],
+      "FARM_WORKER_HOME": [
+        -1.7,
+        -11.7
+      ],
+      "RETIRED_FRONT_FARM_BOUNDS": {
+        "minX": -10.8,
+        "maxX": -0.6,
+        "minZ": 8.8,
+        "maxZ": 13
+      }
+    },
+    "production": {
+      "PRODUCTION_CUBICLE": {
+        "center": [
+          -8.25,
+          -4.925
+        ],
+        "bounds": {
+          "left": -10.92,
+          "right": -5.58,
+          "rear": -7.7,
+          "front": -2.15
+        },
+        "doorway": {
+          "centerX": -8.25,
+          "halfWidth": 1.15
+        },
+        "walls": [
+          {
+            "id": "fixture:production-cubicle-left",
+            "position": [
+              -10.92,
+              0,
+              -4.925
+            ],
+            "halfX": 0.07,
+            "halfZ": 2.775
+          },
+          {
+            "id": "fixture:production-cubicle-right",
+            "position": [
+              -5.58,
+              0,
+              -4.925
+            ],
+            "halfX": 0.07,
+            "halfZ": 2.775
+          },
+          {
+            "id": "fixture:production-cubicle-rear",
+            "position": [
+              -8.25,
+              0,
+              -7.7
+            ],
+            "halfX": 2.67,
+            "halfZ": 0.07
+          },
+          {
+            "id": "fixture:production-cubicle-front-left",
+            "position": [
+              -10.16,
+              0,
+              -2.15
+            ],
+            "halfX": 0.76,
+            "halfZ": 0.07
+          },
+          {
+            "id": "fixture:production-cubicle-front-right",
+            "position": [
+              -6.34,
+              0,
+              -2.15
+            ],
+            "halfX": 0.76,
+            "halfZ": 0.07
+          }
+        ]
+      },
+      "PRODUCTION_FIXTURE_IDS": [
+        "flourMill",
+        "breadOven",
+        "cheeseMaker",
+        "juiceMachine"
+      ],
+      "PRODUCTION_MACHINE_POINTS": {
+        "flour-mill-1": [
+          -8.7,
+          -5.3
+        ],
+        "bread-oven-1": [
+          -8,
+          -5.3
+        ],
+        "cheese-maker-1": [
+          -8.7,
+          -4.9
+        ],
+        "juice-machine-1": [
+          -8,
+          -4.9
+        ]
+      },
+      "PRODUCTION_MAGNET_REACH": {
+        "enter": 0.72,
+        "exit": 0.9
+      },
+      "PRODUCTION_WORKSTATION_IDS": [
+        "mill",
+        "bakery",
+        "cheese",
+        "juice"
+      ],
+      "STORE_PRODUCTION_FIXTURES": {
+        "flourMill": {
+          "fixtureId": "flourMill",
+          "workstationId": "mill",
+          "machineId": "flour-mill-1",
+          "obstacleId": "fixture:flour-mill",
+          "label": "MOLINO",
+          "processLabel": "TRIGO · HARINA",
+          "accent": "#c99a45",
+          "position": [
+            -9.75,
+            0,
+            -5.95
+          ],
+          "localFootprint": {
+            "centerX": 0,
+            "centerZ": -0.58,
+            "halfX": 0.65,
+            "halfZ": 0.58
+          },
+          "operatorWorkPoint": [
+            -8.7,
+            -5.3
+          ]
+        },
+        "breadOven": {
+          "fixtureId": "breadOven",
+          "workstationId": "bakery",
+          "machineId": "bread-oven-1",
+          "obstacleId": "fixture:bread-oven",
+          "label": "HORNO",
+          "processLabel": "HARINA · PAN",
+          "accent": "#c96d3e",
+          "position": [
+            -6.75,
+            0,
+            -5.95
+          ],
+          "localFootprint": {
+            "centerX": 0,
+            "centerZ": -0.55,
+            "halfX": 0.76,
+            "halfZ": 0.55
+          },
+          "operatorWorkPoint": [
+            -8,
+            -5.3
+          ]
+        },
+        "cheeseMaker": {
+          "fixtureId": "cheeseMaker",
+          "workstationId": "cheese",
+          "machineId": "cheese-maker-1",
+          "obstacleId": "fixture:cheese-maker",
+          "label": "QUESERÍA",
+          "processLabel": "LECHE · QUESO",
+          "accent": "#d8a92f",
+          "position": [
+            -9.75,
+            0,
+            -3.25
+          ],
+          "localFootprint": {
+            "centerX": 0,
+            "centerZ": -0.55,
+            "halfX": 0.6,
+            "halfZ": 0.55
+          },
+          "operatorWorkPoint": [
+            -8.7,
+            -4.9
+          ]
+        },
+        "juiceMachine": {
+          "fixtureId": "juiceMachine",
+          "workstationId": "juice",
+          "machineId": "juice-machine-1",
+          "obstacleId": "fixture:juice-machine",
+          "label": "ZUMOS",
+          "processLabel": "TOMATE · ZUMO",
+          "accent": "#df7540",
+          "position": [
+            -6.75,
+            0,
+            -3.25
+          ],
+          "localFootprint": {
+            "centerX": 0,
+            "centerZ": -0.55,
+            "halfX": 0.6,
+            "halfZ": 0.55
+          },
+          "operatorWorkPoint": [
+            -8,
+            -4.9
+          ]
+        }
+      }
+    },
+    "retail": {
+      "PRODUCT_RETAIL_DEPARTMENT": {
+        "tomatoes": "produce",
+        "apples": "produce",
+        "corn": "produce",
+        "eggs": "eggs",
+        "milk": "dairy",
+        "cheese": "dairy",
+        "juice": "drinks",
+        "bread": "bakery",
+        "flour": "bakery",
+        "wheat": "bakery",
+        "coffee": "pantry"
+      },
+      "RETAIL_DEPARTMENTS": {
+        "bakery": {
+          "id": "bakery",
+          "label": "PAN Y HARINAS",
+          "color": "#b96d39",
+          "display": [
+            -4,
+            0,
+            -2.2
+          ],
+          "fixtureHalfExtents": [
+            1.2,
+            0.78
+          ],
+          "service": [
+            -4,
+            -0.88
+          ],
+          "products": [
+            "bread",
+            "flour",
+            "wheat"
+          ]
+        },
+        "pantry": {
+          "id": "pantry",
+          "label": "DESPENSA",
+          "color": "#6f4938",
+          "display": [
+            0,
+            0,
+            -2.2
+          ],
+          "fixtureHalfExtents": [
+            1.2,
+            0.78
+          ],
+          "service": [
+            0,
+            -0.88
+          ],
+          "products": [
+            "coffee"
+          ]
+        },
+        "eggs": {
+          "id": "eggs",
+          "label": "HUEVOS",
+          "color": "#d49a34",
+          "display": [
+            4,
+            0,
+            -2.2
+          ],
+          "fixtureHalfExtents": [
+            1.2,
+            0.78
+          ],
+          "service": [
+            4,
+            -0.88
+          ],
+          "products": [
+            "eggs"
+          ]
+        },
+        "produce": {
+          "id": "produce",
+          "label": "FRUTAS Y VERDURAS",
+          "color": "#3f7b4c",
+          "display": [
+            -4.1,
+            0,
+            2.45
+          ],
+          "fixtureHalfExtents": [
+            1.25,
+            0.83
+          ],
+          "service": [
+            -4.1,
+            1.08
+          ],
+          "products": [
+            "tomatoes",
+            "apples",
+            "corn"
+          ]
+        },
+        "dairy": {
+          "id": "dairy",
+          "label": "LÁCTEOS",
+          "color": "#4382a1",
+          "display": [
+            0,
+            0,
+            2.45
+          ],
+          "fixtureHalfExtents": [
+            1.25,
+            0.83
+          ],
+          "service": [
+            0,
+            3.82
+          ],
+          "products": [
+            "milk",
+            "cheese"
+          ]
+        },
+        "drinks": {
+          "id": "drinks",
+          "label": "BEBIDAS",
+          "color": "#cc6841",
+          "display": [
+            4.05,
+            0,
+            2.45
+          ],
+          "fixtureHalfExtents": [
+            1.18,
+            0.8
+          ],
+          "service": [
+            4.05,
+            3.82
+          ],
+          "products": [
+            "juice"
+          ]
+        }
+      },
+      "RETAIL_DEPARTMENT_IDS": [
+        "bakery",
+        "pantry",
+        "eggs",
+        "produce",
+        "dairy",
+        "drinks"
+      ],
+      "RETAIL_FIXTURE_LEVELS": {
+        "bakery": [
+          0.28,
+          0.63,
+          0.98,
+          1.33,
+          1.68
+        ],
+        "pantry": [
+          0.24,
+          0.6,
+          0.96,
+          1.32,
+          1.68
+        ],
+        "eggs": [
+          0.28,
+          0.68,
+          1.08,
+          1.48
+        ],
+        "dairy": [
+          0.32,
+          0.72,
+          1.12,
+          1.52,
+          1.92
+        ],
+        "drinks": [
+          0.3,
+          0.7,
+          1.1,
+          1.5,
+          1.9
+        ]
+      },
+      "RETAIL_STOCKING_MAGNET_REACH": {
+        "enter": 1.1,
+        "exit": 1.3
+      },
+      "RETAIL_VISUAL_CAPACITY": {
+        "bread": 18,
+        "flour": 26,
+        "wheat": 26,
+        "coffee": 40,
+        "eggs": 24,
+        "tomatoes": 26,
+        "apples": 26,
+        "corn": 26,
+        "milk": 25,
+        "cheese": 25,
+        "juice": 45
+      }
+    },
+    "storefront": {
+      "CLOSED_REAR_DOOR_MOTION": {
+        "progress": 0,
+        "emptyForMs": 0
+      },
+      "STOREFRONT_LAYOUT": {
+        "z": 7.8,
+        "wallHeight": 5.6,
+        "door": {
+          "leafWidth": 1.68,
+          "leafHeight": 5.4,
+          "leafDepth": 0.065,
+          "closedCenterOffset": 0.86,
+          "openTravel": 1.84,
+          "outerPostX": 1.82,
+          "postWidth": 0.1,
+          "frameDepth": 0.14
+        },
+        "sensor": {
+          "centerX": 0,
+          "centerZ": 8.5,
+          "actorHalfWidth": 2.35,
+          "actorHalfDepth": 2.3,
+          "enterMargin": 0.08,
+          "exitMargin": 0.24
+        }
+      },
+      "STORE_REAR_DOOR": {
+        "x": 7.5,
+        "z": -8.45,
+        "wallCenterZ": -8.55,
+        "wallHalfWidth": 11.5,
+        "wallDepth": 0.32,
+        "insideApproach": [
+          7.5,
+          -6.9
+        ],
+        "outsideApproach": [
+          7.5,
+          -9.35
+        ],
+        "interiorCorridor": [
+          [
+            2.2,
+            0.45
+          ],
+          [
+            2.2,
+            -3.2
+          ],
+          [
+            2.7,
+            -3.65
+          ],
+          [
+            6.8,
+            -6.35
+          ],
+          [
+            7.5,
+            -6.9
+          ]
+        ],
+        "adjacentRackPosition": [
+          9.65,
+          0,
+          -7.85
+        ],
+        "door": {
+          "leafWidth": 1.28,
+          "leafHeight": 3.35,
+          "leafDepth": 0.07,
+          "closedCenterOffset": 0.64,
+          "openTravel": 1.37,
+          "outerPostOffset": 1.36,
+          "postWidth": 0.12,
+          "frameDepth": 0.2
+        },
+        "sensor": {
+          "enterRadius": 2.25,
+          "exitRadius": 2.65,
+          "actorHalfWidth": 2.2,
+          "actorHalfDepth": 2.45
+        },
+        "motion": {
+          "openMs": 310,
+          "closeMs": 360,
+          "holdOpenMs": 760
+        }
+      }
+    },
+    "services": {
+      "CART_BAY_POINT": [
+        3.05,
+        6.55
+      ],
+      "CART_RETURN_POINT": [
+        3.05,
+        5.25
+      ],
+      "RETURNS_POINT": [
+        10.05,
+        4.3
+      ],
+      "RETURNS_TO_CART_FALLBACK": [
+        [
+          10.25,
+          4.3
+        ],
+        [
+          10.25,
+          2.75
+        ],
+        [
+          10.25,
+          0
+        ],
+        [
+          9.85,
+          -0.3
+        ],
+        [
+          5.2,
+          -0.3
+        ],
+        [
+          2.6,
+          1.05
+        ],
+        [
+          2.25,
+          1.4
+        ],
+        [
+          2.25,
+          3.55
+        ],
+        [
+          4.5,
+          5.2
+        ],
+        [
+          3.05,
+          5.25
+        ]
+      ],
+      "STORE_SERVICE_FIXTURES": {
+        "promotionalEndcap": {
+          "id": "promotionalEndcap",
+          "obstacleId": "fixture:promotional-endcap",
+          "position": [
+            6.4,
+            0,
+            -2.2
+          ],
+          "footprint": {
+            "halfX": 0.42,
+            "halfZ": 0.62
+          }
+        },
+        "returns": {
+          "id": "returns",
+          "obstacleId": "fixture:returns",
+          "position": [
+            9.85,
+            0,
+            5.45
+          ],
+          "footprint": {
+            "halfX": 0.74,
+            "halfZ": 0.66
+          },
+          "service": [
+            10.05,
+            4.3
+          ],
+          "approach": [
+            [
+              10.25,
+              2.75
+            ],
+            [
+              10.25,
+              4.3
+            ]
+          ]
+        },
+        "cartBay": {
+          "id": "cartBay",
+          "obstacleId": "fixture:cart-bay",
+          "position": [
+            3.05,
+            0,
+            6.55
+          ],
+          "footprint": {
+            "halfX": 1.08,
+            "halfZ": 0.76
+          },
+          "service": [
+            3.05,
+            5.25
+          ],
+          "approach": [
+            [
+              2.2,
+              5.25
+            ]
+          ]
+        }
+      },
+      "STORE_SERVICE_FIXTURE_IDS": [
+        "promotionalEndcap",
+        "returns",
+        "cartBay"
+      ]
+    },
+    "warehouse": {
+      "WAREHOUSE_PICKUP_STATION": {
+        "interactionId": "supplier",
+        "label": "Recoger mercancía del almacén",
+        "position": [
+          7.4,
+          0,
+          -3.4
+        ],
+        "enterRadius": 0.75,
+        "exitRadius": 0.9,
+        "dwellMs": 80,
+        "repeatEveryMs": 220,
+        "exitGraceMs": 120
+      }
+    },
+    "workstations": {
+      "WORKSTATIONS": {
+        "checkout": {
+          "id": "checkout",
+          "label": "Atender la caja",
+          "position": [
+            8.05,
+            0.018,
+            5.12
+          ],
+          "facing": -2.74
+        },
+        "shelf": {
+          "id": "shelf",
+          "label": "Surtir expositor",
+          "position": [
+            -4.1,
+            0,
+            1.08
+          ],
+          "facing": 0
+        },
+        "mill": {
+          "id": "mill",
+          "label": "Usar molino",
+          "position": [
+            -8.7,
+            0,
+            -5.3
+          ],
+          "facing": 3.141592653589793,
+          "unlockArea": "flour-mill"
+        },
+        "bakery": {
+          "id": "bakery",
+          "label": "Usar horno",
+          "position": [
+            -8,
+            0,
+            -5.3
+          ],
+          "facing": 3.141592653589793,
+          "unlockArea": "bread-oven"
+        },
+        "cheese": {
+          "id": "cheese",
+          "label": "Usar quesería",
+          "position": [
+            -8.7,
+            0,
+            -4.9
+          ],
+          "facing": 0,
+          "unlockArea": "cheese-maker"
+        },
+        "juice": {
+          "id": "juice",
+          "label": "Usar máquina de zumos",
+          "position": [
+            -8,
+            0,
+            -4.9
+          ],
+          "facing": 0,
+          "unlockArea": "juice-machine"
+        },
+        "chicken": {
+          "id": "chicken",
+          "label": "Recoger huevos",
+          "position": [
+            1.2,
+            0,
+            -12.45
+          ],
+          "facing": 3.141592653589793,
+          "unlockArea": "chicken-coop"
+        },
+        "cow": {
+          "id": "cow",
+          "label": "Recoger leche",
+          "position": [
+            5.35,
+            0,
+            -12.45
+          ],
+          "facing": 3.141592653589793,
+          "unlockArea": "cow-station"
+        }
+      },
+      "WORKSTATION_IDS": [
+        "mill",
+        "bakery",
+        "chicken",
+        "cow",
+        "cheese",
+        "juice",
+        "shelf",
+        "checkout"
+      ]
+    },
+    "worldScale": {
+      "STORE_ELEMENT_SCALE": 1.6,
+      "STORE_LAYOUT_SCALE": 2,
+      "STORE_OBSTACLES": [
+        {
+          "x": -10.4,
+          "z": -16.1,
+          "halfX": 1.7920000000000003,
+          "halfZ": 0.8
+        },
+        {
+          "x": -5.6,
+          "z": -16.1,
+          "halfX": 1.7920000000000003,
+          "halfZ": 0.8
+        },
+        {
+          "x": -0.8,
+          "z": -16.1,
+          "halfX": 1.7920000000000003,
+          "halfZ": 0.8
+        },
+        {
+          "x": 4,
+          "z": -16.1,
+          "halfX": 1.7920000000000003,
+          "halfZ": 0.8
+        },
+        {
+          "x": 10.5,
+          "z": -16,
+          "halfX": 1.92,
+          "halfZ": 0.8
+        },
+        {
+          "x": 19.3,
+          "z": -15.7,
+          "halfX": 1.36,
+          "halfZ": 0.8
+        },
+        {
+          "id": "fixture:retail-bakery",
+          "x": -8,
+          "z": -4.4,
+          "halfX": 1.92,
+          "halfZ": 1.2480000000000002
+        },
+        {
+          "id": "fixture:retail-pantry",
+          "x": 0,
+          "z": -4.4,
+          "halfX": 1.92,
+          "halfZ": 1.2480000000000002
+        },
+        {
+          "id": "fixture:retail-eggs",
+          "x": 8,
+          "z": -4.4,
+          "halfX": 1.92,
+          "halfZ": 1.2480000000000002
+        },
+        {
+          "id": "fixture:retail-produce",
+          "x": -8.2,
+          "z": 4.9,
+          "halfX": 2,
+          "halfZ": 1.328
+        },
+        {
+          "id": "fixture:retail-dairy",
+          "x": 0,
+          "z": 4.9,
+          "halfX": 2,
+          "halfZ": 1.328
+        },
+        {
+          "id": "fixture:retail-drinks",
+          "x": 8.1,
+          "z": 4.9,
+          "halfX": 1.888,
+          "halfZ": 1.2800000000000002
+        },
+        {
+          "x": 15.1,
+          "z": 7.9,
+          "halfX": 3.6,
+          "halfZ": 1.04
+        },
+        {
+          "x": 15.1,
+          "z": 1.9,
+          "halfX": 3.6,
+          "halfZ": 1.04
+        },
+        {
+          "id": "fixture:flour-mill",
+          "x": -19.5,
+          "z": -12.828,
+          "halfX": 1.04,
+          "halfZ": 0.9279999999999999
+        },
+        {
+          "id": "fixture:bread-oven",
+          "x": -13.5,
+          "z": -12.780000000000001,
+          "halfX": 1.2160000000000002,
+          "halfZ": 0.8800000000000001
+        },
+        {
+          "id": "fixture:cheese-maker",
+          "x": -19.5,
+          "z": -7.38,
+          "halfX": 0.96,
+          "halfZ": 0.8800000000000001
+        },
+        {
+          "id": "fixture:juice-machine",
+          "x": -13.5,
+          "z": -7.38,
+          "halfX": 0.96,
+          "halfZ": 0.8800000000000001
+        },
+        {
+          "id": "fixture:production-cubicle-left",
+          "x": -21.84,
+          "z": -9.85,
+          "halfX": 0.14,
+          "halfZ": 5.55
+        },
+        {
+          "id": "fixture:production-cubicle-right",
+          "x": -11.16,
+          "z": -9.85,
+          "halfX": 0.14,
+          "halfZ": 5.55
+        },
+        {
+          "id": "fixture:production-cubicle-rear",
+          "x": -16.5,
+          "z": -15.4,
+          "halfX": 5.34,
+          "halfZ": 0.14
+        },
+        {
+          "id": "fixture:production-cubicle-front-left",
+          "x": -20.32,
+          "z": -4.3,
+          "halfX": 1.52,
+          "halfZ": 0.14
+        },
+        {
+          "id": "fixture:production-cubicle-front-right",
+          "x": -12.68,
+          "z": -4.3,
+          "halfX": 1.52,
+          "halfZ": 0.14
+        },
+        {
+          "x": -14,
+          "z": 6.3,
+          "halfX": 1.6800000000000002,
+          "halfZ": 1.1199999999999999
+        },
+        {
+          "x": 17.6,
+          "z": -5.3,
+          "halfX": 1.52,
+          "halfZ": 2.4800000000000004
+        },
+        {
+          "x": 17.6,
+          "z": -10.7,
+          "halfX": 1.52,
+          "halfZ": 1.1199999999999999
+        },
+        {
+          "id": "fixture:promotional-endcap",
+          "x": 12.8,
+          "z": -4.4,
+          "halfX": 0.672,
+          "halfZ": 0.992
+        },
+        {
+          "id": "fixture:returns",
+          "x": 19.7,
+          "z": 10.9,
+          "halfX": 1.184,
+          "halfZ": 1.056
+        },
+        {
+          "id": "fixture:cart-bay",
+          "x": 6.1,
+          "z": 13.1,
+          "halfX": 1.7280000000000002,
+          "halfZ": 1.2160000000000002
+        },
+        {
+          "x": -18.1,
+          "z": -23.44,
+          "halfX": 1.184,
+          "halfZ": 0.7360000000000001
+        },
+        {
+          "x": -18.7,
+          "z": -33.1,
+          "halfX": 0.768,
+          "halfZ": 0.768
+        },
+        {
+          "x": 16.8,
+          "z": -32.5,
+          "halfX": 1.088,
+          "halfZ": 0.9279999999999999
+        },
+        {
+          "x": -17.8,
+          "z": -28.3,
+          "halfX": 0.6080000000000001,
+          "halfZ": 0.6080000000000001
+        },
+        {
+          "x": -1.4,
+          "z": -33.1,
+          "halfX": 0.8320000000000001,
+          "halfZ": 0.8320000000000001
+        },
+        {
+          "x": 0.40000000000000013,
+          "z": -33.1,
+          "halfX": 0.6400000000000001,
+          "halfZ": 0.41600000000000004
+        },
+        {
+          "x": 2.4,
+          "z": -28.3,
+          "halfX": 2.384,
+          "halfZ": 1.7440000000000002
+        },
+        {
+          "x": 10.7,
+          "z": -28.9,
+          "halfX": 2.8640000000000003,
+          "halfZ": 1.984
+        },
+        {
+          "x": 0,
+          "z": -35.45,
+          "halfX": 21.200000000000003,
+          "halfZ": 0.11200000000000002
+        },
+        {
+          "x": -4.4,
+          "z": -21.15,
+          "halfX": 16.8,
+          "halfZ": 0.11200000000000002
+        },
+        {
+          "x": 19.4,
+          "z": -21.15,
+          "halfX": 1.8,
+          "halfZ": 0.11200000000000002
+        },
+        {
+          "x": -21.2,
+          "z": -28.3,
+          "halfX": 0.11200000000000002,
+          "halfZ": 7.152
+        },
+        {
+          "x": 21.2,
+          "z": -28.3,
+          "halfX": 0.11200000000000002,
+          "halfZ": 7.15
+        },
+        {
+          "x": 12.4,
+          "z": -19.125,
+          "halfX": 0.11200000000000002,
+          "halfZ": 2.0250000000000004
+        },
+        {
+          "x": 17.6,
+          "z": -19.125,
+          "halfX": 0.11200000000000002,
+          "halfZ": 2.0250000000000004
+        },
+        {
+          "x": -21.2,
+          "z": -19.285,
+          "halfX": 0.11200000000000002,
+          "halfZ": 1.8649999999999984
+        },
+        {
+          "x": 21.2,
+          "z": -19.285,
+          "halfX": 0.11200000000000002,
+          "halfZ": 1.8649999999999984
+        },
+        {
+          "x": 12.4,
+          "z": -21.15,
+          "halfX": 0.17600000000000002,
+          "halfZ": 0.17600000000000002
+        },
+        {
+          "x": 17.6,
+          "z": -21.15,
+          "halfX": 0.17600000000000002,
+          "halfZ": 0.17600000000000002
+        },
+        {
+          "x": 17.6,
+          "z": -23.75,
+          "halfX": 0.11200000000000002,
+          "halfZ": 2.6
+        }
+      ],
+      "STORE_PRODUCTION_FIXTURES": {
+        "flourMill": {
+          "fixtureId": "flourMill",
+          "workstationId": "mill",
+          "machineId": "flour-mill-1",
+          "obstacleId": "fixture:flour-mill",
+          "label": "MOLINO",
+          "processLabel": "TRIGO · HARINA",
+          "accent": "#c99a45",
+          "position": [
+            -9.75,
+            0,
+            -5.95
+          ],
+          "localFootprint": {
+            "centerX": 0,
+            "centerZ": -0.58,
+            "halfX": 0.65,
+            "halfZ": 0.58
+          },
+          "operatorWorkPoint": [
+            -8.7,
+            -5.3
+          ]
+        },
+        "breadOven": {
+          "fixtureId": "breadOven",
+          "workstationId": "bakery",
+          "machineId": "bread-oven-1",
+          "obstacleId": "fixture:bread-oven",
+          "label": "HORNO",
+          "processLabel": "HARINA · PAN",
+          "accent": "#c96d3e",
+          "position": [
+            -6.75,
+            0,
+            -5.95
+          ],
+          "localFootprint": {
+            "centerX": 0,
+            "centerZ": -0.55,
+            "halfX": 0.76,
+            "halfZ": 0.55
+          },
+          "operatorWorkPoint": [
+            -8,
+            -5.3
+          ]
+        },
+        "cheeseMaker": {
+          "fixtureId": "cheeseMaker",
+          "workstationId": "cheese",
+          "machineId": "cheese-maker-1",
+          "obstacleId": "fixture:cheese-maker",
+          "label": "QUESERÍA",
+          "processLabel": "LECHE · QUESO",
+          "accent": "#d8a92f",
+          "position": [
+            -9.75,
+            0,
+            -3.25
+          ],
+          "localFootprint": {
+            "centerX": 0,
+            "centerZ": -0.55,
+            "halfX": 0.6,
+            "halfZ": 0.55
+          },
+          "operatorWorkPoint": [
+            -8.7,
+            -4.9
+          ]
+        },
+        "juiceMachine": {
+          "fixtureId": "juiceMachine",
+          "workstationId": "juice",
+          "machineId": "juice-machine-1",
+          "obstacleId": "fixture:juice-machine",
+          "label": "ZUMOS",
+          "processLabel": "TOMATE · ZUMO",
+          "accent": "#df7540",
+          "position": [
+            -6.75,
+            0,
+            -3.25
+          ],
+          "localFootprint": {
+            "centerX": 0,
+            "centerZ": -0.55,
+            "halfX": 0.6,
+            "halfZ": 0.55
+          },
+          "operatorWorkPoint": [
+            -8,
+            -4.9
+          ]
+        }
+      },
+      "WORLD_SCALE": 3
+    }
+  },
+  "levelObjectives": [
+    {
+      "level": 1,
+      "tasks": [
+        {
+          "id": "harvest:tomatoes",
+          "label": "Cosecha 3 tomates",
+          "progress": 0,
+          "target": 3,
+          "unit": "count"
+        },
+        {
+          "id": "stock:tomatoes",
+          "label": "Surte 3 tomates",
+          "progress": 0,
+          "target": 3,
+          "unit": "count"
+        },
+        {
+          "id": "customers",
+          "label": "Atiende 1 cliente",
+          "progress": 0,
+          "target": 1,
+          "unit": "count"
+        }
+      ]
+    },
+    {
+      "level": 2,
+      "tasks": [
+        {
+          "id": "customers",
+          "label": "Atiende 2 clientes en total",
+          "progress": 0,
+          "target": 2,
+          "unit": "count"
+        }
+      ]
+    },
+    {
+      "level": 3,
+      "tasks": [
+        {
+          "id": "customers",
+          "label": "Atiende 4 clientes en total",
+          "progress": 0,
+          "target": 4,
+          "unit": "count"
+        }
+      ]
+    },
+    {
+      "level": 4,
+      "tasks": [
+        {
+          "id": "stock:all",
+          "label": "Surte 12 productos en total",
+          "progress": 0,
+          "target": 12,
+          "unit": "count"
+        }
+      ]
+    },
+    {
+      "level": 5,
+      "tasks": [
+        {
+          "id": "harvest:wheat",
+          "label": "Cosecha 6 trigos en total",
+          "progress": 0,
+          "target": 6,
+          "unit": "count"
+        }
+      ]
+    },
+    {
+      "level": 6,
+      "tasks": [
+        {
+          "id": "sales:bread",
+          "label": "Vende 4 panes en total",
+          "progress": 0,
+          "target": 4,
+          "unit": "count"
+        }
+      ]
+    },
+    {
+      "level": 7,
+      "tasks": [
+        {
+          "id": "customers",
+          "label": "Atiende 12 clientes en total",
+          "progress": 0,
+          "target": 12,
+          "unit": "count"
+        }
+      ]
+    },
+    {
+      "level": 8,
+      "tasks": [
+        {
+          "id": "sales:eggs",
+          "label": "Vende 8 huevos en total",
+          "progress": 0,
+          "target": 8,
+          "unit": "count"
+        }
+      ]
+    },
+    {
+      "level": 9,
+      "tasks": [
+        {
+          "id": "shelves:availability",
+          "label": "Mantén los estantes al 80 %",
+          "progress": 0.2533333333333333,
+          "target": 0.8,
+          "unit": "percent"
+        }
+      ]
+    },
+    {
+      "level": 10,
+      "tasks": [
+        {
+          "id": "sales:units",
+          "label": "Vende 20 productos en total",
+          "progress": 0,
+          "target": 20,
+          "unit": "count"
+        }
+      ]
+    },
+    {
+      "level": 11,
+      "tasks": [
+        {
+          "id": "harvest:corn",
+          "label": "Cosecha 20 maíces en total",
+          "progress": 0,
+          "target": 20,
+          "unit": "count"
+        }
+      ]
+    },
+    {
+      "level": 12,
+      "tasks": [
+        {
+          "id": "distance:player",
+          "label": "Camina 500 m",
+          "progress": 0,
+          "target": 500,
+          "unit": "distance"
+        }
+      ]
+    },
+    {
+      "level": 13,
+      "tasks": [
+        {
+          "id": "sales:milk",
+          "label": "Vende 12 leches en total",
+          "progress": 0,
+          "target": 12,
+          "unit": "count"
+        }
+      ]
+    },
+    {
+      "level": 14,
+      "tasks": [
+        {
+          "id": "customers",
+          "label": "Atiende 30 clientes en total",
+          "progress": 0,
+          "target": 30,
+          "unit": "count"
+        }
+      ]
+    },
+    {
+      "level": 15,
+      "tasks": [
+        {
+          "id": "transport:all",
+          "label": "Transporta 40 productos en total",
+          "progress": 0,
+          "target": 40,
+          "unit": "count"
+        }
+      ]
+    },
+    {
+      "level": 16,
+      "tasks": [
+        {
+          "id": "production:cheese",
+          "label": "Produce 10 quesos en total",
+          "progress": 0,
+          "target": 10,
+          "unit": "count"
+        }
+      ]
+    },
+    {
+      "level": 17,
+      "tasks": [
+        {
+          "id": "queue:under30",
+          "label": "Completa 1 venta con espera menor a 30 s",
+          "progress": 0,
+          "target": 1,
+          "unit": "count"
+        }
+      ]
+    },
+    {
+      "level": 18,
+      "tasks": [
+        {
+          "id": "deliveries",
+          "label": "Recibe 5 entregas en total",
+          "progress": 0,
+          "target": 5,
+          "unit": "count"
+        }
+      ]
+    },
+    {
+      "level": 19,
+      "tasks": [
+        {
+          "id": "orders",
+          "label": "Realiza 8 pedidos en total",
+          "progress": 0,
+          "target": 8,
+          "unit": "count"
+        }
+      ]
+    },
+    {
+      "level": 20,
+      "tasks": [
+        {
+          "id": "customers",
+          "label": "Atiende 50 clientes en total",
+          "progress": 0,
+          "target": 50,
+          "unit": "count"
+        }
+      ]
+    },
+    {
+      "level": 21,
+      "tasks": [
+        {
+          "id": "sales:juice",
+          "label": "Vende 15 zumos en total",
+          "progress": 0,
+          "target": 15,
+          "unit": "count"
+        }
+      ]
+    },
+    {
+      "level": 22,
+      "tasks": [
+        {
+          "id": "harvest:all",
+          "label": "Cosecha 60 productos en total",
+          "progress": 0,
+          "target": 60,
+          "unit": "count"
+        }
+      ]
+    },
+    {
+      "level": 23,
+      "tasks": [
+        {
+          "id": "store:rating",
+          "label": "Alcanza 4,25 de valoración",
+          "progress": 3.5,
+          "target": 4.25,
+          "unit": "rating"
+        }
+      ]
+    },
+    {
+      "level": 24,
+      "tasks": [
+        {
+          "id": "stock:all",
+          "label": "Surte 100 productos en total",
+          "progress": 0,
+          "target": 100,
+          "unit": "count"
+        }
+      ]
+    },
+    {
+      "level": 25,
+      "tasks": [
+        {
+          "id": "lists:five",
+          "label": "Completa 1 compra con 5 tipos de producto",
+          "progress": 0,
+          "target": 1,
+          "unit": "count"
+        }
+      ]
+    },
+    {
+      "level": 26,
+      "tasks": [
+        {
+          "id": "production:all",
+          "label": "Produce 50 lotes en total",
+          "progress": 0,
+          "target": 50,
+          "unit": "count"
+        }
+      ]
+    },
+    {
+      "level": 27,
+      "tasks": [
+        {
+          "id": "sales:units",
+          "label": "Vende 150 productos en total",
+          "progress": 0,
+          "target": 150,
+          "unit": "count"
+        }
+      ]
+    },
+    {
+      "level": 28,
+      "tasks": [
+        {
+          "id": "stations:tier-3",
+          "label": "Mejora todas las estaciones al nivel 3",
+          "progress": 0,
+          "target": 3,
+          "unit": "count"
+        }
+      ]
+    },
+    {
+      "level": 29,
+      "tasks": [
+        {
+          "id": "availability:sales",
+          "label": "Completa 50 ventas con estantes al 90 %",
+          "progress": 0,
+          "target": 50,
+          "unit": "count"
+        }
+      ]
+    },
+    {
+      "level": 30,
+      "tasks": [
+        {
+          "id": "level:max",
+          "label": "Nivel máximo alcanzado",
+          "progress": 1,
+          "target": 1,
+          "unit": "count"
+        }
+      ]
+    }
+  ]
+}

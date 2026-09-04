@@ -1,0 +1,1913 @@
+{
+  "schemaVersion": 1,
+  "sourceRoot": "/home/ferney_oliveros/Mini Market/GameAssets",
+  "entries": [
+    {
+      "id": "AdultMale:LOD0",
+      "kind": "character",
+      "path": "Art/Characters/AdultMale/LOD0.glb",
+      "source": "GameAssets/Characters/Store/AdultMale/Runtime/TripoMotionPack/Exports/AdultMale_TripoMotionPack.glb",
+      "bytes": 24396820,
+      "sha256": "1ab8677fb90dcda73e46fc5e24d2132e3610c2a581408c18f36a898af18c265a"
+    },
+    {
+      "id": "AdultMale:LOD1",
+      "kind": "character",
+      "path": "Art/Characters/AdultMale/LOD1.glb",
+      "source": "GameAssets/Characters/Store/AdultMale/Runtime/LOD1/AdultMale_LOD1.glb",
+      "bytes": 11631628,
+      "sha256": "67578fcc78425e77075a8904f9659153c8784e344b8648be2d66b1c6355e91b6"
+    },
+    {
+      "id": "AdultMale:LOD2",
+      "kind": "character",
+      "path": "Art/Characters/AdultMale/LOD2.glb",
+      "source": "GameAssets/Characters/Store/AdultMale/Runtime/LOD2/AdultMale_LOD2.glb",
+      "bytes": 6405404,
+      "sha256": "48a88db4da2110bc208983fbaa5ed956bd34a67ed2c499ab16d91f93e0c8a1cc"
+    },
+    {
+      "id": "AdultMale:texture:AdultMale_BaseColor.jpg",
+      "kind": "character-texture",
+      "path": "Art/Characters/AdultMale/Textures/AdultMale_BaseColor.jpg",
+      "source": "GameAssets/Characters/Store/AdultMale/Runtime/TripoMotionPack/Textures/AdultMale_BaseColor.jpg",
+      "bytes": 630903,
+      "sha256": "c8cb36eb0fc879d677dbf0697e50a0a5e6e4f25cd17a6a632354da79cb964b16"
+    },
+    {
+      "id": "AdultMale:texture:AdultMale_BaseColor.png",
+      "kind": "character-texture",
+      "path": "Art/Characters/AdultMale/Textures/AdultMale_BaseColor.png",
+      "source": "GameAssets/Characters/Store/AdultMale/Runtime/TripoMotionPack/Textures/AdultMale_BaseColor.png",
+      "bytes": 1192230,
+      "sha256": "c40cdd9d03e34a7c9cd474e0991233a23be9038633a0ff89002a7127692d7b8e"
+    },
+    {
+      "id": "AdultMale:AdultMale_Normal",
+      "kind": "character-texture",
+      "path": "Art/Characters/AdultMale/Textures/AdultMale_Normal.jpg",
+      "source": "GameAssets/Characters/Store/AdultMale/Runtime/TripoMotionPack/Textures/AdultMale_Normal.jpg",
+      "bytes": 419527,
+      "sha256": "0f7c3026884d97dd56993ae10364c34371063820a8ce7f126c16766b617975e5"
+    },
+    {
+      "id": "AdultMale:AdultMale_RM_Original",
+      "kind": "character-texture",
+      "path": "Art/Characters/AdultMale/Textures/AdultMale_RM_Original.jpg",
+      "source": "GameAssets/Characters/Store/AdultMale/Runtime/TripoMotionPack/Textures/AdultMale_RM_Original.jpg",
+      "bytes": 478986,
+      "sha256": "fe8566a9fad397ae0d46ea82c3397ac35c20848c1173ac97528dd4a31b7eab6a"
+    },
+    {
+      "id": "AdultMale:AdultMale_SkinMask",
+      "kind": "character-texture",
+      "path": "Art/Characters/AdultMale/Textures/AdultMale_SkinMask.png",
+      "source": "GameAssets/Characters/Store/AdultMale/Runtime/TripoMotionPack/Textures/AdultMale_SkinMask.png",
+      "bytes": 77801,
+      "sha256": "5b58992fdec863c87ec0f1e7d0f54304c7d183240705b747dbff540e1de542d8"
+    },
+    {
+      "id": "AdultMale:AdultMale_SkinMask_Submitted",
+      "kind": "character-texture",
+      "path": "Art/Characters/AdultMale/Textures/AdultMale_SkinMask_Submitted.png",
+      "source": "GameAssets/Characters/Store/AdultMale/Runtime/TripoMotionPack/Textures/AdultMale_SkinMask_Submitted.png",
+      "bytes": 77801,
+      "sha256": "5b58992fdec863c87ec0f1e7d0f54304c7d183240705b747dbff540e1de542d8"
+    },
+    {
+      "id": "AdultFemale:LOD0",
+      "kind": "character",
+      "path": "Art/Characters/AdultFemale/LOD0.glb",
+      "source": "GameAssets/Characters/Store/AdultFemale/Runtime/TripoMotionPack/Exports/AdultFemale_TripoMotionPack.glb",
+      "bytes": 25577612,
+      "sha256": "176932323ec50a8fb71de23a53bebffee8046f258b40084f021c86795a4db628"
+    },
+    {
+      "id": "AdultFemale:LOD1",
+      "kind": "character",
+      "path": "Art/Characters/AdultFemale/LOD1.glb",
+      "source": "GameAssets/Characters/Store/AdultFemale/Runtime/LOD1/AdultFemale_LOD1.glb",
+      "bytes": 12328928,
+      "sha256": "caa5b16e8ed46a8076dbaaaf5abba54c1c36f6721d976bb73915360019959beb"
+    },
+    {
+      "id": "AdultFemale:LOD2",
+      "kind": "character",
+      "path": "Art/Characters/AdultFemale/LOD2.glb",
+      "source": "GameAssets/Characters/Store/AdultFemale/Runtime/LOD2/AdultFemale_LOD2.glb",
+      "bytes": 6688660,
+      "sha256": "7bad00330f65dce98c2d3f541ee1583f0caf36f25f9cc3fdd1c6f2e80361a248"
+    },
+    {
+      "id": "AdultFemale:AdultFemale_BaseColor",
+      "kind": "character-texture",
+      "path": "Art/Characters/AdultFemale/Textures/AdultFemale_BaseColor.jpg",
+      "source": "GameAssets/Characters/Store/AdultFemale/Runtime/TripoMotionPack/Textures/AdultFemale_BaseColor.jpg",
+      "bytes": 607734,
+      "sha256": "70934ebcb175c083e78ba008fdc12b66597eecfaf5c02d88f2704aba7ec249dd"
+    },
+    {
+      "id": "AdultFemale:AdultFemale_Normal",
+      "kind": "character-texture",
+      "path": "Art/Characters/AdultFemale/Textures/AdultFemale_Normal.jpg",
+      "source": "GameAssets/Characters/Store/AdultFemale/Runtime/TripoMotionPack/Textures/AdultFemale_Normal.jpg",
+      "bytes": 383512,
+      "sha256": "dd9d7c1aad54f0bd9fc67e79f0ef8eb02abe58fa924499cfeb615f9fe6baa133"
+    },
+    {
+      "id": "AdultFemale:AdultFemale_RM_Original",
+      "kind": "character-texture",
+      "path": "Art/Characters/AdultFemale/Textures/AdultFemale_RM_Original.jpg",
+      "source": "GameAssets/Characters/Store/AdultFemale/Runtime/TripoMotionPack/Textures/AdultFemale_RM_Original.jpg",
+      "bytes": 528066,
+      "sha256": "d56afabdb3b2a13a516af08cc002773e3e60bed80ba0b4a37d963ce95843baab"
+    },
+    {
+      "id": "AdultFemale:AdultFemale_SkinMask",
+      "kind": "character-texture",
+      "path": "Art/Characters/AdultFemale/Textures/AdultFemale_SkinMask.png",
+      "source": "GameAssets/Characters/Store/AdultFemale/Runtime/TripoMotionPack/Textures/AdultFemale_SkinMask.png",
+      "bytes": 52214,
+      "sha256": "d087dda3fb75d807f15f596b86207459ff3799bdaafab0f8630679345d6f854d"
+    },
+    {
+      "id": "Boy:LOD0",
+      "kind": "character",
+      "path": "Art/Characters/Boy/LOD0.glb",
+      "source": "GameAssets/Characters/Store/Boy/Runtime/TripoMotionPack/Exports/Boy_TripoMotionPack.glb",
+      "bytes": 25266720,
+      "sha256": "097de82283cd2b44f5a5054e9d794958be5be26b9b1b2993536e96f15ffe178b"
+    },
+    {
+      "id": "Boy:LOD1",
+      "kind": "character",
+      "path": "Art/Characters/Boy/LOD1.glb",
+      "source": "GameAssets/Characters/Store/Boy/Runtime/LOD1/Boy_LOD1.glb",
+      "bytes": 12003408,
+      "sha256": "0d3b25561f5f26b33a1a1f39bb6521d05a2d0b83897619726399cc112248480b"
+    },
+    {
+      "id": "Boy:LOD2",
+      "kind": "character",
+      "path": "Art/Characters/Boy/LOD2.glb",
+      "source": "GameAssets/Characters/Store/Boy/Runtime/LOD2/Boy_LOD2.glb",
+      "bytes": 6607576,
+      "sha256": "2e9864f249170ec6dcfcb4bfaf7f185cc6a5ad5c26b4ad31ee867b96541187c1"
+    },
+    {
+      "id": "Boy:Boy_BaseColor",
+      "kind": "character-texture",
+      "path": "Art/Characters/Boy/Textures/Boy_BaseColor.jpg",
+      "source": "GameAssets/Characters/Store/Boy/Runtime/TripoMotionPack/Textures/Boy_BaseColor.jpg",
+      "bytes": 633823,
+      "sha256": "e20dc99f991edd417127a841fdc43f7e1cb47a862d0456dea298a58edb09cd62"
+    },
+    {
+      "id": "Boy:Boy_Normal",
+      "kind": "character-texture",
+      "path": "Art/Characters/Boy/Textures/Boy_Normal.jpg",
+      "source": "GameAssets/Characters/Store/Boy/Runtime/TripoMotionPack/Textures/Boy_Normal.jpg",
+      "bytes": 380624,
+      "sha256": "563e57e75db2e3f1d2320835f1dff5c55eda0a8a5a43a434aac8b1e56603da40"
+    },
+    {
+      "id": "Boy:Boy_RM_Original",
+      "kind": "character-texture",
+      "path": "Art/Characters/Boy/Textures/Boy_RM_Original.jpg",
+      "source": "GameAssets/Characters/Store/Boy/Runtime/TripoMotionPack/Textures/Boy_RM_Original.jpg",
+      "bytes": 448898,
+      "sha256": "0b526eb45dde25890f6b15f6d902bd3c16f67428b448f473c8abed2d364469b1"
+    },
+    {
+      "id": "Boy:Boy_SkinMask",
+      "kind": "character-texture",
+      "path": "Art/Characters/Boy/Textures/Boy_SkinMask.png",
+      "source": "GameAssets/Characters/Store/Boy/Runtime/TripoMotionPack/Textures/Boy_SkinMask.png",
+      "bytes": 56065,
+      "sha256": "5588114765526045eecf2b411b69a3192c9125966e413136f58ac48821762364"
+    },
+    {
+      "id": "Girl:LOD0",
+      "kind": "character",
+      "path": "Art/Characters/Girl/LOD0.glb",
+      "source": "GameAssets/Characters/Store/Girl/Runtime/TripoMotionPack/Exports/Girl_TripoMotionPack.glb",
+      "bytes": 27123328,
+      "sha256": "86ddbb5c0af2d76d79b2282aab8a97bb04edfc57bef6a9e3ace2537c7f086b6b"
+    },
+    {
+      "id": "Girl:LOD1",
+      "kind": "character",
+      "path": "Art/Characters/Girl/LOD1.glb",
+      "source": "GameAssets/Characters/Store/Girl/Runtime/LOD1/Girl_LOD1.glb",
+      "bytes": 13179248,
+      "sha256": "a6b543819d4e07b5abb29cf487d372e91a81bb22f66c7b0c5938ab9b8e182df5"
+    },
+    {
+      "id": "Girl:LOD2",
+      "kind": "character",
+      "path": "Art/Characters/Girl/LOD2.glb",
+      "source": "GameAssets/Characters/Store/Girl/Runtime/LOD2/Girl_LOD2.glb",
+      "bytes": 7103336,
+      "sha256": "76a59ae5e8d0c8c2bb9d8d5ff32a44c925c76f6476393f19bbd5c99071f10cb0"
+    },
+    {
+      "id": "Girl:Girl_BaseColor",
+      "kind": "character-texture",
+      "path": "Art/Characters/Girl/Textures/Girl_BaseColor.jpg",
+      "source": "GameAssets/Characters/Store/Girl/Runtime/TripoMotionPack/Textures/Girl_BaseColor.jpg",
+      "bytes": 627232,
+      "sha256": "2aa60e93f768497d314825f18539ae86ecf6c5ed38db2f0bfb7462bedaa37a72"
+    },
+    {
+      "id": "Girl:Girl_Normal",
+      "kind": "character-texture",
+      "path": "Art/Characters/Girl/Textures/Girl_Normal.jpg",
+      "source": "GameAssets/Characters/Store/Girl/Runtime/TripoMotionPack/Textures/Girl_Normal.jpg",
+      "bytes": 376597,
+      "sha256": "d936d5c2cf13d439d1d249f39db2e8191b5dd30689d30bde3e372b86a0353b1b"
+    },
+    {
+      "id": "Girl:Girl_RM_Original",
+      "kind": "character-texture",
+      "path": "Art/Characters/Girl/Textures/Girl_RM_Original.jpg",
+      "source": "GameAssets/Characters/Store/Girl/Runtime/TripoMotionPack/Textures/Girl_RM_Original.jpg",
+      "bytes": 551097,
+      "sha256": "b4f2278df5d0d1b6143b633526c4a5fe905aa0d82fb3fe192b095bee325efa4a"
+    },
+    {
+      "id": "Girl:Girl_SkinMask",
+      "kind": "character-texture",
+      "path": "Art/Characters/Girl/Textures/Girl_SkinMask.png",
+      "source": "GameAssets/Characters/Store/Girl/Runtime/TripoMotionPack/Textures/Girl_SkinMask.png",
+      "bytes": 56281,
+      "sha256": "e2362d007dc062a6be72c2f7c34d730499785c5ec4c4698a840f7a40cf633d2b"
+    },
+    {
+      "id": "CustomerFemale01:LOD0",
+      "kind": "character",
+      "path": "Art/Characters/CustomerFemale01/LOD0.glb",
+      "source": "GameAssets/Characters/Customers/CustomerFemale01/Runtime/TripoMotionPack/Exports/CustomerFemale01_TripoMotionPack.glb",
+      "bytes": 17006748,
+      "sha256": "0e268ef4ee40625fa2fddf7723aafd6c4560849ebb9f322ce4242f9513002b36"
+    },
+    {
+      "id": "CustomerFemale01:LOD1",
+      "kind": "character",
+      "path": "Art/Characters/CustomerFemale01/LOD1.glb",
+      "source": "GameAssets/Characters/Customers/CustomerFemale01/Runtime/LOD1/CustomerFemale01_LOD1.glb",
+      "bytes": 9450448,
+      "sha256": "e9452c38d643a495da83b4ca3f04e00cd4d4737aa28fcc0142a480e225c49dd8"
+    },
+    {
+      "id": "CustomerFemale01:LOD2",
+      "kind": "character",
+      "path": "Art/Characters/CustomerFemale01/LOD2.glb",
+      "source": "GameAssets/Characters/Customers/CustomerFemale01/Runtime/LOD2/CustomerFemale01_LOD2.glb",
+      "bytes": 5223208,
+      "sha256": "b7d77bc9b4845dfefb76c997625927b0118f242b1a81d1afee95a4e46282db62"
+    },
+    {
+      "id": "CustomerFemale01:CustomerFemale01_BaseColor",
+      "kind": "character-texture",
+      "path": "Art/Characters/CustomerFemale01/Textures/CustomerFemale01_BaseColor.jpg",
+      "source": "GameAssets/Characters/Customers/CustomerFemale01/Runtime/TripoMotionPack/Textures/CustomerFemale01_BaseColor.jpg",
+      "bytes": 545815,
+      "sha256": "4c4d08e848170ac62a5e230bbd8adda940be5b5aa1b91c244d638034582ed12f"
+    },
+    {
+      "id": "CustomerFemale01:CustomerFemale01_Normal",
+      "kind": "character-texture",
+      "path": "Art/Characters/CustomerFemale01/Textures/CustomerFemale01_Normal.jpg",
+      "source": "GameAssets/Characters/Customers/CustomerFemale01/Runtime/TripoMotionPack/Textures/CustomerFemale01_Normal.jpg",
+      "bytes": 361858,
+      "sha256": "87c713ec8369118ab89f886910be63ba92a574f10ef6c291201f124295628f56"
+    },
+    {
+      "id": "CustomerFemale01:CustomerFemale01_RM_Original",
+      "kind": "character-texture",
+      "path": "Art/Characters/CustomerFemale01/Textures/CustomerFemale01_RM_Original.jpg",
+      "source": "GameAssets/Characters/Customers/CustomerFemale01/Runtime/TripoMotionPack/Textures/CustomerFemale01_RM_Original.jpg",
+      "bytes": 445536,
+      "sha256": "0666231fe0d4089cd935d6eb181300c589de1bd2277500273e80c58ab74e9621"
+    },
+    {
+      "id": "CustomerFemale01:CustomerFemale01_SkinMask",
+      "kind": "character-texture",
+      "path": "Art/Characters/CustomerFemale01/Textures/CustomerFemale01_SkinMask.png",
+      "source": "GameAssets/Characters/Customers/CustomerFemale01/Runtime/TripoMotionPack/Textures/CustomerFemale01_SkinMask.png",
+      "bytes": 67043,
+      "sha256": "1e36cf0bd354af90bc3a431650a183460bd17332fa6593a52cfaa6cd3023c460"
+    },
+    {
+      "id": "CustomerFemale02:LOD0",
+      "kind": "character",
+      "path": "Art/Characters/CustomerFemale02/LOD0.glb",
+      "source": "GameAssets/Characters/Customers/CustomerFemale02/Runtime/TripoMotionPack/Exports/CustomerFemale02_TripoMotionPack.glb",
+      "bytes": 18266704,
+      "sha256": "0aabd08fa7fff4243d1df12c8337a7f425f79b63cdeb3f28a015cc40bf19dbb5"
+    },
+    {
+      "id": "CustomerFemale02:LOD1",
+      "kind": "character",
+      "path": "Art/Characters/CustomerFemale02/LOD1.glb",
+      "source": "GameAssets/Characters/Customers/CustomerFemale02/Runtime/LOD1/CustomerFemale02_LOD1.glb",
+      "bytes": 10137060,
+      "sha256": "98aa676acae9141334a1e79486baa3999f1ed1f8bc114fb743405693dee40771"
+    },
+    {
+      "id": "CustomerFemale02:LOD2",
+      "kind": "character",
+      "path": "Art/Characters/CustomerFemale02/LOD2.glb",
+      "source": "GameAssets/Characters/Customers/CustomerFemale02/Runtime/LOD2/CustomerFemale02_LOD2.glb",
+      "bytes": 5562592,
+      "sha256": "b21342e047e5e49262c35c19b9aac2c2589c76ddb8046cd8160367feea735532"
+    },
+    {
+      "id": "CustomerFemale02:CustomerFemale02_BaseColor",
+      "kind": "character-texture",
+      "path": "Art/Characters/CustomerFemale02/Textures/CustomerFemale02_BaseColor.jpg",
+      "source": "GameAssets/Characters/Customers/CustomerFemale02/Runtime/TripoMotionPack/Textures/CustomerFemale02_BaseColor.jpg",
+      "bytes": 599388,
+      "sha256": "4d66923bbee257b6dacb9007cae0b33983e0c1fbdbc58382cb5df7008e83baa5"
+    },
+    {
+      "id": "CustomerFemale02:CustomerFemale02_Normal",
+      "kind": "character-texture",
+      "path": "Art/Characters/CustomerFemale02/Textures/CustomerFemale02_Normal.jpg",
+      "source": "GameAssets/Characters/Customers/CustomerFemale02/Runtime/TripoMotionPack/Textures/CustomerFemale02_Normal.jpg",
+      "bytes": 353610,
+      "sha256": "67e34a05e40e7f9fc7dd81f4cb989bd9e6ace913be3923d45c2ad15832773091"
+    },
+    {
+      "id": "CustomerFemale02:CustomerFemale02_RM_Original",
+      "kind": "character-texture",
+      "path": "Art/Characters/CustomerFemale02/Textures/CustomerFemale02_RM_Original.jpg",
+      "source": "GameAssets/Characters/Customers/CustomerFemale02/Runtime/TripoMotionPack/Textures/CustomerFemale02_RM_Original.jpg",
+      "bytes": 464833,
+      "sha256": "851811a76a9ba495e2a9308ea9492a40cc1190c5cf5ff5d3c786ffb3668b2757"
+    },
+    {
+      "id": "CustomerFemale02:CustomerFemale02_SkinMask",
+      "kind": "character-texture",
+      "path": "Art/Characters/CustomerFemale02/Textures/CustomerFemale02_SkinMask.png",
+      "source": "GameAssets/Characters/Customers/CustomerFemale02/Runtime/TripoMotionPack/Textures/CustomerFemale02_SkinMask.png",
+      "bytes": 101702,
+      "sha256": "e3670c3d8b42036c6cc1f53657af433fd9e6b62a92c6f635072dd5c487c93293"
+    },
+    {
+      "id": "CustomerFemale03:LOD0",
+      "kind": "character",
+      "path": "Art/Characters/CustomerFemale03/LOD0.glb",
+      "source": "GameAssets/Characters/Customers/CustomerFemale03/Runtime/TripoMotionPack/Exports/CustomerFemale03_TripoMotionPack.glb",
+      "bytes": 17110808,
+      "sha256": "4740ed1dd24bb3317c6335b3cf28c90bf86a5b93ff12da9fd773b892fc19b4e8"
+    },
+    {
+      "id": "CustomerFemale03:LOD1",
+      "kind": "character",
+      "path": "Art/Characters/CustomerFemale03/LOD1.glb",
+      "source": "GameAssets/Characters/Customers/CustomerFemale03/Runtime/LOD1/CustomerFemale03_LOD1.glb",
+      "bytes": 9454812,
+      "sha256": "c8c17d343049a7cafa3d6e31a4e03a322a3adb7a74a9ec413c00b6b89fa1a479"
+    },
+    {
+      "id": "CustomerFemale03:LOD2",
+      "kind": "character",
+      "path": "Art/Characters/CustomerFemale03/LOD2.glb",
+      "source": "GameAssets/Characters/Customers/CustomerFemale03/Runtime/LOD2/CustomerFemale03_LOD2.glb",
+      "bytes": 5177632,
+      "sha256": "bf001128a1fc1f5cfec16108008e250aed374c41f70ee716639b616b9b2a495b"
+    },
+    {
+      "id": "CustomerFemale03:CustomerFemale03_BaseColor",
+      "kind": "character-texture",
+      "path": "Art/Characters/CustomerFemale03/Textures/CustomerFemale03_BaseColor.jpg",
+      "source": "GameAssets/Characters/Customers/CustomerFemale03/Runtime/TripoMotionPack/Textures/CustomerFemale03_BaseColor.jpg",
+      "bytes": 635005,
+      "sha256": "dcf4c271e0a0f854ef821bf7ce7c8827fa50f77f2b0059603dd0b8fe561aabd2"
+    },
+    {
+      "id": "CustomerFemale03:CustomerFemale03_Normal",
+      "kind": "character-texture",
+      "path": "Art/Characters/CustomerFemale03/Textures/CustomerFemale03_Normal.jpg",
+      "source": "GameAssets/Characters/Customers/CustomerFemale03/Runtime/TripoMotionPack/Textures/CustomerFemale03_Normal.jpg",
+      "bytes": 395231,
+      "sha256": "f7b795721a01c4cbd1ffc845d826486670d9603713ddc6fe0229c02dd0a4e215"
+    },
+    {
+      "id": "CustomerFemale03:CustomerFemale03_RM_Original",
+      "kind": "character-texture",
+      "path": "Art/Characters/CustomerFemale03/Textures/CustomerFemale03_RM_Original.jpg",
+      "source": "GameAssets/Characters/Customers/CustomerFemale03/Runtime/TripoMotionPack/Textures/CustomerFemale03_RM_Original.jpg",
+      "bytes": 473583,
+      "sha256": "5bf0b2617bdbfdd01932140f3ab517b4b08a06208a140bfe866ca0b4f433b1b7"
+    },
+    {
+      "id": "CustomerFemale03:CustomerFemale03_SkinMask",
+      "kind": "character-texture",
+      "path": "Art/Characters/CustomerFemale03/Textures/CustomerFemale03_SkinMask.png",
+      "source": "GameAssets/Characters/Customers/CustomerFemale03/Runtime/TripoMotionPack/Textures/CustomerFemale03_SkinMask.png",
+      "bytes": 72088,
+      "sha256": "5fb95443a7820e7eb7768ab1a583f23bc7cfdecd0753c7349c69bada5ff8df59"
+    },
+    {
+      "id": "CustomerMale01:LOD0",
+      "kind": "character",
+      "path": "Art/Characters/CustomerMale01/LOD0.glb",
+      "source": "GameAssets/Characters/Customers/CustomerMale01/Runtime/TripoMotionPack/Exports/CustomerMale01_TripoMotionPack.glb",
+      "bytes": 18572744,
+      "sha256": "d28ec8be3e59e88b8a12287bf7f325bab42e92e4ab23d4ce2a5308b1b2f6a9bf"
+    },
+    {
+      "id": "CustomerMale01:LOD1",
+      "kind": "character",
+      "path": "Art/Characters/CustomerMale01/LOD1.glb",
+      "source": "GameAssets/Characters/Customers/CustomerMale01/Runtime/LOD1/CustomerMale01_LOD1.glb",
+      "bytes": 10195208,
+      "sha256": "3a48b35b7e807ba502c726a949060c962e1ea7e01281fc13e2776a2113d7fdcd"
+    },
+    {
+      "id": "CustomerMale01:LOD2",
+      "kind": "character",
+      "path": "Art/Characters/CustomerMale01/LOD2.glb",
+      "source": "GameAssets/Characters/Customers/CustomerMale01/Runtime/LOD2/CustomerMale01_LOD2.glb",
+      "bytes": 5520316,
+      "sha256": "071ef992323d274631531d820c3039167dcdd2ee0051285f999d68eb199c5b64"
+    },
+    {
+      "id": "CustomerMale01:CustomerMale01_BaseColor",
+      "kind": "character-texture",
+      "path": "Art/Characters/CustomerMale01/Textures/CustomerMale01_BaseColor.jpg",
+      "source": "GameAssets/Characters/Customers/CustomerMale01/Runtime/TripoMotionPack/Textures/CustomerMale01_BaseColor.jpg",
+      "bytes": 616655,
+      "sha256": "3639ae25437534ed35c447b2f90830db0b602f644fef53ef1ded00fab851bd64"
+    },
+    {
+      "id": "CustomerMale01:CustomerMale01_Normal",
+      "kind": "character-texture",
+      "path": "Art/Characters/CustomerMale01/Textures/CustomerMale01_Normal.jpg",
+      "source": "GameAssets/Characters/Customers/CustomerMale01/Runtime/TripoMotionPack/Textures/CustomerMale01_Normal.jpg",
+      "bytes": 405443,
+      "sha256": "19b4b5ed6a9b5d318d52a3c924e58fc917a6f73cc014c489bc4590188b22a4d2"
+    },
+    {
+      "id": "CustomerMale01:CustomerMale01_RM_Original",
+      "kind": "character-texture",
+      "path": "Art/Characters/CustomerMale01/Textures/CustomerMale01_RM_Original.jpg",
+      "source": "GameAssets/Characters/Customers/CustomerMale01/Runtime/TripoMotionPack/Textures/CustomerMale01_RM_Original.jpg",
+      "bytes": 510403,
+      "sha256": "b0823d7fdd8df1dd7f31574aae5da1895f6c9a0ed1ff8db06bd956effe441255"
+    },
+    {
+      "id": "CustomerMale01:CustomerMale01_SkinMask",
+      "kind": "character-texture",
+      "path": "Art/Characters/CustomerMale01/Textures/CustomerMale01_SkinMask.png",
+      "source": "GameAssets/Characters/Customers/CustomerMale01/Runtime/TripoMotionPack/Textures/CustomerMale01_SkinMask.png",
+      "bytes": 50472,
+      "sha256": "6412cbae215b7acf7cf63a6b604565cc615e7b46237c2ff127d7097ea2f6a407"
+    },
+    {
+      "id": "CustomerMale02:LOD0",
+      "kind": "character",
+      "path": "Art/Characters/CustomerMale02/LOD0.glb",
+      "source": "GameAssets/Characters/Customers/CustomerMale02/Runtime/TripoMotionPack/Exports/CustomerMale02_TripoMotionPack.glb",
+      "bytes": 17166940,
+      "sha256": "6b00664ff411e822e86aded00c07be1bd26f184c0b6553823f63d452899b311c"
+    },
+    {
+      "id": "CustomerMale02:LOD1",
+      "kind": "character",
+      "path": "Art/Characters/CustomerMale02/LOD1.glb",
+      "source": "GameAssets/Characters/Customers/CustomerMale02/Runtime/LOD1/CustomerMale02_LOD1.glb",
+      "bytes": 9490524,
+      "sha256": "9aabaaa93310d84b1186101f4dc736f91724ede0d863175e30b06a56e0546b10"
+    },
+    {
+      "id": "CustomerMale02:LOD2",
+      "kind": "character",
+      "path": "Art/Characters/CustomerMale02/LOD2.glb",
+      "source": "GameAssets/Characters/Customers/CustomerMale02/Runtime/LOD2/CustomerMale02_LOD2.glb",
+      "bytes": 5169880,
+      "sha256": "f81635e37e26aa59bc3cff25d9111fa23d2e3118060ed8fcc0d84df80ddc6e9b"
+    },
+    {
+      "id": "CustomerMale02:CustomerMale02_BaseColor",
+      "kind": "character-texture",
+      "path": "Art/Characters/CustomerMale02/Textures/CustomerMale02_BaseColor.jpg",
+      "source": "GameAssets/Characters/Customers/CustomerMale02/Runtime/TripoMotionPack/Textures/CustomerMale02_BaseColor.jpg",
+      "bytes": 570420,
+      "sha256": "1539849f5a4f94eece52b418023f8e1878a48168721994a24e8e486dc788e0f7"
+    },
+    {
+      "id": "CustomerMale02:CustomerMale02_Normal",
+      "kind": "character-texture",
+      "path": "Art/Characters/CustomerMale02/Textures/CustomerMale02_Normal.jpg",
+      "source": "GameAssets/Characters/Customers/CustomerMale02/Runtime/TripoMotionPack/Textures/CustomerMale02_Normal.jpg",
+      "bytes": 398415,
+      "sha256": "a98ccde9a9e6a9ef3d6978e00738cb4a7e6c1b13d8e05b7e2671f95e7ef9ce15"
+    },
+    {
+      "id": "CustomerMale02:CustomerMale02_RM_Original",
+      "kind": "character-texture",
+      "path": "Art/Characters/CustomerMale02/Textures/CustomerMale02_RM_Original.jpg",
+      "source": "GameAssets/Characters/Customers/CustomerMale02/Runtime/TripoMotionPack/Textures/CustomerMale02_RM_Original.jpg",
+      "bytes": 405214,
+      "sha256": "08ee738444688d7b70bcb3593ba1cb49cefe5236d9be4436a0e7e9b148f2304d"
+    },
+    {
+      "id": "CustomerMale02:CustomerMale02_SkinMask",
+      "kind": "character-texture",
+      "path": "Art/Characters/CustomerMale02/Textures/CustomerMale02_SkinMask.png",
+      "source": "GameAssets/Characters/Customers/CustomerMale02/Runtime/TripoMotionPack/Textures/CustomerMale02_SkinMask.png",
+      "bytes": 68329,
+      "sha256": "f362f8551747754bf9ff844f0da9734c9194d7d9ecba9b912df0ad2974d68a34"
+    },
+    {
+      "id": "Bench",
+      "kind": "environment",
+      "path": "Art/Exterior/Bench.glb",
+      "source": "GameAssets/Environment/Runtime/Exterior/Bench.glb",
+      "bytes": 511808,
+      "sha256": "042f6d6e37ffc64a6073810b4d78a9ff256bcad8cb3952692151872238527413"
+    },
+    {
+      "id": "BusStop",
+      "kind": "environment",
+      "path": "Art/Exterior/BusStop.glb",
+      "source": "GameAssets/Environment/Runtime/Exterior/BusStop.glb",
+      "bytes": 586124,
+      "sha256": "455789b4558c90f970f71a5b1c1ee564832850f4b21fd13a8bd780c4e32c5ca5"
+    },
+    {
+      "id": "Car",
+      "kind": "environment",
+      "path": "Art/Exterior/Car.glb",
+      "source": "GameAssets/Environment/Runtime/Exterior/Car.glb",
+      "bytes": 553564,
+      "sha256": "16d56ad93f05c8d82f0b095e43776a1242f55240d08b53d04f2e6243280482c5"
+    },
+    {
+      "id": "CityBuilding",
+      "kind": "environment",
+      "path": "Art/Exterior/CityBuilding.glb",
+      "source": "GameAssets/Environment/Runtime/Exterior/CityBuilding.glb",
+      "bytes": 689016,
+      "sha256": "ac77e7364d94e47a00178bc6f9a3356180defb95a284aa0051bd2e742a385f97"
+    },
+    {
+      "id": "Crosswalk",
+      "kind": "environment",
+      "path": "Art/Exterior/Crosswalk.glb",
+      "source": "GameAssets/Environment/Runtime/Exterior/Crosswalk.glb",
+      "bytes": 479260,
+      "sha256": "4413a377776eaad22f501d4fc982a99e9c80295222a428884fbc7746d9efe6e6"
+    },
+    {
+      "id": "ParkingSpace",
+      "kind": "environment",
+      "path": "Art/Exterior/ParkingSpace.glb",
+      "source": "GameAssets/Environment/Runtime/Exterior/ParkingSpace.glb",
+      "bytes": 525920,
+      "sha256": "462cdf323cc31f82dca04d29baae7d870667adec4bf5b95907f3511c32fdf746"
+    },
+    {
+      "id": "RoadSegment",
+      "kind": "environment",
+      "path": "Art/Exterior/RoadSegment.glb",
+      "source": "GameAssets/Environment/Runtime/Exterior/RoadSegment.glb",
+      "bytes": 521456,
+      "sha256": "675a5c18e698280e07d96b409a8e124d678deeabd1a52ae10a2b6c0a68bf1a91"
+    },
+    {
+      "id": "SidewalkSegment",
+      "kind": "environment",
+      "path": "Art/Exterior/SidewalkSegment.glb",
+      "source": "GameAssets/Environment/Runtime/Exterior/SidewalkSegment.glb",
+      "bytes": 494732,
+      "sha256": "136166ca099af6b714cefaf158cd45f43b0d49e4fd92d182d2ab064967055bd6"
+    },
+    {
+      "id": "StreetLight",
+      "kind": "environment",
+      "path": "Art/Exterior/StreetLight.glb",
+      "source": "GameAssets/Environment/Runtime/Exterior/StreetLight.glb",
+      "bytes": 452516,
+      "sha256": "49f9b8693207268f3c33eea217ffd7fbafe8cea321df36ea4e04bffb79a575dc"
+    },
+    {
+      "id": "Tree",
+      "kind": "environment",
+      "path": "Art/Exterior/Tree.glb",
+      "source": "GameAssets/Environment/Runtime/Exterior/Tree.glb",
+      "bytes": 528052,
+      "sha256": "bc4a7f25bec49ffa8bab2560fd126c9bc57300f0820077f0ff8e0e6e1ed6979c"
+    },
+    {
+      "id": "CarrotRipe",
+      "kind": "environment",
+      "path": "Art/Farm/CarrotRipe.glb",
+      "source": "GameAssets/Environment/Runtime/Farm/CarrotRipe.glb",
+      "bytes": 226868,
+      "sha256": "07fb272e41c1d66a5dd0b3234d6bd1bf2dc0f2a86fa5abf67128fb8661f78d4d"
+    },
+    {
+      "id": "CompostBin",
+      "kind": "environment",
+      "path": "Art/Farm/CompostBin.glb",
+      "source": "GameAssets/Environment/Runtime/Farm/CompostBin.glb",
+      "bytes": 397680,
+      "sha256": "6f55070149e91872f0f6b45cbbf23b62fdd6475a9e340be1ffdb11ba347243c4"
+    },
+    {
+      "id": "CornRipe",
+      "kind": "environment",
+      "path": "Art/Farm/CornRipe.glb",
+      "source": "GameAssets/Environment/Runtime/Farm/CornRipe.glb",
+      "bytes": 208796,
+      "sha256": "9e039dc3cd7791251e75cc3dc340297e43164b71ec11e728dc6541d00a416bc5"
+    },
+    {
+      "id": "CropGrowing",
+      "kind": "environment",
+      "path": "Art/Farm/CropGrowing.glb",
+      "source": "GameAssets/Environment/Runtime/Farm/CropGrowing.glb",
+      "bytes": 206352,
+      "sha256": "e0ab4bc7b2162fd9e5215dbae48843fa56929c8e8710afd9a4230ef095ae98fd"
+    },
+    {
+      "id": "CropSeed",
+      "kind": "environment",
+      "path": "Art/Farm/CropSeed.glb",
+      "source": "GameAssets/Environment/Runtime/Farm/CropSeed.glb",
+      "bytes": 183260,
+      "sha256": "8084dfad2a1eb2a645123075f0a3531725a9662e87fe3c28dff4c52dcd754ea6"
+    },
+    {
+      "id": "CropSmall",
+      "kind": "environment",
+      "path": "Art/Farm/CropSmall.glb",
+      "source": "GameAssets/Environment/Runtime/Farm/CropSmall.glb",
+      "bytes": 193848,
+      "sha256": "da690ecf05a2da2da5fe2053e967202eb0c3681095b3e413f5ccf600c738c6d1"
+    },
+    {
+      "id": "CropSprout",
+      "kind": "environment",
+      "path": "Art/Farm/CropSprout.glb",
+      "source": "GameAssets/Environment/Runtime/Farm/CropSprout.glb",
+      "bytes": 189116,
+      "sha256": "69f85b34a3ca3e275699ddff3bf043731120ac49970e6e2541480141b5c48bb0"
+    },
+    {
+      "id": "FarmFenceCorner",
+      "kind": "environment",
+      "path": "Art/Farm/FarmFenceCorner.glb",
+      "source": "GameAssets/Environment/Runtime/Farm/FarmFenceCorner.glb",
+      "bytes": 384824,
+      "sha256": "facb5622b081ea3441b30262a5f70860a4549a436db8791b63eb200a91b671c1"
+    },
+    {
+      "id": "FarmFenceLong",
+      "kind": "environment",
+      "path": "Art/Farm/FarmFenceLong.glb",
+      "source": "GameAssets/Environment/Runtime/Farm/FarmFenceLong.glb",
+      "bytes": 379228,
+      "sha256": "168a4922daa5538f3b17611218712450de8c7c50eb59baad91eec9a6b6f6578a"
+    },
+    {
+      "id": "FarmFenceShort",
+      "kind": "environment",
+      "path": "Art/Farm/FarmFenceShort.glb",
+      "source": "GameAssets/Environment/Runtime/Farm/FarmFenceShort.glb",
+      "bytes": 379768,
+      "sha256": "fce281bb245a2615663327a9ea9dcd574695d7c5c38063abee817361b9ce9c37"
+    },
+    {
+      "id": "FarmGate",
+      "kind": "environment",
+      "path": "Art/Farm/FarmGate.glb",
+      "source": "GameAssets/Environment/Runtime/Farm/FarmGate.glb",
+      "bytes": 397640,
+      "sha256": "c80153280fc308dfc71843c0f8060c52dfff236d0068019e493aff0d960cccde"
+    },
+    {
+      "id": "FarmPlotEmpty",
+      "kind": "environment",
+      "path": "Art/Farm/FarmPlotEmpty.glb",
+      "source": "GameAssets/Environment/Runtime/Farm/FarmPlotEmpty.glb",
+      "bytes": 402324,
+      "sha256": "86bc94851d4e576dec625f4cfcbc2a1d236f05c73b1a1507dbc04b90e1f2c462"
+    },
+    {
+      "id": "FarmPlotFurrows",
+      "kind": "environment",
+      "path": "Art/Farm/FarmPlotFurrows.glb",
+      "source": "GameAssets/Environment/Runtime/Farm/FarmPlotFurrows.glb",
+      "bytes": 410560,
+      "sha256": "0c735610441b1cbf390cdfd09af0ff1bc7fd1c03d74485415e73e1177365c01c"
+    },
+    {
+      "id": "FarmPlotSeeded",
+      "kind": "environment",
+      "path": "Art/Farm/FarmPlotSeeded.glb",
+      "source": "GameAssets/Environment/Runtime/Farm/FarmPlotSeeded.glb",
+      "bytes": 411980,
+      "sha256": "0b68ff87addad478025b38480e869cd444fa9d4ec87830547aba68dd98584ffe"
+    },
+    {
+      "id": "FarmPlotWatered",
+      "kind": "environment",
+      "path": "Art/Farm/FarmPlotWatered.glb",
+      "source": "GameAssets/Environment/Runtime/Farm/FarmPlotWatered.glb",
+      "bytes": 405780,
+      "sha256": "060b555b0db2667fb433c8d222ab7210dec4d699230a2dd88763c9edfbd0e471"
+    },
+    {
+      "id": "IrrigationBed",
+      "kind": "environment",
+      "path": "Art/Farm/IrrigationBed.glb",
+      "source": "GameAssets/Environment/Runtime/Farm/IrrigationBed.glb",
+      "bytes": 406544,
+      "sha256": "93bdc0ef17dc4a9b70d7b8a00165b4ffeaea03f1821c3125ee5b3295cf8445a2"
+    },
+    {
+      "id": "IrrigationChannel",
+      "kind": "environment",
+      "path": "Art/Farm/IrrigationChannel.glb",
+      "source": "GameAssets/Environment/Runtime/Farm/IrrigationChannel.glb",
+      "bytes": 392720,
+      "sha256": "1934023fd09e9e918062fbf648964e3308d76f15cf0062d08cda9478481d9732"
+    },
+    {
+      "id": "LettuceRipe",
+      "kind": "environment",
+      "path": "Art/Farm/LettuceRipe.glb",
+      "source": "GameAssets/Environment/Runtime/Farm/LettuceRipe.glb",
+      "bytes": 230376,
+      "sha256": "aca6f49dcee72862240d944148e3fc880cf708917ff311306d0f2099d842369a"
+    },
+    {
+      "id": "MiniGreenhouse",
+      "kind": "environment",
+      "path": "Art/Farm/MiniGreenhouse.glb",
+      "source": "GameAssets/Environment/Runtime/Farm/MiniGreenhouse.glb",
+      "bytes": 455600,
+      "sha256": "1646ed4db2bf416f18f59cd7e287d5fe847f07bf827cb09d5de2ef67ac6ea1be"
+    },
+    {
+      "id": "PumpkinRipe",
+      "kind": "environment",
+      "path": "Art/Farm/PumpkinRipe.glb",
+      "source": "GameAssets/Environment/Runtime/Farm/PumpkinRipe.glb",
+      "bytes": 242472,
+      "sha256": "2ae5873618bd4202d4f591a6954e5427f9ec30f349c8572cec44ea868bd58b12"
+    },
+    {
+      "id": "RaisedBed",
+      "kind": "environment",
+      "path": "Art/Farm/RaisedBed.glb",
+      "source": "GameAssets/Environment/Runtime/Farm/RaisedBed.glb",
+      "bytes": 420296,
+      "sha256": "46584c7d42fd1c6c418c58e8384c4383716fe61cf15e7fda09d7f9680dd9adad"
+    },
+    {
+      "id": "Scarecrow",
+      "kind": "environment",
+      "path": "Art/Farm/Scarecrow.glb",
+      "source": "GameAssets/Environment/Runtime/Farm/Scarecrow.glb",
+      "bytes": 393548,
+      "sha256": "5acf6a6c9f80e672d312c2eb8d52489e190f8255427a8a1ab68bfbf60c7d4f0b"
+    },
+    {
+      "id": "SeedSack",
+      "kind": "environment",
+      "path": "Art/Farm/SeedSack.glb",
+      "source": "GameAssets/Environment/Runtime/Farm/SeedSack.glb",
+      "bytes": 204096,
+      "sha256": "9c60f16bb662d0943cf3011cc9aee712f67dc76eb47473981494f7ad8d4e4a12"
+    },
+    {
+      "id": "Sprinkler",
+      "kind": "environment",
+      "path": "Art/Farm/Sprinkler.glb",
+      "source": "GameAssets/Environment/Runtime/Farm/Sprinkler.glb",
+      "bytes": 194208,
+      "sha256": "4ed6c336f3613a9f30c66864746b42ab4cdaf05b57acbfcb1e7fc1765e007a50"
+    },
+    {
+      "id": "TomatoRipe",
+      "kind": "environment",
+      "path": "Art/Farm/TomatoRipe.glb",
+      "source": "GameAssets/Environment/Runtime/Farm/TomatoRipe.glb",
+      "bytes": 224524,
+      "sha256": "bb8542b5847561bb8c70f6a269d7753a2051a6e95801ed65e2a0511c13543145"
+    },
+    {
+      "id": "WateringCan",
+      "kind": "environment",
+      "path": "Art/Farm/WateringCan.glb",
+      "source": "GameAssets/Environment/Runtime/Farm/WateringCan.glb",
+      "bytes": 194972,
+      "sha256": "25090b960543365c7c502d7a92569a85c6173b474569ac47efd2cd7b954e570e"
+    },
+    {
+      "id": "WheatGrowing",
+      "kind": "environment",
+      "path": "Art/Farm/WheatGrowing.glb",
+      "source": "GameAssets/Environment/Runtime/Farm/WheatGrowing.glb",
+      "bytes": 210876,
+      "sha256": "cd3d3696906fee8bb800cffc3511e2280d0a16350a0204e342d2e3a94a1a51ea"
+    },
+    {
+      "id": "WheatRipe",
+      "kind": "environment",
+      "path": "Art/Farm/WheatRipe.glb",
+      "source": "GameAssets/Environment/Runtime/Farm/WheatRipe.glb",
+      "bytes": 210880,
+      "sha256": "6437f20c532a8b22694398a83aed64617a41d4f6288f5e416c9fedab80f6d2da"
+    },
+    {
+      "id": "WoodCrate",
+      "kind": "environment",
+      "path": "Art/Farm/WoodCrate.glb",
+      "source": "GameAssets/Environment/Runtime/Farm/WoodCrate.glb",
+      "bytes": 399712,
+      "sha256": "00e1a4100e8d3c09501fd0447e0243ca8d82383b2c31360f41011b56e71f3fbc"
+    },
+    {
+      "id": "AutomaticDoor",
+      "kind": "environment",
+      "path": "Art/Furniture/AutomaticDoor.glb",
+      "source": "GameAssets/Environment/Runtime/Furniture/AutomaticDoor.glb",
+      "bytes": 931640,
+      "sha256": "5ecbdc72ac33e8dec0f3750d073da600c4a9e5d265ced189b223b7e048b802e9"
+    },
+    {
+      "id": "BreadOven",
+      "kind": "environment",
+      "path": "Art/Furniture/BreadOven.glb",
+      "source": "GameAssets/Environment/Runtime/Furniture/BreadOven.glb",
+      "bytes": 1003196,
+      "sha256": "6f565d1c9a7502709bf91ab2343fae54b9b6e53242118261d58fde9f6a16dd21"
+    },
+    {
+      "id": "CardTerminal",
+      "kind": "environment",
+      "path": "Art/Furniture/CardTerminal.glb",
+      "source": "GameAssets/Environment/Runtime/Furniture/CardTerminal.glb",
+      "bytes": 313256,
+      "sha256": "ce95688b49c82fa199a9aeece96d409d1a8ec3bf1b9d6efe29e575b5f437539f"
+    },
+    {
+      "id": "CashRegister",
+      "kind": "environment",
+      "path": "Art/Furniture/CashRegister.glb",
+      "source": "GameAssets/Environment/Runtime/Furniture/CashRegister.glb",
+      "bytes": 778520,
+      "sha256": "8ac78747303bc85904f8a9b7517efba063ab6459728a7e81feda1178b2d59b4f"
+    },
+    {
+      "id": "CeilingLight",
+      "kind": "environment",
+      "path": "Art/Furniture/CeilingLight.glb",
+      "source": "GameAssets/Environment/Runtime/Furniture/CeilingLight.glb",
+      "bytes": 240728,
+      "sha256": "5b64ab6fd0aa988c4f3448ced206396542fa7c4eb611f6285dcfdff9ecfb0cb7"
+    },
+    {
+      "id": "CheckoutCounter",
+      "kind": "environment",
+      "path": "Art/Furniture/CheckoutCounter.glb",
+      "source": "GameAssets/Environment/Runtime/Furniture/CheckoutCounter.glb",
+      "bytes": 1018452,
+      "sha256": "feb27355301708529fe7da814a44260eaa5c1b42c3589642dd35a50ec28655b5"
+    },
+    {
+      "id": "ChestFreezer",
+      "kind": "environment",
+      "path": "Art/Furniture/ChestFreezer.glb",
+      "source": "GameAssets/Environment/Runtime/Furniture/ChestFreezer.glb",
+      "bytes": 777304,
+      "sha256": "f3eeda7840d46338f879a0bdbb7b9f870c66e579236fc8184aaf4a2491694b27"
+    },
+    {
+      "id": "Conveyor",
+      "kind": "environment",
+      "path": "Art/Furniture/Conveyor.glb",
+      "source": "GameAssets/Environment/Runtime/Furniture/Conveyor.glb",
+      "bytes": 781324,
+      "sha256": "c9004cbb03238781ef72d816fffd274a1ca1d841646f76f6e1d9b1210764df1a"
+    },
+    {
+      "id": "FloorTileBeige",
+      "kind": "environment",
+      "path": "Art/Furniture/FloorTileBeige.glb",
+      "source": "GameAssets/Environment/Runtime/Furniture/FloorTileBeige.glb",
+      "bytes": 22392,
+      "sha256": "0027196bdd9c6dd4eb14691f475e8bcb21a26fff3ecd4cd9f739dd055068d9d6"
+    },
+    {
+      "id": "FloorTileWhite",
+      "kind": "environment",
+      "path": "Art/Furniture/FloorTileWhite.glb",
+      "source": "GameAssets/Environment/Runtime/Furniture/FloorTileWhite.glb",
+      "bytes": 22392,
+      "sha256": "41bec56ff191df75bb43329f593de4bc5bc4bead0d681d8e585bfb5fd71f1400"
+    },
+    {
+      "id": "HangingSign",
+      "kind": "environment",
+      "path": "Art/Furniture/HangingSign.glb",
+      "source": "GameAssets/Environment/Runtime/Furniture/HangingSign.glb",
+      "bytes": 637448,
+      "sha256": "1df34702fc5325b5c1d813668ae8f4fa32d39cc8e2acc670bf3efcddebdbd3ce"
+    },
+    {
+      "id": "Pallet",
+      "kind": "environment",
+      "path": "Art/Furniture/Pallet.glb",
+      "source": "GameAssets/Environment/Runtime/Furniture/Pallet.glb",
+      "bytes": 877520,
+      "sha256": "9a67f86ed3fd1f014c41f582f7dc904febf5a9f27344601cd8a31a73fd2965b1"
+    },
+    {
+      "id": "Parcel",
+      "kind": "environment",
+      "path": "Art/Furniture/Parcel.glb",
+      "source": "GameAssets/Environment/Runtime/Furniture/Parcel.glb",
+      "bytes": 414392,
+      "sha256": "5110b47d7e0aa3f0d5b9783ec9357c4ec8323859a14bb7aa017d53227b4be67b"
+    },
+    {
+      "id": "ReceiptPrinter",
+      "kind": "environment",
+      "path": "Art/Furniture/ReceiptPrinter.glb",
+      "source": "GameAssets/Environment/Runtime/Furniture/ReceiptPrinter.glb",
+      "bytes": 295964,
+      "sha256": "e8abfc4f1183e828443b8901eda49b96e6e5ee2e888f9643dc3252ce8b12d9c8"
+    },
+    {
+      "id": "RefrigeratedDisplay",
+      "kind": "environment",
+      "path": "Art/Furniture/RefrigeratedDisplay.glb",
+      "source": "GameAssets/Environment/Runtime/Furniture/RefrigeratedDisplay.glb",
+      "bytes": 973240,
+      "sha256": "6fa1a16d1e282d30349420c81354b3b9bd7cb106f00d2a7e4519c0ce049b834a"
+    },
+    {
+      "id": "SecurityCamera",
+      "kind": "environment",
+      "path": "Art/Furniture/SecurityCamera.glb",
+      "source": "GameAssets/Environment/Runtime/Furniture/SecurityCamera.glb",
+      "bytes": 303348,
+      "sha256": "1a7b01b06c67af6757b1b3ea3848fa8bfac05a46fd98a92c63996741149af25d"
+    },
+    {
+      "id": "ShoppingBasket",
+      "kind": "environment",
+      "path": "Art/Furniture/ShoppingBasket.glb",
+      "source": "GameAssets/Environment/Runtime/Furniture/ShoppingBasket.glb",
+      "bytes": 332856,
+      "sha256": "7554d8e623a035e71653b5571f327d34c4adaa6c8da57b839aa8972972ae30e4"
+    },
+    {
+      "id": "ShoppingCart",
+      "kind": "environment",
+      "path": "Art/Furniture/ShoppingCart.glb",
+      "source": "GameAssets/Environment/Runtime/Furniture/ShoppingCart.glb",
+      "bytes": 574160,
+      "sha256": "04c411be51abbbe23d639e03cd42bdb1ba7f268d5af8bff3d31f6882a0acfdef"
+    },
+    {
+      "id": "StockroomRack",
+      "kind": "environment",
+      "path": "Art/Furniture/StockroomRack.glb",
+      "source": "GameAssets/Environment/Runtime/Furniture/StockroomRack.glb",
+      "bytes": 926024,
+      "sha256": "6f6017ab773ee2be3985c3722af8bbc00ef20e7fd1c2462bfa1575f638eb094b"
+    },
+    {
+      "id": "StorefrontWindow",
+      "kind": "environment",
+      "path": "Art/Furniture/StorefrontWindow.glb",
+      "source": "GameAssets/Environment/Runtime/Furniture/StorefrontWindow.glb",
+      "bytes": 896984,
+      "sha256": "1c58c8832064289d8d3dd6b9697fd4fcdddb83d45e2c2414d0990aedf5f12661"
+    },
+    {
+      "id": "UtilitySink",
+      "kind": "environment",
+      "path": "Art/Furniture/UtilitySink.glb",
+      "source": "GameAssets/Environment/Runtime/Furniture/UtilitySink.glb",
+      "bytes": 837972,
+      "sha256": "1b1b82251ab9dafb1886a7db363a843d9f13e0c80de72a0d571f9c48ace599e5"
+    },
+    {
+      "id": "WallClock",
+      "kind": "environment",
+      "path": "Art/Furniture/WallClock.glb",
+      "source": "GameAssets/Environment/Runtime/Furniture/WallClock.glb",
+      "bytes": 286016,
+      "sha256": "ec93b8787f98455cc2de928e82c0121e0d85ce43ddb5abdf82f81cc7c690ec24"
+    },
+    {
+      "id": "WallCorner",
+      "kind": "environment",
+      "path": "Art/Furniture/WallCorner.glb",
+      "source": "GameAssets/Environment/Runtime/Furniture/WallCorner.glb",
+      "bytes": 802056,
+      "sha256": "a37de05bf44eabc8ac23b5ef8c0808ec1704ed8f99d2041bdea6a620a5429609"
+    },
+    {
+      "id": "WallStraight",
+      "kind": "environment",
+      "path": "Art/Furniture/WallStraight.glb",
+      "source": "GameAssets/Environment/Runtime/Furniture/WallStraight.glb",
+      "bytes": 763764,
+      "sha256": "0468cf591ad7930787a5382a8d5b1a225f2105be953c2a622e735f0284905fe7"
+    },
+    {
+      "id": "WorkCounter",
+      "kind": "environment",
+      "path": "Art/Furniture/WorkCounter.glb",
+      "source": "GameAssets/Environment/Runtime/Furniture/WorkCounter.glb",
+      "bytes": 984732,
+      "sha256": "5172f4f7e8a9552135efd4a94128253335906b8484f3a545f0d4a11fafb613fc"
+    },
+    {
+      "id": "CheckoutShelf",
+      "kind": "environment",
+      "path": "Art/Furniture2/CheckoutShelf.glb",
+      "source": "GameAssets/Environment/Runtime/Furniture2/CheckoutShelf.glb",
+      "bytes": 1260616,
+      "sha256": "33a8047c2766796e2d9064b79f575dce90c29fa18bd1cf3eca4679f32e3f5b73"
+    },
+    {
+      "id": "DisplayBakery",
+      "kind": "environment",
+      "path": "Art/Furniture2/DisplayBakery.glb",
+      "source": "GameAssets/Environment/Runtime/Furniture2/DisplayBakery.glb",
+      "bytes": 1365208,
+      "sha256": "f48b406527c60d80719c0a0738ecf00355add2b0cbb0e4f5ff8181476525e2d6"
+    },
+    {
+      "id": "DisplayProduceMixed",
+      "kind": "environment",
+      "path": "Art/Furniture2/DisplayProduceMixed.glb",
+      "source": "GameAssets/Environment/Runtime/Furniture2/DisplayProduceMixed.glb",
+      "bytes": 1284432,
+      "sha256": "2c03c42126088e75f0d2559d43b4e77a31ed3dc79507c62d15379b0363cc9aaa"
+    },
+    {
+      "id": "DisplayProduceSloped",
+      "kind": "environment",
+      "path": "Art/Furniture2/DisplayProduceSloped.glb",
+      "source": "GameAssets/Environment/Runtime/Furniture2/DisplayProduceSloped.glb",
+      "bytes": 1124128,
+      "sha256": "f7ab8e3bc06ebda12a39b5969ef8b437fa7f1b2223a42e57d7378143aeb49745"
+    },
+    {
+      "id": "DisplayRefrigeratedDoors",
+      "kind": "environment",
+      "path": "Art/Furniture2/DisplayRefrigeratedDoors.glb",
+      "source": "GameAssets/Environment/Runtime/Furniture2/DisplayRefrigeratedDoors.glb",
+      "bytes": 1308280,
+      "sha256": "8f43488b200a0710249ef7235eee91991c1dd54d1b7622dc0abc906a11b71e10"
+    },
+    {
+      "id": "DisplayTable",
+      "kind": "environment",
+      "path": "Art/Furniture2/DisplayTable.glb",
+      "source": "GameAssets/Environment/Runtime/Furniture2/DisplayTable.glb",
+      "bytes": 1034856,
+      "sha256": "b1b61eacb51543cbb0484d405e0496cd1de169e96063b26dc5919904e5ff5f37"
+    },
+    {
+      "id": "ShelfCorner",
+      "kind": "environment",
+      "path": "Art/Furniture2/ShelfCorner.glb",
+      "source": "GameAssets/Environment/Runtime/Furniture2/ShelfCorner.glb",
+      "bytes": 1371112,
+      "sha256": "bf8e4223de7e2e6e7a2d1002bc65de9d90f8667b252664806366e331cd91416a"
+    },
+    {
+      "id": "ShelfDivider",
+      "kind": "environment",
+      "path": "Art/Furniture2/ShelfDivider.glb",
+      "source": "GameAssets/Environment/Runtime/Furniture2/ShelfDivider.glb",
+      "bytes": 283364,
+      "sha256": "e33028ee7488ab82155386bbb34790f201b5c5c5b67a0c563564080020c6a851"
+    },
+    {
+      "id": "ShelfEndcap",
+      "kind": "environment",
+      "path": "Art/Furniture2/ShelfEndcap.glb",
+      "source": "GameAssets/Environment/Runtime/Furniture2/ShelfEndcap.glb",
+      "bytes": 1045684,
+      "sha256": "83621eebcbcdd7fd7eceeaf31a0872d62ffab061e8826e6cef9a9b18a285bebb"
+    },
+    {
+      "id": "ShelfGondolaDouble",
+      "kind": "environment",
+      "path": "Art/Furniture2/ShelfGondolaDouble.glb",
+      "source": "GameAssets/Environment/Runtime/Furniture2/ShelfGondolaDouble.glb",
+      "bytes": 1565084,
+      "sha256": "2db085bb725a7f40748d679d740519c1ada0ecfe4b2d4a83157e5eb165e2e5ba"
+    },
+    {
+      "id": "ShelfGondolaSingle",
+      "kind": "environment",
+      "path": "Art/Furniture2/ShelfGondolaSingle.glb",
+      "source": "GameAssets/Environment/Runtime/Furniture2/ShelfGondolaSingle.glb",
+      "bytes": 1381828,
+      "sha256": "28a8f3475e2722aac9f9e747d1b4aa24344aa26fef611331b3bb0e7405959e13"
+    },
+    {
+      "id": "ShelfPriceRail",
+      "kind": "environment",
+      "path": "Art/Furniture2/ShelfPriceRail.glb",
+      "source": "GameAssets/Environment/Runtime/Furniture2/ShelfPriceRail.glb",
+      "bytes": 235420,
+      "sha256": "969a8a219006283752fad952cb490a6595f78e6688f9eb024afac208ab4c2b2d"
+    },
+    {
+      "id": "ShelfWallTall",
+      "kind": "environment",
+      "path": "Art/Furniture2/ShelfWallTall.glb",
+      "source": "GameAssets/Environment/Runtime/Furniture2/ShelfWallTall.glb",
+      "bytes": 1514612,
+      "sha256": "4f63f3222a6f93f3960726fe7c8ca838649fe1091e261dbca89989e013e51b58"
+    },
+    {
+      "id": "ShelfWallWide",
+      "kind": "environment",
+      "path": "Art/Furniture2/ShelfWallWide.glb",
+      "source": "GameAssets/Environment/Runtime/Furniture2/ShelfWallWide.glb",
+      "bytes": 1463304,
+      "sha256": "e668e53871be087521ecc5073dbf77de733754dcf2340edd24ccd04f1282d699"
+    },
+    {
+      "id": "ShoppingBasketAlt",
+      "kind": "environment",
+      "path": "Art/Furniture2/ShoppingBasketAlt.glb",
+      "source": "GameAssets/Environment/Runtime/Furniture2/ShoppingBasketAlt.glb",
+      "bytes": 737352,
+      "sha256": "c962e1eaaaeea21ccb888179b71027004dc6b7547c214633ca1c3b211d5c385d"
+    },
+    {
+      "id": "Furniture2:WoodCrate",
+      "kind": "environment",
+      "path": "Art/Furniture2/WoodCrate.glb",
+      "source": "GameAssets/Environment/Runtime/Furniture2/WoodCrate.glb",
+      "bytes": 958084,
+      "sha256": "ecadcaabd3feb1156dbec3057ced24b26524f37c3bf82ac94b6ce0c2aeaf32f2"
+    },
+    {
+      "id": "Hair_01_SidePart",
+      "kind": "hair",
+      "path": "Art/Hair/Hair_01_SidePart.glb",
+      "source": "GameAssets/Environment/Runtime/Hair/Hair_01_SidePart.glb",
+      "bytes": 356392,
+      "sha256": "252bfe7d76dfb94ed492b904653e5ca568842733876eb3f3ba3475a85fee3082"
+    },
+    {
+      "id": "Hair_02_Fade",
+      "kind": "hair",
+      "path": "Art/Hair/Hair_02_Fade.glb",
+      "source": "GameAssets/Environment/Runtime/Hair/Hair_02_Fade.glb",
+      "bytes": 349052,
+      "sha256": "0f74b383d5e38766730d37bd960c67454477631bbfddfbcbf590b715d7b0fe5f"
+    },
+    {
+      "id": "Hair_03_Wavy",
+      "kind": "hair",
+      "path": "Art/Hair/Hair_03_Wavy.glb",
+      "source": "GameAssets/Environment/Runtime/Hair/Hair_03_Wavy.glb",
+      "bytes": 375652,
+      "sha256": "8f011f77982986633eb216ebcaba1377bb4cf657503fa7546495d04fb06ee8d3"
+    },
+    {
+      "id": "Hair_04_SlickBack",
+      "kind": "hair",
+      "path": "Art/Hair/Hair_04_SlickBack.glb",
+      "source": "GameAssets/Environment/Runtime/Hair/Hair_04_SlickBack.glb",
+      "bytes": 354856,
+      "sha256": "56f8d17bd8216c442e9c162b447deed7c5d1527f5a8703ead642b7dcb2443190"
+    },
+    {
+      "id": "Hair_05_Bob",
+      "kind": "hair",
+      "path": "Art/Hair/Hair_05_Bob.glb",
+      "source": "GameAssets/Environment/Runtime/Hair/Hair_05_Bob.glb",
+      "bytes": 376784,
+      "sha256": "d0ae87681f98d4171d9369b76bdf90ea000b9fde12365812468859237cd47eee"
+    },
+    {
+      "id": "Hair_06_Ponytail",
+      "kind": "hair",
+      "path": "Art/Hair/Hair_06_Ponytail.glb",
+      "source": "GameAssets/Environment/Runtime/Hair/Hair_06_Ponytail.glb",
+      "bytes": 382104,
+      "sha256": "73d2d91d6c76d33d3d023a3c19b50d21533e308ce75e7bd7d9642c403ccc96ab"
+    },
+    {
+      "id": "Hair_07_LongWavy",
+      "kind": "hair",
+      "path": "Art/Hair/Hair_07_LongWavy.glb",
+      "source": "GameAssets/Environment/Runtime/Hair/Hair_07_LongWavy.glb",
+      "bytes": 421688,
+      "sha256": "bb9c785616065c8fff91e96e467af8533437f78986e8e5b73df9d15f293c06fd"
+    },
+    {
+      "id": "Hair_08_Bun",
+      "kind": "hair",
+      "path": "Art/Hair/Hair_08_Bun.glb",
+      "source": "GameAssets/Environment/Runtime/Hair/Hair_08_Bun.glb",
+      "bytes": 365132,
+      "sha256": "196118890874aad7bf5a585e5810f0809173e286958ef8bfebfcfce88ae72886"
+    },
+    {
+      "id": "Hair_09_MessyMale",
+      "kind": "hair",
+      "path": "Art/Hair/Hair_09_MessyMale.glb",
+      "source": "GameAssets/Environment/Runtime/Hair/Hair_09_MessyMale.glb",
+      "bytes": 361192,
+      "sha256": "892b08d65c919d1e63a478f4777a15d2ed04baa79f44b537b03b6c4a3ccadeb2"
+    },
+    {
+      "id": "Hair_10_CurlyMale",
+      "kind": "hair",
+      "path": "Art/Hair/Hair_10_CurlyMale.glb",
+      "source": "GameAssets/Environment/Runtime/Hair/Hair_10_CurlyMale.glb",
+      "bytes": 360676,
+      "sha256": "28fae32f3a209d0aa0add1b4ea8a8d12bf8371fc920151da938276879370596b"
+    },
+    {
+      "id": "Hair_11_SideSweepMale",
+      "kind": "hair",
+      "path": "Art/Hair/Hair_11_SideSweepMale.glb",
+      "source": "GameAssets/Environment/Runtime/Hair/Hair_11_SideSweepMale.glb",
+      "bytes": 368220,
+      "sha256": "aa5304b3c6720eb21a5743e6010af8367cc069610791da43959ce7a9d331a657"
+    },
+    {
+      "id": "Hair_12_SpikyMale",
+      "kind": "hair",
+      "path": "Art/Hair/Hair_12_SpikyMale.glb",
+      "source": "GameAssets/Environment/Runtime/Hair/Hair_12_SpikyMale.glb",
+      "bytes": 358144,
+      "sha256": "e6487d6ca05cccebdd9b7a7fbf4f40ff375c4d2bd39fba1219698caa1de4fbe3"
+    },
+    {
+      "id": "Hair_13_BobBangs",
+      "kind": "hair",
+      "path": "Art/Hair/Hair_13_BobBangs.glb",
+      "source": "GameAssets/Environment/Runtime/Hair/Hair_13_BobBangs.glb",
+      "bytes": 375556,
+      "sha256": "576438eab0c56afb0d54e2b07b9cedc92658aa198ae409e36c774620899f9b0c"
+    },
+    {
+      "id": "Hair_14_Pigtails",
+      "kind": "hair",
+      "path": "Art/Hair/Hair_14_Pigtails.glb",
+      "source": "GameAssets/Environment/Runtime/Hair/Hair_14_Pigtails.glb",
+      "bytes": 384136,
+      "sha256": "139f335bdcbe7ae862204f44719885b96a4fac6bd920d807ee7fb938a2b1128c"
+    },
+    {
+      "id": "Hair_15_SideBraid",
+      "kind": "hair",
+      "path": "Art/Hair/Hair_15_SideBraid.glb",
+      "source": "GameAssets/Environment/Runtime/Hair/Hair_15_SideBraid.glb",
+      "bytes": 376628,
+      "sha256": "a2bc5d0f6904681a165d2d4fdde56b8f247cd709227f7287ffc9d06725f4e507"
+    },
+    {
+      "id": "Hair_16_HighPonytail",
+      "kind": "hair",
+      "path": "Art/Hair/Hair_16_HighPonytail.glb",
+      "source": "GameAssets/Environment/Runtime/Hair/Hair_16_HighPonytail.glb",
+      "bytes": 383148,
+      "sha256": "248d101b0a19a5e6449cd9b1ee2a68ba6b7ddea792783e95c8fe7276a3f90146"
+    },
+    {
+      "id": "Hat_01_RedPanda",
+      "kind": "hat",
+      "path": "Art/Hats/Hat_01_RedPanda.glb",
+      "source": "GameAssets/Environment/Runtime/Hats/Hat_01_RedPanda.glb",
+      "bytes": 655848,
+      "sha256": "2dafc6cf966c8d55048555e43e4e3fc9e2130c4d2716ac8d0797017df1645fc2"
+    },
+    {
+      "id": "Hat_02_Fox",
+      "kind": "hat",
+      "path": "Art/Hats/Hat_02_Fox.glb",
+      "source": "GameAssets/Environment/Runtime/Hats/Hat_02_Fox.glb",
+      "bytes": 621924,
+      "sha256": "a7f98e8dd60e6ea7b645c35b8357d49de93c5b0bc8ecd6a996524c637863be0a"
+    },
+    {
+      "id": "Hat_03_Chicken",
+      "kind": "hat",
+      "path": "Art/Hats/Hat_03_Chicken.glb",
+      "source": "GameAssets/Environment/Runtime/Hats/Hat_03_Chicken.glb",
+      "bytes": 604004,
+      "sha256": "b3711a9d517f12b76184d9a41675aae535908f21f434e2382d3aad59799b71f8"
+    },
+    {
+      "id": "Hat_04_Owl",
+      "kind": "hat",
+      "path": "Art/Hats/Hat_04_Owl.glb",
+      "source": "GameAssets/Environment/Runtime/Hats/Hat_04_Owl.glb",
+      "bytes": 636744,
+      "sha256": "28944b2aa95e318efba9b08b45177768bc2e52417822ef49bde12285a394e50a"
+    },
+    {
+      "id": "Hat_05_Elephant",
+      "kind": "hat",
+      "path": "Art/Hats/Hat_05_Elephant.glb",
+      "source": "GameAssets/Environment/Runtime/Hats/Hat_05_Elephant.glb",
+      "bytes": 648540,
+      "sha256": "20b8d72bfbe612644f67c29ba8768c9e550a778fe3273e6db2b60f894f4904ae"
+    },
+    {
+      "id": "Hat_06_Rhino",
+      "kind": "hat",
+      "path": "Art/Hats/Hat_06_Rhino.glb",
+      "source": "GameAssets/Environment/Runtime/Hats/Hat_06_Rhino.glb",
+      "bytes": 623668,
+      "sha256": "d5688a6872fefdbc0b44b3a0a2c8239c6aba46a0fa40912ded0980003e07887f"
+    },
+    {
+      "id": "Hat_07_Giraffe",
+      "kind": "hat",
+      "path": "Art/Hats/Hat_07_Giraffe.glb",
+      "source": "GameAssets/Environment/Runtime/Hats/Hat_07_Giraffe.glb",
+      "bytes": 627000,
+      "sha256": "7d615353c9201e86a754f95ea6ead02264d7d03582cf497734e4471fd01b7ddd"
+    },
+    {
+      "id": "Hat_08_Panda",
+      "kind": "hat",
+      "path": "Art/Hats/Hat_08_Panda.glb",
+      "source": "GameAssets/Environment/Runtime/Hats/Hat_08_Panda.glb",
+      "bytes": 617240,
+      "sha256": "fe7de6addb95c418a10ca6cf2d9320d0a507a71e9d47e5d27a8c1e169090a6fc"
+    },
+    {
+      "id": "Hat_09_Frog",
+      "kind": "hat",
+      "path": "Art/Hats/Hat_09_Frog.glb",
+      "source": "GameAssets/Environment/Runtime/Hats/Hat_09_Frog.glb",
+      "bytes": 639612,
+      "sha256": "684d8f0cd3b338c2acd6a7ddbce604d39c7715d4eb88f108beb72cb053602f37"
+    },
+    {
+      "id": "Hat_10_Cow",
+      "kind": "hat",
+      "path": "Art/Hats/Hat_10_Cow.glb",
+      "source": "GameAssets/Environment/Runtime/Hats/Hat_10_Cow.glb",
+      "bytes": 623800,
+      "sha256": "e1fcab93ad1eb19f424d9fbbfb0f9130fde34bc78626f46d37a715a22fa3a796"
+    },
+    {
+      "id": "Hat_11_Rabbit",
+      "kind": "hat",
+      "path": "Art/Hats/Hat_11_Rabbit.glb",
+      "source": "GameAssets/Environment/Runtime/Hats/Hat_11_Rabbit.glb",
+      "bytes": 602412,
+      "sha256": "c210d17861c86167abc505c4102007a0f51c85a358a45b678b2eed99a22e573c"
+    },
+    {
+      "id": "Hat_12_Capybara",
+      "kind": "hat",
+      "path": "Art/Hats/Hat_12_Capybara.glb",
+      "source": "GameAssets/Environment/Runtime/Hats/Hat_12_Capybara.glb",
+      "bytes": 635444,
+      "sha256": "bfd08afbd19789d030df03694a2ade0376de9bb430a900b6202a6daf51480d78"
+    },
+    {
+      "id": "Apple",
+      "kind": "product",
+      "path": "Art/Products/Apple.glb",
+      "source": "GameAssets/Environment/Runtime/Products/Apple.glb",
+      "bytes": 209552,
+      "sha256": "45452f4d14becacdf267255561d34654e2ec4e4f89e0c747493c974dbb8ff7ee"
+    },
+    {
+      "id": "Bread",
+      "kind": "product",
+      "path": "Art/Products/Bread.glb",
+      "source": "GameAssets/Environment/Runtime/Products/Bread.glb",
+      "bytes": 245848,
+      "sha256": "e916d61c5065a02451d208a18ddb7f3ee5f3649ef9e103952a3994d7f95ebf4e"
+    },
+    {
+      "id": "Cheese",
+      "kind": "product",
+      "path": "Art/Products/Cheese.glb",
+      "source": "GameAssets/Environment/Runtime/Products/Cheese.glb",
+      "bytes": 227012,
+      "sha256": "d252736b0c234e366762149bacdd4947d79e87443b52ebcfed7b077e28c28a1f"
+    },
+    {
+      "id": "Coffee",
+      "kind": "product",
+      "path": "Art/Products/Coffee.glb",
+      "source": "GameAssets/Environment/Runtime/Products/Coffee.glb",
+      "bytes": 256884,
+      "sha256": "ea7714795fbd5876b62b285483d899984aba5a76ebaef5dbd69a8619e513dfbc"
+    },
+    {
+      "id": "Corn",
+      "kind": "product",
+      "path": "Art/Products/Corn.glb",
+      "source": "GameAssets/Environment/Runtime/Products/Corn.glb",
+      "bytes": 244420,
+      "sha256": "b945cda792ef5a42ba8839dd3e80a3c07811419d2ff9fae1fe07f407ddd22fa6"
+    },
+    {
+      "id": "Egg",
+      "kind": "product",
+      "path": "Art/Products/Egg.glb",
+      "source": "GameAssets/Environment/Runtime/Products/Egg.glb",
+      "bytes": 173080,
+      "sha256": "6289b9114e37d4f44ae746777e1c6bcffad70e3af52cf9cb67c42b45d11edc76"
+    },
+    {
+      "id": "Flour",
+      "kind": "product",
+      "path": "Art/Products/Flour.glb",
+      "source": "GameAssets/Environment/Runtime/Products/Flour.glb",
+      "bytes": 278340,
+      "sha256": "94cf88ca900ef8a898a582d4ec61557b71175979833b6df400281e4bf96e6a20"
+    },
+    {
+      "id": "Juice",
+      "kind": "product",
+      "path": "Art/Products/Juice.glb",
+      "source": "GameAssets/Environment/Runtime/Products/Juice.glb",
+      "bytes": 270936,
+      "sha256": "2f6b5eb263d8c5cabf0416052163b169d198d7da80fdae122bd5c5b0c05a4619"
+    },
+    {
+      "id": "Milk",
+      "kind": "product",
+      "path": "Art/Products/Milk.glb",
+      "source": "GameAssets/Environment/Runtime/Products/Milk.glb",
+      "bytes": 189820,
+      "sha256": "15b2c3a9ae72299dcad062064fea653b4faea0a56da0fcc407909ca4b1be9047"
+    },
+    {
+      "id": "Tomato",
+      "kind": "product",
+      "path": "Art/Products/Tomato.glb",
+      "source": "GameAssets/Environment/Runtime/Products/Tomato.glb",
+      "bytes": 187196,
+      "sha256": "4b9598ea7cde1572aad610fdb63141c6e9b994674f0e674f5066710d83e094af"
+    },
+    {
+      "id": "Wheat",
+      "kind": "product",
+      "path": "Art/Products/Wheat.glb",
+      "source": "GameAssets/Environment/Runtime/Products/Wheat.glb",
+      "bytes": 227220,
+      "sha256": "5d84895ded513ce2883521e30f4b77ae8d0302d1dc7c90459f158006ff7f5a84"
+    },
+    {
+      "id": "BaggingAreaAlt",
+      "kind": "environment",
+      "path": "Art/StoreDisplays/BaggingAreaAlt.glb",
+      "source": "GameAssets/Environment/Runtime/StoreDisplays/BaggingAreaAlt.glb",
+      "bytes": 706940,
+      "sha256": "3b11142d9ab8ccd579fd0e787da1714a10b951d721f3f189b0ee686327dc1c68"
+    },
+    {
+      "id": "BasketStackAlt",
+      "kind": "environment",
+      "path": "Art/StoreDisplays/BasketStackAlt.glb",
+      "source": "GameAssets/Environment/Runtime/StoreDisplays/BasketStackAlt.glb",
+      "bytes": 707892,
+      "sha256": "f5492f34e14d378e0bff05a8832e8a127511e9d731bc4856dc3eee309a4a3a1f"
+    },
+    {
+      "id": "CashDrawerAlt",
+      "kind": "environment",
+      "path": "Art/StoreDisplays/CashDrawerAlt.glb",
+      "source": "GameAssets/Environment/Runtime/StoreDisplays/CashDrawerAlt.glb",
+      "bytes": 723852,
+      "sha256": "4766d2be743b6277c9e3fa05d1f349f59df5e5f7a426cc1b6ad9aa7752352dd6"
+    },
+    {
+      "id": "CheckoutArea",
+      "kind": "environment",
+      "path": "Art/StoreDisplays/CheckoutArea.glb",
+      "source": "GameAssets/Environment/Runtime/StoreDisplays/CheckoutArea.glb",
+      "bytes": 744484,
+      "sha256": "74cec4906b8155f12f850c6782ecd6441e804665c35313a044f92462b5db3cb4"
+    },
+    {
+      "id": "CheckoutScannerAlt",
+      "kind": "environment",
+      "path": "Art/StoreDisplays/CheckoutScannerAlt.glb",
+      "source": "GameAssets/Environment/Runtime/StoreDisplays/CheckoutScannerAlt.glb",
+      "bytes": 643100,
+      "sha256": "39c21508fe14a4ba6c4906831e02d55e08694122c64dcc2c27c391ae550c006c"
+    },
+    {
+      "id": "Chicken",
+      "kind": "environment",
+      "path": "Art/StoreDisplays/Chicken.glb",
+      "source": "GameAssets/Environment/Runtime/StoreDisplays/Chicken.glb",
+      "bytes": 625632,
+      "sha256": "2ae69a7a8ccc252f9171ef6f36018a416f4375c78674f7696c4211afe766b5f3"
+    },
+    {
+      "id": "Cow",
+      "kind": "environment",
+      "path": "Art/StoreDisplays/Cow.glb",
+      "source": "GameAssets/Environment/Runtime/StoreDisplays/Cow.glb",
+      "bytes": 659372,
+      "sha256": "e7fdfadbda2abfe90a2167ff8fdf194c0d7af453f44d936b007868c8187cd37b"
+    },
+    {
+      "id": "DeliveryDockAlt",
+      "kind": "environment",
+      "path": "Art/StoreDisplays/DeliveryDockAlt.glb",
+      "source": "GameAssets/Environment/Runtime/StoreDisplays/DeliveryDockAlt.glb",
+      "bytes": 610868,
+      "sha256": "15c1009e9486fef0908f74d74a4e45e3597ddf0e3a0f6fd372f842e47b477ba5"
+    },
+    {
+      "id": "EggDisplay",
+      "kind": "environment",
+      "path": "Art/StoreDisplays/EggDisplay.glb",
+      "source": "GameAssets/Environment/Runtime/StoreDisplays/EggDisplay.glb",
+      "bytes": 761824,
+      "sha256": "0e6dbe301a6153af91860f5bc07be400e181aecc9c3f92c718073cbfde95109a"
+    },
+    {
+      "id": "EggTray",
+      "kind": "environment",
+      "path": "Art/StoreDisplays/EggTray.glb",
+      "source": "GameAssets/Environment/Runtime/StoreDisplays/EggTray.glb",
+      "bytes": 274668,
+      "sha256": "d272d7e8c3bc32cb34568a31d2bdf1095065220b7ebc1355011ef3aad29d9647"
+    },
+    {
+      "id": "FarmToolSet",
+      "kind": "environment",
+      "path": "Art/StoreDisplays/FarmToolSet.glb",
+      "source": "GameAssets/Environment/Runtime/StoreDisplays/FarmToolSet.glb",
+      "bytes": 768500,
+      "sha256": "806c7b590b2537c1ac7136a804c71351c7729ef1b69b01cb9a984b2dc0698e5c"
+    },
+    {
+      "id": "FlourMillAlt",
+      "kind": "environment",
+      "path": "Art/StoreDisplays/FlourMillAlt.glb",
+      "source": "GameAssets/Environment/Runtime/StoreDisplays/FlourMillAlt.glb",
+      "bytes": 674676,
+      "sha256": "a77bcd4b0cfb809e010ac2de8531d15d1cb2d2f6f407090e4a93e8a10b5b871a"
+    },
+    {
+      "id": "JuiceMachineAlt",
+      "kind": "environment",
+      "path": "Art/StoreDisplays/JuiceMachineAlt.glb",
+      "source": "GameAssets/Environment/Runtime/StoreDisplays/JuiceMachineAlt.glb",
+      "bytes": 690608,
+      "sha256": "4a33fa8386ec6f0b98b94765fa0896aa949cb3556c68fb3dfeae9ac70fc00505"
+    },
+    {
+      "id": "MilkCan",
+      "kind": "environment",
+      "path": "Art/StoreDisplays/MilkCan.glb",
+      "source": "GameAssets/Environment/Runtime/StoreDisplays/MilkCan.glb",
+      "bytes": 254012,
+      "sha256": "24eb353963d3fb631b0e1627fbcfe42d6f9f5aa6d7800398787ce39cdc09e6b1"
+    },
+    {
+      "id": "OperationsWall",
+      "kind": "environment",
+      "path": "Art/StoreDisplays/OperationsWall.glb",
+      "source": "GameAssets/Environment/Runtime/StoreDisplays/OperationsWall.glb",
+      "bytes": 737428,
+      "sha256": "6d573008eb9c18a384e131b2138ebc70b0858d537a98fb8a2c4d89bc36762253"
+    },
+    {
+      "id": "PromotionalBasket",
+      "kind": "environment",
+      "path": "Art/StoreDisplays/PromotionalBasket.glb",
+      "source": "GameAssets/Environment/Runtime/StoreDisplays/PromotionalBasket.glb",
+      "bytes": 671644,
+      "sha256": "454a7ef128606dd9f87a8cfbce84bc16aa340b45c234ab783a3994e7f21e193b"
+    },
+    {
+      "id": "StoreEntranceAlt",
+      "kind": "environment",
+      "path": "Art/StoreDisplays/StoreEntranceAlt.glb",
+      "source": "GameAssets/Environment/Runtime/StoreDisplays/StoreEntranceAlt.glb",
+      "bytes": 665180,
+      "sha256": "55445d83febb66e93d5f3374056af4745b6fcb450141ec2cc119d6b4e627a4d1"
+    },
+    {
+      "id": "UpgradePlatformAlt",
+      "kind": "environment",
+      "path": "Art/StoreDisplays/UpgradePlatformAlt.glb",
+      "source": "GameAssets/Environment/Runtime/StoreDisplays/UpgradePlatformAlt.glb",
+      "bytes": 640964,
+      "sha256": "a0990c15516e378def38ebe5079aec33ac0dbc2a3a352b0f4061af4a18b5213e"
+    },
+    {
+      "id": "BaggingArea",
+      "kind": "environment",
+      "path": "Art/StoreEquipment/BaggingArea.glb",
+      "source": "GameAssets/Environment/Runtime/StoreEquipment/BaggingArea.glb",
+      "bytes": 695144,
+      "sha256": "a19facbecd5c6794f7cbb761a123c6d41a9e8d67f8e6acdf4fde2cd509d35ed6"
+    },
+    {
+      "id": "BasketStack",
+      "kind": "environment",
+      "path": "Art/StoreEquipment/BasketStack.glb",
+      "source": "GameAssets/Environment/Runtime/StoreEquipment/BasketStack.glb",
+      "bytes": 729572,
+      "sha256": "33b25fc321397c486c47bd662dd69ba8478060a2082658b44e3e1045c1df70be"
+    },
+    {
+      "id": "CashDrawer",
+      "kind": "environment",
+      "path": "Art/StoreEquipment/CashDrawer.glb",
+      "source": "GameAssets/Environment/Runtime/StoreEquipment/CashDrawer.glb",
+      "bytes": 715360,
+      "sha256": "844245951deb7e549bdbbf3a3d4bec032c17918072d7a557b9f1fae76cd33371"
+    },
+    {
+      "id": "CheckoutScanner",
+      "kind": "environment",
+      "path": "Art/StoreEquipment/CheckoutScanner.glb",
+      "source": "GameAssets/Environment/Runtime/StoreEquipment/CheckoutScanner.glb",
+      "bytes": 663860,
+      "sha256": "279bbfb0f2c6a69ba467aa5b13c6439f8a141cd7f76fc3d9160ff7b11f9a7020"
+    },
+    {
+      "id": "CheeseMachine",
+      "kind": "environment",
+      "path": "Art/StoreEquipment/CheeseMachine.glb",
+      "source": "GameAssets/Environment/Runtime/StoreEquipment/CheeseMachine.glb",
+      "bytes": 701208,
+      "sha256": "27a5007fba0f2a8b3eca82bfb745fca792c9b0aa2514ddab2fb404a182b9b0cf"
+    },
+    {
+      "id": "DeliveryDock",
+      "kind": "environment",
+      "path": "Art/StoreEquipment/DeliveryDock.glb",
+      "source": "GameAssets/Environment/Runtime/StoreEquipment/DeliveryDock.glb",
+      "bytes": 715268,
+      "sha256": "19f9bd00abf0c46741314c235d344c041c80da5a2eaf29d1c9d0ea89636e620e"
+    },
+    {
+      "id": "FlourMill",
+      "kind": "environment",
+      "path": "Art/StoreEquipment/FlourMill.glb",
+      "source": "GameAssets/Environment/Runtime/StoreEquipment/FlourMill.glb",
+      "bytes": 691196,
+      "sha256": "3dfd25feffbf99f244bf652d4b17dd6854788425ed359fd241c98ad7cc48d1e3"
+    },
+    {
+      "id": "HiringPoint",
+      "kind": "environment",
+      "path": "Art/StoreEquipment/HiringPoint.glb",
+      "source": "GameAssets/Environment/Runtime/StoreEquipment/HiringPoint.glb",
+      "bytes": 685428,
+      "sha256": "67eff221f9fb86575cb6c6702efb17585828a5aa431b1236a9b5b38fe3b943ba"
+    },
+    {
+      "id": "JuiceMachine",
+      "kind": "environment",
+      "path": "Art/StoreEquipment/JuiceMachine.glb",
+      "source": "GameAssets/Environment/Runtime/StoreEquipment/JuiceMachine.glb",
+      "bytes": 731636,
+      "sha256": "a34d0f9c98c4524963586cc8ced3d20e4a51ea5373bf53d3ab98abdb5908d09a"
+    },
+    {
+      "id": "ReusableShoppingBag",
+      "kind": "environment",
+      "path": "Art/StoreEquipment/ReusableShoppingBag.glb",
+      "source": "GameAssets/Environment/Runtime/StoreEquipment/ReusableShoppingBag.glb",
+      "bytes": 237320,
+      "sha256": "cc79acbd87f5195b87a1af2fbc8c35d7b78a4873f114f7d1985f5fc40b1a6438"
+    },
+    {
+      "id": "StoreEntrance",
+      "kind": "environment",
+      "path": "Art/StoreEquipment/StoreEntrance.glb",
+      "source": "GameAssets/Environment/Runtime/StoreEquipment/StoreEntrance.glb",
+      "bytes": 728632,
+      "sha256": "9403d01c58aff3393283a0cd20931c365d36ed04e8ada38f2d31ad7ab2013d60"
+    },
+    {
+      "id": "UpgradePlatform",
+      "kind": "environment",
+      "path": "Art/StoreEquipment/UpgradePlatform.glb",
+      "source": "GameAssets/Environment/Runtime/StoreEquipment/UpgradePlatform.glb",
+      "bytes": 676688,
+      "sha256": "e24ec1b1f0d88f053bcb050701c8e0d4ce10662928c3de1e3b66808596cbbb07"
+    },
+    {
+      "id": "BackroomStorage",
+      "kind": "environment",
+      "path": "Art/Utility/BackroomStorage.glb",
+      "source": "GameAssets/Environment/Runtime/Utility/BackroomStorage.glb",
+      "bytes": 645076,
+      "sha256": "ac68fabaf7e0ffae0e273a5c678b20afa346d04f8bcc0bb79f4dec4896f58f6c"
+    },
+    {
+      "id": "BakeryWorkArea",
+      "kind": "environment",
+      "path": "Art/Utility/BakeryWorkArea.glb",
+      "source": "GameAssets/Environment/Runtime/Utility/BakeryWorkArea.glb",
+      "bytes": 678992,
+      "sha256": "5ed5b6a269a550a8c5e8522af796f0cc9e8ffa6c5e3d1e479cb02bfb47dc8d71"
+    },
+    {
+      "id": "CartBay",
+      "kind": "environment",
+      "path": "Art/Utility/CartBay.glb",
+      "source": "GameAssets/Environment/Runtime/Utility/CartBay.glb",
+      "bytes": 786664,
+      "sha256": "902f2266477c3fffa817aa29788cb1d499f66c66d498356f462cf1707a5e0dce"
+    },
+    {
+      "id": "CashierStool",
+      "kind": "environment",
+      "path": "Art/Utility/CashierStool.glb",
+      "source": "GameAssets/Environment/Runtime/Utility/CashierStool.glb",
+      "bytes": 225076,
+      "sha256": "e00ab334ee31e845a691ca083294bd7d7450ce3ccf1cb4d2fcd6f8e8c4053a81"
+    },
+    {
+      "id": "CheckoutBag",
+      "kind": "environment",
+      "path": "Art/Utility/CheckoutBag.glb",
+      "source": "GameAssets/Environment/Runtime/Utility/CheckoutBag.glb",
+      "bytes": 260160,
+      "sha256": "3d6f883f625b1c315d65b1d99eb8db35371b8cb6c1c1b99ec5258c8583866c04"
+    },
+    {
+      "id": "ChickenPaddock",
+      "kind": "environment",
+      "path": "Art/Utility/ChickenPaddock.glb",
+      "source": "GameAssets/Environment/Runtime/Utility/ChickenPaddock.glb",
+      "bytes": 691048,
+      "sha256": "ad533bd290eba16dc55ef60a0e6676720c1f8a92e3038976d67668c386f892f1"
+    },
+    {
+      "id": "CowPaddock",
+      "kind": "environment",
+      "path": "Art/Utility/CowPaddock.glb",
+      "source": "GameAssets/Environment/Runtime/Utility/CowPaddock.glb",
+      "bytes": 689960,
+      "sha256": "449d7e272e3a87dacf4778d18b08de0b6e7843ea993501dccc6391db709ee567"
+    },
+    {
+      "id": "FarmWaterTank",
+      "kind": "environment",
+      "path": "Art/Utility/FarmWaterTank.glb",
+      "source": "GameAssets/Environment/Runtime/Utility/FarmWaterTank.glb",
+      "bytes": 679816,
+      "sha256": "d0c5de53cdfa073f196df5e2eb8f508bc80079565d98784ba771490ca5a8aaf5"
+    },
+    {
+      "id": "GlassPartition",
+      "kind": "environment",
+      "path": "Art/Utility/GlassPartition.glb",
+      "source": "GameAssets/Environment/Runtime/Utility/GlassPartition.glb",
+      "bytes": 669984,
+      "sha256": "ec5634da1f8bd0305fe2e7d8c98bde4e3c7b488a3ad19ecb0f768cc3b3283e99"
+    },
+    {
+      "id": "HarvestBasket",
+      "kind": "environment",
+      "path": "Art/Utility/HarvestBasket.glb",
+      "source": "GameAssets/Environment/Runtime/Utility/HarvestBasket.glb",
+      "bytes": 624736,
+      "sha256": "cb7c2b890ca3b12e5481b4480afdb6220222a6159dfd3c57e9c758a7cbdcfc0e"
+    },
+    {
+      "id": "ReturnsStation",
+      "kind": "environment",
+      "path": "Art/Utility/ReturnsStation.glb",
+      "source": "GameAssets/Environment/Runtime/Utility/ReturnsStation.glb",
+      "bytes": 737600,
+      "sha256": "7423e0569ba7a2f5af21479f7be594f53201622c347819114c40fa39965a9aa0"
+    },
+    {
+      "id": "SeasonalDisplay",
+      "kind": "environment",
+      "path": "Art/Utility/SeasonalDisplay.glb",
+      "source": "GameAssets/Environment/Runtime/Utility/SeasonalDisplay.glb",
+      "bytes": 677844,
+      "sha256": "d70c6b6881478df993fb013f3e7e5f6e2b02d968823d5f321eeeec6dadd42b74"
+    },
+    {
+      "id": "SupplierTerminal",
+      "kind": "environment",
+      "path": "Art/Utility/SupplierTerminal.glb",
+      "source": "GameAssets/Environment/Runtime/Utility/SupplierTerminal.glb",
+      "bytes": 634468,
+      "sha256": "b643e055abf2976232bff69512d33c1b3114f0b5c41de3b7cde2d2d76dd5e5cb"
+    },
+    {
+      "id": "HeadAccessoryFitManifest",
+      "kind": "metadata",
+      "path": "Data/HeadAccessoryFitManifest.json",
+      "source": "GameAssets/Characters/RoyalMatchPipeline/QC/HeadAccessoryFitManifest.json",
+      "bytes": 232106,
+      "sha256": "9655602649b94ab0ddfec5e090c8ec2e9fe5791ed14ba507fdf6e64f415fe3d9"
+    },
+    {
+      "id": "AdultMale:Motion",
+      "kind": "character-motion",
+      "path": "Art/Characters/AdultMale/Motion.glb",
+      "source": "derived-from:AdultMale:LOD0",
+      "bytes": 1612488,
+      "sha256": "c4b4b44e279527fdd1d0d8a46769a90163ed303e1fda45365d67702d25ce8c23"
+    },
+    {
+      "id": "AdultFemale:Motion",
+      "kind": "character-motion",
+      "path": "Art/Characters/AdultFemale/Motion.glb",
+      "source": "derived-from:AdultFemale:LOD0",
+      "bytes": 1617616,
+      "sha256": "dc6e185a6f511d6a31266e1f5d4e769c16d68a76cbf60beacb50c27b657f6d56"
+    },
+    {
+      "id": "Boy:Motion",
+      "kind": "character-motion",
+      "path": "Art/Characters/Boy/Motion.glb",
+      "source": "derived-from:Boy:LOD0",
+      "bytes": 1617800,
+      "sha256": "06a0d44de60a47ff99b41a9217e6d16a81fbd7982da2a51f7f7534b41018eced"
+    },
+    {
+      "id": "Girl:Motion",
+      "kind": "character-motion",
+      "path": "Art/Characters/Girl/Motion.glb",
+      "source": "derived-from:Girl:LOD0",
+      "bytes": 1611868,
+      "sha256": "6b9e6e4bc91a95a3bf9be2f8f1b1466fff4dae97128826988b3898bfbf467d53"
+    },
+    {
+      "id": "CustomerFemale01:Motion",
+      "kind": "character-motion",
+      "path": "Art/Characters/CustomerFemale01/Motion.glb",
+      "source": "derived-from:CustomerFemale01:LOD0",
+      "bytes": 1619448,
+      "sha256": "0d5d6fec63f4ac48ef8de74e6f87efc1c391ae1fdcf6368c58483d8fd910cb9a"
+    },
+    {
+      "id": "CustomerFemale02:Motion",
+      "kind": "character-motion",
+      "path": "Art/Characters/CustomerFemale02/Motion.glb",
+      "source": "derived-from:CustomerFemale02:LOD0",
+      "bytes": 1605620,
+      "sha256": "7cdd6d8069fe4388ef7f0f3ca8bdf2a58391521485d1f0f29092d2fb52b6d6d0"
+    },
+    {
+      "id": "CustomerFemale03:Motion",
+      "kind": "character-motion",
+      "path": "Art/Characters/CustomerFemale03/Motion.glb",
+      "source": "derived-from:CustomerFemale03:LOD0",
+      "bytes": 1611276,
+      "sha256": "f1a4ac1ca0dd52ee81b93b420c3c4ab9ad1d856de7e7f1c21c58d50c380c7ec6"
+    },
+    {
+      "id": "CustomerMale01:Motion",
+      "kind": "character-motion",
+      "path": "Art/Characters/CustomerMale01/Motion.glb",
+      "source": "derived-from:CustomerMale01:LOD0",
+      "bytes": 1607652,
+      "sha256": "810076001f38b8c542206c840d062eb775da76779a6c8359d3716ff60d36ddd1"
+    },
+    {
+      "id": "CustomerMale02:Motion",
+      "kind": "character-motion",
+      "path": "Art/Characters/CustomerMale02/Motion.glb",
+      "source": "derived-from:CustomerMale02:LOD0",
+      "bytes": 1618544,
+      "sha256": "16c279efef28433a6d1513e377ebccf130aaf77d7d9e9340cca41c2d38d113f1"
+    }
+  ],
+  "counts": {
+    "character": 27,
+    "character-texture": 38,
+    "environment": 123,
+    "hair": 16,
+    "hat": 12,
+    "product": 11,
+    "metadata": 1,
+    "character-motion": 9
+  },
+  "totalBytes": 463253768
+}

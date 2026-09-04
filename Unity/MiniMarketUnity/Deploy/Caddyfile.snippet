@@ -1,0 +1,38 @@
+# Sustituye el bloque market.olcas.app existente. Caddy sirve Unity directamente
+# y conserva Next.js en 127.0.0.1:4010 como backend de autenticacion/guardado.
+market.olcas.app {
+	@next_backend path /api/* /reset-password /reset-password/* /_next/*
+	handle @next_backend {
+		reverse_proxy 127.0.0.1:4010
+	}
+
+	handle {
+		root * /var/www/market-unity/current
+
+		@brotli path_regexp brotli \.br$
+		header @brotli Content-Encoding br
+		@wasm path_regexp wasm \.wasm(\.br)?$
+		header @wasm Content-Type application/wasm
+		@javascript path_regexp javascript \.js(\.br)?$
+		header @javascript Content-Type "text/javascript; charset=utf-8"
+		@data path_regexp data \.data(\.br)?$
+		header @data Content-Type application/octet-stream
+		@gltf path_regexp gltf \.glb$
+		header @gltf Content-Type model/gltf-binary
+
+		@immutable path /Build/* /StreamingAssets/*
+		header @immutable Cache-Control "public, max-age=31536000, immutable"
+		@shell path / /index.html /service-worker.js /sw.js /manifest.webmanifest
+		header @shell Cache-Control "no-cache, no-store, must-revalidate"
+		header {
+			Cross-Origin-Opener-Policy same-origin
+			Cross-Origin-Embedder-Policy require-corp
+			X-Content-Type-Options nosniff
+			Referrer-Policy strict-origin-when-cross-origin
+			Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		}
+
+		try_files {path} /index.html
+		file_server
+	}
+}

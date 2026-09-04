@@ -49,3 +49,23 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Unity: proyecto generado y artefactos de compilacion
+Unity/**/Library/
+Unity/**/Temp/
+Unity/**/Obj/
+Unity/**/obj/
+Unity/**/Logs/
+Unity/**/UserSettings/
+Unity/**/Builds/
+Unity/**/MemoryCaptures/
+Unity/**/Recordings/
+Unity/**/*.csproj
+Unity/**/*.sln
+Unity/.vs/
+
+# Arte pesado: se versiona la fuente, no los binarios exportados.
+# Los GLB de runtime (444 MB) se reconstruyen desde GameAssets/ y viajan
+# dentro de la build WebGL, que se publica por rsync y no por git.
+Unity/MiniMarketUnity/Assets/StreamingAssets/Art/
+GameAssets/

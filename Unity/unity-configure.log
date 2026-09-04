@@ -1,0 +1,1149 @@
+Unity Editor version:    6000.3.23f1 (09d2ecc7fb28)
+Branch:                  6000.3/staging
+Build type:              Release
+Batch mode:              YES
+System name:             Linux
+Distro version:          #1 SMP PREEMPT_DYNAMIC Wed, 08 Jul 2026 19:47:07 +0000
+Kernel version:          6.18.38-2-cachyos-lts
+Architecture:            x86_64
+Window Protocol:         Wayland (XWayland)
+Available memory:        64123 MB
+Date:                    2026-09-03T02:25:42Z
+[Licensing::Module] Trying to connect to existing licensing client channel...
+Initialize udev device monitor.
+[Licensing::IpcConnector] Successfully connected to: "LicenseClient-ferney_oliveros" at "2026-09-03T02:25:42.676567Z"
+[SignatureVerifier] Application signature verification not supported on this platform.
+
+COMMAND LINE ARGUMENTS:
+/home/ferney_oliveros/Unity/Hub/Editor/6000.3.23f1/Editor/Unity
+-batchmode
+-nographics
+-quit
+-projectPath
+/home/ferney_oliveros/Mini Market/Unity/MiniMarketUnity
+-executeMethod
+MiniMarket.Editor.MiniMarketProjectBuilder.Configure
+-logFile
+/home/ferney_oliveros/Mini Market/Unity/unity-configure.log
+Successfully changed project path to: /home/ferney_oliveros/Mini Market/Unity/MiniMarketUnity
+[Licensing::Client] Error: HandshakeResponse reported an error:
+	ResponseCode: 505
+	ResponseStatus: Unsupported protocol version '1.18.3'.
+[Licensing::Module] Error: Failed to handshake to channel: "LicenseClient-ferney_oliveros"
+[Licensing::IpcConnector] LicenseClient-ferney_oliveros channel disconnected successfully.
+/home/ferney_oliveros/Mini Market/Unity/MiniMarketUnity
+[Licensing::IpcConnector] Channel LicenseClient-ferney_oliveros-6000.3.23 doesn't exist
+[Licensing::Module] Successfully launched the LicensingClient (PId: 209539)
+[UnityMemory] Configuration Parameters - Can be set up in boot.config
+    "memorysetup-allocator-temp-initial-block-size-main=262144"
+    "memorysetup-allocator-temp-initial-block-size-worker=262144"
+    "memorysetup-temp-allocator-size-background-worker=32768"
+    "memorysetup-temp-allocator-size-job-worker=262144"
+    "memorysetup-temp-allocator-size-preload-manager=33554432"
+    "memorysetup-remapper-allocator-initial-capacity=32768"
+    "memorysetup-temp-allocator-size-nav-mesh-worker=65536"
+    "memorysetup-temp-allocator-size-audio-worker=65536"
+    "memorysetup-temp-allocator-size-cloud-worker=32768"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-bucket-allocator-granularity=16"
+    "memorysetup-bucket-allocator-bucket-count=8"
+    "memorysetup-bucket-allocator-block-size=33554432"
+    "memorysetup-bucket-allocator-block-count=8"
+    "memorysetup-main-allocator-block-size=16777216"
+    "memorysetup-thread-allocator-block-size=16777216"
+    "memorysetup-gfx-main-allocator-block-size=16777216"
+    "memorysetup-gfx-thread-allocator-block-size=16777216"
+    "memorysetup-cache-allocator-block-size=4194304"
+    "memorysetup-typetree-allocator-block-size=2097152"
+    "memorysetup-profiler-bucket-allocator-granularity=16"
+    "memorysetup-profiler-bucket-allocator-bucket-count=8"
+    "memorysetup-profiler-bucket-allocator-block-size=33554432"
+    "memorysetup-profiler-bucket-allocator-block-count=8"
+    "memorysetup-profiler-allocator-block-size=16777216"
+    "memorysetup-profiler-editor-allocator-block-size=1048576"
+    "memorysetup-temp-allocator-size-main=16777216"
+    "memorysetup-job-temp-allocator-block-size=2097152"
+    "memorysetup-job-temp-allocator-block-size-background=1048576"
+    "memorysetup-job-temp-allocator-reduction-small-platforms=262144"
+    "memorysetup-temp-allocator-size-gfx=262144"
+Player connection [139739730246784]  Target information:
+
+Player connection [139739730246784]  * "[IP] 192.168.1.136 [Port] 55504 [Flags] 2 [Guid] 1576544879 [EditorId] 1576544879 [Version] 1048832 [Id] LinuxEditor(16,192.168.1.136) [Debug] 1 [PackageName] LinuxEditor [ProjectName] Editor" 
+
+Player connection [139739730246784] Host joined multi-casting on [225.0.0.222:54997]...
+Player connection [139739730246784] Host joined alternative multi-casting on [225.0.0.222:34997]...
+Input System module state changed to: Initialized.
+[Physics::Module] Initialized fallback backend.
+[Physics::Module] Id: 0xdecafbad
+[Package Manager] Connected to IPC stream "Upm-209501" after 0.1 seconds.
+[Licensing::Module] Licensing is not yet initialized.
+[Licensing::IpcConnector] Successfully connected to: "LicenseClient-ferney_oliveros-6000.3.23" at "2026-09-03T02:25:42.839731Z"
+[SignatureVerifier] Application signature verification not supported on this platform.
+[Licensing::Client] Handshaking with LicensingClient:
+  Version:                 1.18.3+d7ffd15
+  Session Id:              4af8a8d292b845478410b819647ba7bb
+  Correlation Id:          64afb6458dfd42fcd1fa13fc9f4ed3d8
+  External correlation Id: 3226724350589174964
+  Machine Id:              3wrSyLp21P1kN0z9UG6hOyX7dyc=
+[Licensing::Module] Successfully connected to LicensingClient on channel: "LicenseClient-ferney_oliveros-6000.3.23" (connect: 0.16s, validation: 0.03s, handshake: 0.00s)
+[Licensing::IpcConnector] Successfully connected to: "LicenseClient-ferney_oliveros-6000.3.23-notifications" at "2026-09-03T02:25:42.865348Z"
+[Licensing::Module] Connected to LicensingClient (PId: 209539, launch time: 0.00, total connection time: 0.19s)
+[Licensing::Module] Error: Access token is unavailable; failed to update
+[Licensing::Client] Successfully resolved entitlement details
+[Licensing::Module] License group:
+  Id: 6872882819583-UnityPersXXXX
+  Product: Unity Personal
+  Type: Assigned
+  Expiration: Unlimited
+[Licensing::Client] Successfully updated license, isAsync: True, time: 0.00
+[Licensing::Client] Successfully resolved entitlement details
+[Licensing::Module] Licensing Background thread has ended after 0.21s
+[Licensing::Module] Licensing is initialized (took 0.08s).
+[Licensing::Client] Successfully resolved entitlement details
+Library Redirect Path: Library/
+[Physics::Module] Selected backend.
+[Physics::Module] Name: PhysX
+[Physics::Module] Id: 0xf2b8ea05
+[Physics::Module] SDK Version: 4.1.2
+[Physics::Module] Integration Version: 1.0.0
+[Physics::Module] Threading Mode: Multi-Threaded
+Refreshing native plugins compatible for Editor in 0.04 ms, found 0 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Initialize engine version: 6000.3.23f1 (09d2ecc7fb28)
+[Subsystems] Discovering subsystems at path /home/ferney_oliveros/Unity/Hub/Editor/6000.3.23f1/Editor/Data/Resources/UnitySubsystems
+[Subsystems] Discovering subsystems at path /home/ferney_oliveros/Mini Market/Unity/MiniMarketUnity/Assets
+Forcing GfxDevice: Null
+GfxDevice: creating device client; kGfxThreadingModeNonThreaded
+NullGfxDevice:
+    Version:  NULL 1.0 [1.0]
+    Renderer: Null Device
+    Vendor:   Unity Technologies
+Initialize mono
+Mono path[0] = '/home/ferney_oliveros/Unity/Hub/Editor/6000.3.23f1/Editor/Data/Managed'
+Mono path[1] = '/home/ferney_oliveros/Unity/Hub/Editor/6000.3.23f1/Editor/Data/MonoBleedingEdge/lib/mono/unityjit-linux'
+Mono config path = '/home/ferney_oliveros/Unity/Hub/Editor/6000.3.23f1/Editor/Data/MonoBleedingEdge/etc'
+Using monoOptions --debugger-agent=transport=dt_socket,embedding=1,server=y,suspend=n,address=127.0.0.1:56501
+Using cacheserver namespaces - metadata:defaultmetadata, artifacts:defaultartifacts
+Using cacheserver namespaces - metadata:defaultmetadata, artifacts:defaultartifacts
+ImportWorker Server TCP listen port: 0
+AcceleratorClientConnectionCallback - disconnected - :0
+Begin MonoManager ReloadAssembly
+Registering precompiled unity dll's ...
+Register platform support module: /home/ferney_oliveros/Unity/Hub/Editor/6000.3.23f1/Editor/Data/PlaybackEngines/WebGLSupport/UnityEditor.WebGL.Extensions.dll
+Register platform support module: /home/ferney_oliveros/Unity/Hub/Editor/6000.3.23f1/Editor/Data/PlaybackEngines/LinuxStandaloneSupport/UnityEditor.LinuxStandalone.Extensions.dll
+Registered in 0.000624 seconds.
+- Loaded All Assemblies, in  0.185 seconds
+Native extension for LinuxStandalone target not found
+Native extension for WebGL target not found
+Package Manager log level set to [2]
+[Licensing::Client] Successfully resolved entitlement details
+ScheduleIndexationOnStartup MainProcess:False IndexOnStartup:False
+Mono: successfully reloaded assembly
+- Finished resetting the current domain, in  1.613 seconds
+Domain Reload Profiling: 1799ms
+	BeginReloadAssembly (48ms)
+		ExecutionOrderSort (0ms)
+		DisableScriptedObjects (0ms)
+		BackupInstance (0ms)
+		ReleaseScriptingObjects (0ms)
+		CreateAndSetChildDomain (3ms)
+	RebuildCommonClasses (19ms)
+	RebuildNativeTypeToScriptingClass (5ms)
+	initialDomainReloadingComplete (26ms)
+	LoadAllAssembliesAndSetupDomain (88ms)
+		LoadAssemblies (45ms)
+		RebuildTransferFunctionScriptingTraits (0ms)
+		AnalyzeDomain (86ms)
+			TypeCache.Refresh (86ms)
+				TypeCache.ScanAssembly (78ms)
+			BuildScriptInfoCaches (0ms)
+			ResolveRequiredComponents (0ms)
+	FinalizeReload (1614ms)
+		ReleaseScriptCaches (0ms)
+		RebuildScriptCaches (0ms)
+		SetupLoadedEditorAssemblies (1594ms)
+			LogAssemblyErrors (0ms)
+			InitializePlatformSupportModulesInManaged (28ms)
+			SetLoadedEditorAssemblies (3ms)
+			BeforeProcessingInitializeOnLoad (44ms)
+			ProcessInitializeOnLoadAttributes (71ms)
+			ProcessInitializeOnLoadMethodAttributes (1449ms)
+			AfterProcessingInitializeOnLoad (0ms)
+			EditorAssembliesLoaded (0ms)
+		ExecutionOrderSort2 (0ms)
+		AwakeInstancesAfterBackupRestoration (0ms)
+[Licensing::Client] Successfully resolved entitlement details
+Application.AssetDatabase Initial Refresh Start
+[Package Manager] Restoring resolved packages state from cache
+[Licensing::Client] Successfully resolved entitlement details
+[Package Manager] Registered 35 packages:
+  Packages from [https://packages.unity.com]:
+    com.unity.inputsystem@1.14.2 (location: /home/ferney_oliveros/Mini Market/Unity/MiniMarketUnity/Library/PackageCache/com.unity.inputsystem@be6c4fd0abf5)
+    com.unity.ai.navigation@2.0.9 (location: /home/ferney_oliveros/Mini Market/Unity/MiniMarketUnity/Library/PackageCache/com.unity.ai.navigation@5218e4bf7edc)
+    com.unity.addressables@2.7.6 (location: /home/ferney_oliveros/Mini Market/Unity/MiniMarketUnity/Library/PackageCache/com.unity.addressables@45e9abf44299)
+    com.unity.cloud.gltfast@6.18.0 (location: /home/ferney_oliveros/Mini Market/Unity/MiniMarketUnity/Library/PackageCache/com.unity.cloud.gltfast@17a3b690793e)
+    com.unity.nuget.newtonsoft-json@3.2.1 (location: /home/ferney_oliveros/Mini Market/Unity/MiniMarketUnity/Library/PackageCache/com.unity.nuget.newtonsoft-json@74deb55db2a0)
+    com.unity.burst@1.8.30 (location: /home/ferney_oliveros/Mini Market/Unity/MiniMarketUnity/Library/PackageCache/com.unity.burst@2f3d916873ea)
+    com.unity.collections@2.6.8 (location: /home/ferney_oliveros/Mini Market/Unity/MiniMarketUnity/Library/PackageCache/com.unity.collections@84e8eb3fc12e)
+    com.unity.mathematics@1.3.3 (location: /home/ferney_oliveros/Mini Market/Unity/MiniMarketUnity/Library/PackageCache/com.unity.mathematics@19a9377c4ffa)
+    com.unity.profiling.core@1.0.3 (location: /home/ferney_oliveros/Mini Market/Unity/MiniMarketUnity/Library/PackageCache/com.unity.profiling.core@8a49f7027d06)
+    com.unity.scriptablebuildpipeline@2.6.1 (location: /home/ferney_oliveros/Mini Market/Unity/MiniMarketUnity/Library/PackageCache/com.unity.scriptablebuildpipeline@36e3b5898ee2)
+    com.unity.nuget.mono-cecil@1.11.6 (location: /home/ferney_oliveros/Mini Market/Unity/MiniMarketUnity/Library/PackageCache/com.unity.nuget.mono-cecil@ecb9724e46ff)
+    com.unity.test-framework.performance@3.5.0 (location: /home/ferney_oliveros/Mini Market/Unity/MiniMarketUnity/Library/PackageCache/com.unity.test-framework.performance@8b56083ec0f0)
+    com.unity.searcher@4.9.5 (location: /home/ferney_oliveros/Mini Market/Unity/MiniMarketUnity/Library/PackageCache/com.unity.searcher@a463122f2c00)
+  Built-in packages:
+    com.unity.render-pipelines.universal@17.3.0 (location: /home/ferney_oliveros/Mini Market/Unity/MiniMarketUnity/Library/PackageCache/com.unity.render-pipelines.universal@f240f8c369cb)
+    com.unity.test-framework@1.6.0 (location: /home/ferney_oliveros/Mini Market/Unity/MiniMarketUnity/Library/PackageCache/com.unity.test-framework@0bd5c5194236)
+    com.unity.ugui@2.0.0 (location: /home/ferney_oliveros/Mini Market/Unity/MiniMarketUnity/Library/PackageCache/com.unity.ugui@6207c5620340)
+    com.unity.modules.ai@1.0.0 (location: /home/ferney_oliveros/Mini Market/Unity/MiniMarketUnity/Library/PackageCache/com.unity.modules.ai)
+    com.unity.modules.animation@1.0.0 (location: /home/ferney_oliveros/Mini Market/Unity/MiniMarketUnity/Library/PackageCache/com.unity.modules.animation)
+    com.unity.modules.audio@1.0.0 (location: /home/ferney_oliveros/Mini Market/Unity/MiniMarketUnity/Library/PackageCache/com.unity.modules.audio)
+    com.unity.modules.imageconversion@1.0.0 (location: /home/ferney_oliveros/Mini Market/Unity/MiniMarketUnity/Library/PackageCache/com.unity.modules.imageconversion)
+    com.unity.modules.jsonserialize@1.0.0 (location: /home/ferney_oliveros/Mini Market/Unity/MiniMarketUnity/Library/PackageCache/com.unity.modules.jsonserialize)
+    com.unity.modules.physics@1.0.0 (location: /home/ferney_oliveros/Mini Market/Unity/MiniMarketUnity/Library/PackageCache/com.unity.modules.physics)
+    com.unity.modules.ui@1.0.0 (location: /home/ferney_oliveros/Mini Market/Unity/MiniMarketUnity/Library/PackageCache/com.unity.modules.ui)
+    com.unity.modules.unitywebrequest@1.0.0 (location: /home/ferney_oliveros/Mini Market/Unity/MiniMarketUnity/Library/PackageCache/com.unity.modules.unitywebrequest)
+    com.unity.modules.unitywebrequesttexture@1.0.0 (location: /home/ferney_oliveros/Mini Market/Unity/MiniMarketUnity/Library/PackageCache/com.unity.modules.unitywebrequesttexture)
+    com.unity.modules.imgui@1.0.0 (location: /home/ferney_oliveros/Mini Market/Unity/MiniMarketUnity/Library/PackageCache/com.unity.modules.imgui)
+    com.unity.ext.nunit@2.0.5 (location: /home/ferney_oliveros/Mini Market/Unity/MiniMarketUnity/Library/PackageCache/com.unity.ext.nunit@ec2d0043d6fc)
+    com.unity.modules.assetbundle@1.0.0 (location: /home/ferney_oliveros/Mini Market/Unity/MiniMarketUnity/Library/PackageCache/com.unity.modules.assetbundle)
+    com.unity.modules.unitywebrequestassetbundle@1.0.0 (location: /home/ferney_oliveros/Mini Market/Unity/MiniMarketUnity/Library/PackageCache/com.unity.modules.unitywebrequestassetbundle)
+    com.unity.modules.uielements@1.0.0 (location: /home/ferney_oliveros/Mini Market/Unity/MiniMarketUnity/Library/PackageCache/com.unity.modules.uielements)
+    com.unity.render-pipelines.core@17.3.0 (location: /home/ferney_oliveros/Mini Market/Unity/MiniMarketUnity/Library/PackageCache/com.unity.render-pipelines.core@21d6c4fca829)
+    com.unity.shadergraph@17.3.0 (location: /home/ferney_oliveros/Mini Market/Unity/MiniMarketUnity/Library/PackageCache/com.unity.shadergraph@f391c7e5c168)
+    com.unity.render-pipelines.universal-config@17.0.3 (location: /home/ferney_oliveros/Mini Market/Unity/MiniMarketUnity/Library/PackageCache/com.unity.render-pipelines.universal-config@dbe3fd082d8f)
+    com.unity.modules.hierarchycore@1.0.0 (location: /home/ferney_oliveros/Mini Market/Unity/MiniMarketUnity/Library/PackageCache/com.unity.modules.hierarchycore)
+    com.unity.modules.terrain@1.0.0 (location: /home/ferney_oliveros/Mini Market/Unity/MiniMarketUnity/Library/PackageCache/com.unity.modules.terrain)
+[Subsystems] No new subsystems found in resolved package list.
+[Package Manager] Done registering packages in 0.00 seconds
+[40m[32minfo[39m[22m[49m: Microsoft.Hosting.Lifetime[14]
+      Now listening on: http://unix:/tmp/ilpp.sock-0e8c7941c7e11cf9e2d6a8995576a104
+[40m[32minfo[39m[22m[49m: Microsoft.Hosting.Lifetime[0]
+      Application started. Press Ctrl+C to shut down.
+[40m[32minfo[39m[22m[49m: Microsoft.Hosting.Lifetime[0]
+      Hosting environment: Production
+[40m[32minfo[39m[22m[49m: Microsoft.Hosting.Lifetime[0]
+      Content root path: /home/ferney_oliveros/Mini Market/Unity/MiniMarketUnity/
+[40m[32minfo[39m[22m[49m: Microsoft.AspNetCore.Hosting.Diagnostics[1]
+      Request starting HTTP/2 POST http://ilpp/UnityILPP.PostProcessing/Ping application/grpc -
+[40m[32minfo[39m[22m[49m: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
+      Executing endpoint 'gRPC - /UnityILPP.PostProcessing/Ping'
+[40m[32minfo[39m[22m[49m: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
+      Executed endpoint 'gRPC - /UnityILPP.PostProcessing/Ping'
+[40m[32minfo[39m[22m[49m: Microsoft.AspNetCore.Hosting.Diagnostics[2]
+      Request finished HTTP/2 POST http://ilpp/UnityILPP.PostProcessing/Ping application/grpc - - 200 - application/grpc 21.7056ms
+Starting: /home/ferney_oliveros/Unity/Hub/Editor/6000.3.23f1/Editor/Data/Tools/BuildPipeline/bee_backend --ipc --defer-dag-verification --dagfile="Library/Bee/2400b0aE.dag" --continue-on-failure --profile="Library/Bee/backend1.traceevents" ScriptAssemblies
+WorkingDir: /home/ferney_oliveros/Mini Market/Unity/MiniMarketUnity
+[40m[32minfo[39m[22m[49m: Microsoft.AspNetCore.Hosting.Diagnostics[1]
+      Request starting HTTP/2 POST http://ilpp/UnityILPP.PostProcessing/ConfigurePostProcessors application/grpc -
+[40m[32minfo[39m[22m[49m: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
+      Executing endpoint 'gRPC - /UnityILPP.PostProcessing/ConfigurePostProcessors'
+DisplayProgressbar: Compiling Scripts
+[40m[1m[33mwarn[39m[22m[49m: Unity.ILPP.Runner.PostProcessingAssemblyLoadContext[0]
+      Assembly system.runtime.interopservices.windowsruntime has duplicate hint path. Ignoring "/home/ferney_oliveros/Unity/Hub/Editor/6000.3.23f1/Editor/Data/UnityReferenceAssemblies/unity-4.8-api/Facades/System.Runtime.InteropServices.WindowsRuntime.dll" in favor of "/home/ferney_oliveros/Unity/Hub/Editor/6000.3.23f1/Editor/Data/NetStandard/Extensions/2.0.0/System.Runtime.InteropServices.WindowsRuntime.dll"
+[40m[1m[33mwarn[39m[22m[49m: Unity.ILPP.Runner.PostProcessingAssemblyLoadContext[0]
+      Assembly system.componentmodel.composition has duplicate hint path. Ignoring "/home/ferney_oliveros/Unity/Hub/Editor/6000.3.23f1/Editor/Data/UnityReferenceAssemblies/unity-4.8-api/System.ComponentModel.Composition.dll" in favor of "/home/ferney_oliveros/Unity/Hub/Editor/6000.3.23f1/Editor/Data/NetStandard/compat/2.1.0/shims/netfx/System.ComponentModel.Composition.dll"
+[40m[32minfo[39m[22m[49m: Unity.ILPP.Runner.PostProcessingAssemblyLoadContext[0]
+      Resolved Unity.Burst.Cecil, Version=0.11.6.0, Culture=neutral, PublicKeyToken=50cebf1cceb9d05e with Library/PackageCache/com.unity.burst@2f3d916873ea/Unity.Burst.CodeGen/Unity.Burst.Cecil.dll
+[40m[32minfo[39m[22m[49m: Unity.ILPP.Runner.PostProcessingAssemblyLoadContext[0]
+      Resolved Mono.Cecil, Version=0.11.5.0, Culture=neutral, PublicKeyToken=50cebf1cceb9d05e with Library/PackageCache/com.unity.nuget.mono-cecil@ecb9724e46ff/Mono.Cecil.dll
+[40m[32minfo[39m[22m[49m: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
+      Executed endpoint 'gRPC - /UnityILPP.PostProcessing/ConfigurePostProcessors'
+[40m[32minfo[39m[22m[49m: Microsoft.AspNetCore.Hosting.Diagnostics[2]
+      Request finished HTTP/2 POST http://ilpp/UnityILPP.PostProcessing/ConfigurePostProcessors application/grpc - - 200 - application/grpc 29.9423ms
+ExitCode: 0 Duration: 0s114ms
+[564/739    0s] ILPP-Configuration Library/ilpp-configuration.nevergeneratedoutput
+*** Tundra build success (0.10 seconds), 1 items updated, 739 evaluated
+Total cache size 25946592
+AssetDatabase: script compilation time: 0.354203s
+Total cache size after purge 25946592, took 00:00:00.0085421
+Begin MonoManager ReloadAssembly
+Symbol file LoadedFromMemory is not a mono symbol file
+- Loaded All Assemblies, in  0.293 seconds
+Refreshing native plugins compatible for Editor in 0.09 ms, found 0 plugins.
+Native extension for LinuxStandalone target not found
+Native extension for WebGL target not found
+ScheduleIndexationOnStartup MainProcess:True IndexOnStartup:True
+Mono: successfully reloaded assembly
+- Finished resetting the current domain, in  1.419 seconds
+Domain Reload Profiling: 1712ms
+	BeginReloadAssembly (97ms)
+		ExecutionOrderSort (0ms)
+		DisableScriptedObjects (8ms)
+		BackupInstance (0ms)
+		ReleaseScriptingObjects (0ms)
+		CreateAndSetChildDomain (44ms)
+	RebuildCommonClasses (18ms)
+	RebuildNativeTypeToScriptingClass (5ms)
+	initialDomainReloadingComplete (13ms)
+	LoadAllAssembliesAndSetupDomain (159ms)
+		LoadAssemblies (110ms)
+		RebuildTransferFunctionScriptingTraits (0ms)
+		AnalyzeDomain (78ms)
+			TypeCache.Refresh (55ms)
+				TypeCache.ScanAssembly (48ms)
+			BuildScriptInfoCaches (18ms)
+			ResolveRequiredComponents (5ms)
+	FinalizeReload (1419ms)
+		ReleaseScriptCaches (0ms)
+		RebuildScriptCaches (0ms)
+		SetupLoadedEditorAssemblies (1314ms)
+			LogAssemblyErrors (0ms)
+			InitializePlatformSupportModulesInManaged (13ms)
+			SetLoadedEditorAssemblies (2ms)
+			BeforeProcessingInitializeOnLoad (74ms)
+			ProcessInitializeOnLoadAttributes (1155ms)
+			ProcessInitializeOnLoadMethodAttributes (69ms)
+			AfterProcessingInitializeOnLoad (2ms)
+			EditorAssembliesLoaded (0ms)
+		ExecutionOrderSort2 (0ms)
+		AwakeInstancesAfterBackupRestoration (8ms)
+Asset Pipeline Refresh (id=c3fa987d72ca3d7a0bd449cf3ed845a4): Total: 2.481 seconds - Initiated by InitialRefreshV2(ForceSynchronousImport)
+	Summary:
+		Imports: total=0 (actual=0, local cache=0, cache server=0)
+		Asset DB Process Time: managed=0 ms, native=1731 ms
+		Asset DB Callback time: managed=72 ms, native=2 ms
+		Scripting: domain reloads=1, domain reload time=293 ms, compile time=363 ms, other=18 ms
+		Project Asset Count: scripts=996, non-scripts=2085
+		Asset File Changes: new=0, changed=0, moved=0, deleted=0
+		Scan Filter Count: 1
+	InvokeCustomDependenciesCallbacks: 0.002ms
+	InvokePackagesCallback: 2.410ms
+	ApplyChangesToAssetFolders: 0.152ms
+	Scan: 164.094ms
+	OnSourceAssetsModified: 0.001ms
+	CategorizeAssetsWithTransientArtifact: 11.723ms
+	ProcessAssetsWithTransientArtifactChanges: 23.250ms
+	CategorizeAssets: 53.494ms
+	ImportOutOfDateAssets: 1423.875ms (1059.108ms without children)
+		CompileScripts: 363.223ms
+		ReloadNativeAssets: 0.000ms
+		UnloadImportedAssets: 0.806ms
+		EnsureUptoDateAssetsAreRegisteredWithGuidPM: 0.243ms
+		InitializingProgressBar: 0.000ms
+		PostProcessAllAssetNotificationsAddChangedAssets: 0.000ms
+		OnDemandSchedulerStart: 0.494ms
+	PostProcessAllAssets: 72.400ms
+	GatherAllCurrentPrimaryArtifactRevisions: 0.000ms
+	UnloadStreamsBegin: 0.653ms
+	PersistCurrentRevisions: 0.079ms
+	UnloadStreamsEnd: 0.001ms
+	GenerateScriptTypeHashes: 25.734ms
+	Untracked: 728.658ms
+
+Application.AssetDatabase Initial Refresh End
+Scanning for USB devices : 2.587ms
+Initializing Unity extensions:
+UpdateMenuTitleForLanguage: 10
+[MODES] ModeService[none].Initialize
+[MODES] ModeService[none].LoadModes
+[MODES] Loading mode Default (0) for mode-current-id-MiniMarketUnity
+Unloading 232 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 4619 unused Assets / (9.0 MB). Loaded Objects now: 5365.
+Memory consumption went from 243.0 MB to 234.0 MB.
+Total: 8.557990 ms (FindLiveObjects: 0.237196 ms CreateObjectMapping: 0.109914 ms MarkObjects: 4.511163 ms  DeleteObjects: 3.699278 ms)
+
+Start importing Assets/Settings using Guid(bd08946ce419a566aacd179e470ac8ea) (DefaultImporter) -> (artifact id: '7d6f430e1b9b0d1d562c2dacb7b134f5') in 0.004923651 seconds
+Start importing Assets/Settings/MiniMarketRenderer.asset using Guid(9af21e7cb7721761b80d0d967870c5fd) (NativeFormatImporter) -> (artifact id: '9835cf8f7f88342b1016740ff1b8816e') in 0.000469352 seconds
+Refreshing native plugins compatible for Editor in 0.11 ms, found 0 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=9170c683b73336c6b83e88931a90569a): Total: 0.161 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/Settings/MiniMarketURP.asset using Guid(5a1fb319fd960f0218aef7071d7f77da) (NativeFormatImporter) -> (artifact id: 'bef488675bc44a25d77759a861c3ca1e') in 0.00075248 seconds
+Refreshing native plugins compatible for Editor in 0.09 ms, found 0 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=eadb1924e98872794a5679bcfadc9485): Total: 0.017 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/Scenes using Guid(fbe106dd039b21934ad46c0a57a1e67b) (DefaultImporter) -> (artifact id: 'e660244b909ada352b95f94d54180720') in 0.000661268 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/ChevronUp@3x.png using Guid(006305b616daf47409935f3dc8a172e2) (TextureImporter) -> (artifact id: 'f25e73d4dab9b941744af8faa1b649e7') in 0.00248918 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/PostProcessing/LensFlareResource/PolygonFlareThumbnail@2x.png using Guid(0047263fa58f91d49a61936e94358829) (TextureImporter) -> (artifact id: '2f7d0f6e228115abd95eddca60769ee7') in 0.000996703 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Icons/MipLevels/RenderGraphViewer/d_Resources@32.png using Guid(00a734322b2ba1249b58c24b688b3108) (TextureImporter) -> (artifact id: 'cdecbd849ee9180582d1b6228adcf367') in 0.000578989 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/d_ChevronDown@2x.png using Guid(0068f400a72d84c92a1b8f5889a574b2) (TextureImporter) -> (artifact id: '2354b09620149cec6d1811a099a12efd') in 0.000446746 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Textures/BlueNoise16/L/LDR_LLL1_23.png using Guid(10b6c6d22e73dea46a8ab36b6eebd629) (TextureImporter) -> (artifact id: '1b47127e0a0fd2d47fc1aef2f5ec1206') in 0.000416643 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Textures/FilmGrain/Medium01.png using Guid(1097e90e1306e26439701489f391a6c0) (TextureImporter) -> (artifact id: '8b9cc4d1053e60d6df6993fb06487c9b') in 0.003464273 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Editor/2D/Resources/LightCapBottomRight.png using Guid(108e201829ab4214383a5467adbc0086) (TextureImporter) -> (artifact id: '53f1a2c0e0627912557ee52cc8410e90') in 0.000456609 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/Interactive Binding@2x.png using Guid(2027b97fd12d842d7a3169c784502a54) (TextureImporter) -> (artifact id: '9f3c8e4839d29a1f341d7a7c16078e14') in 0.000555622 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/CenterLight.png using Guid(3092b2985cafe0b43b1f02ce1d6829d5) (TextureImporter) -> (artifact id: '45d77ea21e29a3856ebda36c7c7c3c75') in 0.001436278 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/InputSystemUIInputModule@64.png using Guid(3028dc075ba8c584d9bc7d1e0255e038) (TextureImporter) -> (artifact id: '0f4af6e9917724a6bef2223934151076') in 0.00052551 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Editor/2D/Resources/SceneViewIcons/ParametricLight.png using Guid(302e68dd45b9b2d4194ff0f7f454436f) (TextureImporter) -> (artifact id: 'f52726e991918ddd52ea5747a0503079') in 0.001429029 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/d_LightPlacement_Icon On@64.png using Guid(304e9d79c27b32144a95e43dc6da80a2) (TextureImporter) -> (artifact id: '6217ad4607df18091014f682e660a7cd') in 0.000595586 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/InputAction.png using Guid(40265a896a0f341bb956e90c59025a29) (TextureImporter) -> (artifact id: '55a2bd4d13a4f4295ad4642764019f2c') in 0.001382314 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/d_Layout2@2x.png using Guid(50f7a3e9878119a4da02f38cf05d75ba) (TextureImporter) -> (artifact id: 'ee6412974cf6bcfb66396e2d3eaf41cb') in 0.000642027 seconds
+Start importing Packages/com.unity.shadergraph/Editor/Resources/GraphView/Nodes/NodeChevronRight@2x.png using Guid(50cbcd05e61c4e54ea797ec88e91f1b0) (TextureImporter) -> (artifact id: '6a0466d557b60294757a30814044dc3d') in 0.000573518 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/BlueSky.png using Guid(60d4d0573fefbf24198d33863004e7f9) (TextureImporter) -> (artifact id: '8e346272769bfb15e720f4f201efb6bf') in 0.000480292 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Icons/RenderGraphViewer/d_MultipleUsage.png using Guid(60e80b0fa23ea904b92263803d64319c) (TextureImporter) -> (artifact id: '94a3d549ae0b864e3324a645d2d830d8') in 0.000568895 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/d_Camera1@2x.png using Guid(603d01d730be24147adda7897e463598) (TextureImporter) -> (artifact id: 'd4e3cf4e6d4305f5c7e7171a395e6e47') in 0.000615047 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Editor/2D/Resources/SceneViewIcons/SpriteLight.png using Guid(70d16a5f04690d74ab9b1ddcbefd47bb) (TextureImporter) -> (artifact id: 'f38c1a6842fefc931b1ed700fbc31ff1') in 0.001323563 seconds
+Start importing Packages/com.unity.shadergraph/GraphTemplates/Cross Pipeline/UnlitParticleTemplateThumbnail.png using Guid(70e6da54cdf71264da5954a5fe327e3a) (TextureImporter) -> (artifact id: '670004fca93e5a9d9d7307ef475887fb') in 0.064605186 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Icons/RenderGraphViewer/Resources@2x.png using Guid(701c4a9737150564681d632d05a7a83e) (TextureImporter) -> (artifact id: 'dcc57b8fda634de8da99d6e00e092d89') in 0.000736552 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Editor/ShaderGraph/GraphTemplates/UITKBasicTemplate.png using Guid(8052b80993fff1242975e48e123bb767) (TextureImporter) -> (artifact id: 'f9a529e3a0e7c46acdc4439c8a2ca0e1') in 0.036576781 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/CenterLight@2x.png using Guid(8063050a249eef441beb8cbbd04c086c) (TextureImporter) -> (artifact id: '417b543512ae1897dcc4f2b674d16b0b') in 0.000980603 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/d_Overcast.png using Guid(80a48b3afafdc644fb4e3319f6f19fc8) (TextureImporter) -> (artifact id: '5e6d0cf77d53c243af8c6c73d8b7f50c') in 0.00054144 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/PostProcessing/LensFlareResource/CircleFlareThumbnail.png using Guid(80b74a073fa3027458f3b3ff5346f10b) (TextureImporter) -> (artifact id: '3aae84b938867d31ede2b71e7c0d8cf6') in 0.000593822 seconds
+Start importing Packages/com.unity.ai.navigation/EditorResources/Overlay/d_NavigationOverlay@128.png using Guid(80899a9fbe3d3364eac2c5924c0a28cf) (TextureImporter) -> (artifact id: '3e26f8300457e003ca68aa14093213e9') in 0.000909838 seconds
+Start importing Packages/com.unity.addressables/Editor/BuildReportVisualizer/BuildReport Resources/Icons/Button_RightPanel_DarkTheme@2x.png using Guid(804b883d1ff6a3941b67819909b10b73) (TextureImporter) -> (artifact id: '35fc3412b32c6bccee3d0a81c2b811df') in 0.00049382 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/d_LeftArrow@2x.png using Guid(90335e5423c010749a50f906b965fa54) (TextureImporter) -> (artifact id: 'db42224a6980623807c32d26ea592423') in 0.000665447 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/Mouse@4x.png using Guid(a0b78c5ab9d654a9daba91ff774b4931) (TextureImporter) -> (artifact id: 'be483c6854ac853cd051ec867e2659b8') in 0.000508279 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/ClearSky@2x.png using Guid(a01d783415aa03a449e3408eb92d8505) (TextureImporter) -> (artifact id: 'e2b64545a84f53be0b47a8a8e38388e0') in 0.000536842 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/InputActionAsset.png using Guid(b025a2a0f9e554d1e88a93b5649dfc3f) (TextureImporter) -> (artifact id: 'b65e00590813f613c8180ce7d61da751') in 0.001559159 seconds
+Start importing Packages/com.unity.ai.navigation/EditorResources/NavigationWindowIcon.png using Guid(b0172c3ab97e219478711e1fbe9630f2) (TextureImporter) -> (artifact id: '6f6657386f371ac8264081c955582f65') in 0.000483676 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/AssetEditor/PackageResources/pro/propertiesBackground.png using Guid(b02e3f0c0798a4f1789a89a7697660be) (TextureImporter) -> (artifact id: 'b47d1ad8264981bd2d00e8e8ed45af88') in 0.000423888 seconds
+Start importing Packages/com.unity.ai.navigation/EditorResources/Overlay/NavigationOverlay On@256.png using Guid(b05e7d8dc2bdbb14ab5b1da240ac65d5) (TextureImporter) -> (artifact id: 'c1ae744f39f3f43e56f2b2b49edc166f') in 0.00111461 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/Overcast.png using Guid(c0e6cc200fb1dda4388b13d9f5828d06) (TextureImporter) -> (artifact id: '22a15812f8ad6ec1261d15a8776fdfdf') in 0.000485327 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/AssetEditor/PackageResources/pro/foldoutBackground.png using Guid(c0996bc290ff74bf4834f4a8b7dc8c3e) (TextureImporter) -> (artifact id: 'c28403b9f1378338be5d8e8f6b88a2b7') in 0.000429946 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Textures/BlueNoise256/LDR_LLL1_2.png using Guid(c06cc21c692f94f5fb5206247191eeee) (TextureImporter) -> (artifact id: 'f89673192f0f199eb361ed787707daa6') in 0.001422747 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/Axis@2x.png using Guid(d0006d51a864248adba0238883f8c71e) (TextureImporter) -> (artifact id: '5fabb3e061b86a121f9515caeb65571f') in 0.000511414 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/d_SoftAreaLight@2x.png using Guid(e0171afec971f2343be8d5b4b14ab6eb) (TextureImporter) -> (artifact id: '4b20be0e8ffc059859e3447604dd1529') in 0.000574444 seconds
+Start importing Packages/com.unity.searcher/Editor/Resources/FlatSkin/SearchSmallDownOff.png using Guid(e0f8b9d001b669a43b3c9f7b90891d96) (TextureImporter) -> (artifact id: 'ade86ebf8bcd985bf2ffa9cb38b4569a') in 0.000535833 seconds
+Start importing Packages/com.unity.shadergraph/GraphTemplates/DefaultTemplateImage.png using Guid(e079a17a0b2b93647a84cebdde8f3c21) (TextureImporter) -> (artifact id: '7c9abe404585f1f4660965ce056f7e05') in 0.011916294 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/d_Axis@4x.png using Guid(e01ab4b854c6d4fa3a8d869b67ecd643) (TextureImporter) -> (artifact id: '9317ceb591a83415b181b5702abe6f06') in 0.000596433 seconds
+Start importing Packages/com.unity.ugui/Editor Resources/Textures/btn_AlignRight_Light.psd using Guid(e05ace3bd15740cda0bad60d89092a5b) (TextureImporter) -> (artifact id: 'ea8db7ecdb59de10be95194a373c9f5e') in 0.000587454 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/LeftArrow@2x.png using Guid(f0106cef986be534181a8582cffd29da) (TextureImporter) -> (artifact id: '701f8ade77c8dd2b8e00460ae4d7db7b') in 0.000646153 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/PostProcessing/LensFlareResource/PolygonFlareThumbnail.png using Guid(f0326f07dd50365439f552e7f29218e5) (TextureImporter) -> (artifact id: '3077931f13f78d5a3fe3e97b413cee42') in 0.000549902 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Textures/FilmGrain/Medium02.png using Guid(f0b67500f7fad3b4c9f2b13e8f41ba6e) (TextureImporter) -> (artifact id: '454d1f5cf33c2a177c90851d81ad7233') in 0.003242884 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Icons/MipLevels/d_VolumeProfile@32.png using Guid(f05a6898ed8b6df43be9b7fbb34d0517) (TextureImporter) -> (artifact id: '2fa751dedbde27c5a0f493b79232849d') in 0.00043181 seconds
+Start importing Packages/com.unity.collections/Unity.Collections.PerformanceTests/Unity.PerformanceTesting.Benchmark/PerformanceTestFrameworkOutput.png using Guid(0175a7523f9f1754ca406f92afcfcbc6) (TextureImporter) -> (artifact id: '7739904b8d435fa6057e1674f9c05060') in 0.0050181 seconds
+Start importing Packages/com.unity.addressables/Editor/BuildReportVisualizer/BuildReport Resources/Icons/FileNoIcon@2x.png using Guid(0127c38a607d9474c820c7f5044c18b4) (TextureImporter) -> (artifact id: '6e4f25fa76361d5f9fa394b6fbfeee21') in 0.00051234 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Textures/BlueNoise16/L/LDR_LLL1_2.png using Guid(1134690bf9216164dbc75050e35b7900) (TextureImporter) -> (artifact id: '656d3140662883c65ec254d3acb98c93') in 0.000427636 seconds
+Start importing Packages/com.unity.render-pipelines.core/Runtime/Sampling/Textures/SobolBlueNoise/ScramblingTile256SPP.png using Guid(11fcf3c83299e814cbb25c4d74cd045d) (TextureImporter) -> (artifact id: '8e86adb7c8d168b6d549ea75fe34d045') in 0.001581373 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Textures/2D/Sparkle.png using Guid(119f93d0bcbf1e743bf5fcf237507d39) (TextureImporter) -> (artifact id: 'bff3330f71822c062f866637e24ec438') in 0.002513648 seconds
+Start importing Packages/com.unity.shadergraph/Editor/Resources/Icons/blackboard_dark.png using Guid(2162b791346804a7792168e6fc526ced) (TextureImporter) -> (artifact id: 'a1985853aeaa6c4d2995500d88abd627') in 0.000516221 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/Interactive Binding.png using Guid(2196c18f03faf4184b1aeb2c61d5571d) (TextureImporter) -> (artifact id: 'b5a956a485c7a515f9365ce63500b729') in 0.000423222 seconds
+Start importing Packages/com.unity.addressables/Editor/BuildReportVisualizer/BuildReport Resources/Icons/PlatformStadiaIcon@2x.png using Guid(21df0a1c085254641905e0eb1dca9806) (TextureImporter) -> (artifact id: '5b891985f88f8eeacc5f9665b69b2a55') in 0.000518847 seconds
+Start importing Packages/com.unity.shadergraph/Editor/Resources/Icons/settings_button.png using Guid(3140f217cba5a6f4ca8d41675ac44819) (TextureImporter) -> (artifact id: '096d7892cb360cebfd35d99e02a41e87') in 0.000596468 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Icons/RenderGraphViewer/d_Global@2x.png using Guid(31d206dcb4d01ca4295149458ec19c38) (TextureImporter) -> (artifact id: '2de7b161c682726a940d3580a68e15a0') in 0.000481842 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/Moonlight.png using Guid(41c40f1973262eb41a56a66faaf2154d) (TextureImporter) -> (artifact id: 'ba87790b777cd3fc0b82ac3a34363b18') in 0.000474228 seconds
+Start importing Packages/com.unity.ugui/Editor Resources/Textures/btn_AlignMiddle.psd using Guid(41b96614b2e6494ba995ddcd252d11ae) (TextureImporter) -> (artifact id: 'ef4d26b13d74bfbf4d4b3061b106e6b2') in 0.000566637 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/d_Dpad@4x.png using Guid(41edf25d451a744e6ad1172a677603bd) (TextureImporter) -> (artifact id: '74250d48b8b05b5e73980622c0242032') in 0.000506869 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/d_LightPlacement_Icon.png using Guid(518057398db7dd043928f01f4fbad1b9) (TextureImporter) -> (artifact id: 'bb4f116dd5d4c363bc265aa2d56fde53') in 0.000458887 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Textures/FilmGrain/Medium05.png using Guid(510a2f57334933e4a8dbabe4c30204e4) (TextureImporter) -> (artifact id: '528baea8a6227cccb3d5c68e3a227aed') in 0.003061724 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/Environment@2x.png using Guid(515b65dc95319f3409d6b0b5f866ac33) (TextureImporter) -> (artifact id: 'cf49e9c455a4437072c49c642ee92f0c') in 0.000722389 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Textures/SMAA/SearchTex.tga using Guid(51eee22c2a633ef4aada830eed57c3fd) (TextureImporter) -> (artifact id: '11679839a619d86cfd88259480e1c0f4') in 0.000418148 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/Keyboard@3x.png using Guid(6191a40940a3e46899ecf82fa8389d01) (TextureImporter) -> (artifact id: '93d834bd7f723f4821aa1bd64a8685e7') in 0.000474236 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/d_Mouse@3x.png using Guid(6164e492ad3164525ab8ecd9968c3a64) (TextureImporter) -> (artifact id: '3295b909247f2fa6fe495446d344d50e') in 0.000477204 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/Shade.png using Guid(7146ed2a10f80c340b4c181e2892c87a) (TextureImporter) -> (artifact id: 'a782b3cb5e103da36d70f6d042bf891e') in 0.000477706 seconds
+Start importing Packages/com.unity.shadergraph/Editor/Resources/Icons/sg_graph_icon_gray_dark.png using Guid(7129268cf102b2f45809905bcb27ce8b) (TextureImporter) -> (artifact id: 'dce367263595e018c96c19b5824dbe1a') in 0.000523189 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/d_MoonlessNight.png using Guid(71cd3069e265067478f8e99589235fd6) (TextureImporter) -> (artifact id: '58a5d22849fac85849d55ebb14a2b943') in 0.000469962 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Textures/BlueNoise16/L/LDR_LLL1_0.png using Guid(81200413a40918d4d8702e94db29911c) (TextureImporter) -> (artifact id: '2c075d083d879484385eb5b831826ccb') in 0.000400062 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/Fluorescent@2x.png using Guid(81321ffad3c324c42806d47efb84d4d1) (TextureImporter) -> (artifact id: 'f12286c57a9987e8aa21b9b73f5049d2') in 0.000507235 seconds
+Start importing Packages/com.unity.ugui/Editor Resources/Textures/btn_AlignCenter.psd using Guid(81ed8c76d2bc4a4c95d092c98af4e58f) (TextureImporter) -> (artifact id: '260c5e9f868d718131f04a00b852e023') in 0.000533588 seconds
+Start importing Packages/com.unity.shadergraph/GraphTemplates/default_normal.png using Guid(9154b3a500851e04494b08c0a363964a) (TextureImporter) -> (artifact id: 'eb40992aa9fa051e14dd12cb201f8942') in 0.000402053 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Icons/MipLevels/VolumeProfile@16.png using Guid(9109dcac13c1b6a4cadf6e9e63be42f7) (TextureImporter) -> (artifact id: '966d3c2fdf7087559d60275236cd160b') in 0.000383694 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Editor/Gizmos/Camera_PostProcessing.png using Guid(916f43e9d8e15c448a2c8a5d30b26dbd) (TextureImporter) -> (artifact id: 'c0ef319cc4c200eb20863512f429bc25') in 0.000974271 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/Duplicate@2x.png using Guid(91ffd37b0545bf6448f8d937736130a1) (TextureImporter) -> (artifact id: '87bafdb4e192e1a8919d61bf8b67de5a') in 0.000654441 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/d_Dpad@3x.png using Guid(a1b7d9ffed68a47128c5622c13ba4752) (TextureImporter) -> (artifact id: '23863fbc47f7ebd031043ae1c328e19b') in 0.00046911 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/d_CenterLight@2x.png using Guid(a14e6ee680df42f4c99bf69bc3d6b9ca) (TextureImporter) -> (artifact id: '613150cbe85e10c30dce2b2a47d7a7f6') in 0.000652146 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Editor/ShaderGraph/GraphTemplates/2D/2DSpriteUnlitTemplateThumbnail.png using Guid(a1be7992c1f7b0947bc2f9b045098f9e) (TextureImporter) -> (artifact id: '1a0d9105068bfb3110ac4d29e6132d7b') in 0.011641383 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/UpSnatch.png using Guid(a1fe8ebe91e101d47af42adec440c3e5) (TextureImporter) -> (artifact id: 'a22be39e4779cbbac0dcf00090f1bb34') in 0.000560327 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/d_InteriorLight@2x.png using Guid(b1a064fab2aa93e47bd8d558a6ca655b) (TextureImporter) -> (artifact id: '8c095b16d52e9dd881b0589f1e700803') in 0.000517952 seconds
+Start importing Packages/com.unity.shadergraph/Editor/Resources/Icons/SettingsIcons_hover@2x.png using Guid(b1b079d053c3d0c41952dadf32a89ffd) (TextureImporter) -> (artifact id: '1a955f79ca0acac51967380d69f784df') in 0.000574163 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/d_MediumAreaLight.png using Guid(b1826d69c1fcad9488491937a1ef4d84) (TextureImporter) -> (artifact id: '72154e005292b7281bd86db18a68a6df') in 0.000457832 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Icons/MipLevels/Volume@256.png using Guid(b1737e8dd5ce0104ca1f1c05b481fad9) (TextureImporter) -> (artifact id: 'a1beffc02184af2257dd0093bdf399c8') in 0.000811488 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Icons/MipLevels/RenderPipelineResources@64.png using Guid(b1c49d259b9089743b6272150f77b8fe) (TextureImporter) -> (artifact id: '9eb755062850653499b8882a78c1b068') in 0.000437597 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/SoftAreaLight@2x.png using Guid(b14c34aa843e4a14e957505ae407e8c3) (TextureImporter) -> (artifact id: '7d64cb8808351182eafc55c8acaa311e') in 0.000527789 seconds
+Start importing Packages/com.unity.shadergraph/Editor/Resources/Icons/sg_graph_icon@2x.png using Guid(c1e1b751487e43d43923f055990214ea) (TextureImporter) -> (artifact id: '2e0327997a2c34a1d6ad517ca3c25b77') in 0.000914919 seconds
+Start importing Packages/com.unity.ai.navigation/EditorResources/Overlay/NavigationOverlay On.png using Guid(c136efa5cc6d99a4d9e7bad0209aea25) (TextureImporter) -> (artifact id: 'a1a81a6412e277d41b89583911f1af5f') in 0.00047616 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightPlacement_Icon@128.png using Guid(c1c8308c6609eff48841494a187bfb72) (TextureImporter) -> (artifact id: '8aef7567ae27a14547972d6cf72106a2') in 0.0007413 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/Advanced_Pressed_mini.png using Guid(c1d870384c7ed3c49b30d01278bf3949) (TextureImporter) -> (artifact id: 'be08c68ac5059cafe1bd47827c53421f') in 0.000464346 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightPlacement_Icon@2x.png using Guid(c179f13951d25f646887d38fa53e6e65) (TextureImporter) -> (artifact id: 'd7c8128868d19bad71f4fd599666350d') in 0.000460061 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Textures/SMAA/AreaTex.tga using Guid(d1f1048909d55cd4fa1126ab998f617e) (TextureImporter) -> (artifact id: '5374a0d8b09611893a2d3be32beef613') in 0.000708705 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Textures/BlueNoise16/L/LDR_LLL1_26.png using Guid(d18a24d7b4ed50f4387993566d9d3ae2) (TextureImporter) -> (artifact id: 'cdd83e48674b912fb83625fae5d60477') in 0.000400235 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/ChevronDown@4x.png using Guid(d1acbe0a708dc40dc80254764e67ecfa) (TextureImporter) -> (artifact id: '28b1951542910cec4b7bcd3e770b7cdb') in 0.0004752 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/d_DecorativeLight@2x.png using Guid(e194061ed57dcf6478bc4a4079ac3998) (TextureImporter) -> (artifact id: 'f49f165f44a3624f84f27b72f86b2c5e') in 0.000502448 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/RightArrow@2x.png using Guid(e194270977977b24da0c6e1c962a5ce9) (TextureImporter) -> (artifact id: '55ecd8e246466d3bbb8649dc0147e6c8') in 0.000656584 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/d_Position@3x.png using Guid(e1da124f7cbda41a4925397406076a42) (TextureImporter) -> (artifact id: 'c3036bdcc700bcacc78b9d4fea5a75e6') in 0.000477779 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/SoftAreaLight.png using Guid(e10d9c07adc061a448e00b3e33fad966) (TextureImporter) -> (artifact id: '3420f348e77ebba8f8ea554b202d825a') in 0.000467364 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Editor/2D/Resources/SceneViewIcons/PointLight.png using Guid(e1feb27120f96ae4ea48e922cbfd93da) (TextureImporter) -> (artifact id: '59b5019fd0e052c02ec37c9530f598e8') in 0.001521854 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/d_Keyboard@2x.png using Guid(f14e3a4027f834f16b235498ac15bb3f) (TextureImporter) -> (artifact id: 'ed07225b4921e1e35fc7c5c52c7faed5') in 0.000456523 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Editor/2D/Resources/LightCapDown.png using Guid(02232385c7b444348987d74db8dd7b2e) (TextureImporter) -> (artifact id: 'db1287c97f48be5248d1ed0d04f7f5a3') in 0.000426953 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/IESProfile.png using Guid(0283fe60f65159b4a86ebabf444e23f9) (TextureImporter) -> (artifact id: '10ccdecb53017f814434445062c1cfc6') in 0.000688611 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/d_LayoutVertical.png using Guid(02c3588c32f640d47bb70ee3fa774fce) (TextureImporter) -> (artifact id: '6e732358828029c3f3330f77632a8f2d') in 0.000564289 seconds
+Start importing Packages/com.unity.render-pipelines.core/Runtime/Debugging/Prefabs/Textures/White1px.png using Guid(127279d577f25ac4ea17dae3782e5074) (TextureImporter) -> (artifact id: 'b5311ff79894fc14f62e4576bcfc4079') in 0.000513265 seconds
+Start importing Packages/com.unity.ugui/Editor Resources/Textures/btn_AlignLeft_Light.psd using Guid(12736c98af174f91827a26b66d2b01b9) (TextureImporter) -> (artifact id: '90ca3e80e4dc242d86fc2ba4ac925132') in 0.000538147 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/d_Keyboard@4x.png using Guid(123b6218ad27a41af933311ee524dcdc) (TextureImporter) -> (artifact id: '176e840c96caf4781e7931738e5518da') in 0.000481485 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Icons/RenderGraphViewer/d_Texture@2x.png using Guid(126e291066d6c934e99b244ec88e813a) (TextureImporter) -> (artifact id: '98df1844719dda90bfa3eded4c2ff674') in 0.000457665 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Icons/MipLevels/d_Volume@256.png using Guid(32b23d5d74f3aee4f9364e34e2f59379) (TextureImporter) -> (artifact id: '2ae2003188baddac9007c89d7f9975ee') in 0.000792986 seconds
+Start importing Packages/com.unity.shadergraph/GraphTemplates/BuiltIn/BuiltInLitBasicTemplateThumbnail.png using Guid(325e807a2af3f5f4691c7d9da76963f6) (TextureImporter) -> (artifact id: '53d748bd7edc56e0b19ce86f27608b09') in 0.00851686 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Icons/RenderGraphViewer/Buffer@2x.png using Guid(42f2be07082fcb641bfabb2ccd126ac0) (TextureImporter) -> (artifact id: '1af2f057d042821aaac0dad6d7b12f3d') in 0.000554551 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/BlueSky@2x.png using Guid(42382485181c7b4429560828f54a2bae) (TextureImporter) -> (artifact id: '4a109a2b63af0954691ffb0daaec5631') in 0.000580152 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Editor/SceneTemplates/Standard/ReflectionProbe-0.exr using Guid(42c8d975867dbb34299217c9b3a62677) (TextureImporter)Starting cubemap convolution for '' (size 128)
+...took 0.019 seconds
+ -> (artifact id: '4852d134f0f5e337afaa16d802eaf7d0') in 0.08848612 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/d_Orientation@3x.png using Guid(424bff4d3ea64400e9b384cb8bebfb96) (TextureImporter) -> (artifact id: 'e7c6932289e878d9d9fa65050117183d') in 0.000927688 seconds
+Start importing Packages/com.unity.ai.navigation/EditorResources/d_NavigationWindowIcon.png using Guid(425f55e9ef81a5e48b87c5d6b1bbf35c) (TextureImporter) -> (artifact id: '837b841ef7b84727d75f1c7a8e1b63aa') in 0.00055754 seconds
+Start importing Packages/com.unity.addressables/Editor/BuildReportVisualizer/BuildReport Resources/Icons/d_History.Forward.png using Guid(5252304aa623387469db31285ab55959) (TextureImporter) -> (artifact id: '070264632bbb32a519c649d22065cdd8') in 0.000444759 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/Camera1@2x.png using Guid(52b3ad4181ffbec4cad6eb26d07127f6) (TextureImporter) -> (artifact id: '6f307b8535543bb6317f68f85762e97a') in 0.00066853 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/Fluorescent.png using Guid(52dd14d6fa6ca2d46b942c8289a898eb) (TextureImporter) -> (artifact id: '107c5ca7d9f0191b7ec9aa0ac0d48360') in 0.000471635 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/Stick.png using Guid(6234dae5cf6f04acb9a51e04d448e444) (TextureImporter) -> (artifact id: 'd89f16b6e39969fe0f3967791c851064') in 0.000407013 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/d_Axis@3x.png using Guid(62c846073cb844a2b926e4bbd3189647) (TextureImporter) -> (artifact id: '8e823ec63ec1191a8ae22076ceb96df3') in 0.000475184 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/Orientation@2x.png using Guid(62f8dda50382d487597224e197cbd34f) (TextureImporter) -> (artifact id: '289eebdd2c1cc9e1e95ba9e91d09e7e3') in 0.000452413 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/InputControl@2x.png using Guid(62ce957ca99fe4fcba573a5b141eb113) (TextureImporter) -> (artifact id: '05cf77f3a3b53829402441fc43e47da2') in 0.000431969 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/Layout1@2x.png using Guid(8263f1f26524404498d51bfe0b819925) (TextureImporter) -> (artifact id: '2ac64b9773393e9b136cb0d4d3304d73') in 0.00064819 seconds
+Start importing Packages/com.unity.shadergraph/Editor/Resources/Icons/sg_subgraph_icon_gray_light.png using Guid(82b6560ff26e58d48aa33e2869ad14e4) (TextureImporter) -> (artifact id: '0e0081cee07076d4d9db75344a5dc1c9') in 0.000436446 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/Touch@2x.png using Guid(82073a8bfd6b8488a89b8796d500d12d) (TextureImporter) -> (artifact id: '62c4f2642024d97697b7057ebefd6bba') in 0.0004521 seconds
+Start importing Packages/com.unity.ugui/Editor Resources/Textures/btn_AlignJustified.psd using Guid(92027f7f8cfc4feaa477da0dc38d3d46) (TextureImporter) -> (artifact id: '37e83c070575995eaa30c7f00d80cde7') in 0.00054784 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Icons/MipLevels/RenderPipelineResources@16.png using Guid(9204b01f48caab948aca3a4531851d40) (TextureImporter) -> (artifact id: 'c8f249494c1433ee579fd4239b57f93a') in 0.000406255 seconds
+Start importing Packages/com.unity.ai.navigation/Gizmos/NavMeshLink Icon.png using Guid(92f4afa3e25264f5b964937ccea49ff2) (TextureImporter) -> (artifact id: 'd75d62982a17696d78df218915cbd95e') in 0.001525801 seconds
+Start importing Packages/com.unity.ugui/Editor Resources/Textures/btn_AlignLeft.psd using Guid(9288066c33474b94b6ee5465f4df1cc0) (TextureImporter) -> (artifact id: '37ce56542415e4ea969724aff0550a0f') in 0.000549236 seconds
+Start importing Packages/com.unity.ai.navigation/EditorResources/Overlay/d_NavigationOverlay On@2x.png using Guid(a206ff0ddc681e642a2e62fc57a7d51c) (TextureImporter) -> (artifact id: '5bbd789aae808faf9a24d2aa9a28694a') in 0.00052865 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/d_IntenseAreaLight.png using Guid(a20ce10a62e5d924a84f1a723e96c07e) (TextureImporter) -> (artifact id: 'c9b0d0e4f660dc73bd44714be588394e') in 0.00045157 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Textures/BlueNoise16/L/LDR_LLL1_24.png using Guid(a2ec5cbf5a9b64345ad3fab0912ddf7b) (TextureImporter) -> (artifact id: '00319647de566886531a059cde5bf95c') in 0.000410598 seconds
+Start importing Packages/com.unity.ugui/Editor Resources/Textures/btn_AlignMidLine.psd using Guid(c2f7f6a88b4c4f20a53deb72f3d9144c) (TextureImporter) -> (artifact id: 'acd4c429d950bc756c3ed0594eac1fb1') in 0.000536228 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/Joystick.png using Guid(c28849deb3e3b45c98965e7efd26f7be) (TextureImporter) -> (artifact id: '5cb16417fe5a381152f79aac33d01ba7') in 0.000420312 seconds
+Start importing Packages/com.unity.shadergraph/GraphTemplates/Cross Pipeline/UnlitSimpleTemplateThumbnail.png using Guid(c21eaaec4c8575e47a9b342ce260b9ed) (TextureImporter) -> (artifact id: '730595283bab56b50f8b1df783cda349') in 0.011180856 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/d_InputControl@4x.png using Guid(e2078613efd9e410c8771cbd2717f4e7) (TextureImporter) -> (artifact id: '046aebc33cca0e05ce76136ab355a2ea') in 0.000597326 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/d_LightPlacement_Icon@64.png using Guid(e20f6d92d0ae13040bfcbe8ef57da036) (TextureImporter) -> (artifact id: 'b7fa571da6a84cb5c5c6b3632b6c8c6c') in 0.000610547 seconds
+Start importing Packages/com.unity.render-pipelines.core/Runtime/Debugging/Prefabs/Textures/UIArrowDown.png using Guid(f224bfd122877a34aa49c63693fc317b) (TextureImporter) -> (artifact id: '396f3cc6056a491d8ea186992a17c793') in 0.000584321 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/d_Stick@4x.png using Guid(f2fd4d7aa99c94a67a6a137fe979a760) (TextureImporter) -> (artifact id: 'a4535b361ce355de5fb64a8cc76c998e') in 0.000529856 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/d_Stick@3x.png using Guid(03c3559bb64164f7785cd1250e475250) (TextureImporter) -> (artifact id: '4d8e3852f6587c6a6022acd0773a03ab') in 0.000480791 seconds
+Start importing Packages/com.unity.shadergraph/Editor/Resources/GraphView/Nodes/PreviewCollapse.png using Guid(03d3df9748467354ab39a973710a3a30) (TextureImporter) -> (artifact id: '6640774c4b080ff99c54fe7ce85d4d7a') in 0.000534862 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/d_Button.png using Guid(0309256f03c114697813e2296f0a1f18) (TextureImporter) -> (artifact id: '0114e02e4dfb45eca2ac88eb470d39f9') in 0.000408407 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/DirectSunlight@2x.png using Guid(03ea000956f47584c872d8b4df47f5ee) (TextureImporter) -> (artifact id: '2194b22dad966b9de4f8cd5ecee0d7da') in 0.000595445 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/d_Overcast@2x.png using Guid(036f58abb8f232d41b3928a31433cf81) (TextureImporter) -> (artifact id: 'e0a1bf524e9aa2ad630dd44b3fc37cc3') in 0.000567447 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Icons/MipLevels/VolumeProfile@128.png using Guid(13d6273ce5597af4f841001aa751c423) (TextureImporter) -> (artifact id: '1cd99b2488ef979f983cb57dec0e6f3e') in 0.000535625 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/Pen@2x.png using Guid(13fb345befe624412ac0bd0138d7bcf2) (TextureImporter) -> (artifact id: 'd9bf890f50832476eea2272553c2dd2e') in 0.000493833 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Icons/RenderGraphViewer/Global@2x.png using Guid(13acc8e36620f0c499762b092afc9538) (TextureImporter) -> (artifact id: 'e69b2d1f54033065a4dbf2a50efb192f') in 0.000675953 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/Camera1.png using Guid(2384eb5de05269b44a58f8dd1d83d725) (TextureImporter) -> (artifact id: 'ab05534ec9e0ed383fa6bd4d85adf755') in 0.000583699 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Icons/RenderGraphViewer/Import@2x.png using Guid(23d6b8595de0e04429daf108638fe785) (TextureImporter) -> (artifact id: '9db614176d4da40b6be33b644a096aba') in 0.000466303 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Textures/BlueNoise256/LDR_LLL1_5.png using Guid(3302065f671a8450b82c9ddf07426f3a) (TextureImporter) -> (artifact id: 'd8a0a205722fec0a765d63853afd3df2') in 0.00138872 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/AssetEditor/PackageResources/blue.png using Guid(33f32142c2c2d4662be5f5274db27158) (TextureImporter) -> (artifact id: 'cace3d3ac20f95b6a1466846190e1a78') in 0.000418806 seconds
+Start importing Packages/com.unity.ai.navigation/EditorResources/Overlay/NavigationOverlay On@2x.png using Guid(334589c596cc053418f700189f91111c) (TextureImporter) -> (artifact id: 'a78152edb8a4cf4e1620fbb0cdb0dd78') in 0.000505049 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/Candlelight@2x.png using Guid(3387986904fe97b4cb1a1b607d1e7039) (TextureImporter) -> (artifact id: '5294c031040becf520a8782a0d1868b5') in 0.000562155 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Icons/RenderGraphViewer/d_Import@2x.png using Guid(33191aa3ed97cff4aa04bf4719f713ed) (TextureImporter) -> (artifact id: 'c38b3e3c3b8af0e91de8dbee6dbfa2e1') in 0.000450675 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Textures/BlueNoise256/LDR_LLL1_7.png using Guid(331c5658939a2461d8c7a0b3691eb7d5) (TextureImporter) -> (artifact id: '7c3655052ab2344c4f79bf76c3ecf374') in 0.00134945 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Icons/RenderGraphViewer/dash.png using Guid(33ff6e2aa12671544bb4df30e6443789) (TextureImporter) -> (artifact id: '031911486ffe4771867ccad9adccc28c') in 0.00047901 seconds
+Start importing Packages/com.unity.shadergraph/Editor/Resources/Icons/SettingsIcons.png using Guid(53bf71ace226b574d88c828e8b631aae) (TextureImporter) -> (artifact id: '711be114a6b5a1b2f6b17d2ec6949d78') in 0.00052898 seconds
+Start importing Packages/com.unity.ai.navigation/EditorResources/Overlay/NavigationOverlay@16.png using Guid(731522d95656bec42a5fc0bdc672ebe9) (TextureImporter) -> (artifact id: '2d12dc04e8010bb3aa7d81103fb4e4f7') in 0.00044502 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/d_DecorativeLight.png using Guid(73e9cf59769215c4892d0a8008f39737) (TextureImporter) -> (artifact id: '4e5c405eee2dcdfe12a82ed8fc943890') in 0.000434031 seconds
+Start importing Packages/com.unity.render-pipelines.core/Runtime/Debug/ProbeVolumeNumbersDisplayTex.png using Guid(73fe53b428c5b3440b7e87ee830b608a) (TextureImporter) -> (artifact id: 'fdaa92a0b27590579e913670dc93dbf4') in 0.001850487 seconds
+Start importing Packages/com.unity.shadergraph/GraphTemplates/Cross Pipeline/DecalSimpleTemplateThumbnail.png using Guid(73df811908489f1408d1bec44aab3a80) (TextureImporter) -> (artifact id: '2e9310083487c59d20fc16740fd9c7e0') in 0.011693067 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/d_Gamepad@4x.png using Guid(83438053370c84456a73f7f95ef821fb) (TextureImporter) -> (artifact id: '541725dec2c2d45904557806f7458223') in 0.000529714 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/d_Keyboard.png using Guid(83382fb171da648c594229ca6fa7ad94) (TextureImporter) -> (artifact id: '2eb25650c136f178941550cadb342cab') in 0.000412017 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/d_LayoutHorizontal.png using Guid(83cbec96661199e408a744d4c3e586e2) (TextureImporter) -> (artifact id: '00de4b82ba20a5d82f61dd03f76e657a') in 0.000560201 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/Position@2x.png using Guid(a3fa73829479e4b41965e749fcca7c12) (TextureImporter) -> (artifact id: 'a15e5ae525b65edba7b8489273bd1dd7') in 0.000443943 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/ExteriorLight@2x.png using Guid(a3fe770bc25a98540958d57e10f2a5fd) (TextureImporter) -> (artifact id: '76419f76985936fff3a5d0f977377a80') in 0.000511363 seconds
+Start importing Packages/com.unity.render-pipelines.core/Runtime/Debugging/Prefabs/Textures/UICheckMark.png using Guid(b346b2a2df1d290438be3287b6419408) (TextureImporter) -> (artifact id: '8058d21c5e38d8a73ff2e074cb63e76e') in 0.000525464 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/Advanced_UnPressed_mini.png using Guid(b356b95f05b77cf49a1b8241134f44c4) (TextureImporter) -> (artifact id: '90bbcc081e19da6dc3ce8e89e089cef3') in 0.000419683 seconds
+Start importing Packages/com.unity.ai.navigation/EditorResources/Overlay/d_NavigationOverlay On@64.png using Guid(b3cd430fb0ffe164fa829262bb9e1d4b) (TextureImporter) -> (artifact id: 'dc44eeef258f1e1c34d9eb56d05fc784') in 0.000590303 seconds
+Start importing Packages/com.unity.addressables/Editor/Icons/AddressableAssetsIconY1756Basic.png using Guid(c33b04c403c19614395e83e691d3170a) (TextureImporter) -> (artifact id: '81c9f2756114079b80d1e1e8387b2b6c') in 0.000551501 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/CloudySky@2x.png using Guid(c30d00a81d6542c40ae1837621e3969e) (TextureImporter) -> (artifact id: 'fce8e1d5da8ad63885933556a7230883') in 0.000490872 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Icons/MipLevels/Volume@32.png using Guid(d35462a3f88c67241b7b7cd6dc624ccb) (TextureImporter) -> (artifact id: '3cbfedd94bdbc14d673ab713e849a9ea') in 0.000390954 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Textures/BlueNoise16/L/LDR_LLL1_18.png using Guid(d36f0fe53425e08499a2333cf423634c) (TextureImporter) -> (artifact id: '8b6a70daac21e0a6de6c1a9acf238687') in 0.000394245 seconds
+Start importing Packages/com.unity.ugui/Editor Resources/Textures/SectionHeader_Light.psd using Guid(e3b0f810fdea84e40ab4ba20f256f7e8) (TextureImporter) -> (artifact id: '01750663a18fb65bbb0f463473bf6d6a') in 0.000535004 seconds
+Start importing Packages/com.unity.ai.navigation/EditorResources/Overlay/NavigationOverlay.png using Guid(e3f0b16456276c94aab8bd6664208dc3) (TextureImporter) -> (artifact id: '2feb56fd3ae0ea0a2db724cabed9887c') in 0.000424641 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Textures/BlueNoise256/LDR_LLL1_4.png using Guid(e32226222ff144b24bf3a5a451de54bc) (TextureImporter) -> (artifact id: '28fd9ce0374acdbb42d41c836c64aed3') in 0.00135182 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Textures/BlueNoise64/L/LDR_LLL1_0.png using Guid(e3d24661c1e055f45a7560c033dbb837) (TextureImporter) -> (artifact id: '65bad349865b013ffe5f23a141f9e84d') in 0.000491761 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Editor/SceneTemplates/Indoors/ReflectionProbe-0.exr using Guid(e375ace14cc3b5b448ca85ba2455930c) (TextureImporter)Starting cubemap convolution for '' (size 128)
+...took 0.018 seconds
+ -> (artifact id: 'dd94152459e3847ae67845e037821c3a') in 0.082773971 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Editor/Gizmos/Camera_UI.png using Guid(e3c6759aa8004ae458959d7fe48d6a74) (TextureImporter) -> (artifact id: 'c2aa2b799fdcaeb22bbf93a4bf74cef5') in 0.001213536 seconds
+Start importing Packages/com.unity.searcher/Editor/Resources/FlatSkin/SearchSmallDownOn.png using Guid(f353e9d22eb9164499dd70cb41b00244) (TextureImporter) -> (artifact id: '7a4256ded794e7a77605f75d092bb119') in 0.000581998 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/LayoutHorizontal@2x.png using Guid(f3fe1e478135ed34db9a1f6707f52c6a) (TextureImporter) -> (artifact id: '3cb1fb34a1f6eff10281088b353af69f') in 0.000698906 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/d_IntenseAreaLight@2x.png using Guid(0493fb4c3bbfd6a4396f7f221b5ce034) (TextureImporter) -> (artifact id: 'ac41efc9188df9a513bbd5a12b32324e') in 0.000498337 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/BrightSky@2x.png using Guid(04c70b69874deb746a4c63f1a29f7715) (TextureImporter) -> (artifact id: '1f41c3b45d572ead2c54f6d99e498976') in 0.000508416 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/Remove@2x.png using Guid(049c8a7821177594692244298d82e4af) (TextureImporter) -> (artifact id: '2067f5ea973f18f89f981429b94d9068') in 0.000666367 seconds
+Start importing Packages/com.unity.ai.navigation/EditorResources/Overlay/NavigationOverlay@256.png using Guid(1497075210b6dcd4c8f31ecfc6c5c79c) (TextureImporter) -> (artifact id: '5158cbfe77b7124b06f04e0313f0b2e1') in 0.001046619 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Textures/BlueNoise16/L/LDR_LLL1_17.png using Guid(14381521ff11cb74abe3fe65401c23be) (TextureImporter) -> (artifact id: '86ee6b7a1d41baabdea30ea301cf7214') in 0.000419474 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Editor/Gizmos/Camera_Base.png using Guid(24b1fe14c2b41d6489a7e7819483df6b) (TextureImporter) -> (artifact id: '0f001a5dea5036ad56938219825829a3') in 0.000899171 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/d_Axis.png using Guid(34f9452ba2ee14c0b9c976800caef571) (TextureImporter) -> (artifact id: 'ac86dbe93eed5d5dbb9c49ee5c67b307') in 0.000416418 seconds
+Start importing Packages/com.unity.ugui/Editor Resources/Textures/btn_AlignRight.psd using Guid(342a0f8aca7f4f0691338912faec0494) (TextureImporter) -> (artifact id: '3325517cff07128a1554d4e9cbf635b4') in 0.00055798 seconds
+Start importing Packages/com.unity.ai.navigation/EditorResources/Overlay/NavigationOverlay On@128.png using Guid(44837f46c53a42246a6de7fa161e0d00) (TextureImporter) -> (artifact id: '26fffda88db9952da8d36a40762e344c') in 0.000704984 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/d_LightPlacement_Icon On@256.png using Guid(4439e27e7ae7188468effbc23418e0e1) (TextureImporter) -> (artifact id: 'd37732043c867445b9b24449bc3d7490') in 0.001047754 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/d_Interactive Binding@3x.png using Guid(542599ad529004327a7b18f7b2a4aeb8) (TextureImporter) -> (artifact id: '08409b2025f3745a2c43d7438a39463e') in 0.000504334 seconds
+Start importing Packages/com.unity.ugui/Editor Resources/Textures/btn_AlignFlush_Light.psd using Guid(64b9fad609434c489c32b1cdf2004a1c) (TextureImporter) -> (artifact id: '315fe54f4f05296c2ce9f4ef6c5cc694') in 0.000546902 seconds
+Start importing Packages/com.unity.ai.navigation/EditorResources/Overlay/d_NavigationOverlay On@256.png using Guid(642f7453935154b44afc516c07b1d009) (TextureImporter) -> (artifact id: '5d5e3347b7f79073870a7181fb3db72f') in 0.00119633 seconds
+Start importing Packages/com.unity.addressables/Editor/BuildReportVisualizer/BuildReport Resources/Icons/PlatformAndroidIcon@2x.png using Guid(7421e9434772c1542ac5a39c1a9accc5) (TextureImporter) -> (artifact id: 'e6f5fde3e673c03c7b2dcc146e32d0ab') in 0.000481749 seconds
+Start importing Packages/com.unity.addressables/Editor/BuildReportVisualizer/BuildReport Resources/Icons/d_History.Forward@2x.png using Guid(741fd6a7eb857a74b939184269d01239) (TextureImporter) -> (artifact id: 'e7b5a4218bc49e150ef46275ebd69a1b') in 0.000462042 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/PresetFill_Left.png using Guid(84767f608f72f5a4090837fc328dd75f) (TextureImporter) -> (artifact id: '7cff0a5268fb145db4acde07af9db27c') in 0.000616945 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/d_LeftArrow.png using Guid(84189b4c7caeef3419b6b031b8812685) (TextureImporter) -> (artifact id: '177e5b1fac56246f69f2155d0ae4a50a') in 0.000555171 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Editor/ShaderGraph/GraphTemplates/FullscreenBasicTemplateThumbnail.png using Guid(9410f8b043e30fe4da99295d950c470f) (TextureImporter) -> (artifact id: '80c6492c04f38b02842ec7bde0702714') in 0.012082628 seconds
+Start importing Packages/com.unity.shadergraph/Editor/Resources/GraphView/Nodes/NodeChevronUp@2x.png using Guid(94c5e3f4e8affed4285a0c674a431b9e) (TextureImporter) -> (artifact id: '9fe2c1a4207e9cc6de9713b37385ee55') in 0.000609899 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/d_SoftAreaLight.png using Guid(940a20d919196f1408474a7b7057f4b9) (TextureImporter) -> (artifact id: '2bb49cdb0efab8fb456a4880a809ac16') in 0.000519572 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/d_Touch.png using Guid(94fa2e214a138425e8afbbe1329e0b55) (TextureImporter) -> (artifact id: '9c60c80dbc22e07a1652b74a1cab3748') in 0.000405688 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/d_Link.png using Guid(94ec4fdf9502c3747b5c0754ca18919e) (TextureImporter) -> (artifact id: '041fe7a5a8494fb1398ec2a11d91f6ef') in 0.000564476 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/AssetEditor/PackageResources/pro/actionTreeBackgroundWithoutBorder.png using Guid(943deaaee9c9347e0a455aa208526c42) (TextureImporter) -> (artifact id: '025438e39fb23d632d4bf48b83c9af65') in 0.000411717 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/Joystick@3x.png using Guid(a4610f64a5a4e4625b1ddbd44b04c5a6) (TextureImporter) -> (artifact id: 'cc97344484ddc661481d09c6c98afa64') in 0.000476621 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/d_Environment@2x.png using Guid(a4638c6b8e07c0b49822ed7a91a96d0a) (TextureImporter) -> (artifact id: 'ce07a89e3c1b3aa2002b9187604a3f07') in 0.000648767 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/TrackedPoseDriver.png using Guid(a4d5a38cb01e9c54aa75431f797059cb) (TextureImporter) -> (artifact id: 'e651d364d161763a06738ae4a2ce0a57') in 0.000409557 seconds
+Start importing Packages/com.unity.addressables/Editor/BuildReportVisualizer/BuildReport Resources/Icons/PlatformWSAPlayerIcon@2x.png using Guid(a4691412a8ea49a4796116d3d5f289cc) (TextureImporter) -> (artifact id: 'ecf653654e6a489debf8d69c0069004d') in 0.000457209 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/d_Add Binding.png using Guid(a4bbff684804d4c84b61cd0256cd2360) (TextureImporter) -> (artifact id: 'a55db320f1ac1622ee4e6f6d606dfed6') in 0.000390642 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/Position@3x.png using Guid(a43c2c10c85c448b584c8f2840f86915) (TextureImporter) -> (artifact id: '0d56f15b7657e818cae95aa6efa8d3bc') in 0.000464443 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/Stick@3x.png using Guid(a4deca3e01bf64bfc9136f4cb3b41c9f) (TextureImporter) -> (artifact id: 'c280696107eb15e2551ad09f0046a989') in 0.000457749 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Resources/Gizmos/ProbeVolume.png using Guid(a4aff83690b661e4fab719effabef2a9) (TextureImporter) -> (artifact id: '8c57c042d9c57c442a39c0ca58703024') in 0.001288986 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Textures/FilmGrain/Medium06.png using Guid(b4db8180660810945bf8d55ab44352ad) (TextureImporter) -> (artifact id: 'cd7e399f22ce0e2169bd9def8fea443a') in 0.003102906 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Editor/2D/Resources/LightCapTopRight.png using Guid(b42c95bdd7efefc43900dbbedc4a39f8) (TextureImporter) -> (artifact id: '582e0312a72799d2fc9c947a822cabdd') in 0.000482325 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/d_InputControl@2x.png using Guid(c4235c4abfa134435bd4c8c1f8fd8c56) (TextureImporter) -> (artifact id: '9c5ab0e61d6fea7196e9ff9fb28aeada') in 0.000485421 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/AssetEditor/PackageResources/pro/actionTreeBackground.png using Guid(c4b66e31395c54087a2fbc13ae7e0f3c) (TextureImporter) -> (artifact id: 'dc70179abf26c6aaa7f3e1cfdab69617') in 0.000401191 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/ChevronUp@4x.png using Guid(c4f7551c56dfb47a7a105b6579646d2f) (TextureImporter) -> (artifact id: 'bba2d2c4bbcd58233f73bf5dd2db22ca') in 0.000457199 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/d_LightPlacement_Icon@32.png using Guid(c4f74ec1885109d438846c229989bcf9) (TextureImporter) -> (artifact id: '795e644042f4e9c936a59f6961a953a3') in 0.000501747 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Textures/BlueNoise16/L/LDR_LLL1_19.png using Guid(d4044ea2490d63b43aa1765f8efbf8a9) (TextureImporter) -> (artifact id: '85a91c5a8a9e77950b3a634149a6d77c') in 0.000385528 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Icons/MipLevels/VolumeProfile@32.png using Guid(d437cf5f006f8e74eb25c84d04daa681) (TextureImporter) -> (artifact id: 'd065763af76c76b6d60131e49b2b4ac2') in 0.000397469 seconds
+Start importing Packages/com.unity.render-pipelines.core/Runtime/Debugging/Prefabs/Textures/UIElement8px.png using Guid(d49e78756811bfa4aafb8b6535417991) (TextureImporter) -> (artifact id: '32e5c1a50b82e581d7cca67f6d2175cf') in 0.000511815 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/IntenseAreaLight.png using Guid(d4df75c76c1661847b6902f889b44bcb) (TextureImporter) -> (artifact id: '567f5d11c6689a075334a59ea321c3df') in 0.000457889 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/d_VeryBrightSun@2x.png using Guid(e4e685bec200b3c45a29e88e2eeb8ddb) (TextureImporter) -> (artifact id: '687009426e1397ee197bf70ca0bd8baa') in 0.000504631 seconds
+Start importing Packages/com.unity.ai.navigation/Gizmos/NavMeshSurface Icon.png using Guid(e4f97225bcfb64760a1c81f460837f01) (TextureImporter) -> (artifact id: '47eabbf94aec75911a966e0f6a986f24') in 0.001542467 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/d_ChevronUp@4x.png using Guid(e46ad23216d074f828f3437b21912c64) (TextureImporter) -> (artifact id: '70fc8fadd58eb77b98351d4b90f29ede') in 0.000453679 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/d_Interactive Binding@4x.png using Guid(f4e6ca70dd9734da1a812be882c6364e) (TextureImporter) -> (artifact id: '4bd5ca992610fe5fb9fc1a2389a15a2b') in 0.000499851 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Editor/2D/Resources/LightCapTopLeft.png using Guid(f4f779c88fa8c514d970afbd68ff6b3f) (TextureImporter) -> (artifact id: '8f07137cedcc2fcf9ed2e3604d1a5dbe') in 0.000427847 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/DownSnatch.png using Guid(f4efccbcc00042141b8f7f63392439b5) (TextureImporter) -> (artifact id: 'ac731bc7c5ea47bf9d0061f2a29b5059') in 0.000481266 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/Mouse@3x.png using Guid(05bbafd21bf3c4cca93cb8ddfbbd4070) (TextureImporter) -> (artifact id: '1ed24f125e58ce5f4b12fc027ad370d3') in 0.000447962 seconds
+Start importing Packages/com.unity.ai.navigation/EditorResources/Overlay/NavigationOverlay On@64.png using Guid(151753cf3d5916d4fbf624668c268675) (TextureImporter) -> (artifact id: 'db891a992bb332add82b22898b4f8d8f') in 0.000498404 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/ChevronDown@2x.png using Guid(153c8e15f7f6c452ca50f6795813ed39) (TextureImporter) -> (artifact id: '8050e2e9d2ae30d781ed2174bc4e6e7d') in 0.000441395 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/d_Position@2x.png using Guid(2552e303d22424da2ad62552efbd06e8) (TextureImporter) -> (artifact id: 'cc10f301f460128d3b236a6b2a1dfae7') in 0.000429112 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Icons/RenderGraphViewer/FramebufferFetch@2x.png using Guid(35a75acf988224d4da424a5a42cdaaf9) (TextureImporter) -> (artifact id: 'c16308ee4a1d089115ce64c4dad78b9e') in 0.000485387 seconds
+Start importing Packages/com.unity.addressables/Editor/BuildReportVisualizer/BuildReport Resources/Icons/PlatformPS4Icon.png using Guid(351af98fa765ba1498bcad1e9100d610) (TextureImporter) -> (artifact id: '331c770a1eb1baebd69f3af9a9405911') in 0.000405824 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/Layout2@2x.png using Guid(356caeb1305bf794e94ecd5161f8e6e3) (TextureImporter) -> (artifact id: '336f8c170b4477e195341b02ede74006') in 0.000631538 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/Duplicate.png using Guid(352dd7fc77ee28c479bf6504efe94f16) (TextureImporter) -> (artifact id: '35a191917a3777f930049a48426aedda') in 0.000570082 seconds
+Start importing Packages/com.unity.ugui/Editor Resources/Textures/btn_AlignCenterGeo_Light.psd using Guid(35ff0937876540d3bd4b6a941df62a92) (TextureImporter) -> (artifact id: '3e5ae01a22073635e1d4c3b57be35bda') in 0.000543781 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/Link.png using Guid(45751a4124f67c443bf96ed1df7c550b) (TextureImporter) -> (artifact id: '03ada003edf56544478b3b0fcf41ac43') in 0.000552367 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/d_Stick.png using Guid(55040e210fa9b426b861a26909ab4de7) (TextureImporter) -> (artifact id: '174430a358d13b7d39494b9fbe99b35b') in 0.00040148 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Textures/FilmGrain/Thin01.png using Guid(654c582f7f8a5a14dbd7d119cbde215d) (TextureImporter) -> (artifact id: '83c35c19ce84c0e6923f32ad1f6f186d') in 0.003038137 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/Gamepad@4x.png using Guid(7543bb6341c2140f292c8c852e7a3bbf) (TextureImporter) -> (artifact id: '46fd957cc8945af39b20a5f2967dba68') in 0.000516848 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/LookDev.png using Guid(85099cb723efe4444a23b08281d721c2) (TextureImporter) -> (artifact id: '67c630fc25d986402e07b8b85a44b507') in 0.000579481 seconds
+Start importing Packages/com.unity.shadergraph/Editor/Resources/GraphView/Nodes/NodeChevronRight.png using Guid(951848ba8b6205940a9bd1b8fdd4d796) (TextureImporter) -> (artifact id: '4780182d1fa8b9e625b0c6ab97aee770') in 0.000514815 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/Add Binding.png using Guid(958a10dec4f3a4764bb345b0aa03510b) (TextureImporter) -> (artifact id: 'b704a2a1b415c4fb5b453f2fde469a18') in 0.000395761 seconds
+Start importing Packages/com.unity.shadergraph/Editor/Resources/Icons/blackboard.png using Guid(954de74b6fa234cfbb474898019e0acf) (TextureImporter) -> (artifact id: 'fa0b3d3ed73281d5e115553fb78de129') in 0.000410043 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/d_BrightSky.png using Guid(a543c2d2147884347a1846e862efa72f) (TextureImporter) -> (artifact id: 'b0335d53745e6c7e623978e2ec7c77b3') in 0.000441707 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/Remove.png using Guid(a5c48bfebeb031a4b8d66da4be0e27b9) (TextureImporter) -> (artifact id: 'b0734c9e154e2b2618773de5ddbf27f6') in 0.000524701 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Editor/2D/Resources/LightCapUp.png using Guid(a58fea03b14b2be4295b11f21a57a6f7) (TextureImporter) -> (artifact id: 'e7d4f2eee64d0c4de9e08fe9b05dc6c2') in 0.000445479 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/d_InteriorLight.png using Guid(b5a2e773c2799aa42a4e99429158896e) (TextureImporter) -> (artifact id: 'dec59a89cca20bf45b4406a274055e44') in 0.000442771 seconds
+Start importing Packages/com.unity.searcher/Editor/Resources/FlatSkin/SearchSmallDownOn@2x.png using Guid(c5b36095078d8694ba9e3ae3fd867b2e) (TextureImporter) -> (artifact id: 'c255f61e29485ae77da9e2c2f2d42376') in 0.000505538 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/HorizontalGradient.png using Guid(c56daa0c35d8542449aea902efda87ce) (TextureImporter) -> (artifact id: 'dce80f95b6c33d69c4ede2fb630446d0') in 0.000542725 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/d_Position.png using Guid(c5bdeae4dabac4bf19f7a1afcf5ca678) (TextureImporter) -> (artifact id: '4354a5fb1d16c1fd744c75d8f4de0234') in 0.000396528 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Textures/BlueNoise16/L/LDR_LLL1_13.png using Guid(d512512f4af60a442ab3458489412954) (TextureImporter) -> (artifact id: 'ed7f94910db297a1abb44ca7459e9463') in 0.000372864 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Textures/BlueNoise16/L/LDR_LLL1_21.png using Guid(d5c9b274310e5524ebe32a4e4da3df1f) (TextureImporter) -> (artifact id: 'a3760696a3bea2ba63ce349292a15e98') in 0.000379418 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/d_MoonlessNight@2x.png using Guid(d56ac7ee03f65c7408f8f3d5aeecdb86) (TextureImporter) -> (artifact id: 'b9fe660c7a906a3fbfd448e8a148dd57') in 0.000467972 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Textures/BlueNoise16/L/LDR_LLL1_1.png using Guid(d50c5e07c9911a74982bddf7f3075e7b) (TextureImporter) -> (artifact id: 'cadf9fbe23b4591feae11535f8645623') in 0.000382878 seconds
+Start importing Packages/com.unity.shadergraph/Editor/Resources/GraphView/Nodes/UITKShaderPreview-Texture.png using Guid(e5c0078b94743b5468d137f0728f414e) (TextureImporter) -> (artifact id: '7af35a42571d924ba2d9b795cdda0bde') in 0.004384637 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/d_LightPlacement_Icon On@2x.png using Guid(e59f66416f4ecf3429053a0274b589a0) (TextureImporter) -> (artifact id: 'cef61a2b038dfb732e54b18b8fa65087') in 0.000486744 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/d_Moonlight@2x.png using Guid(f520337c0c5dde34fa2d4207d953a31f) (TextureImporter) -> (artifact id: '23f461d7c42a702dfbae4c0b70261a7d') in 0.000489047 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/d_LightPlacement_Icon On@32.png using Guid(f5d08e5c109deb84a9fcf7b2365cb537) (TextureImporter) -> (artifact id: 'adf5de1e29fa745339e1991039ab7ff2') in 0.000449567 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/MoonlessNight.png using Guid(f50a266376427a041b4e1b629d07611d) (TextureImporter) -> (artifact id: '5e6e335ac8f35a4750122caadb936cae') in 0.000442222 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/Joystick@4x.png using Guid(f58c918f135bd4b8abe5fdb06bda7f4d) (TextureImporter) -> (artifact id: 'c10cf38be620abbbe681ff0417cc19b1') in 0.00047865 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/Stick@4x.png using Guid(f5ace3d653812436a812bebfe7f9a242) (TextureImporter) -> (artifact id: 'cf23ad4e6c16d3c7fdde490fb9551a3f') in 0.000472085 seconds
+Start importing Packages/com.unity.ai.navigation/EditorResources/Overlay/d_NavigationOverlay@256.png using Guid(f5dd88efd8622424998bf5326c5421eb) (TextureImporter) -> (artifact id: '0ff9ad50aeba97e965cbbcba3926dd46') in 0.001038118 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/d_LookDev.png using Guid(0615fe8910911be4299d5604a54db99a) (TextureImporter) -> (artifact id: '91987b121100b8fe63b1adc50d7e5ac2') in 0.000568935 seconds
+Start importing Packages/com.unity.ugui/Editor Resources/Textures/btn_AlignMiddle_Light.psd using Guid(066619c9c9c84f89acb1b48c11a7efe2) (TextureImporter) -> (artifact id: 'f7c42bbf66d729e067391334e508d210') in 0.000540886 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/d_ChevronDown.png using Guid(06ad495fb07444736b59782982d96250) (TextureImporter) -> (artifact id: '3dc4ddc97cb906a540bf75f09d360e9e') in 0.000414571 seconds
+Start importing Packages/com.unity.addressables/Editor/BuildReportVisualizer/BuildReport Resources/Icons/Button_RightPanel_DarkTheme.png using Guid(1605c3ecde3c79740a38a7d320a3f234) (TextureImporter) -> (artifact id: '1385c5b593685687529c3a32d66261c9') in 0.000435128 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/d_Add.png using Guid(160b197aba549514286b94426ceae589) (TextureImporter) -> (artifact id: 'af7ef336d5265f6d0a5819729caa2ec9') in 0.000541496 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Textures/DebugFont.tga using Guid(26a413214480ef144b2915d6ff4d0beb) (TextureImporter) -> (artifact id: '4c88fc14ee886434f3d879453ffd1404') in 0.000570829 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/d_Mouse.png using Guid(264ffc05d7d2841d5a6065854b6282ca) (TextureImporter) -> (artifact id: '4a2d630b17f1e565c61afaf8ae3b0856') in 0.000395823 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Textures/BlueNoise256/LDR_LLL1_0.png using Guid(36f118343fc974119bee3d09e2111500) (TextureImporter) -> (artifact id: 'ed3e54a4ae26f88acc99ef9a5069089d') in 0.001359056 seconds
+Start importing Packages/com.unity.shadergraph/Editor/Resources/GraphView/Nodes/BlackboardFieldPillBackground.png using Guid(56603bbe7a2b54640bbd90104bea4981) (TextureImporter) -> (artifact id: '7bd5cc37ee0cd6ef5b5272e496f785a0') in 0.000543924 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/d_Camera1.png using Guid(56c35c86bb44b0e4e84a22db56968157) (TextureImporter) -> (artifact id: '00224801ca0d63c3eac94118125b8a28') in 0.000582928 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/Position.png using Guid(5684eb521fa99491e9061de682d1622e) (TextureImporter) -> (artifact id: 'a982645a2097d466942362fcf6ed3723') in 0.000402239 seconds
+Start importing Packages/com.unity.addressables/Editor/BuildReportVisualizer/BuildReport Resources/Icons/PlatformLuminIcon@2x.png using Guid(566514eeee40fbb4095bb20d9ca5ef1b) (TextureImporter) -> (artifact id: '7e85c520c28b4517c4984678b218131e') in 0.000451959 seconds
+Start importing Packages/com.unity.shadergraph/GraphTemplates/Cross Pipeline/DecalMatProjTemplateThumbnail.png using Guid(5616b96dbeb625c498fdfe9517c1552b) (TextureImporter) -> (artifact id: '86b4e7dc7d6a54bc0f1e94410aa0f13d') in 0.012042029 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Textures/BlueNoise256/LDR_LLL1_6.png using Guid(56a77a3e8d64f47b6afe9e3c95cb57d5) (TextureImporter) -> (artifact id: '0dbb5c0dfa3807115059e36d866ad698') in 0.001478737 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Runtime/2D/Data/Textures/FalloffLookupTexture.png using Guid(5688ab254e4c0634f8d6c8e0792331ca) (TextureImporter) -> (artifact id: '179be1f45569657567ad0ee92de87d11') in 0.002982813 seconds
+Start importing Packages/com.unity.addressables/Editor/BuildReportVisualizer/BuildReport Resources/Icons/PlatformStandaloneWindowsIcon@2x.png using Guid(561dd5984fde32741a712b4a968324fd) (TextureImporter) -> (artifact id: '4bc2620122c7e4fa53fc9238a617f0ee') in 0.000495116 seconds
+Start importing Packages/com.unity.shadergraph/Editor/Resources/Icons/SettingsIcons@2x.png using Guid(66e0f20149bec7a4eaee2f2d8aec158a) (TextureImporter) -> (artifact id: '17a753b91f9dc3a7f944dcf83bc8aaef') in 0.000550031 seconds
+Start importing Packages/com.unity.addressables/Editor/BuildReportVisualizer/BuildReport Resources/Icons/FileNoIcon@3x.png using Guid(66c2b738157840b43a4f923dc575193b) (TextureImporter) -> (artifact id: '108380438bf29f14f46641c9903e863f') in 0.000507658 seconds
+Start importing Packages/com.unity.addressables/Editor/BuildReportVisualizer/BuildReport Resources/Icons/PlatformStandaloneWindowsIcon.png using Guid(66e8376ba5f093047bc9ab5d3d61430b) (TextureImporter) -> (artifact id: '8f20a7a6d332d9f49a5c7bf9779e4911') in 0.00049887 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/d_ClearSky.png using Guid(76c10465276fcb9498b1fd312e3f74ed) (TextureImporter) -> (artifact id: 'fae1a29b24571cebe4f5171e73468192') in 0.000455415 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Icons/MipLevels/d_RenderPipelineResources@256.png using Guid(76e81564bded5e442a18ce6964cdaef3) (TextureImporter) -> (artifact id: '681be593e009f0c9c1373bb1220c8bd8') in 0.000698918 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/d_Gamepad.png using Guid(76dc61ff6c2d84b24b0a2ce01dc2842d) (TextureImporter) -> (artifact id: '8630281c8c931b8da90b400b3ba50e41') in 0.000399531 seconds
+Start importing Packages/com.unity.addressables/Editor/BuildReportVisualizer/BuildReport Resources/Icons/PlatformWebGLIcon@2x.png using Guid(764d4b52473c57c43a471351bb59abe1) (TextureImporter) -> (artifact id: 'e014902313de71830490158e298a0bac') in 0.000440618 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/d_DirectSunlight.png using Guid(76bf11a78c4428b4eb6b567a160a0c83) (TextureImporter) -> (artifact id: 'a1de90f7213c6b2bcf2cf44e973b61e5') in 0.000452237 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/Add Binding@4x.png using Guid(862c5ca31844d4a6d9aa804af982ce65) (TextureImporter) -> (artifact id: '779546d9b50f40c9696254a0e45db30d') in 0.000560169 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/DirectSunlight.png using Guid(863ef838c25e51b4790fd6ac881ba895) (TextureImporter) -> (artifact id: 'a1c6dccae38eff4f39787f9c50f36df1') in 0.000456957 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/d_Pen@2x.png using Guid(96f7582a52a6843c09e0c71617e94f2d) (TextureImporter) -> (artifact id: 'd8618099f5505629b983f03fa91aa56c') in 0.000427874 seconds
+Start importing Packages/com.unity.ai.navigation/EditorResources/Overlay/d_NavigationOverlay On@16.png using Guid(96c9a57d95a712d44978703ea9dd7f4e) (TextureImporter) -> (artifact id: 'ace12ad2cddbe4bcf3906914ec0c6121') in 0.000414796 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Textures/BlueNoise16/L/LDR_LLL1_10.png using Guid(96aaab9cc247d0b4c98132159688c1af) (TextureImporter) -> (artifact id: 'fee4b738936b814edc1bce30951ed970') in 0.000383445 seconds
+Start importing Packages/com.unity.render-pipelines.core/Runtime/Debugging/Prefabs/Textures/UIFoldoutOpened.png using Guid(a674720496c1ed248a5b7ea3e22a11fd) (TextureImporter) -> (artifact id: '5d05d4e76c6e38f609a36d326373aaf6') in 0.000538979 seconds
+Start importing Packages/com.unity.shadergraph/Editor/Resources/Icons/Settings_Flyout_9slice@2x.png using Guid(a6abafca3e442ca4d970a1f8a2c70b0a) (TextureImporter) -> (artifact id: '50bfb51ec219ea52a68bff211d04ba53') in 0.001088962 seconds
+Start importing Packages/com.unity.collections/Unity.Collections.PerformanceTests/PerformanceTestFrameworkOutputListAdd.png using Guid(a6ecd2aa79759e64ba59ab5f51d661ac) (TextureImporter) -> (artifact id: '24a4dfb4594a014285eaea57ec2f5879') in 0.005032814 seconds
+Start importing Packages/com.unity.ai.navigation/Gizmos/NavMeshModifier Icon.png using Guid(b642c6bf23e624e23ad11b3e1d471932) (TextureImporter) -> (artifact id: '7315ee08e3736fa44d63bec5838a8fd8') in 0.00155714 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Icons/MipLevels/RenderPipelineResources@256.png using Guid(b645d34d84db58a45ac9775bb9a9bc48) (TextureImporter) -> (artifact id: '77f49b056229f81c1b8abc1a3bfcea53') in 0.000779862 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/d_Dpad.png using Guid(b60b9eb0384c345c89435d0982a6e4fd) (TextureImporter) -> (artifact id: 'fb7b4ae338570c24054cdcfe38e98891') in 0.000416032 seconds
+Start importing Packages/com.unity.shadergraph/GraphTemplates/BuiltIn/BuiltInUnlitBasicTemplateThumbnail.png using Guid(e6831b07772f59844b5c282e8a4aa736) (TextureImporter) -> (artifact id: '8e25b348771e435f009598621f1e1cdb') in 0.007764577 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Textures/BlueNoise16/L/LDR_LLL1_5.png using Guid(e63eef8f54aa9dc4da9a5ac094b503b5) (TextureImporter) -> (artifact id: '963b53495c891e2a7463c43e3c323e9d') in 0.000437074 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/d_Moonlight.png using Guid(f64528e1d51f6d74c9f7a1738deaa602) (TextureImporter) -> (artifact id: '24674b8b91b8c9f4d7f82baf5d0c77ca') in 0.000464915 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Textures/BlueNoise16/L/LDR_LLL1_22.png using Guid(f69770e54f2823f43badf77916acad83) (TextureImporter) -> (artifact id: 'e18b9db6dc01b51c793767db8f719be8') in 0.000404957 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/DownSnatchFocused.png using Guid(f6ca176a623705248878abeaf560002a) (TextureImporter) -> (artifact id: '2f0505880e0b239bf2a30fae2f61cb76') in 0.000495685 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Icons/MipLevels/d_RenderPipelineResources@128.png using Guid(07d524f53c3f0a24b952dad4f0d95192) (TextureImporter) -> (artifact id: 'ba1001206af7462def76795c8c069168') in 0.000511831 seconds
+Start importing Packages/com.unity.collections/Unity.Collections.PerformanceTests/PerformanceTestFrameworkOutputFixedSize.png using Guid(079c3d43b74823a41bb33198b8221c23) (TextureImporter) -> (artifact id: '30cc92babe6948e2b2d92c0341ab6112') in 0.006819668 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Textures/BlueNoise16/L/LDR_LLL1_9.png using Guid(071e954febf155243a6c81e48f452644) (TextureImporter) -> (artifact id: '7b2a3c36991341bf53525e41faeb5f13') in 0.000479971 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/d_Pen@3x.png using Guid(17b3fef87d666459d860ad88452862da) (TextureImporter) -> (artifact id: '602f7c7674491d3af8c1cd923db53629') in 0.000513234 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/Gamepad.png using Guid(17c8753d0e5e24194b06404851be7f13) (TextureImporter) -> (artifact id: '11b8453eac255d4e2586a8855a9f5af8') in 0.000409486 seconds
+Start importing Packages/com.unity.shadergraph/Editor/Resources/Icons/sg_graph_icon.png using Guid(170afdc32bbba284e8d0740a464b9fbd) (TextureImporter) -> (artifact id: 'ebf67345560d85062cd616c888a5641d') in 0.000534975 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Icons/MipLevels/RenderGraphViewer/d_PassInspector@16.png using Guid(179c26b8104e4a84bb9ba82aa6ec463b) (TextureImporter) -> (artifact id: '6c09445d2da0e81ea9fe35d11ec661e7') in 0.000490132 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Textures/BlueNoise16/L/LDR_LLL1_31.png using Guid(179f794063d2a66478e6e726f84a65bc) (TextureImporter) -> (artifact id: '02a3e5d6f43fea95f9c0194ed24091ed') in 0.000400167 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/d_Axis@2x.png using Guid(27163f3cda5b9431d928f2b33eeb5cf1) (TextureImporter) -> (artifact id: 'd347206faa3f21d77d898e50fa5f13ac') in 0.000442522 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/d_Joystick@2x.png using Guid(27fa98be5deb54cbf9c11ffc540272b2) (TextureImporter) -> (artifact id: '13df17c916818ced364e7c6e46c4b6d5') in 0.000462177 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/d_LightPlacement_Icon On@16.png using Guid(27ddd7fccc437254da38f2ffe1983567) (TextureImporter) -> (artifact id: 'a65188218b2b5505f5fd4f8ab2a333d1') in 0.000523597 seconds
+Start importing Packages/com.unity.addressables/Editor/BuildReportVisualizer/BuildReport Resources/Icons/Button_RightPanel_LightTheme.png using Guid(37555d4cd39377746932ee0827a11c15) (TextureImporter) -> (artifact id: '9e1fd577d5e38736809265a0436f6d9b') in 0.000439299 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/PostProcessing/LensFlareResource/CircleFlareThumbnail@2x.png using Guid(37e93113453ac0d46863acd4090899c8) (TextureImporter) -> (artifact id: 'a2c5daf63fc00369ab0c90a1c03e1454') in 0.001010227 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/VeryBrightSun@2x.png using Guid(37ca6c7ad753f1648a24db2b740ba2ca) (TextureImporter) -> (artifact id: '3a85417948d91a60238d8fbb90f11855') in 0.000513628 seconds
+Start importing Packages/com.unity.addressables/Editor/BuildReportVisualizer/BuildReport Resources/Icons/PlatformStandaloneLinux64Icon.png using Guid(377dcfe91a2b68742aedc28e60d58544) (TextureImporter) -> (artifact id: 'b111b7b783f33f16514f8d1dd2f02bd8') in 0.000435828 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Textures/BlueNoise16/L/LDR_LLL1_14.png using Guid(47a45908f6db0cb44a0d5e961143afec) (TextureImporter) -> (artifact id: 'f2b232f5bb99d584dc4e1fe5ae81a8eb') in 0.000393654 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/d_LayoutVertical@2x.png using Guid(472b4042959bbd844b8fd760bddd7a47) (TextureImporter) -> (artifact id: 'ed0ed8b1b26db0f3a6e71242660ddbfa') in 0.00064916 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/AssetEditor/PackageResources/yellow.png using Guid(47cf506b4219343519083fe1c0b8fc9c) (TextureImporter) -> (artifact id: 'ee31a4eaf11127e0473bc3a18ac0a6bc') in 0.000405852 seconds
+Start importing Packages/com.unity.shadergraph/Editor/Resources/Icons/Settings_Flyout_9slice.png using Guid(57517c89a809f44458493cef0310e46f) (TextureImporter) -> (artifact id: 'df3efc1df8be891eef7ab70df97eb805') in 0.000693466 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/ChevronUp@2x.png using Guid(57dfdce0eaf2f48a9bd9e60e920e446b) (TextureImporter) -> (artifact id: 'cc4866b7e21cdd318c072c01c9f1f2b8') in 0.000470303 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Icons/MipLevels/d_Volume@32.png using Guid(675ff9ea9d96a004a85fc91680242734) (TextureImporter) -> (artifact id: 'b1ff04012d66194db1e5a5680482b97c') in 0.000414539 seconds
+Start importing Packages/com.unity.addressables/Editor/BuildReportVisualizer/BuildReport Resources/Icons/PlatformXboxOneIcon@2x.png using Guid(770340dbd8f200e45b2bb9e820baa15e) (TextureImporter) -> (artifact id: '345eb5b770d9e5d131ebd7c1c203b2c4') in 0.000452868 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightPlacement_Icon.png using Guid(77f3e0d20577fcd4ebb29c14ff5d58c7) (TextureImporter) -> (artifact id: '2e6e2e85c3a67c34c33cf9f745cd8372') in 0.000553948 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/Keyboard@2x.png using Guid(87ae93efe5d3b4262995b0acdc987d88) (TextureImporter) -> (artifact id: '0f6362ea12151d207d9b352663fe46eb') in 0.000444854 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/Mouse@2x.png using Guid(9721efa02e520488d96c36460fe7e4a6) (TextureImporter) -> (artifact id: '7c89a9fea604c1e8582cabacf1143822') in 0.000430332 seconds
+Start importing Packages/com.unity.addressables/Editor/BuildReportVisualizer/BuildReport Resources/Icons/PlatformAndroidIcon.png using Guid(970a95875c9b7474ba926b947e8cc477) (TextureImporter) -> (artifact id: '8a879e422f065c3ccc3ff32d9ba07efe') in 0.00042402 seconds
+Start importing Packages/com.unity.ugui/Editor Resources/Gizmos/TMP - Dropdown Icon.psd using Guid(a7ec9e7ad8b847b7ae4510af83c5d868) (TextureImporter) -> (artifact id: '7e1882bee782464aa59eb0594b60f6f5') in 0.000852972 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/d_LayoutCustom@2x.png using Guid(b753c88a6aeb2674fa1d4f0a4c0a285a) (TextureImporter) -> (artifact id: 'da247a0ac285e7853501adf325391d3b') in 0.000634889 seconds
+Start importing Packages/com.unity.ugui/Editor Resources/Textures/btn_AlignCenterGeo.psd using Guid(c76700ea0062413d9f69409b4e9e151b) (TextureImporter) -> (artifact id: '4665fa3bbfde6aa6ca1bebd6549740c0') in 0.000535849 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/d_LightPlacement_Icon@128.png using Guid(c7cdaebf43bf99948bf392ce8f4088af) (TextureImporter) -> (artifact id: 'bb4f71d5ed52d532836897445d7b7ecb') in 0.000677139 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/AssetEditor/PackageResources/pink.png using Guid(d7b144323984d4298924c65ed071dea1) (TextureImporter) -> (artifact id: 'edb986bbb7012820cffda6e69bf944ce') in 0.000474613 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Icons/MipLevels/d_Volume@128.png using Guid(d765b90a4ccbfae4ba0b8512144b99f0) (TextureImporter) -> (artifact id: '2553a5349ae5bf0eeee47acc3c3748f9') in 0.000492885 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/Dpad@4x.png using Guid(d7073cfe15a1a48bfb7ff59225052484) (TextureImporter) -> (artifact id: 'a63655e83bf3e06ec118e2602fa6cdf3') in 0.000506301 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/PostProcessing/LensFlareResource/Flare128.png using Guid(d7b90718ad2a7af4aab8546a0897d5db) (TextureImporter) -> (artifact id: '91b78177e27d74e334f4b9c804514fa5') in 0.000712065 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/d_SunriseSunset@2x.png using Guid(e737fd1dd31046c4da43e8ba94fdaf63) (TextureImporter) -> (artifact id: '61546e378bbb6a8a906c202419e4c507') in 0.000473261 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/d_Touch@3x.png using Guid(e77ee65b5139048949dc0ac5614efeec) (TextureImporter) -> (artifact id: 'f90e4be8da3021e263a50e478bd50387') in 0.000452426 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/Dpad.png using Guid(e76f0489d4db34a2fbc3532e07f2848a) (TextureImporter) -> (artifact id: '9c517ce1d737d4ce06fb4472e9c97972') in 0.000379591 seconds
+Start importing Packages/com.unity.ai.navigation/EditorResources/Overlay/NavigationOverlay On@32.png using Guid(f7a3e2b3beab29040bc1a68f0ad0045c) (TextureImporter) -> (artifact id: '7de079acecbdd48ff21e81cdb2bd997d') in 0.000438694 seconds
+Start importing Packages/com.unity.shadergraph/GraphTemplates/Cross Pipeline/TerrainSimpleTemplateThumbnail.png using Guid(f7b60a412d492fa4a96583e253626880) (TextureImporter) -> (artifact id: '729ca470c1c3063ebfaa32b700f6dbea') in 0.014765225 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/d_LightPlacement_Icon@16.png using Guid(f75902f05f887d847bd7573bdac61eca) (TextureImporter) -> (artifact id: '2eec0add14d8e286aa4f84d32e1b8602') in 0.000516528 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/d_CloudySky@2x.png using Guid(088373792f5db604fa5b045cb5dff9c9) (TextureImporter) -> (artifact id: 'd476cb40ee4681430abab08775d342a2') in 0.000508464 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/d_VeryBrightSun.png using Guid(083778a134a402a4f82b55a98ac21530) (TextureImporter) -> (artifact id: '4a0c791477e0d8c3e9da7c24a5a28a99') in 0.000472823 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/InputControl@4x.png using Guid(08c99f7c2a7fa410d8567323e32ad5f5) (TextureImporter) -> (artifact id: 'b394dc5fd7e0eadc2f8aac912264716c') in 0.000523681 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/Joystick@2x.png using Guid(18e45e1f11fae429c80c200cca8e0b4c) (TextureImporter) -> (artifact id: 'abbdd5377b15afa4e44b06860f1d6bc9') in 0.000457161 seconds
+Start importing Packages/com.unity.shadergraph/Editor/Resources/Icons/sg_subgraph_icon_gray_dark.png using Guid(18c6490536702e840b89a326d93a92a1) (TextureImporter) -> (artifact id: '5c285764f170cb1bd619e5737a200555') in 0.000425026 seconds
+Start importing Packages/com.unity.ugui/Editor Resources/Textures/btn_AlignBaseLine_Light.psd using Guid(18775b51e3bd42299fd30bd036ea982f) (TextureImporter) -> (artifact id: '7b8a864f98b2a32480f1ae36e2dc9bc5') in 0.000538744 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/d_Camera2.png using Guid(281160d54742cbb44a88a61bf8ccfb16) (TextureImporter) -> (artifact id: 'bb5a64f404bc67fd02628f0ec5e18f0e') in 0.000576092 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/Camera2@2x.png using Guid(28f2917353630ce4fa307eeceadcd26d) (TextureImporter) -> (artifact id: '13578b4fcad02971d891dd399744b9d4') in 0.000628715 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/d_RightArrow@2x.png using Guid(28d47cbaafc98254f8d4f6184dff22cd) (TextureImporter) -> (artifact id: '73ffea6e1a88afc7b01300f55a4e1193') in 0.000609247 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Icons/MipLevels/d_VolumeProfile@64.png using Guid(2889bb1951831234789d947901bce53e) (TextureImporter) -> (artifact id: '3165b84629d47925758e71fd1321e5c1') in 0.000416345 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Icons/RenderGraphViewer/Texture@2x.png using Guid(38d7c20ac7a9de246a75479d66d518fd) (TextureImporter) -> (artifact id: 'af910b8f9bd2e232a6df534c3ae909db') in 0.000443305 seconds
+Start importing Packages/com.unity.ugui/Editor Resources/Textures/btn_AlignTop.psd using Guid(48d034c499ee4697af9dd6e327110249) (TextureImporter) -> (artifact id: '4a2ded51a006f8be0c966f576e891e8e') in 0.000527976 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Icons/MipLevels/RenderGraphViewer/PassInspector@16.png using Guid(48b566d9e8cf828409d6879b70fe00b5) (TextureImporter) -> (artifact id: 'b9a732c275c1804839cc9d223b272d98') in 0.000494915 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/Touch.png using Guid(588041e6f0efb43489b38677e0aac58f) (TextureImporter) -> (artifact id: '9ae86ef9a696a8063c3e1e8cc32e00da') in 0.00040345 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/Stick@2x.png using Guid(5881d226463a047cb8db57c9cb0ebc0f) (TextureImporter) -> (artifact id: '4afe1eb722c891024be5a4c9062e2a22') in 0.000437316 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/Dpad@2x.png using Guid(5806833d077654e5784b7cbf3e722f58) (TextureImporter) -> (artifact id: '16e7c849a7b18073a85a75fcbd93cbfc') in 0.000410262 seconds
+Start importing Packages/com.unity.ugui/Editor Resources/Textures/btn_AlignBottom_Light.psd using Guid(585b70cb75dd43efbfead809c30a1731) (TextureImporter) -> (artifact id: '8668fc1bee38d1b24c7dff9755f2d0ec') in 0.000564671 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Editor/2D/Resources/InspectorIcons/FreeformLight.png using Guid(68e5bb6e60bebc046b26d3c3100a523b) (TextureImporter) -> (artifact id: 'db8986f80f5c5c273781f8ace823c9d0') in 0.000544173 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Icons/RenderGraphViewer/AccelerationStructure@2x.png using Guid(78c530431f09533469990aeb78f31210) (TextureImporter) -> (artifact id: '4b893dbf9c03327bc6361d80a5ab1d6c') in 0.000444465 seconds
+Start importing Packages/com.unity.shadergraph/GraphTemplates/default_vfx_msk.png using Guid(788b35e8fa5154559af342abaf8be483) (TextureImporter) -> (artifact id: 'a62a0ecf40951e08f52ab1dfe2123923') in 0.000373969 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Editor/2D/Resources/InspectorIcons/SpriteLight.png using Guid(8839c54710da3374f994e12f39b6d65f) (TextureImporter) -> (artifact id: '0651381eb2a367d46c091285bb3c9e70') in 0.000439011 seconds
+Start importing Packages/com.unity.shadergraph/Editor/Resources/GraphView/Nodes/PreviewExpand@2x.png using Guid(88995b00867befb41adaada22f8abc21) (TextureImporter) -> (artifact id: 'fc4bef7849cb4d2902f529d76f7b0a34') in 0.000538457 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Icons/RenderGraphViewer/PassInspector@2x.png using Guid(881eb9c95b9a018479a89b9218d61928) (TextureImporter) -> (artifact id: '78c321ac9bd76535184d9b2cfbbc3086') in 0.000464278 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Icons/MipLevels/d_VolumeProfile@128.png using Guid(98c28ecf0d815cc49b6868def3e52f49) (TextureImporter) -> (artifact id: 'fc8dbb9db8c564e064a58289b31ee850') in 0.00048544 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Icons/RenderGraphViewer/d_FramebufferFetch@2x.png using Guid(986528338c7e82b42b466e23ac6fbb96) (TextureImporter) -> (artifact id: '09368e3594d45deb0eda7fe8a281845e') in 0.000482587 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/d_Layout2.png using Guid(98b5b3e7c51d32547b9b09232034b5d5) (TextureImporter) -> (artifact id: 'f7107f6c65a6b8f8f1ff1527c4ddff95') in 0.000543677 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/ChevronDown@3x.png using Guid(985cbca1705a64c80b370afdb30b3ee7) (TextureImporter) -> (artifact id: '7c4b3a4effe31acd390ea070d5280045') in 0.000457591 seconds
+Start importing Packages/com.unity.addressables/Editor/Icons/AddressableAssetsIconY1756Scene.png using Guid(988ed84773d02644cbc268043bbd8864) (TextureImporter) -> (artifact id: 'bd7c5e8e3ced26dbc2c75842b2f81472') in 0.000558562 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/d_Environment.png using Guid(98cefb354c00bc44cb31fffd52dc4650) (TextureImporter) -> (artifact id: '563fe09d757a41a78507497a6073711c') in 0.000582684 seconds
+Start importing Packages/com.unity.addressables/Editor/BuildReportVisualizer/BuildReport Resources/Icons/PlatformStandaloneOSXIcon.png using Guid(a8a8a51840bce43499129ca737ca10a7) (TextureImporter) -> (artifact id: '23754d7e15ae697353cc989bde5d256b') in 0.000422886 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/d_ChevronUp@2x.png using Guid(a89bfcdeffde84e7ebf930d44b695435) (TextureImporter) -> (artifact id: '4f5ae6b5ad1e2c0d4cc1596d1202f471') in 0.000426772 seconds
+Start importing Packages/com.unity.ai.navigation/EditorResources/Overlay/d_NavigationOverlay On@32.png using Guid(b8a654e77ffbbcd4abdda7fdb70fbb9e) (TextureImporter) -> (artifact id: '24c77ff12d4fc68c422c364c8928c511') in 0.00044746 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Icons/MipLevels/RenderGraphViewer/Resources@16.png using Guid(b8c995bb50a162c44b289f34d129328f) (TextureImporter) -> (artifact id: '3c114d2d0eb8f3534dfc234d29576194') in 0.000467081 seconds
+Start importing Packages/com.unity.shadergraph/Editor/Resources/Icons/settingsbutton.png using Guid(c881a10bb6578f04ba6d52f6c3f0c9d6) (TextureImporter) -> (artifact id: 'eda1d2ad7338049bd419ce1befccdd1a') in 0.000521084 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/PresetFill_Right.png using Guid(c8e3d80f5ead8d4409a54da768cc431d) (TextureImporter) -> (artifact id: 'eb0f6c13f4235b4adb0afcae15bce6e9') in 0.000595233 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Editor/2D/Resources/SceneViewIcons/FreeformLight.png using Guid(c89564426827c76479d8772adb43e6e4) (TextureImporter) -> (artifact id: '2bdd50b17d73321e3cada763b2799568') in 0.001705251 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/d_Joystick@4x.png using Guid(d88596134c72c47b99d7d55583f4c6bf) (TextureImporter) -> (artifact id: '794068c6421ddf3824d6719db4b520d7') in 0.000498831 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/Moonlight@2x.png using Guid(d8bb1a60805d8d241acc12f74cd3b2d5) (TextureImporter) -> (artifact id: 'dd9492e2bf752ffa0143dc8dcc871ec2') in 0.000480368 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/SunriseSunset.png using Guid(d8ee4aa2fab810242a1ff465e662bc09) (TextureImporter) -> (artifact id: '65daaeb127ad849847512ac431d363c2') in 0.000448651 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Icons/RenderGraphViewer/d_MemorylessTexture@2x.png using Guid(e813aef83a70543b79d435ef65ec86ee) (TextureImporter) -> (artifact id: '293373df919b9dc04fdbcfa6e4faa2a0') in 0.0004324 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/Camera2.png using Guid(e89a31db98e403b40af1a8f0ef9ae1ef) (TextureImporter) -> (artifact id: 'd315a250ef4b52c0930b6d4a1bb2f4cf') in 0.000536157 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/d_LightPlacement_Icon@256.png using Guid(e8daef37e2419284e8b319261203d5c3) (TextureImporter) -> (artifact id: '1cafa2cdb33cdb5ce592f937cd12762e') in 0.000979271 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/d_Button@2x.png using Guid(0962795d1cafc460b9027de55b1c0a80) (TextureImporter) -> (artifact id: 'a504e461e76a67bb6f40255c8a4605b2') in 0.000437179 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/d_Mouse@4x.png using Guid(1918e7bff8ff44878a0003977ca03971) (TextureImporter) -> (artifact id: 'f02fb3b1074cfbf059b2ea5b6ff248f3') in 0.000478924 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightPlacement_Icon@32.png using Guid(396033515c05b1441a3451ea18bb8e27) (TextureImporter) -> (artifact id: '92c383a2108566409925f08852862c6d') in 0.000446629 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Icons/MipLevels/RenderPipelineResources@32.png using Guid(39013bef60270164e94ccd21c1edb486) (TextureImporter) -> (artifact id: '26339961b834121c9c0d1d67411b40ad') in 0.000379042 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/d_DirectSunlight@2x.png using Guid(392581b798d70d0408e104d352ffb20b) (TextureImporter) -> (artifact id: '54c6baf67264a2c6fad946cc1267ba80') in 0.000507933 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Textures/BlueNoise16/L/LDR_LLL1_6.png using Guid(39451254daebd6d40b52899c1f1c0c1b) (TextureImporter) -> (artifact id: '4e79f7fcae0eabd8ca0b42a5f811c5e1') in 0.000380161 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/d_InputControl.png using Guid(399cd90f4e31041e692a7d3a8b1aa4d0) (TextureImporter) -> (artifact id: '9980cee7124764293811b57e16114d35') in 0.0003861 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/d_Shade@2x.png using Guid(49e4a0929afd1ae4283e4657bc636f9e) (TextureImporter) -> (artifact id: '7674327968b7c0593220d89bdf8c629d') in 0.000479747 seconds
+Start importing Packages/com.unity.addressables/Editor/BuildReportVisualizer/BuildReport Resources/Icons/PlatformWebGLIcon.png using Guid(49850dfe65879f949bd15bb7738b7bdf) (TextureImporter) -> (artifact id: '88eceeb709242275a8ce563020f886b3') in 0.00041997 seconds
+Start importing Packages/com.unity.ugui/Editor Resources/Textures/btn_AlignCapLine_Light.psd using Guid(49679f302ac6408697f6b9314a38985c) (TextureImporter) -> (artifact id: '9f2ef4be4b2df79f3363980851b120e0') in 0.00052941 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Editor/ShaderGraph/GraphTemplates/2D/2DSpriteLitTemplateThumbnail.png using Guid(494ba6900e1d9f34da743bb68ff82ddb) (TextureImporter) -> (artifact id: '613eb46b006fdf2ac05062c491334f74') in 0.011949995 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/d_ClearSky@2x.png using Guid(490d69b278eff784b85feca736d57389) (TextureImporter) -> (artifact id: 'a6c4c7e1dc00878f4d1ccf1b35343354') in 0.000602868 seconds
+Start importing Packages/com.unity.addressables/Editor/BuildReportVisualizer/BuildReport Resources/Icons/PlatformiOSIcon@2x.png using Guid(59549f72de25b4c46b48c01b3e64ec90) (TextureImporter) -> (artifact id: '7849ca41ab7a2b2ef0a9493f764e15ee') in 0.000444739 seconds
+Start importing Packages/com.unity.shadergraph/Editor/Resources/GraphView/Nodes/NodeChevronUp.png using Guid(59e85404e1156534e84e3f06ad9d3bff) (TextureImporter) -> (artifact id: 'a776d44aaf609eb0c7cb6488c7802a99') in 0.000509101 seconds
+Start importing Packages/com.unity.addressables/Editor/BuildReportVisualizer/BuildReport Resources/Icons/PlatformXboxOneIcon.png using Guid(596c9ec38e3138046aff034674a6887c) (TextureImporter) -> (artifact id: 'acce74fb3eb878a99a49e1fcd0d2663e') in 0.000425329 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Icons/MipLevels/d_Volume@16.png using Guid(6941712a966fa924d92b6855f339379e) (TextureImporter) -> (artifact id: '3beacd99e9758a4d22a904a16be078c1') in 0.000392915 seconds
+Start importing Packages/com.unity.ugui/Editor Resources/Textures/btn_AlignFlush.psd using Guid(691475c57a824010be0c6f474caeb7e1) (TextureImporter) -> (artifact id: '6e828fdbd646a0f9ead6ec1d905cf2ea') in 0.000518 seconds
+Start importing Packages/com.unity.addressables/Editor/BuildReportVisualizer/BuildReport Resources/Icons/PlatformPS4Icon@2x.png using Guid(69eef738ab4fa5d4c82e3f424ea1a5cd) (TextureImporter) -> (artifact id: 'f81315cca22b99347d087d62d165c43f') in 0.000512046 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/d_MediumAreaLight@2x.png using Guid(79474406bb16ef9439655eb4b419b6a8) (TextureImporter) -> (artifact id: '4eec9fba764ae087689c6d5b6583046b') in 0.00063874 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/Add@2x.png using Guid(79aba0b290c471c4ba3d3f818d4e9b15) (TextureImporter) -> (artifact id: '1236cb8d13154475ea211c2765d44cf6') in 0.000635502 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/RenderDoc@2x.png using Guid(89608b060fc7279479398a62e245a409) (TextureImporter) -> (artifact id: '6e53951b0a6146d0eab30d06cc1746ad') in 0.000648739 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/d_BlueSky.png using Guid(8991eaef2ed56cc45b9a80b50fbca5e2) (TextureImporter) -> (artifact id: '8d77a62f4172946967a7b958e9d05c03') in 0.000461738 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/d_LightPlacement_Icon On@128.png using Guid(89282aabe914d244b839ba4652477f23) (TextureImporter) -> (artifact id: '3bf1e53a3901ab05ebf60fdd0f88dd35') in 0.000802046 seconds
+Start importing Packages/com.unity.shadergraph/Editor/Resources/Icons/sg_subgraph_icon@2x.png using Guid(890b62dea83f90749a7d048c0e5c298b) (TextureImporter) -> (artifact id: '4d703110a53ed48681570dfecf9c8502') in 0.000740853 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Textures/BlueNoise16/L/LDR_LLL1_30.png using Guid(896d9004736809c4fb5973b7c12eb8b9) (TextureImporter) -> (artifact id: '7e21801f1453b3375596ba34af1c54c8') in 0.000401931 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Textures/FilmGrain/Medium03.png using Guid(9930fb4528622b34687b00bbe6883de7) (TextureImporter) -> (artifact id: 'c27eba6cc7dacfdba5ee53954b2d34c1') in 0.003183965 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Editor/Gizmos/Camera_Offscreen.png using Guid(99c1f1ec31ff9924e9a75aff82e6b986) (TextureImporter) -> (artifact id: '3d654b358d0169b4aa903b661118ca3e') in 0.000992838 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/d_RightArrow.png using Guid(99e5d180080c96940a65c6d906ff9131) (TextureImporter) -> (artifact id: 'b033da1d498d9d9630855fa32749a9e2') in 0.000604023 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/d_Camera2@2x.png using Guid(99d7e777338ab8f4ba890cc738794dba) (TextureImporter) -> (artifact id: 'ad6a94e157da3184eb18c6191c56e3ae') in 0.00059922 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/Axis@4x.png using Guid(a940917cc397643afb071010cb2143d9) (TextureImporter) -> (artifact id: '8761032d621ca3d6291e49789343e3c0') in 0.000508357 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/ChevronUp.png using Guid(a9fe7c3d19af4432b9ae2a5172f4ea72) (TextureImporter) -> (artifact id: 'b2253180cda8b044c9d1aaec21a8718c') in 0.000439145 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/d_Fluorescent.png using Guid(b95665ddb99de4945b528a188a1c41c7) (TextureImporter) -> (artifact id: '7ffb63ee14d2829cefb0c826c18c3a89') in 0.000438022 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/BrightSky.png using Guid(b93b6450b9bd1f44da176ac4a821c3e8) (TextureImporter) -> (artifact id: 'cef4716ef9260d7c8efb5366146dedaa') in 0.000443161 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Icons/MipLevels/RenderGraphViewer/PassInspector@32.png using Guid(b9ac6ad13d9312941912fc855a3bcc41) (TextureImporter) -> (artifact id: '98314d9de1341bc49d6e44e0e422755a') in 0.000485536 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Icons/MipLevels/RenderGraphViewer/d_PassInspector@32.png using Guid(b98f3689f42be914d9c9db64ff280951) (TextureImporter) -> (artifact id: 'b39ce5fdc422217950a00fb6ed06e20e') in 0.000479823 seconds
+Start importing Packages/com.unity.shadergraph/Editor/Resources/GraphView/Nodes/NodeChevronDown@2x.png using Guid(c951fed1cf039c7439a755e2ca108e4a) (TextureImporter) -> (artifact id: '2e405a8ea91a6a251cade0cb41706fd0') in 0.000524586 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/d_Orientation.png using Guid(c933c2bcad7ef46309fde7c1cf11b39a) (TextureImporter) -> (artifact id: 'f63b0b72173f33f5f157c2d93483b3ae') in 0.000409849 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/Position@4x.png using Guid(c998b283038914e699477f514ecb31ac) (TextureImporter) -> (artifact id: '8a1f7cfcdd9ba37e5f98795d968d9154') in 0.000471856 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Textures/BlueNoise16/L/LDR_LLL1_27.png using Guid(c989e1ed85cf7154caa922fec53e6af6) (TextureImporter) -> (artifact id: '8fdaf31bca228c1ba445ba23983a78e6') in 0.000389498 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Textures/BlueNoise16/L/LDR_LLL1_7.png using Guid(c94ad916058dff743b0f1c969ddbe660) (TextureImporter) -> (artifact id: '6a090773b2ac76a1bcd8492a7b7a943c') in 0.000380189 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Textures/BlueNoise16/L/LDR_LLL1_20.png using Guid(c9bd74624d8070f429e3f46d161f9204) (TextureImporter) -> (artifact id: 'b1392d4729d552a9b4a83f48410f6f08') in 0.000376726 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/Layout2.png using Guid(d9658be087f390f46bfefa8cb32bbaa6) (TextureImporter) -> (artifact id: '11262d57d927697c671f513c397d681e') in 0.000536243 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Editor/2D/Resources/InspectorIcons/ParametricLight.png using Guid(e957854850ccb7140a538f7a93f8761b) (TextureImporter) -> (artifact id: '4cf131e444159b35131e2984a5f8f83a') in 0.000461161 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Icons/MipLevels/d_VolumeProfile@256.png using Guid(e9cd351a12d48ed4caa2d4ed2d8f02b8) (TextureImporter) -> (artifact id: 'cb557a2d4c81a8a01d95934ccc2844d9') in 0.000793789 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/Rotation@2x.png using Guid(e9af78578671a3345b8cbf82f1f030b5) (TextureImporter) -> (artifact id: 'a9d91e99999199bc9d5be0ddfb612712') in 0.000713789 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/PostProcessing/LensFlareResource/Flare.png using Guid(f92291bf6b5265641ab4f39a5d41fbf4) (TextureImporter) -> (artifact id: '0a318e9661ba799fc4f857a1cd826338') in 0.000735215 seconds
+Start importing Packages/com.unity.ai.navigation/EditorResources/Overlay/NavigationOverlay@32.png using Guid(f9a2f623ba32a844da6de770f5ccf17f) (TextureImporter) -> (artifact id: '8b4bc40798cccae14a8f082663e6af40') in 0.000443764 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Textures/BayerMatrix.png using Guid(f9ee4ed84c1d10c49aabb9b210b0fc44) (TextureImporter) -> (artifact id: '6ef0d7aad8811b1159d9686acde33bc9') in 0.000398671 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/d_Pen@4x.png using Guid(0aec7c7bf99354f66bc2a1d18bd0b4d2) (TextureImporter) -> (artifact id: '4eb151113de3e48eec4adc501ff8e832') in 0.000503176 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/SunriseSunset@2x.png using Guid(1ade1fa63a0a72f46be69e4ae5e83314) (TextureImporter) -> (artifact id: '0c75baa5ef75bfb3dc423aaf24367322') in 0.00048704 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/d_Candlelight@2x.png using Guid(2ae1ad1a228a66a479d96cae55499c4a) (TextureImporter) -> (artifact id: '6bf2ae3c9002bd4ce5abefb5b442ef08') in 0.000492924 seconds
+Start importing Packages/com.unity.addressables/Editor/Icons/white_help@2x.png using Guid(2a1c92f384e631d4c95ab63b4d466677) (TextureImporter) -> (artifact id: 'c53a181dd9a4cfbe4e213c369a723ebc') in 0.000402027 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/Button.png using Guid(2a5d0a7febdc741039abf135883517e5) (TextureImporter) -> (artifact id: 'c383ea4c596aae0760c2677559c8b249') in 0.000395026 seconds
+Start importing Packages/com.unity.addressables/Editor/BuildReportVisualizer/BuildReport Resources/Icons/Button_LeftPanel_DarkTheme.png using Guid(3a0ce64154675d64ba2a3fdcb3e92949) (TextureImporter) -> (artifact id: 'a2532ee5653fcac0ead28aee78a88938') in 0.000409243 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/Gamepad@3x.png using Guid(4ae0b2f68c2464272b1b10105262b09b) (TextureImporter) -> (artifact id: '72b9a7214e164dc754479afdddf5e009') in 0.000458023 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Editor/2D/Resources/Sparkle.png using Guid(4a0aca3a5f2effb41b43cc0a1661d845) (TextureImporter) -> (artifact id: 'bccb3e19cb1598765a1ff7318f06bd36') in 0.002386209 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/d_Add Binding@4x.png using Guid(4a0ce0eda6ee74c669b13104649e1313) (TextureImporter) -> (artifact id: '3e875c8589db7fd06105325b2b2c76aa') in 0.000533861 seconds
+Start importing Packages/com.unity.addressables/Editor/BuildReportVisualizer/BuildReport Resources/Icons/PlatformSwitchIcon.png using Guid(5a5529cb00c9319488699e8367ff0f96) (TextureImporter) -> (artifact id: 'e9d20b7f279b11641f5ffa0efac4f6b6') in 0.000410944 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/AssetEditor/PackageResources/personal/foldoutBackground.png using Guid(5ab69704aa4984b49bc426da72fabbed) (TextureImporter) -> (artifact id: '506538014aad45a4d2b972da8d9103b2') in 0.000392921 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/Keyboard.png using Guid(5a5b9538c3aaa4587856e68a93a92a51) (TextureImporter) -> (artifact id: 'd905c27f23d2ba71af8978eeb341e247') in 0.00040436 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/MultiplayerEventSystem@64.png using Guid(6a237171e2346e3458db37eb0f90d42b) (TextureImporter) -> (artifact id: 'f9e039ec4e24bb282755b709c757e3e2') in 0.000482495 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/d_SunriseSunset.png using Guid(6ac733bfd834f4b4bab06306c63496f2) (TextureImporter) -> (artifact id: '40eea50b8ff9ec5c0457e1236c89a1bd') in 0.000425798 seconds
+Start importing Packages/com.unity.ai.navigation/EditorResources/Overlay/d_NavigationOverlay.png using Guid(6a986a181c9bc6043b057a3d15edbaad) (TextureImporter) -> (artifact id: 'aecf2f64cd9635a4566eec1b3d822ea2') in 0.000430102 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/LayoutVertical.png using Guid(6a9d49ac254f03c48bf5b6590f4d2a24) (TextureImporter) -> (artifact id: '82824527086dc94e50844c1eae00e0f7') in 0.000527141 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/IntenseAreaLight@2x.png using Guid(6abd010e1fd246f4585f513da25bcede) (TextureImporter) -> (artifact id: '82d34cc174e4a6ebc451b957c65233d4') in 0.000464904 seconds
+Start importing Packages/com.unity.ugui/Editor Resources/Textures/btn_AlignCenter_Light.psd using Guid(6ace62d30f494c948b71d5594afce11d) (TextureImporter) -> (artifact id: 'b7bc0a371bfd4f1bd1aed03a5ab1ddb4') in 0.000540428 seconds
+Start importing Packages/com.unity.render-pipelines.core/Runtime/Debugging/Prefabs/Textures/UIFoldoutClosed.png using Guid(7a0568d5e3330b84687e307992be3030) (TextureImporter) -> (artifact id: '935d919bb8b58f4bb2759c9f23d3643c') in 0.000577306 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/UpSnatchFocused.png using Guid(8a35aa5922ce5b746a734edf7de25ab4) (TextureImporter) -> (artifact id: 'a881b9f4700f4daef538d9857498c8d6') in 0.00052193 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Icons/MipLevels/RenderPipelineResources@128.png using Guid(8a682daa78f03b64597ad91aefef3dab) (TextureImporter) -> (artifact id: '9d30958b605c1e658a46096c00e09c24') in 0.000485075 seconds
+Start importing Packages/com.unity.addressables/Editor/BuildReportVisualizer/BuildReport Resources/Icons/PlatformiOSIcon.png using Guid(8a5c9b2d5cfd7b94caca42edabdf243f) (TextureImporter) -> (artifact id: '131365ff87a8c0b43878176a9ba6cd56') in 0.000420768 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/Environment.png using Guid(8accc003516bedf4b94c9c8a86b2b6a1) (TextureImporter) -> (artifact id: '85d3ea89e2718ffedf6365daa2dd5f93') in 0.000581107 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/Layout1.png using Guid(9a3173335e5741d438e81064b518bd80) (TextureImporter) -> (artifact id: '22ebd3327c7c408e49f22655d11b56a2') in 0.000529501 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/Link@2x.png using Guid(9a235474413e1f349b010b461c76efac) (TextureImporter) -> (artifact id: '2e1f996376671303309e18c73dee352f') in 0.000606351 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/Touch@3x.png using Guid(9ad5d5b6a25b749e78b4950eae0a8ec2) (TextureImporter) -> (artifact id: '7930f0c0b74cc63b9085847ca254c116') in 0.000452679 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/d_BrightSky@2x.png using Guid(9a278b70c427e8e4caa47a45a5d59de8) (TextureImporter) -> (artifact id: 'f27086399e0f2cf90c1791ea4e95fe71') in 0.000484452 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/Button@4x.png using Guid(aa356632480554016ab8f4200032981b) (TextureImporter) -> (artifact id: 'de8cea4dbbbc0f8748d75577e9918c3c') in 0.000466797 seconds
+Start importing Packages/com.unity.shadergraph/Editor/Resources/Icons/blackboard_dark@2x.png using Guid(aa09d480b04b3437db2ba9c9cdbc77be) (TextureImporter) -> (artifact id: '25dddae2d4aedc5946c7c28dd748277a') in 0.000484653 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/AssetEditor/PackageResources/personal/propertiesBackground.png using Guid(aa4c2360f910d46f497f75b4b6677358) (TextureImporter) -> (artifact id: 'b6f2e848be7cf796e6ac8dd14f176f12') in 0.000438677 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/SunPosition.png using Guid(aa1dfcb67e8bf664d8d8a1821c118281) (TextureImporter) -> (artifact id: '32d11a157222c22257b107ffe12210dd') in 0.000542289 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/ChevronDown.png using Guid(ba304f5556a3a4fac98d126883083e7e) (TextureImporter) -> (artifact id: '196e664cbeb2458896684510ce0ed251') in 0.000424103 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/ExteriorLight.png using Guid(baa2eadff75899140ac64277e3f60453) (TextureImporter) -> (artifact id: 'ede95888fbcf5a4a25a48f83db038730') in 0.000442241 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/d_SunPosition@2x.png using Guid(ba2d3d7d05fd3e046b6d413365e9b11e) (TextureImporter) -> (artifact id: '58780fad139b747e560c901970b8103d') in 0.000641248 seconds
+Start importing Packages/com.unity.ugui/Editor Resources/Textures/btn_AlignBottom.psd using Guid(ca51b19024094d1b87f3e07edb0a75fb) (TextureImporter) -> (artifact id: 'd404d842cfb415bdf29f6afab294c0f9') in 0.000526349 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Icons/MipLevels/VolumeProfile@64.png using Guid(ca82ccfbb5485754191e3778316b1424) (TextureImporter) -> (artifact id: '9778919f7a7080efa5985d7c6a96aa8a') in 0.000436717 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/d_Add Binding@3x.png using Guid(ca933a91c81734ddd88b17c8481ec1e9) (TextureImporter) -> (artifact id: '0687fb3b5657082fc77d0e0ecdb59ae2') in 0.000457516 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/Interactive Binding@3x.png using Guid(cac8742b1b72b44699fd1663287ca47d) (TextureImporter) -> (artifact id: '7c734c948b12831bc612198b3a49bbfc') in 0.000464824 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/d_Orientation@2x.png using Guid(cae83450c8b18499c8c0239edf8bcc31) (TextureImporter) -> (artifact id: '9aac2f9d75b5725912426e05b2c5806a') in 0.000429128 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/d_Add@2x.png using Guid(daa49a1f06460a04b9827dd6f0bace08) (TextureImporter) -> (artifact id: '5f0ef5833c3f666c98a809a7442f7e9d') in 0.000621009 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/d_Layout1.png using Guid(da974c4d40533154a83d57ca90e34bb8) (TextureImporter) -> (artifact id: '9d679bca671484fe289dbef95a3eaefd') in 0.000551458 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/d_Mouse@2x.png using Guid(daa9ba527d8a34b218224b8287ce11d3) (TextureImporter) -> (artifact id: '212126ebf03fcda0d38df2d5cdc2e5ca') in 0.00046525 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/Pen.png using Guid(ea8b7319643924985a9ee4ca18b8db59) (TextureImporter) -> (artifact id: '6ffcc6d5cfed4f1ed1c792d4ddfaeeee') in 0.000387815 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Textures/BlueNoise16/L/LDR_LLL1_29.png using Guid(fa042edbfc40fbd4bad0ab9d505b1223) (TextureImporter) -> (artifact id: '1053a1c240cbe8c354decea0a35758eb') in 0.000377264 seconds
+Start importing Packages/com.unity.ugui/Editor Resources/Textures/btn_AlignJustified_Light.psd using Guid(fa6bd40a216346b783a4cce741d277a5) (TextureImporter) -> (artifact id: '5e7b4a8ef8fafd4677148ed7a3d12288') in 0.000502937 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/d_BlueSky@2x.png using Guid(0b39f97ea330aac459e3fbb440f4b0d0) (TextureImporter) -> (artifact id: 'd5975010ab2cff77403d8f28b2e949ee') in 0.000479209 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/InteriorLight@2x.png using Guid(1bb3da4ea375c37498c93327420e6a01) (TextureImporter) -> (artifact id: 'a92cc635bd8318bc921f096901b4bbb3') in 0.000464318 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/Pen@3x.png using Guid(1bf9cdd4bc492489c8c7c6190785fc48) (TextureImporter) -> (artifact id: '656f4afa922956886be8de4bcf02ab1c') in 0.000443065 seconds
+Start importing Packages/com.unity.ai.navigation/EditorResources/Overlay/NavigationOverlay@128.png using Guid(1b6bf0e7b03fea94987a73d0cb14781b) (TextureImporter) -> (artifact id: '30cb20f34b575e1666dcbc98bf31693b') in 0.000691394 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Icons/RenderGraphViewer/ScriptLink@2x.png using Guid(2b2147ee427aa3a468912c85ba64c256) (TextureImporter) -> (artifact id: '27c36f37a12612abbb9947e0a2e536ba') in 0.000582497 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Shaders/FullscreenInvertColorsTemplate.png using Guid(2bf17b1d7445af843ad939d7527d8938) (TextureImporter) -> (artifact id: 'a751d1359efb84202eeb4ae4cf1471e4') in 0.011625154 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/d_Link@2x.png using Guid(2b06c35710693f640babb3dcf747d06a) (TextureImporter) -> (artifact id: '45c1023a56049491d40720abfa37630c') in 0.0007065 seconds
+Start importing Packages/com.unity.addressables/Editor/BuildReportVisualizer/BuildReport Resources/Icons/FileNoIcon.png using Guid(3b40c3dceab2ff14cb0e00e989fd8b27) (TextureImporter) -> (artifact id: 'e9db2eeba242f9a34f208d79ec139195') in 0.000441806 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/d_Interactive Binding@2x.png using Guid(3b78dc1763429489c9a1c70faf4f9a0e) (TextureImporter) -> (artifact id: 'fcf118be78613692b3b618e8386b2408') in 0.000432671 seconds
+Start importing Packages/com.unity.cloud.gltfast/Editor/UI/gltf-icon-bug.png using Guid(3b6a1cb26d29941f2a3cc902680e2e03) (TextureImporter) -> (artifact id: '3cb6bc3a2d826ad18a875ec3c691cd4a') in 0.001089795 seconds
+Start importing Packages/com.unity.addressables/Editor/BuildReportVisualizer/BuildReport Resources/Icons/PlatformSwitchIcon@2x.png using Guid(3beb0fb679dee7f4ca526692b1702fc4) (TextureImporter) -> (artifact id: '77251229027b05e2c38dd51543fcc440') in 0.00045795 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Textures/BlueNoise256/LDR_LLL1_1.png using Guid(4b7b083e6b6734e8bb2838b0b50a0bc8) (TextureImporter) -> (artifact id: 'e39e6e5f860a3737455da2c02f7548e0') in 0.00134446 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Icons/RenderGraphViewer/d_Buffer@2x.png using Guid(5b418afba2ea4e542bbc80b91d784d20) (TextureImporter) -> (artifact id: 'de4fa244eaa83d584c4618617ebbc29c') in 0.000463435 seconds
+Start importing Packages/com.unity.ai.navigation/EditorResources/Overlay/d_NavigationOverlay On@128.png using Guid(5b2a8a1e265e99b4fb8d77061490f397) (TextureImporter) -> (artifact id: '99eeeaa8bc34755b1af95a6cc8491eaa') in 0.000843283 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/LayoutVertical@2x.png using Guid(6b8067336fda8f040bb1f6d336ac08c5) (TextureImporter) -> (artifact id: 'f50e2a36496292f1d5d1eb39ff70e87e') in 0.00058804 seconds
+Start importing Packages/com.unity.shadergraph/Editor/Resources/Icons/SettingsIcons_hover.png using Guid(6bfd5f3c15e1ee7498657be747544985) (TextureImporter) -> (artifact id: '565f6db8b4deaa2ab0efa31874bf271d') in 0.000530372 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/TrackedPoseDriver@4x.png using Guid(7b8bfaee8f8631c4789ac62373cbc2d4) (TextureImporter) -> (artifact id: 'b2e34eecf9e506a99f1c7aaf6b2c73f0') in 0.00051903 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/Add Binding@3x.png using Guid(8be1fbf4b24de44c99840805bdae9e40) (TextureImporter) -> (artifact id: 'cc56ccd1132ef8b4694079abe1807101') in 0.00047236 seconds
+Start importing Packages/com.unity.ugui/Editor Resources/Textures/btn_AlignBaseLine.psd using Guid(8bc445bb79654bf496c92d0407840a92) (TextureImporter) -> (artifact id: 'da0ed902d590aa232aa37a638faf3036') in 0.00054081 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/PresetHair.png using Guid(9b18a8aa7da659344b2fce408beb09c3) (TextureImporter) -> (artifact id: 'fd5db84b4a6ad0b2d89d5aadd8f4412d') in 0.000592863 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Editor/Decal/Resources/DecalGizmo.png using Guid(9ba98ca4f0fc0754caca09e38af0cc0a) (TextureImporter) -> (artifact id: '17c59453111e9252dd06ff5c74710fca') in 0.000944187 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/d_Rotation.png using Guid(abc6ce87642c5c1478a4b107d1c5688a) (TextureImporter) -> (artifact id: '6779ea693595cdf94f9654ce4d50bbae') in 0.000545223 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/LeftArrow.png using Guid(aba72f93e9005054dba8cb368c0bf724) (TextureImporter) -> (artifact id: '75ea56330add805427ec679cce0e5c76') in 0.000543 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/d_Dpad@2x.png using Guid(ab9b5824ece1d443aa1f3a5672d9da86) (TextureImporter) -> (artifact id: '9e05536d83558ce44b2d365a6c57ba81') in 0.000426082 seconds
+Start importing Packages/com.unity.ugui/Editor Resources/Textures/btn_AlignMidline_Light.psd using Guid(bb42b2d967d6427983c901a4ffc8ecd9) (TextureImporter) -> (artifact id: 'd16831da3041c126b6161b176b0952aa') in 0.000525055 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/d_Pen.png using Guid(bb42fb9342e9d4e68b6cf39a2e071d9b) (TextureImporter) -> (artifact id: 'f8bc5ede8de3a1aca8183bbbcd0686eb') in 0.000395098 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/CloudySky.png using Guid(bb2cc982d8ff1aa4a9ce5ee5fdb29023) (TextureImporter) -> (artifact id: 'c7c0a6b287ac8bd27a65574583a12cdc') in 0.000440276 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/PresetKick_Left.png using Guid(bb3de0f2ada94114cbb7cc74829de16d) (TextureImporter) -> (artifact id: 'd585b63831ebb05fa88ee452e3aed9c1') in 0.000568731 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/Add Binding@2x.png using Guid(bb5fa99d6e9434c9ebf101c956021ee1) (TextureImporter) -> (artifact id: 'a35b1531dc4b1a7730edd4e63ba090a2') in 0.000431941 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Textures/BlueNoise256/LDR_LLL1_3.png using Guid(cb76dd40fa7654f9587f6a344f125c9a) (TextureImporter) -> (artifact id: 'b163ee9ab5e9a041a64b4cea08ee3f9b') in 0.00134899 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/d_renderdoc.png using Guid(cbe929948d88af7409a05054bc8187c7) (TextureImporter) -> (artifact id: '346ec96887d414a999a19b8b2ed20420') in 0.000593297 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/Add.png using Guid(cbaeed03e5416aa4bae23110b63a0c7d) (TextureImporter) -> (artifact id: '2706cba53977b13670998b3a8d8a5f63') in 0.000541269 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/ClearSky.png using Guid(db0321d865208c648ae843f39ab69004) (TextureImporter) -> (artifact id: 'aff46cb186be5789bf03446b510f0dcb') in 0.00044368 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/d_Rotation@2x.png using Guid(db7aaa162a1a5a54b826d15b5b20fb06) (TextureImporter) -> (artifact id: 'b989f187bfa12f649dc7263f23fdb781') in 0.000647 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/d_Button@4x.png using Guid(db3dc7a02ac6d4e90bbe905a44ac265b) (TextureImporter) -> (artifact id: '77a11cd23fdfd7c12335b5b10788a390') in 0.000536247 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/d_Interactive Binding.png using Guid(eb28fd64eacfa495c97193108f1cdf03) (TextureImporter) -> (artifact id: 'a2435a936d90c7b8eaf6c578b4a77c14') in 0.00038747 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/d_Shade.png using Guid(fbe2a78a665b37a4c9ec6623f42feb59) (TextureImporter) -> (artifact id: '90c15d9cd1a98b08bb81bb0511cf47f2') in 0.000422541 seconds
+Start importing Packages/com.unity.ugui/Editor Resources/Textures/SectionHeader_Dark.psd using Guid(fb5730e24283d0c489e5c7d0bee023d9) (TextureImporter) -> (artifact id: '9c176d517f3201e86c24e7bf34b51528') in 0.00051112 seconds
+Start importing Packages/com.unity.shadergraph/Editor/Resources/GraphView/Nodes/NodeChevronLeft.png using Guid(fb2ebd29216e958449e2ce6f37fde61d) (TextureImporter) -> (artifact id: '1b34162be0c6ab720f635889f212c849') in 0.000530915 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Editor/2D/Resources/LightCapBottomLeft.png using Guid(fb7e2c1cde476854fb7067dcca74511a) (TextureImporter) -> (artifact id: '233db4a567f23aea49ba922759bb7d33') in 0.000416687 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/d_LightPlacement_Icon@2x.png using Guid(fbee1c54ecff3d24e8f34e2bbd19390f) (TextureImporter) -> (artifact id: 'a96990f083b4b14a4cf26780adadf00e') in 0.000447865 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/d_CloudySky.png using Guid(0c24a3ead3381ee4cb4574c5be266d87) (TextureImporter) -> (artifact id: 'f9c8ef53913923efab80c7a395c0c28d') in 0.000428817 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/d_ExteriorLight@2x.png using Guid(0cd6ad04e58c5e1478f2925fa64f5b57) (TextureImporter) -> (artifact id: '8a86ed97f04a70acf273fef10c7fdf90') in 0.000463888 seconds
+Start importing Packages/com.unity.searcher/Editor/Resources/FlatSkin/SearchSmallDownOff@2x.png using Guid(0c2aa48d028b3134dbbb5ceb57bff5ac) (TextureImporter) -> (artifact id: 'c33d9b7e85d0bfc3954517802764c192') in 0.000510313 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/PresetBounce_Left.png using Guid(1c7013643e4df944492a5801199df62a) (TextureImporter) -> (artifact id: 'cac5a8596d26ca5561efa2676605d88e') in 0.000582173 seconds
+Start importing Packages/com.unity.addressables/Editor/BuildReportVisualizer/BuildReport Resources/Icons/PlatformLuminIcon.png using Guid(1ca1e1e405efb114fa23798a8d0c4c56) (TextureImporter) -> (artifact id: 'ccfd500cedbfc670944bc971d2775d22') in 0.000425565 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/LayoutCustom.png using Guid(1cc4a70085896c04bbfbf60669963fc8) (TextureImporter) -> (artifact id: '21cb461d1c9e1a6fcd49e7325a86e5d2') in 0.000546168 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/Orientation@4x.png using Guid(1c751eb104ad5407992e614361d5f81e) (TextureImporter) -> (artifact id: '7bf1e2b50f6d56b5ad01d4b806416dd9') in 0.000489485 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/Button@2x.png using Guid(1c37f00575bd6494ea726be5afee89b9) (TextureImporter) -> (artifact id: '4998c4b48a04ee6d4214ac6e3ffd4d2f') in 0.000417278 seconds
+Start importing Packages/com.unity.ai.navigation/EditorResources/Overlay/NavigationOverlay On@16.png using Guid(1c89fbe185cd30b4584ab3d5476807eb) (TextureImporter) -> (artifact id: 'd269f97b04a20616f815095ed2427145') in 0.000438906 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Textures/BlueNoise16/L/LDR_LLL1_25.png using Guid(1c3c6d69a645b804fa232004b96b7ad3) (TextureImporter) -> (artifact id: 'a0405b86a4ffb64405d3b93ddcc2bd74') in 0.00037461 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Icons/MipLevels/RenderGraphViewer/d_Resources@16.png using Guid(2c62c65904d676c489198d40c731befe) (TextureImporter) -> (artifact id: 'de8cf16d99b4ac313dfa97d28c09b232') in 0.00046523 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Textures/BlueNoise16/L/LDR_LLL1_4.png using Guid(2ca97df9d1801e84a8a8f2c53cb744f0) (TextureImporter) -> (artifact id: 'f14d06d5804ebb3dc8f02b4c0a7a8726') in 0.000378126 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Icons/MipLevels/d_RenderPipelineResources@32.png using Guid(4c30e5cf9793c0044a32b7aadd4f6f5e) (TextureImporter) -> (artifact id: '4bb3848e6a52b7b14fb1eb22a6ca31ee') in 0.000391806 seconds
+Start importing Packages/com.unity.shadergraph/Editor/Resources/GraphView/Nodes/NodeChevronDown.png using Guid(4c07dcabd0a45844eb0889811a49b9bf) (TextureImporter) -> (artifact id: 'e4ff6b57a88c806d92255f2aed07f960') in 0.000485696 seconds
+Start importing Packages/com.unity.ai.navigation/EditorResources/Overlay/d_NavigationOverlay On.png using Guid(5c5ac68c1bc4e104f9e987b9d1da4556) (TextureImporter) -> (artifact id: '1cc49a492b37f82f9849f7f4a3fe76a1') in 0.00040957 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Textures/FilmGrain/Large02.png using Guid(5cdee82a77d13994f83b8fdabed7c301) (TextureImporter) -> (artifact id: '0d678a8ac73bd7eba14591c50cc98576') in 0.003071417 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/Dpad@3x.png using Guid(6c1147159d9dc42948601b29dfc9a40c) (TextureImporter) -> (artifact id: '616d58da0bc8d2cc31f88856a949b0ed') in 0.000507006 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/PresetRim_Left.png using Guid(6cec6e582e857c24bb9432ed7ff629f8) (TextureImporter) -> (artifact id: 'fba59d61cb99fb2e7c59e6ab5bec882f') in 0.00053754 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Textures/BlueNoise16/L/LDR_LLL1_3.png using Guid(7ce2118f74614a94aa8a0cdf2e6062c3) (TextureImporter) -> (artifact id: '8b12c941393e71b23fb1defbf638f210') in 0.000389929 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Editor/2D/Resources/PixelPerfectCamera.png using Guid(7cba34d70552e144586a4d3ce4a33de5) (TextureImporter) -> (artifact id: '912e74518869a465cb8fa0c846bb8151') in 0.000592699 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Icons/MipLevels/RenderGraphViewer/Resources@32.png using Guid(8c00ff63cd786b34685fe28d9d37c2b9) (TextureImporter) -> (artifact id: 'cffb1f050bbcb93d687fd5146b7defbf') in 0.000501371 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/d_Duplicate@2x.png using Guid(8ca869dd944d5f54e9ec614b26f10dcb) (TextureImporter) -> (artifact id: 'f10604c9311191de9bd96a88779a79c6') in 0.00060441 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/d_LayoutCustom.png using Guid(8c3a606a4a147a34c952b98bf038c662) (TextureImporter) -> (artifact id: '7e4c64894ca77ff42000b07683ee1e10') in 0.000536849 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/LayoutHorizontal.png using Guid(8ccec084228b3b74a898f38126eb142f) (TextureImporter) -> (artifact id: '248c1857e7ca0b876881a5fe37ce8937') in 0.000517983 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/d_RenderDoc@2x.png using Guid(9c63b51755ec8c845b857cc73a35d606) (TextureImporter) -> (artifact id: 'c12ba8d9b74c7ed5a52efa9307f1c23b') in 0.000609208 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/d_LayoutHorizontal@2x.png using Guid(9cad92999ddfa304495b735a55c78329) (TextureImporter) -> (artifact id: '5d51f102d9ce884f997caa1941001db8') in 0.000571242 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/Pen@4x.png using Guid(acf10446fff184bb98db6350c2c43148) (TextureImporter) -> (artifact id: '57949eb66e654d6321bc20eccd3ebf32') in 0.00047865 seconds
+Start importing Packages/com.unity.addressables/Editor/BuildReportVisualizer/BuildReport Resources/Icons/Button_LeftPanel_LightTheme@2x.png using Guid(acf11b360a699d34383fb6a9d78eed8f) (TextureImporter) -> (artifact id: '36dff4872dd3782c106228520b6ec4dc') in 0.000435518 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Icons/MipLevels/d_Volume@64.png using Guid(aca45e74fd5117e499180b8f31d39395) (TextureImporter) -> (artifact id: 'ba77c2b9bca8287368186bb389ae4edb') in 0.000424796 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/d_ExteriorLight.png using Guid(acd8a3fb93bb04b4db467ca2090011ae) (TextureImporter) -> (artifact id: 'a7116516d700f58a9075b99bf4cb317a') in 0.000445004 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/DecorativeLight@2x.png using Guid(ac6bd7230f54da84b8ad3a0e2b14b3d9) (TextureImporter) -> (artifact id: '2a7ce8b808730102b7e451d0cf041a57') in 0.000497283 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/d_Position@4x.png using Guid(ac4c5ccb2785f4460b2dcfe47010c688) (TextureImporter) -> (artifact id: 'd2910cca5ccc7ce3e5afbf48687665a2') in 0.000494371 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Icons/MipLevels/Volume@128.png using Guid(bcac3edca050cd043be3942131c59be3) (TextureImporter) -> (artifact id: '7e672af6f0919bc4f276f4d3a99832fe') in 0.000538225 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/d_Remove@2x.png using Guid(cc27e95868ab32345b74b8338c01ebed) (TextureImporter) -> (artifact id: 'f05c71288814a9bfdcf7cda781c96b43') in 0.000578504 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/d_SunPosition.png using Guid(cc99218b39d91f84e9a26fac406c07e7) (TextureImporter) -> (artifact id: 'd466d3025fb44db3b0c8bcbc7850b38a') in 0.000564152 seconds
+Start importing Packages/com.unity.ai.navigation/Gizmos/NavMeshModifierVolume Icon.png using Guid(cc7b9475dbddf4f9088d327d6e10ab77) (TextureImporter) -> (artifact id: '0fd5cb18f5c614d8318ee8afad79afcd') in 0.001533393 seconds
+Start importing Packages/com.unity.addressables/Editor/BuildReportVisualizer/BuildReport Resources/Icons/Button_RightPanel_LightTheme@2x.png using Guid(dc63b9e976cf2234597ec4cef20023b4) (TextureImporter) -> (artifact id: '5f6483cbc8c9d9a055dc402e428e22d2') in 0.000445482 seconds
+Start importing Packages/com.unity.addressables/Editor/BuildReportVisualizer/BuildReport Resources/Icons/PlatformWSAPlayerIcon.png using Guid(ece4fc36f044b2544aa5ce4f5cd12422) (TextureImporter) -> (artifact id: '1552383fca85dfd70a4e04dd45a4a372') in 0.000413987 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/InputControl.png using Guid(ec85de66fa5b64dd984fdcc82f8f92b3) (TextureImporter) -> (artifact id: '8c58e6bc68cef21d49e07a3e44aa5750') in 0.000385281 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Icons/RenderGraphViewer/MemorylessTexture@2x.png using Guid(ec3a3173916c141d8962a4466c366be6) (TextureImporter) -> (artifact id: '311f7b4c8d4693a8f2a2a4e063f9c69f') in 0.000426314 seconds
+Start importing Packages/com.unity.ugui/Editor Resources/Gizmos/TMP - Sprite Asset Icon.psd using Guid(ec7c645d93308c04d8840982af12101e) (TextureImporter) -> (artifact id: '5adddc7fbb4fb49f2a021cca727b9512') in 0.000768344 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Editor/2D/Resources/Cinemachine.png using Guid(ec2f01df0bb1bfe459b5562a9e71c8d4) (TextureImporter) -> (artifact id: '4c65ab9d3f0e8f2034f8ce0143fb0f0e') in 0.00154763 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/d_CenterLight.png using Guid(fca3bc21b4600e04faaddb69c5fad81e) (TextureImporter) -> (artifact id: '94bc7325f1e3091d6a3e878f61d16385') in 0.000552807 seconds
+Start importing Packages/com.unity.ai.navigation/EditorResources/Overlay/NavigationOverlay@64.png using Guid(fc46fceb4d1516544b7f503337211f65) (TextureImporter) -> (artifact id: '585cfa92294954ab6d51bdb36d73435d') in 0.00048448 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/d_Joystick@3x.png using Guid(fcaa0d99df7c74f52afaa17a375dd393) (TextureImporter) -> (artifact id: '2e285fcaf2eb615ecfb9318e9748e168') in 0.000451031 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Textures/BlueNoise16/L/LDR_LLL1_11.png using Guid(fc3fa8f108657e14486697c9a84ccfc5) (TextureImporter) -> (artifact id: 'be02c9a00c2fc2465470910a373223d8') in 0.000370594 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/d_Duplicate.png using Guid(0d692588b1d40e9429620400bd5efe63) (TextureImporter) -> (artifact id: '6b38dbacabdbd4b16e74eb274e7a12b6') in 0.000572435 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/d_ChevronDown@4x.png using Guid(0de917098a5b848b1a371e570928ce10) (TextureImporter) -> (artifact id: '9bf4da4dd5ed0a2926033f8eceaba56f') in 0.000432163 seconds
+Start importing Packages/com.unity.ugui/Editor Resources/Textures/btn_AlignCapLine.psd using Guid(0d9a36012a224080966c7b55896aa0f9) (TextureImporter) -> (artifact id: '5946440b7c58da57ab68f1441281ea74') in 0.00052494 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/d_LightPlacement_Icon On.png using Guid(1d70e8f2a6df91f46a8e5b4f2378c8bc) (TextureImporter) -> (artifact id: '700a5c5fac07c47fcb4aec9d72b795e1') in 0.000431129 seconds
+Start importing Packages/com.unity.addressables/Editor/BuildReportVisualizer/BuildReport Resources/Icons/Button_LeftPanel_LightTheme.png using Guid(1d77c469320df374f98081de5d7673be) (TextureImporter) -> (artifact id: 'd18934c2b17e7d786af7b3c99fb48217') in 0.000423327 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/MediumAreaLight@2x.png using Guid(1dea3362fb2f72d46b7e3351a7e12ccf) (TextureImporter) -> (artifact id: '7c0369539c603c9ef51822908bb49496') in 0.000457644 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/PresetRim_Right.png using Guid(1deb07c84dc414b4388bf2970d0c9aef) (TextureImporter) -> (artifact id: '45f12b7bbee24a1e9e27a9b3886cf8b0') in 0.000577833 seconds
+Start importing Packages/com.unity.ai.navigation/EditorResources/Overlay/d_NavigationOverlay@64.png using Guid(1dacc9e843ef1444fad71e40913ef05c) (TextureImporter) -> (artifact id: 'b7069a00315d2e63ec12bd3c75a6dc5b') in 0.000482936 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Editor/ShaderGraph/GraphTemplates/UITKFullTemplate.png using Guid(3d3db9f7026a8344cbbc2353827bbbc0) (TextureImporter) -> (artifact id: '5e3c13b8b7cdf0e13d902ed9901da79f') in 0.037258641 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/d_Add Binding@2x.png using Guid(3d7dc8d6b9a96490b9aa433645712fdf) (TextureImporter) -> (artifact id: 'ca2383ed25d629ce97ae68f2327958b9') in 0.000688156 seconds
+Start importing Packages/com.unity.addressables/Editor/BuildReportVisualizer/BuildReport Resources/Icons/PlatformStandaloneOSXIcon@2x.png using Guid(4d343c92fcbf4c34eae9cee8dc8107b7) (TextureImporter) -> (artifact id: '96fde6904872e0988030b0b5f4f9a07a') in 0.00050104 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/d_Layout1@2x.png using Guid(4de5e4f3717b2c548bd8b90b6c628b2f) (TextureImporter) -> (artifact id: 'ff41a34a3d78888f1d17c03cec05ac3c') in 0.000729258 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/PresetBounce_Right.png using Guid(4dac1eeb02c481340801b3ac458b2976) (TextureImporter) -> (artifact id: '0c75887e34d6cfeed86c1ba5a45b3e91') in 0.000655057 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Textures/BlueNoise16/L/LDR_LLL1_15.png using Guid(4dcc0502f8586f941b5c4a66717205e8) (TextureImporter) -> (artifact id: 'd0c17a12c478887ae8fa377020b4d526') in 0.000417514 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/Gamepad@2x.png using Guid(4defb5292901c41f29313d9c9c87a7eb) (TextureImporter) -> (artifact id: 'f1698f62f42373635888200a850a5234') in 0.000464541 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/d_ChevronDown@3x.png using Guid(5d96795fd770f47d69d997b053532730) (TextureImporter) -> (artifact id: '95b1eb2da8fa233c99fe6a438ef027fc') in 0.00044991 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Icons/MipLevels/VolumeProfile@256.png using Guid(5d574cebaf0c0a34aa93a406ad65a61b) (TextureImporter) -> (artifact id: '2190054d9d3cdd6da5e48dd2d0e24182') in 0.000899326 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/Overcast@2x.png using Guid(5db8233d631a83f429153aaeb8f8333a) (TextureImporter) -> (artifact id: '22dad96eba6cddd5b05dd786e74f88dc') in 0.000566453 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/d_Stick@2x.png using Guid(5d0b11389336d4b16b96f147c9f912e2) (TextureImporter) -> (artifact id: 'e4033576c063799f66403105e1acf8ff') in 0.000467942 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/d_Touch@4x.png using Guid(6db042035460c4167a6ab8d1ac3c2681) (TextureImporter) -> (artifact id: '4af9a9881fc291643a86c222555d314c') in 0.000493261 seconds
+Start importing Packages/com.unity.shadergraph/Editor/Resources/Icons/sg_graph_icon_gray_light.png using Guid(7d62654fc399cc349a1ed7e0eab44ff0) (TextureImporter) -> (artifact id: '3c79fb9ddeda44d1d4f58dfac9bb0d3b') in 0.000454782 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/d_Joystick.png using Guid(7d4638131127c4f4382fb36cf16c52fe) (TextureImporter) -> (artifact id: '8b075a84603239aa91b9178aec296036') in 0.000411745 seconds
+Start importing Packages/com.unity.ai.navigation/EditorResources/Overlay/d_NavigationOverlay@2x.png using Guid(7d5867654fa2bf448b06f384143ceca7) (TextureImporter) -> (artifact id: '69040f2c60a38beec11eceb101a9ee70') in 0.000489981 seconds
+Start importing Packages/com.unity.shadergraph/Editor/Resources/GraphView/Nodes/PreviewExpand.png using Guid(8df757582ef08984bb6c3510e3a9fd1e) (TextureImporter) -> (artifact id: '1c6a97430183e61fd358cc17869b2561') in 0.000647589 seconds
+Start importing Packages/com.unity.render-pipelines.core/Runtime/Sampling/Textures/SobolBlueNoise/SobolOwenScrambled256.png using Guid(8d786511913a2cb4aacb1f9a188652b4) (TextureImporter) -> (artifact id: '3f1db5662740e6dd5682ab25bf5f79ab') in 0.001121605 seconds
+Start importing Packages/com.unity.ai.navigation/EditorResources/Overlay/d_NavigationOverlay@16.png using Guid(8d8d1929f2279804e8a744d3da25e23b) (TextureImporter) -> (artifact id: '0d272a252174d4b6b2ced83ff6c96e0a') in 0.000472466 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Textures/BlueNoise16/L/LDR_LLL1_16.png using Guid(9d92991794bb5864c8085468b97aa067) (TextureImporter) -> (artifact id: 'fa2989c04db2179f99cedf9bb4738bba') in 0.000402691 seconds
+Start importing Packages/com.unity.ai.navigation/EditorResources/Overlay/NavigationOverlay@2x.png using Guid(9d244ceb235342e4c8f308aa1f71be7e) (TextureImporter) -> (artifact id: 'c2c825eb78b15d3c87a54027c10a19aa') in 0.000469174 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightPlacement_Icon@256.png using Guid(9d1f3c50fbb907f4fba5095da15f23dc) (TextureImporter) -> (artifact id: '26a93f806aea68d0a8f52f83b023896e') in 0.001579272 seconds
+Start importing Packages/com.unity.render-pipelines.core/Runtime/Sampling/Textures/SobolBlueNoise/RankingTile256SPP.png using Guid(adf003e8db5aef64fa57c155f2e599be) (TextureImporter) -> (artifact id: '119a5d0635e9e19bdad2be99353f9677') in 0.001842289 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Icons/MipLevels/d_RenderPipelineResources@16.png using Guid(adc1ce28e3842cd46b0a08e5ac86a647) (TextureImporter) -> (artifact id: '4f317a9bf2c698dbb27fea7a72176d54') in 0.000406751 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Resources/Gizmos/ProbeTouchupVolume.png using Guid(adc48c15b6dfb444b865f111178f02ec) (TextureImporter) -> (artifact id: 'a8348e346da813f88d1138b867e0f026') in 0.00146409 seconds
+Start importing Packages/com.unity.shadergraph/Editor/Resources/GraphView/Nodes/PreviewCollapse@2x.png using Guid(adc5cc7a4034e1b41b9341fa124ef43d) (TextureImporter) -> (artifact id: '448cc651e5b89c33715d5e7710a0d017') in 0.000580439 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/PresetKick_Right.png using Guid(bdb354565d2d91e48a7ffe02442fe226) (TextureImporter) -> (artifact id: '3ece1dc4c22c52753d44eeba3dc0cfd4') in 0.000640939 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/LookDev@2x.png using Guid(bd76726ffb1eb94429fb8143429bd978) (TextureImporter) -> (artifact id: 'f08af559610a66fc90d6ee743c2267cc') in 0.000712682 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/VeryBrightSun.png using Guid(bdc9b1177bc1ad84e8532eec9f2dcc13) (TextureImporter) -> (artifact id: 'be8d391d7a64b438f298999374c17c66') in 0.000475037 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Textures/FilmGrain/Medium04.png using Guid(bd9e8c758250ef449a4b4bfaad7a2133) (TextureImporter) -> (artifact id: '3db5c417d03d452edd1672c158f3ce5b') in 0.003243856 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Icons/RenderGraphViewer/MultipleUsage.png using Guid(cd47f6d5edd2c7541a0baf3774a54fdd) (TextureImporter) -> (artifact id: 'c4e496113fefccb73d797afc0f685ff9') in 0.000671588 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Textures/FilmGrain/Thin02.png using Guid(dd77ffd079630404e879388999033049) (TextureImporter) -> (artifact id: 'ebfac5008f944dbc22f3907fbed815be') in 0.002916365 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/InteriorLight.png using Guid(ddbb35633e84dde4a93c6662f696ae4c) (TextureImporter) -> (artifact id: '8b91b00acca05e3376edc873366ab208') in 0.000527344 seconds
+Start importing Packages/com.unity.shadergraph/GraphTemplates/default_masks.png using Guid(dd2e21fb358baa649a7ad7d1d6e722f5) (TextureImporter) -> (artifact id: '5246b259c3124840151adcdfaecaa455') in 0.000370204 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/Candlelight.png using Guid(eda062bf16e02ef44a7bf24336ddac6c) (TextureImporter) -> (artifact id: 'd538fcdda78d7a2adb92527a04711202') in 0.000437011 seconds
+Start importing Packages/com.unity.ugui/Editor Resources/Textures/btn_AlignTop_Light.psd using Guid(ed041e68439749a69d0efa0e3d896c2e) (TextureImporter) -> (artifact id: 'e24fc90a3baf8af3aa885510787a91da') in 0.000545391 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Icons/RenderGraphViewer/d_AccelerationStructure@2x.png using Guid(ed7bb161ec84da2458e0b8730958a76a) (TextureImporter) -> (artifact id: 'e9b9d2d54f219bd7cce34a1086949bf2') in 0.000438461 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Textures/BlueNoise16/L/LDR_LLL1_8.png using Guid(ed5ea7ce59ca8ec4f9f14bf470a30f35) (TextureImporter) -> (artifact id: 'e07d92c7727e7ddf80fd8bcb8ca2c573') in 0.000399204 seconds
+Start importing Packages/com.unity.addressables/Editor/BuildReportVisualizer/BuildReport Resources/Icons/d_icon dropdown@2x.png using Guid(fd53d86c6d81efc45bd1caf873084af4) (TextureImporter) -> (artifact id: 'ffe31605de1ecb356fe317dd0cf5888c') in 0.000488734 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Textures/FilmGrain/Large01.png using Guid(fd2fd78b392986e42a12df2177d3b89c) (TextureImporter) -> (artifact id: '3599821450957439f5b1abb86d9b3fb7') in 0.002916489 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/d_ChevronUp@3x.png using Guid(0efecba65ae4341a385cd5d39a2af765) (TextureImporter) -> (artifact id: 'b6b74ca443ff39164716c45897e3a127') in 0.00046778 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/MediumAreaLight.png using Guid(1eb691390c444f14bac0868bd61fd451) (TextureImporter) -> (artifact id: 'e5059c770e5b5fe7f2b2a862bba78af8') in 0.000506879 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/DecorativeLight.png using Guid(1e2ae1a12a2a1ff498cab6444b9cd394) (TextureImporter) -> (artifact id: '5ef526d7b638aa1085647f5c04a4ef7c') in 0.000465789 seconds
+Start importing Packages/com.unity.shadergraph/Editor/Resources/GraphView/Nodes/BlackboardFieldExposed.png using Guid(2e8113252e9a1b245a81dc384ae86446) (TextureImporter) -> (artifact id: 'fcc8688cbf112f1b00449f516f2aaff4') in 0.000504217 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/Rotation.png using Guid(2ee66e81975377745aaa59fe11ad374d) (TextureImporter) -> (artifact id: '27cb3cbeb1cf70c2eb27e5d25f69c177') in 0.000568139 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/Axis@3x.png using Guid(2e27a82b5cc4e4ef98cbef2d0b324aed) (TextureImporter) -> (artifact id: 'bf68cc8673525302a5127f0180e3d834') in 0.000483456 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Icons/MipLevels/d_VolumeProfile@16.png using Guid(2e6a4056f58607f4cb9a7430cffd3cf0) (TextureImporter) -> (artifact id: '77be06122c53efda2652a7c880fdb11e') in 0.000368919 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Icons/MipLevels/Volume@64.png using Guid(3e1119a71344058429824f48f89db02a) (TextureImporter) -> (artifact id: '510cb56a22430f0733ac00a66020f92f') in 0.000426057 seconds
+Start importing Packages/com.unity.ugui/Editor Resources/Gizmos/TMP - Input Field Icon.psd using Guid(3ee40aa79cd242a5b53b0b0ca4f13f0f) (TextureImporter) -> (artifact id: '0862c736f78c37152edc7f8d9d4162f2') in 0.000824291 seconds
+Start importing Packages/com.unity.addressables/Editor/BuildReportVisualizer/BuildReport Resources/Icons/Button_LeftPanel_DarkTheme@2x.png using Guid(3e28d3bd17b418141b01b3d1f7cfd2c2) (TextureImporter) -> (artifact id: '8ba7e72426f0035f73aa0fc3b3b67e78') in 0.000473625 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Icons/MipLevels/Volume@16.png using Guid(3e0af3c90ea2a304c8c241c8fbdce6e5) (TextureImporter) -> (artifact id: '7556582df9aee88cd371f0c5e71743c0') in 0.000380494 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Icons/RenderGraphViewer/d_PassInspector@2x.png using Guid(4e0d4fae0554052489fc6918c357d43c) (TextureImporter) -> (artifact id: 'f22d1810b804603516fc56d9561c4161') in 0.000431652 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Icons/RenderGraphViewer/d_ScriptLink@2x.png using Guid(5e032f76278407d46a6a3dc6ff0bdc36) (TextureImporter) -> (artifact id: '3a54e3f24067756b74a7e263005db1ef') in 0.000702349 seconds
+Start importing Packages/com.unity.shadergraph/GraphTemplates/Cross Pipeline/TerrainStandardTemplateThumbnail.png using Guid(6e413e07ed366984daa954acc11e85e9) (TextureImporter) -> (artifact id: 'c88af15b4947e606df20ebba1bf7cf09') in 0.015706228 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/Touch@4x.png using Guid(6e9283a12f5b74afbba696cbb82f5e7f) (TextureImporter) -> (artifact id: '0ece16e0251cc490c53948fb81ed6e4f') in 0.000584409 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Icons/RenderGraphViewer/d_Resources@2x.png using Guid(6eb2e156a8a1f8149b02f135509f10ea) (TextureImporter) -> (artifact id: 'a00f2b80023877a100195cccbaacf9c7') in 0.000530139 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/MoonlessNight@2x.png using Guid(6e5a98aaa576d99408eeba30eb91eaba) (TextureImporter) -> (artifact id: 'e99d41e9a4bca8f24ee71eb32edda2d6') in 0.000521607 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Editor/2D/Resources/InspectorIcons/PointLight.png using Guid(6eaa9958d83ec43499e946a21edba283) (TextureImporter) -> (artifact id: '53b1f57b457b1246c44f4126286c2003') in 0.001004277 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/PostProcessing/LensFlareResource/Flare@2x.png using Guid(6e8cc863e4120a341b5e87a5235120c4) (TextureImporter) -> (artifact id: '1adda4649823cabf06c26b9c2108e8fd') in 0.000853948 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Icons/MipLevels/d_RenderPipelineResources@64.png using Guid(7ef0eb993d6c43645b45ffcf1c0a91f0) (TextureImporter) -> (artifact id: '361c25dbf34e8bfb6259d539bcfe1791') in 0.000415494 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/Axis.png using Guid(7e853779c8fed4ebf917a0de21c79602) (TextureImporter) -> (artifact id: 'a7f62354440095dede5193cc9043855b') in 0.000406313 seconds
+Start importing Packages/com.unity.shadergraph/Editor/Resources/GraphView/Nodes/NodeChevronLeft@2x.png using Guid(7e575e166832cb7478f6d674d896b778) (TextureImporter) -> (artifact id: '13c5324ebbccece552dbcfce14ddee7f') in 0.00055024 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/Mouse.png using Guid(9eb2b64988cb1443cab6da5dc5300d1c) (TextureImporter) -> (artifact id: 'e94578e26518bc8405a12621947c5374') in 0.000390859 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/d_Keyboard@3x.png using Guid(9ec4e316700da46b88741a8153b33963) (TextureImporter) -> (artifact id: '4d5298172bd60d178f8a53d29e7364fb') in 0.000469137 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/d_Fluorescent@2x.png using Guid(9ed59abbb45e72140ae72a33b30ea19e) (TextureImporter) -> (artifact id: '4abe3a52c2f48b31a13ef55a3f481cd8') in 0.000500701 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/d_Gamepad@3x.png using Guid(9e882b58df0964f5b90ff99cb481ee79) (TextureImporter) -> (artifact id: '45be3f6edc7a66dae153bbb6999b8832') in 0.00048128 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/Interactive Binding@4x.png using Guid(9e6c9e992a2ee4327bce1d6a8189cedb) (TextureImporter) -> (artifact id: '321d0e8aeee57fe4ab96efd2f9938e27') in 0.000555752 seconds
+Start importing Packages/com.unity.shadergraph/Editor/Resources/Icons/blackboard@2x.png using Guid(aed2175e23cfe426e8678485b004714e) (TextureImporter) -> (artifact id: '08f42d4a92f87c6374babcbd0f23a784') in 0.000531327 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/d_Gamepad@2x.png using Guid(bed935caee9524e6780614c2055bfd35) (TextureImporter) -> (artifact id: 'f0f1d5aa62e9b32578cc87a22cec5a55') in 0.000440547 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightPlacement_Icon@64.png using Guid(ce171bd6b515f1647a9a2c608ff705bb) (TextureImporter) -> (artifact id: 'bbf5c22109cd2d5cbfe1706937430833') in 0.000512019 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/d_Touch@2x.png using Guid(ceaa885da02f84da195f87de12535da6) (TextureImporter) -> (artifact id: '7de273b881aa7c75bcb629029a63a6da') in 0.000429774 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/AssetEditor/PackageResources/personal/actionTreeBackground.png using Guid(ce5f11cd993284c4f9c54f854bdc8c9c) (TextureImporter) -> (artifact id: '82e428e45a4fa56d9da3799c05946229') in 0.000391282 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/d_Orientation@4x.png using Guid(de98baf415a2c4d7dbe0de74cb6e171c) (TextureImporter) -> (artifact id: '8b20aaadb5d0875be3db1398eb7ae2f0') in 0.000526032 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Editor/Gizmos/Camera_Overlay.png using Guid(de8dba0dc20209d4086c0dd93ddf0dd4) (TextureImporter) -> (artifact id: '8e485a4cae7bcbd746f49a8685c18a6b') in 0.000909805 seconds
+Start importing Packages/com.unity.ugui/Editor Resources/Gizmos/TMP - Font Asset Icon.psd using Guid(ee148e281f3c41c5b4ff5f8a5afe5a6c) (TextureImporter) -> (artifact id: '620a4ca81811afe0a401882a2443b4ce') in 0.000850055 seconds
+Start importing Packages/com.unity.shadergraph/GraphTemplates/Cross Pipeline/LitParticleTemplateThumbnail.png using Guid(0f0c228bd0a3835428c403a8d1568ef5) (TextureImporter) -> (artifact id: 'a24a13ba9f80487bc25502c1ff63115c') in 0.061631071 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/Shade@2x.png using Guid(1f20ae185bcb2254a844ed304955beb3) (TextureImporter) -> (artifact id: '0719d1afcf6d5514b28d0e7d45619bd5') in 0.000763715 seconds
+Start importing Packages/com.unity.shadergraph/GraphTemplates/Subgraphs/SmallNoiseMask.tga using Guid(2fe31a8312ab8524ebd8601be367f0c8) (TextureImporter) -> (artifact id: '0541a656c4437c6999a98076c1d665a2') in 0.000463165 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/SunPosition@2x.png using Guid(2f75c34a5bc525545916fb8367422dd0) (TextureImporter) -> (artifact id: '42e126061d0c217aba78d11db117cc3b') in 0.000747372 seconds
+Start importing Packages/com.unity.ugui/Editor Resources/Gizmos/TMP - Text Component Icon.psd using Guid(2fd6421f253b4ef1a19526541f9ffc0c) (TextureImporter) -> (artifact id: '8751f4da0aa4c5de008e59fa8dd7c156') in 0.000881008 seconds
+Start importing Packages/com.unity.shadergraph/Editor/Resources/Icons/sg_subgraph_icon.png using Guid(2f2e2190c36a7b54295d734e567b3e44) (TextureImporter) -> (artifact id: '3fcc6baf76fed56983a620a8910a4c8d') in 0.000536087 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/LayoutCustom@2x.png using Guid(2fffe801f98fb314484382ea4affcf94) (TextureImporter) -> (artifact id: 'd082f7cd5c9aa1140b651d026e52fd07') in 0.000635489 seconds
+Start importing Packages/com.unity.addressables/Editor/BuildReportVisualizer/BuildReport Resources/Icons/PlatformtvOSIcon.png using Guid(3fd787210f08d364186b9df36062df04) (TextureImporter) -> (artifact id: '0a074e8d943af4fe53aef774c3bee696') in 0.00043126 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightUnitIcons/d_Candlelight.png using Guid(3f9a63faecec9a34c9ffbfedd9ac5c3b) (TextureImporter) -> (artifact id: '8b839f5db4b1fda232bf1a3513a64114') in 0.000504888 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/d_Remove.png using Guid(4ff71d806d58fd041be6e55d1d1ca70e) (TextureImporter) -> (artifact id: '6b496cb6697b73be4f5b696886a77dcb') in 0.000579226 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/Orientation@3x.png using Guid(5f09d534eb1414449a2758696bd4dd11) (TextureImporter) -> (artifact id: 'c041df741a70b3a03d8294b39eac50ef') in 0.000479474 seconds
+Start importing Packages/com.unity.ai.navigation/EditorResources/Overlay/d_NavigationOverlay@32.png using Guid(6f3c566cd9f63c9408d201ea50b51444) (TextureImporter) -> (artifact id: 'b61ccd52b1e1e2021934115116ac8fcc') in 0.000476398 seconds
+Start importing Packages/com.unity.addressables/Editor/BuildReportVisualizer/BuildReport Resources/Icons/PlatformStandaloneLinux64Icon@2x.png using Guid(7f70c9363a9fe92448d66c32c55352e9) (TextureImporter) -> (artifact id: 'd937f0c252777a9178078ab9b1059c31') in 0.000490179 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/Keyboard@4x.png using Guid(7fc0926499f7a4500b152d45397c44a4) (TextureImporter) -> (artifact id: '954ddc2ae9c7250c1b925315d43d665e') in 0.000621506 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Editor/2D/Resources/SceneViewIcons/GlobalLight.png using Guid(7f923c32ff8dfab40b5673135ddb6cd4) (TextureImporter) -> (artifact id: 'b6b85f5efcf89c6a2c74e26a211da218') in 0.001445868 seconds
+Start importing Packages/com.unity.addressables/Editor/BuildReportVisualizer/BuildReport Resources/Icons/PlatformtvOSIcon@2x.png using Guid(7f9793fab7c5a2d49a99acdc614bf45d) (TextureImporter) -> (artifact id: '574c172d2c4672662b6f02e5d91f52f8') in 0.000496061 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/Orientation.png using Guid(7fb7b46a8c63948d2b28dc394281bf5a) (TextureImporter) -> (artifact id: 'adbe13ef2e15e10644e2d306c3f99284') in 0.000423503 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/d_ChevronUp.png using Guid(7fad89501bb5c408e956934bf2eb8ae3) (TextureImporter) -> (artifact id: '68f752f10959806d34f80b2ed6b6ff17') in 0.000413822 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Editor/2D/Resources/InspectorIcons/GlobalLight.png using Guid(8f5dd14b314efbe4684329d8a14bbe38) (TextureImporter) -> (artifact id: '4bc514d1dbb000b1a9653bb8b8628f50') in 0.000494943 seconds
+Start importing Packages/com.unity.addressables/Editor/BuildReportVisualizer/BuildReport Resources/Icons/PlatformStadiaIcon.png using Guid(af91525c769cf6847bb9b9e32c74db73) (TextureImporter) -> (artifact id: '16eab133b4672644f2ba4573d925ef19') in 0.00045064 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Textures/BlueNoise16/L/LDR_LLL1_12.png using Guid(bfed3e498947fcb4890b7f40f54d85b9) (TextureImporter) -> (artifact id: '79d2749bf1482f8ade81ee075c445674') in 0.000409119 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/renderdoc.png using Guid(cf13fb90f91d2a545a00591d75b43bd8) (TextureImporter) -> (artifact id: 'f6a0dfefed65024ae06d8d5eef8f6197') in 0.000567571 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/AssetEditor/PackageResources/personal/actionTreeBackgroundWithoutBorder.png using Guid(cf632ed80bf1f46c980de6b1b8b903ef) (TextureImporter) -> (artifact id: '49ef7017a2390fc8ae75db0486415dc6') in 0.000413541 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightAnchor_Icon.png using Guid(df491817340312f439c32f95902ddee7) (TextureImporter) -> (artifact id: 'ebf17c32348d8ce50d21cd881910e23c') in 0.000657992 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/RightArrow.png using Guid(df4dc708bd8692446a6d5c3531ac377b) (TextureImporter) -> (artifact id: 'bf2c53101c9dab8bc01377b2510898b6') in 0.000560437 seconds
+Start importing Packages/com.unity.cloud.gltfast/Editor/UI/gltf-logo.png using Guid(dfde62efb4ba642ea968adab4e674d01) (TextureImporter) -> (artifact id: '498a857f320ccd7bce32d9df64ea7796') in 0.001568604 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/Icons/LightPlacement_Icon@16.png using Guid(ef06ba4eb3daf484f8b1a9e1ac266945) (TextureImporter) -> (artifact id: 'a83ca93bd28351c7ef49d9f17e6cb6ce') in 0.000508978 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/Icons/TrackedPoseDriver@2x.png using Guid(ff8479815905ce84e9ef610d926f28c8) (TextureImporter) -> (artifact id: 'f46827dfbb119ffb5b91e6f8cd85677a') in 0.000459477 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Textures/BlueNoise16/L/LDR_LLL1_28.png using Guid(ff47e5a0f105eb34883b973e51f4db62) (TextureImporter) -> (artifact id: 'bfecea6a635453687e6434f177ec01ae') in 0.000394832 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/AssetEditor/PackageResources/green.png using Guid(ffeba93637e654de6a5906b48520dc94) (TextureImporter) -> (artifact id: '604fbfde51cf18fc157b7ec8c4c9ee88') in 0.00040176 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/LookDev/Icons/d_LookDev@2x.png using Guid(ffdf80dc342e69344b2dccafe04c30ee) (TextureImporter) -> (artifact id: '7b0be893df8f7ce88933d42ee75351cf') in 0.00068571 seconds
+Start importing Packages/com.unity.render-pipelines.core/Runtime/Debug/ProbeSamplingDebugMesh.fbx using Guid(20be25aac4e22ee49a7db76fb3df6de2) (FBXImporter) -> (artifact id: 'ff53ec14bd68ba281aa66a739aa78c06') in 0.011593373 seconds
+Start importing Packages/com.unity.render-pipelines.core/Runtime/RenderPipelineResources/Mesh/SamplesFixture.fbx using Guid(b28fa67a0ff82c5478f27368dc627683) (FBXImporter)Launched and connected shader compiler UnityShaderCompiler after 0.01 seconds
+ -> (artifact id: 'ccd29c62c5bfe9da22ac3380e209f966') in 0.052045912 seconds
+Start importing Packages/com.unity.render-pipelines.core/Runtime/RenderPipelineResources/Mesh/UnityMaterialBall.fbx using Guid(39857cfad1651644682ff5b772e6e697) (FBXImporter) -> (artifact id: '983304b31053dcd281ea773a5e609402') in 0.038506329 seconds
+Start importing Packages/com.unity.render-pipelines.core/Runtime/RenderPipelineResources/Mesh/BackgroundMesh.fbx using Guid(b9ae429aca254fa41966db24b9e53232) (FBXImporter) -> (artifact id: '2ee2dc8639f15b1a4de94b3479eba0d9') in 0.00928589 seconds
+Start importing Packages/com.unity.render-pipelines.core/Runtime/RenderPipelineResources/Mesh/SamplesFloorSpotlight.fbx using Guid(1dbf28c1bb322474d981b2dc555e28b0) (FBXImporter) -> (artifact id: 'f513713b9bd4af12d78d0fec21e2a10a') in 0.008126478 seconds
+Start importing Packages/com.unity.render-pipelines.core/Runtime/RenderPipelineResources/Mesh/SamplesSpotlightModel.fbx using Guid(4e8732d4875cc0647b52b55a218072b6) (FBXImporter) -> (artifact id: '276c50106d439e98cf49f39622b23a55') in 0.013123303 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Resources/DebugProbe.fbx using Guid(9e1c97fc44f9a8744b61b58f72c56de4) (FBXImporter) -> (artifact id: '63d41b0a7ff89d6cdb444641096e815e') in 0.00711206 seconds
+Start importing Packages/com.unity.addressables/Editor/Diagnostics/Profiler/UXML/stylesheet.uss using Guid(f32ce06cf1ea74fd8b02fa04dee9692f) (ScriptedImporter) -> (artifact id: 'ca0699525f457c34557550a9f17ae35e') in 0.026571765 seconds
+Start importing Packages/com.unity.addressables/Editor/Diagnostics/Profiler/UXML/HelpDisplay.uxml using Guid(30d4862aba3fd4d4da9bec946a2af813) (ScriptedImporter) -> (artifact id: '48160969f10725b1a540b01e7280dccd') in 0.012707116 seconds
+Start importing Packages/com.unity.inputsystem/InputSystem/Editor/UITKAssetEditor/PackageResources/BindingPanelRowTemplate.uxml using Guid(449c8e5ca27af8e4a9db710c8be5e4df) (ScriptedImporter) -> (artifact id: '7f97df019d92dd9492592b408276fcc3') in 0.00399531 seconds
+Start importing Packages/com.unity.addressables/Editor/Diagnostics/Profiler/UXML/InspectorPane.uxml using Guid(85f61fd61986b405dbd5bc38da39f73d) (ScriptedImporter) -> (artifact id: '4501621ecc94294542c7f8c6d5e5255a') in 0.004985977 seconds
+Refreshing native plugins compatible for Editor in 0.10 ms, found 0 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=fc2752d032f5122f9807c326a7043390): Total: 1.370 seconds - Initiated by RefreshV2(NoUpdateAssetOptions)
+	Summary:
+		Imports: total=689 (actual=689, local cache=0, cache server=0)
+		Asset DB Process Time: managed=36 ms, native=1296 ms
+		Asset DB Callback time: managed=32 ms, native=5 ms
+		Scripting: domain reloads=0, domain reload time=0 ms, compile time=0 ms, other=0 ms
+		Project Asset Count: scripts=998, non-scripts=2087
+		Asset File Changes: new=1, changed=1, moved=0, deleted=0
+		Scan Filter Count: 1
+	InvokeCustomDependenciesCallbacks: 0.001ms
+	InvokePackagesCallback: 0.001ms
+	ApplyChangesToAssetFolders: 0.061ms
+	Scan: 63.090ms
+	OnSourceAssetsModified: 0.029ms
+	CategorizeAssetsWithTransientArtifact: 0.003ms
+	ProcessAssetsWithTransientArtifactChanges: 0.054ms
+	CategorizeAssets: 16.716ms
+	ImportOutOfDateAssets: 1248.911ms (-2.948ms without children)
+		ImportManagerImport: 1247.651ms (80.052ms without children)
+			ImportInProcess: 1165.688ms
+			UpdateCategorizedAssets: 1.911ms
+		ReloadNativeAssets: 0.013ms
+		UnloadImportedAssets: 0.312ms
+		ReloadImportedAssets: 3.276ms
+		EnsureUptoDateAssetsAreRegisteredWithGuidPM: 0.241ms
+		InitializingProgressBar: 0.004ms
+		PostProcessAllAssetNotificationsAddChangedAssets: 0.009ms
+		OnDemandSchedulerStart: 0.351ms
+	PostProcessAllAssets: 36.680ms
+	Hotreload: 0.452ms
+	GatherAllCurrentPrimaryArtifactRevisions: 0.069ms
+	UnloadStreamsBegin: 0.001ms
+	PersistCurrentRevisions: 0.502ms
+	UnloadStreamsEnd: 0.000ms
+	Untracked: 3.748ms
+
+Unloading 14 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 18 unused Assets / (43.5 KB). Loaded Objects now: 5393.
+Memory consumption went from 195.1 MB to 195.1 MB.
+Total: 5.624466 ms (FindLiveObjects: 0.115290 ms CreateObjectMapping: 0.055546 ms MarkObjects: 5.414472 ms  DeleteObjects: 0.038772 ms)
+
+Start importing ProjectSettings/ProjectSettings.asset using Guid(00000000000000004000000000000000) (LibraryAssetImporter) -> (artifact id: '71edd03a028184ab7d209b5bdc5fc1c9') in 0.000964087 seconds
+Start importing ProjectSettings/QualitySettings.asset using Guid(00000000000000009000000000000000) (LibraryAssetImporter) -> (artifact id: 'f7fd103557483dacfcec3f95e76c019f') in 0.00043775 seconds
+Start importing ProjectSettings/GraphicsSettings.asset using Guid(00000000000000006100000000000000) (LibraryAssetImporter) -> (artifact id: '828c4b8576131a1deff765a35c8c865e') in 0.000359004 seconds
+Refreshing native plugins compatible for Editor in 0.07 ms, found 0 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=d38aa80a6ee2e6175bc97c485f57c2ce): Total: 0.017 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/Scenes/Store.unity using Guid(6a2213220b0c9ea2caef6ca2288412d3) (DefaultImporter) -> (artifact id: '5981b411b0690c2a720a3382a5f72ffc') in 0.000363678 seconds
+Refreshing native plugins compatible for Editor in 0.08 ms, found 0 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=c594bdcb79a3a006eb9a8873cfc5560e): Total: 0.014 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing ProjectSettings/EditorBuildSettings.asset using Guid(0000000000000000b000000000000000) (LibraryAssetImporter) -> (artifact id: '3bdce2211a657b5db124c96bb75d472a') in 0.000491723 seconds
+Refreshing native plugins compatible for Editor in 0.09 ms, found 0 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=4a377736dbe572ce1b9e8c13328b5c6c): Total: 0.014 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Asset Pipeline Refresh (id=ff627164f5d8d10d1a8e02cd4d1ec32c): Total: 0.028 seconds - Initiated by RefreshV2(NoUpdateAssetOptions)
+Mini Market Unity configurado para Web/PWA; Android/iOS quedan preparados.
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace () (at /home/bokken/build/output/unity/unity/Runtime/Export/Scripting/StackTrace.cs:35)
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+MiniMarket.Editor.MiniMarketProjectBuilder:Configure () (at Assets/Editor/MiniMarketProjectBuilder.cs:25)
+
+(Filename: Assets/Editor/MiniMarketProjectBuilder.cs Line: 25)
+
+Batchmode quit successfully invoked - shutting down!
+The command could not be loaded, possibly because:
+  * You intended to execute a .NET application:
+      The application 'build-server' does not exist.
+  * You intended to execute a .NET SDK command:
+      No .NET SDKs were found.
+
+Download a .NET SDK:
+https://aka.ms/dotnet-download
+
+Learn about SDK resolution:
+https://aka.ms/dotnet/sdk-not-found
+[Physics::Module] Cleanup current backend.
+[Physics::Module] Id: 0xf2b8ea05
+Input System module state changed to: ShutdownInProgress.
+Input System polling thread exited.
+Input System module state changed to: Shutdown.
+[Licensing::IpcConnector] LicenseClient-ferney_oliveros-6000.3.23-notifications channel disconnected successfully.
+[Licensing::IpcConnector] LicenseClient-ferney_oliveros-6000.3.23 channel disconnected successfully.
+AcceleratorClientConnectionCallback - disconnected - :0
+[40m[32minfo[39m[22m[49m: Microsoft.Hosting.Lifetime[0]
+      Application is shutting down...
+[40m[32minfo[39m[22m[49m: Unity.ILPP.Runner.PostProcessingAssemblyLoadContext[0]
+      ALC ILPP context 1 is unloading
+Cleanup mono
+debugger-agent: Unable to listen on 41
+Exiting batchmode successfully now!

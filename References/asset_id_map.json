@@ -1,0 +1,484 @@
+{
+  "schemaVersion": 2,
+  "frozenAt": "2026-09-02",
+  "status": "frozen",
+  "policy": [
+    "Canonical IDs are permanent and must not be reassigned to a different identity.",
+    "Existing GLB files remain under their current names; this map provides the stable external IDs.",
+    "Character mappings target the current production LOD0 files used as technical donors.",
+    "The active game roster contains exactly three female customers; CustomerFemale04 is retired and must not be spawned or reassigned.",
+    "Hair and hat mappings include every current body-specific fit.",
+    "Any future path migration must preserve these canonical IDs and be recorded as a new schema version."
+  ],
+  "bodyVariantFolders": {
+    "AdultMale": "adult-man",
+    "AdultFemale": "adult-woman",
+    "Boy": "boy",
+    "Girl": "girl"
+  },
+  "characterOrder": [
+    "AdultMale",
+    "AdultFemale",
+    "Boy",
+    "Girl",
+    "CustomerFemale01",
+    "CustomerFemale02",
+    "CustomerFemale03",
+    "CustomerMale01",
+    "CustomerMale02"
+  ],
+  "characters": [
+    {
+      "id": "AdultMale",
+      "runtimeRegistryId": "owner_man",
+      "lod": 0,
+      "repositoryAsset": "public/models/market/characters/owner_man.glb",
+      "runtimeAsset": "/models/market/characters/owner_man.glb",
+      "baselineSha256AtFreeze": "c862ab99c0584cc978fdd0bf7b4188d63943e397fbc7a64324b864b9728e8aa9",
+      "references": [
+        "References/Characters/OwnerCast_TurnaroundMosaic.png",
+        "References/Characters/AdultMale_TurnaroundMosaic.png",
+        "References/Characters/AdultMale_ActionPoseMosaic.png",
+        "References/Other/Animation_ActionCatalog_Mosaic.png"
+      ]
+    },
+    {
+      "id": "AdultFemale",
+      "runtimeRegistryId": "owner_woman",
+      "lod": 0,
+      "repositoryAsset": "public/models/market/characters/owner_woman.glb",
+      "runtimeAsset": "/models/market/characters/owner_woman.glb",
+      "baselineSha256AtFreeze": "3a3f52225d2bb34a172238d7195c46877cd67063287edf2ae8b39572e827e546",
+      "references": ["References/Characters/OwnerCast_TurnaroundMosaic.png"]
+    },
+    {
+      "id": "Boy",
+      "runtimeRegistryId": "owner_boy",
+      "lod": 0,
+      "repositoryAsset": "public/models/market/characters/owner_boy.glb",
+      "runtimeAsset": "/models/market/characters/owner_boy.glb",
+      "baselineSha256AtFreeze": "7ee8102635f13a2a8657475a301d510cbcbcd7094ca138addbb4bde4163ed261",
+      "references": ["References/Characters/OwnerCast_TurnaroundMosaic.png"]
+    },
+    {
+      "id": "Girl",
+      "runtimeRegistryId": "owner_girl",
+      "lod": 0,
+      "repositoryAsset": "public/models/market/characters/owner_girl.glb",
+      "runtimeAsset": "/models/market/characters/owner_girl.glb",
+      "baselineSha256AtFreeze": "d85f9f5f63d269f317025269b2f5758b5021117392620fcc178e4834a6e4b6cd",
+      "references": ["References/Characters/OwnerCast_TurnaroundMosaic.png"]
+    },
+    {
+      "id": "CustomerFemale01",
+      "runtimeRegistryId": "customer_woman_young",
+      "lod": 0,
+      "repositoryAsset": "public/models/market/customers/customer_03_woman_young.glb",
+      "runtimeAsset": "/models/market/customers/customer_03_woman_young.glb",
+      "baselineSha256AtFreeze": "f34de4071fa33d45948b8343f75bdacd7e21458d8a53f7b16b4dc9dabb853612",
+      "references": ["References/Characters/CustomerFemale01_ActionMosaic.png"]
+    },
+    {
+      "id": "CustomerFemale02",
+      "runtimeRegistryId": "customer_woman_adult",
+      "lod": 0,
+      "repositoryAsset": "public/models/market/customers/customer_04_woman_adult.glb",
+      "runtimeAsset": "/models/market/customers/customer_04_woman_adult.glb",
+      "baselineSha256AtFreeze": "e1ec630471a4f8aaa68ec44f0f0a22b4b79cba86438adffa33055cf572cb8b95",
+      "references": ["References/Characters/CustomerFemale02_ActionMosaic.png"]
+    },
+    {
+      "id": "CustomerFemale03",
+      "runtimeRegistryId": "customer_woman_mature",
+      "lod": 0,
+      "repositoryAsset": "public/models/market/customers/customer_05_woman_mature.glb",
+      "runtimeAsset": "/models/market/customers/customer_05_woman_mature.glb",
+      "baselineSha256AtFreeze": "6e03f6977c03dafbd0a9af63d290fb1e32d4e0d28dd184efbf6c28e0a3f817e9",
+      "references": ["References/Characters/CustomerFemale03_ActionMosaic.png"]
+    },
+    {
+      "id": "CustomerMale01",
+      "runtimeRegistryId": "customer_man_young",
+      "lod": 0,
+      "repositoryAsset": "public/models/market/customers/customer_01_man_young.glb",
+      "runtimeAsset": "/models/market/customers/customer_01_man_young.glb",
+      "baselineSha256AtFreeze": "897b2f19a9ce9eff9ca2575a1980b13f6860d8dea1eb2d437a9d1923546e427e",
+      "references": ["References/Characters/CustomerMale01_ActionMosaic.png"]
+    },
+    {
+      "id": "CustomerMale02",
+      "runtimeRegistryId": "customer_man_senior",
+      "lod": 0,
+      "repositoryAsset": "public/models/market/customers/customer_02_man_senior.glb",
+      "runtimeAsset": "/models/market/customers/customer_02_man_senior.glb",
+      "baselineSha256AtFreeze": "de4fe6c0581bd5a106e01062861ff0cfd29023b878f3eaf63484d32cf2cfb3ac",
+      "references": ["References/Characters/CustomerMale02_ActionMosaic.png"]
+    }
+  ],
+  "retiredCharacters": [
+    {
+      "id": "CustomerFemale04",
+      "status": "retired-not-in-active-roster",
+      "reason": "Roster correction: the game has three female customers, not four.",
+      "formerRuntimeRegistryId": "customer_woman_senior",
+      "legacyRepositoryAsset": "public/models/market/customers/customer_06_woman_senior.glb",
+      "legacyReference": "References/Characters/CustomerFemale04_ActionMosaic.png",
+      "reassignmentForbidden": true
+    }
+  ],
+  "hairOrder": [
+    "Hair_01_SidePart", "Hair_02_Fade", "Hair_03_Wavy", "Hair_04_SlickBack",
+    "Hair_05_Bob", "Hair_06_Ponytail", "Hair_07_LongWavy", "Hair_08_Bun",
+    "Hair_09_MessyMale", "Hair_10_CurlyMale", "Hair_11_SideSweepMale", "Hair_12_SpikyMale",
+    "Hair_13_FemaleBobBangs", "Hair_14_Pigtails", "Hair_15_SideBraid", "Hair_16_HighPonytail"
+  ],
+  "hair": [
+    {
+      "id": "Hair_01_SidePart",
+      "order": 1,
+      "runtimeRegistryId": "hair_01_short_side_part",
+      "currentInternalFilename": "side-part.glb",
+      "variants": {
+        "AdultMale": "public/models/market/hair/adult-man/side-part.glb",
+        "AdultFemale": "public/models/market/hair/adult-woman/side-part.glb",
+        "Boy": "public/models/market/hair/boy/side-part.glb",
+        "Girl": "public/models/market/hair/girl/side-part.glb"
+      }
+    },
+    {
+      "id": "Hair_02_Fade",
+      "order": 2,
+      "runtimeRegistryId": "hair_02_fade",
+      "currentInternalFilename": "fade.glb",
+      "variants": {
+        "AdultMale": "public/models/market/hair/adult-man/fade.glb",
+        "AdultFemale": "public/models/market/hair/adult-woman/fade.glb",
+        "Boy": "public/models/market/hair/boy/fade.glb",
+        "Girl": "public/models/market/hair/girl/fade.glb"
+      }
+    },
+    {
+      "id": "Hair_03_Wavy",
+      "order": 3,
+      "runtimeRegistryId": "hair_03_waves",
+      "currentInternalFilename": "waves.glb",
+      "variants": {
+        "AdultMale": "public/models/market/hair/adult-man/waves.glb",
+        "AdultFemale": "public/models/market/hair/adult-woman/waves.glb",
+        "Boy": "public/models/market/hair/boy/waves.glb",
+        "Girl": "public/models/market/hair/girl/waves.glb"
+      }
+    },
+    {
+      "id": "Hair_04_SlickBack",
+      "order": 4,
+      "runtimeRegistryId": "hair_04_swept",
+      "currentInternalFilename": "swept.glb",
+      "mappingNote": "The frozen SlickBack ID maps to the current internal swept asset; no file rename is performed.",
+      "variants": {
+        "AdultMale": "public/models/market/hair/adult-man/swept.glb",
+        "AdultFemale": "public/models/market/hair/adult-woman/swept.glb",
+        "Boy": "public/models/market/hair/boy/swept.glb",
+        "Girl": "public/models/market/hair/girl/swept.glb"
+      }
+    },
+    {
+      "id": "Hair_05_Bob",
+      "order": 5,
+      "runtimeRegistryId": "hair_05_bob",
+      "currentInternalFilename": "bob.glb",
+      "variants": {
+        "AdultMale": "public/models/market/hair/adult-man/bob.glb",
+        "AdultFemale": "public/models/market/hair/adult-woman/bob.glb",
+        "Boy": "public/models/market/hair/boy/bob.glb",
+        "Girl": "public/models/market/hair/girl/bob.glb"
+      }
+    },
+    {
+      "id": "Hair_06_Ponytail",
+      "order": 6,
+      "runtimeRegistryId": "hair_06_ponytail",
+      "currentInternalFilename": "ponytail.glb",
+      "variants": {
+        "AdultMale": "public/models/market/hair/adult-man/ponytail.glb",
+        "AdultFemale": "public/models/market/hair/adult-woman/ponytail.glb",
+        "Boy": "public/models/market/hair/boy/ponytail.glb",
+        "Girl": "public/models/market/hair/girl/ponytail.glb"
+      }
+    },
+    {
+      "id": "Hair_07_LongWavy",
+      "order": 7,
+      "runtimeRegistryId": "hair_07_long_wavy",
+      "currentInternalFilename": "long-wavy.glb",
+      "variants": {
+        "AdultMale": "public/models/market/hair/adult-man/long-wavy.glb",
+        "AdultFemale": "public/models/market/hair/adult-woman/long-wavy.glb",
+        "Boy": "public/models/market/hair/boy/long-wavy.glb",
+        "Girl": "public/models/market/hair/girl/long-wavy.glb"
+      }
+    },
+    {
+      "id": "Hair_08_Bun",
+      "order": 8,
+      "runtimeRegistryId": "hair_08_bun",
+      "currentInternalFilename": "bun.glb",
+      "variants": {
+        "AdultMale": "public/models/market/hair/adult-man/bun.glb",
+        "AdultFemale": "public/models/market/hair/adult-woman/bun.glb",
+        "Boy": "public/models/market/hair/boy/bun.glb",
+        "Girl": "public/models/market/hair/girl/bun.glb"
+      }
+    },
+    {
+      "id": "Hair_09_MessyMale",
+      "order": 9,
+      "runtimeRegistryId": "hair_09_messy",
+      "currentInternalFilename": "messy.glb",
+      "variants": {
+        "AdultMale": "public/models/market/hair/adult-man/messy.glb",
+        "AdultFemale": "public/models/market/hair/adult-woman/messy.glb",
+        "Boy": "public/models/market/hair/boy/messy.glb",
+        "Girl": "public/models/market/hair/girl/messy.glb"
+      }
+    },
+    {
+      "id": "Hair_10_CurlyMale",
+      "order": 10,
+      "runtimeRegistryId": "hair_10_curls",
+      "currentInternalFilename": "curls.glb",
+      "variants": {
+        "AdultMale": "public/models/market/hair/adult-man/curls.glb",
+        "AdultFemale": "public/models/market/hair/adult-woman/curls.glb",
+        "Boy": "public/models/market/hair/boy/curls.glb",
+        "Girl": "public/models/market/hair/girl/curls.glb"
+      }
+    },
+    {
+      "id": "Hair_11_SideSweepMale",
+      "order": 11,
+      "runtimeRegistryId": "hair_11_short_fringe",
+      "currentInternalFilename": "short-fringe.glb",
+      "mappingNote": "Known nominal difference: SideSweepMale maps to the current short-fringe asset; no file rename is performed.",
+      "variants": {
+        "AdultMale": "public/models/market/hair/adult-man/short-fringe.glb",
+        "AdultFemale": "public/models/market/hair/adult-woman/short-fringe.glb",
+        "Boy": "public/models/market/hair/boy/short-fringe.glb",
+        "Girl": "public/models/market/hair/girl/short-fringe.glb"
+      }
+    },
+    {
+      "id": "Hair_12_SpikyMale",
+      "order": 12,
+      "runtimeRegistryId": "hair_12_quiff",
+      "currentInternalFilename": "quiff.glb",
+      "mappingNote": "Known nominal difference: SpikyMale maps to the current quiff asset; no file rename is performed.",
+      "variants": {
+        "AdultMale": "public/models/market/hair/adult-man/quiff.glb",
+        "AdultFemale": "public/models/market/hair/adult-woman/quiff.glb",
+        "Boy": "public/models/market/hair/boy/quiff.glb",
+        "Girl": "public/models/market/hair/girl/quiff.glb"
+      }
+    },
+    {
+      "id": "Hair_13_FemaleBobBangs",
+      "order": 13,
+      "runtimeRegistryId": "hair_13_blunt_bob",
+      "currentInternalFilename": "blunt-bob.glb",
+      "mappingNote": "The frozen FemaleBobBangs ID maps to the current internal blunt-bob asset.",
+      "variants": {
+        "AdultMale": "public/models/market/hair/adult-man/blunt-bob.glb",
+        "AdultFemale": "public/models/market/hair/adult-woman/blunt-bob.glb",
+        "Boy": "public/models/market/hair/boy/blunt-bob.glb",
+        "Girl": "public/models/market/hair/girl/blunt-bob.glb"
+      }
+    },
+    {
+      "id": "Hair_14_Pigtails",
+      "order": 14,
+      "runtimeRegistryId": "hair_14_pigtails",
+      "currentInternalFilename": "pigtails.glb",
+      "variants": {
+        "AdultMale": "public/models/market/hair/adult-man/pigtails.glb",
+        "AdultFemale": "public/models/market/hair/adult-woman/pigtails.glb",
+        "Boy": "public/models/market/hair/boy/pigtails.glb",
+        "Girl": "public/models/market/hair/girl/pigtails.glb"
+      }
+    },
+    {
+      "id": "Hair_15_SideBraid",
+      "order": 15,
+      "runtimeRegistryId": "hair_15_braid",
+      "currentInternalFilename": "braid.glb",
+      "variants": {
+        "AdultMale": "public/models/market/hair/adult-man/braid.glb",
+        "AdultFemale": "public/models/market/hair/adult-woman/braid.glb",
+        "Boy": "public/models/market/hair/boy/braid.glb",
+        "Girl": "public/models/market/hair/girl/braid.glb"
+      }
+    },
+    {
+      "id": "Hair_16_HighPonytail",
+      "order": 16,
+      "runtimeRegistryId": "hair_16_high_ponytail",
+      "currentInternalFilename": "high-ponytail.glb",
+      "variants": {
+        "AdultMale": "public/models/market/hair/adult-man/high-ponytail.glb",
+        "AdultFemale": "public/models/market/hair/adult-woman/high-ponytail.glb",
+        "Boy": "public/models/market/hair/boy/high-ponytail.glb",
+        "Girl": "public/models/market/hair/girl/high-ponytail.glb"
+      }
+    }
+  ],
+  "hatOrder": [
+    "Hat_01_RedPanda", "Hat_02_Fox", "Hat_03_Chicken", "Hat_04_Owl",
+    "Hat_05_Elephant", "Hat_06_Rhino", "Hat_07_Giraffe", "Hat_08_Panda",
+    "Hat_09_Frog", "Hat_10_Cow", "Hat_11_Rabbit", "Hat_12_Capybara"
+  ],
+  "hats": [
+    {
+      "id": "Hat_01_RedPanda",
+      "order": 1,
+      "runtimeRegistryId": "hat_red-panda",
+      "currentInternalFilename": "red-panda.glb",
+      "variants": {
+        "AdultMale": "public/models/market/hats/adult-man/red-panda.glb",
+        "AdultFemale": "public/models/market/hats/adult-woman/red-panda.glb",
+        "Boy": "public/models/market/hats/boy/red-panda.glb",
+        "Girl": "public/models/market/hats/girl/red-panda.glb"
+      }
+    },
+    {
+      "id": "Hat_02_Fox",
+      "order": 2,
+      "runtimeRegistryId": "hat_red-fox",
+      "currentInternalFilename": "red-fox.glb",
+      "variants": {
+        "AdultMale": "public/models/market/hats/adult-man/red-fox.glb",
+        "AdultFemale": "public/models/market/hats/adult-woman/red-fox.glb",
+        "Boy": "public/models/market/hats/boy/red-fox.glb",
+        "Girl": "public/models/market/hats/girl/red-fox.glb"
+      }
+    },
+    {
+      "id": "Hat_03_Chicken",
+      "order": 3,
+      "runtimeRegistryId": "hat_chicken",
+      "currentInternalFilename": "chicken.glb",
+      "variants": {
+        "AdultMale": "public/models/market/hats/adult-man/chicken.glb",
+        "AdultFemale": "public/models/market/hats/adult-woman/chicken.glb",
+        "Boy": "public/models/market/hats/boy/chicken.glb",
+        "Girl": "public/models/market/hats/girl/chicken.glb"
+      }
+    },
+    {
+      "id": "Hat_04_Owl",
+      "order": 4,
+      "runtimeRegistryId": "hat_owl",
+      "currentInternalFilename": "owl.glb",
+      "variants": {
+        "AdultMale": "public/models/market/hats/adult-man/owl.glb",
+        "AdultFemale": "public/models/market/hats/adult-woman/owl.glb",
+        "Boy": "public/models/market/hats/boy/owl.glb",
+        "Girl": "public/models/market/hats/girl/owl.glb"
+      }
+    },
+    {
+      "id": "Hat_05_Elephant",
+      "order": 5,
+      "runtimeRegistryId": "hat_elephant",
+      "currentInternalFilename": "elephant.glb",
+      "variants": {
+        "AdultMale": "public/models/market/hats/adult-man/elephant.glb",
+        "AdultFemale": "public/models/market/hats/adult-woman/elephant.glb",
+        "Boy": "public/models/market/hats/boy/elephant.glb",
+        "Girl": "public/models/market/hats/girl/elephant.glb"
+      }
+    },
+    {
+      "id": "Hat_06_Rhino",
+      "order": 6,
+      "runtimeRegistryId": "hat_rhinoceros",
+      "currentInternalFilename": "rhino.glb",
+      "variants": {
+        "AdultMale": "public/models/market/hats/adult-man/rhino.glb",
+        "AdultFemale": "public/models/market/hats/adult-woman/rhino.glb",
+        "Boy": "public/models/market/hats/boy/rhino.glb",
+        "Girl": "public/models/market/hats/girl/rhino.glb"
+      }
+    },
+    {
+      "id": "Hat_07_Giraffe",
+      "order": 7,
+      "runtimeRegistryId": "hat_giraffe",
+      "currentInternalFilename": "giraffe.glb",
+      "variants": {
+        "AdultMale": "public/models/market/hats/adult-man/giraffe.glb",
+        "AdultFemale": "public/models/market/hats/adult-woman/giraffe.glb",
+        "Boy": "public/models/market/hats/boy/giraffe.glb",
+        "Girl": "public/models/market/hats/girl/giraffe.glb"
+      }
+    },
+    {
+      "id": "Hat_08_Panda",
+      "order": 8,
+      "runtimeRegistryId": "hat_panda",
+      "currentInternalFilename": "panda.glb",
+      "variants": {
+        "AdultMale": "public/models/market/hats/adult-man/panda.glb",
+        "AdultFemale": "public/models/market/hats/adult-woman/panda.glb",
+        "Boy": "public/models/market/hats/boy/panda.glb",
+        "Girl": "public/models/market/hats/girl/panda.glb"
+      }
+    },
+    {
+      "id": "Hat_09_Frog",
+      "order": 9,
+      "runtimeRegistryId": "hat_frog",
+      "currentInternalFilename": "frog.glb",
+      "variants": {
+        "AdultMale": "public/models/market/hats/adult-man/frog.glb",
+        "AdultFemale": "public/models/market/hats/adult-woman/frog.glb",
+        "Boy": "public/models/market/hats/boy/frog.glb",
+        "Girl": "public/models/market/hats/girl/frog.glb"
+      }
+    },
+    {
+      "id": "Hat_10_Cow",
+      "order": 10,
+      "runtimeRegistryId": "hat_cow",
+      "currentInternalFilename": "cow.glb",
+      "variants": {
+        "AdultMale": "public/models/market/hats/adult-man/cow.glb",
+        "AdultFemale": "public/models/market/hats/adult-woman/cow.glb",
+        "Boy": "public/models/market/hats/boy/cow.glb",
+        "Girl": "public/models/market/hats/girl/cow.glb"
+      }
+    },
+    {
+      "id": "Hat_11_Rabbit",
+      "order": 11,
+      "runtimeRegistryId": "hat_bunny",
+      "currentInternalFilename": "rabbit.glb",
+      "variants": {
+        "AdultMale": "public/models/market/hats/adult-man/rabbit.glb",
+        "AdultFemale": "public/models/market/hats/adult-woman/rabbit.glb",
+        "Boy": "public/models/market/hats/boy/rabbit.glb",
+        "Girl": "public/models/market/hats/girl/rabbit.glb"
+      }
+    },
+    {
+      "id": "Hat_12_Capybara",
+      "order": 12,
+      "runtimeRegistryId": "hat_capybara",
+      "currentInternalFilename": "capybara.glb",
+      "variants": {
+        "AdultMale": "public/models/market/hats/adult-man/capybara.glb",
+        "AdultFemale": "public/models/market/hats/adult-woman/capybara.glb",
+        "Boy": "public/models/market/hats/boy/capybara.glb",
+        "Girl": "public/models/market/hats/girl/capybara.glb"
+      }
+    }
+  ]
+}
