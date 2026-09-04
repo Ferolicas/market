@@ -33,16 +33,22 @@ const characterClips = [
 ];
 
 const characters: MarketAssetDefinition[] = [
-  ["owner_man", "character", "characters/owner_man.glb", ["PERSONAJES.png", "VENDEDOR HOMBRE.png", "POSES DUEÑO.png", "ANIMACIONES.png"]],
-  ["owner_woman", "character", "characters/owner_woman.glb", ["PERSONAJES.png", "POSES DUEÑO.png", "ANIMACIONES.png"]],
-  ["owner_boy", "character", "characters/owner_boy.glb", ["PERSONAJES.png", "POSES DUEÑO.png", "ANIMACIONES.png"]],
-  ["owner_girl", "character", "characters/owner_girl.glb", ["PERSONAJES.png", "POSES DUEÑO.png", "ANIMACIONES.png"]],
-  ["customer_man_young", "customer", "customers/customer_01_man_young.glb", ["cliente1.png", "ANIMACIONES.png"]],
-  ["customer_man_senior", "customer", "customers/customer_02_man_senior.glb", ["cliente2.png", "ANIMACIONES.png"]],
-  ["customer_woman_young", "customer", "customers/customer_03_woman_young.glb", ["cliente3.png", "ANIMACIONES.png"]],
-  ["customer_woman_adult", "customer", "customers/customer_04_woman_adult.glb", ["cliente4.png", "ANIMACIONES.png"]],
-  ["customer_woman_mature", "customer", "customers/customer_05_woman_mature.glb", ["cliente5.png", "ANIMACIONES.png"]],
-  ["customer_woman_senior", "customer", "customers/customer_06_woman_senior.glb", ["cliente6.png", "ANIMACIONES.png"]],
+  // PERSONAJES.png, VENDEDOR HOMBRE.png, POSES DUEÑO.png and ANIMACIONES.png are
+  // gone from the kit; the surviving approval sheet for each owner is its own
+  // portrait under PERSONAJES/NUEVOSPERSONAJES.
+  ["owner_man", "character", "characters/owner_man.glb", ["PERSONAJES/NUEVOSPERSONAJES/HOMBRE.png"]],
+  ["owner_woman", "character", "characters/owner_woman.glb", ["PERSONAJES/NUEVOSPERSONAJES/MUJER.png"]],
+  ["owner_boy", "character", "characters/owner_boy.glb", ["PERSONAJES/NUEVOSPERSONAJES/NIÑO.png"]],
+  ["owner_girl", "character", "characters/owner_girl.glb", ["PERSONAJES/NUEVOSPERSONAJES/NIÑA.png"]],
+  // cliente1..6.png were deleted from the kit. The four women map one to one by
+  // name; only one man portrait survives, so both men cite it as the single
+  // remaining customer-man reference rather than claim a sheet that is gone.
+  ["customer_man_young", "customer", "customers/customer_01_man_young.glb", ["PERSONAJES/NUEVOSPERSONAJES/CLIENTEHOMBRE1.png"]],
+  ["customer_man_senior", "customer", "customers/customer_02_man_senior.glb", ["PERSONAJES/NUEVOSPERSONAJES/CLIENTEHOMBRE1.png"]],
+  ["customer_woman_young", "customer", "customers/customer_03_woman_young.glb", ["PERSONAJES/NUEVOSPERSONAJES/CLIENTEMUJER1.png"]],
+  ["customer_woman_adult", "customer", "customers/customer_04_woman_adult.glb", ["PERSONAJES/NUEVOSPERSONAJES/CLIENTEMUJER2.png"]],
+  ["customer_woman_mature", "customer", "customers/customer_05_woman_mature.glb", ["PERSONAJES/NUEVOSPERSONAJES/CLIENTEMUJER3.png"]],
+  ["customer_woman_senior", "customer", "customers/customer_06_woman_senior.glb", ["PERSONAJES/NUEVOSPERSONAJES/CLIENTEMUJER4.png"]],
 ].map(([id, category, asset, images]) => ({
   id: id as string, category: category as AssetCategory, asset: `/models/market/${asset}`, referenceImages: (images as string[]).map(ref), status: "approved",
   scaleMeters: [0.65, category === "customer" ? 1.72 : 1.78, 0.42], pivot: "centro entre plantas de los pies, Y=0", attachmentBone: null,
