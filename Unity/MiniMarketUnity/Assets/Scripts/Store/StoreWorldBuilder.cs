@@ -222,10 +222,12 @@ namespace MiniMarket.Store
                 var presenter=sensor.AddComponent<StorefrontDoorPresenter>();
                 var leafRenderer=doorLeaves.left.GetComponent<Renderer>();
                 var width=leafRenderer?leafRenderer.localBounds.size.x:1f;
-                // 72% of a leaf's width clears most of the opening while keeping the
-                // leaf inside the entrance: at its full width each pane slid past
-                // the building and hung over the street.
-                presenter.Bind(doorLeaves.left,doorLeaves.right,width*.72f);
+                // The run is solved from the geometry rather than guessed as a
+                // fraction of the leaf: a pane stops with its outer edge just
+                // inside the facade. At 72% of its width the edge finished at
+                // 1.04 against a facade that ends at 1.00, and the glass hung
+                // over the street.
+                presenter.Bind(doorLeaves.left,doorLeaves.right,LeafTravel(door.transform,doorLeaves.left,width));
             }
             else
             {
@@ -250,6 +252,30 @@ namespace MiniMarket.Store
         /// pair of thin, similar panels sitting either side of the doorway's
         /// centre. Matching on the mosaic's part names works only until an export
         /// renames them, and then the door silently stops opening.
+        /// How far a leaf can run before it leaves the front of the building.
+        /// Measured in the leaf's own local units, which is what the presenter
+        /// moves, with a margin so the pane tucks in rather than ending flush.
+        static float LeafTravel(Transform door,Transform leaf,float width)
+        {
+            var leafRenderer=leaf.GetComponent<Renderer>();
+            if(!leafRenderer)return width*.58f;
+            var facade=new Bounds();var first=true;
+            foreach(var r in door.GetComponentsInChildren<Renderer>(true))
+            {
+                if(first){facade=r.bounds;first=false;}else facade.Encapsulate(r.bounds);
+            }
+            if(first)return width*.58f;
+            // Both edges come back to the leaf's own space, since that is where
+            // the slide is applied.
+            var toLeaf=leaf.worldToLocalMatrix;
+            var leafEdge=Mathf.Abs(toLeaf.MultiplyPoint3x4(leafRenderer.bounds.center).x)
+                         +leafRenderer.localBounds.extents.x;
+            var facadeEdge=Mathf.Abs(toLeaf.MultiplyPoint3x4(
+                facade.center+Vector3.right*facade.extents.x).x);
+            const float margin=.96f;
+            return Mathf.Clamp(facadeEdge*margin-leafEdge,width*.25f,width*.95f);
+        }
+
         static (Transform left,Transform right) FindDoorLeaves(Transform root)
         {
             var centre=0f;var bounds=new Bounds();var first=true;
