@@ -11,13 +11,18 @@ namespace MiniMarket.UI
     /// </summary>
     public sealed class ResponsiveHudLayout : MonoBehaviour
     {
-        RectTransform actions;RectTransform drawer;GridLayoutGroup grid;List<RectTransform> buttons;RectTransform handle;RectTransform sheetClose;RectTransform topBar;RectTransform guide;readonly List<(LayoutElement element,float width)> topCells=new();int width,height;
+        RectTransform actions;RectTransform drawer;GridLayoutGroup grid;List<RectTransform> buttons;RectTransform handle;RectTransform sheetClose;RectTransform topBar;RectTransform guide;CanvasScaler scaler;bool drawerOpen;bool narrowNow;readonly List<(LayoutElement element,float width)> topCells=new();readonly List<(Text label,int size)> topLabels=new();int width,height;
 
         public void Bind(RectTransform actionBar,RectTransform drawerPanel,GridLayoutGroup actionGrid,List<RectTransform> quickButtons,RectTransform dragHandle=null,RectTransform closeRow=null,RectTransform top=null,RectTransform guideCard=null)
         {
-            actions=actionBar;drawer=drawerPanel;grid=actionGrid;buttons=quickButtons;handle=dragHandle;sheetClose=closeRow;topBar=top;guide=guideCard;
-            if(topBar)foreach(var element in topBar.GetComponentsInChildren<LayoutElement>())
-                topCells.Add((element,element.preferredWidth));
+            actions=actionBar;drawer=drawerPanel;grid=actionGrid;buttons=quickButtons;handle=dragHandle;sheetClose=closeRow;topBar=top;guide=guideCard;scaler=GetComponentInChildren<CanvasScaler>();
+            if(topBar)
+            {
+                foreach(var element in topBar.GetComponentsInChildren<LayoutElement>())
+                    topCells.Add((element,element.preferredWidth));
+                foreach(var label in topBar.GetComponentsInChildren<Text>())
+                    topLabels.Add((label,label.fontSize));
+            }
             Apply();
         }
 
@@ -28,6 +33,15 @@ namespace MiniMarket.UI
             if(!actions||!drawer||!grid)return;
             width=Screen.width;height=Screen.height;
             var narrow=height>width&&width<=580;
+            narrowNow=narrow;
+            // A 1440x900 reference on a portrait phone scales the whole HUD to
+            // about half size, which leaves 12pt captions at seven physical
+            // pixels. The phone sheet is drawn at phone size, so is this.
+            if(scaler)
+            {
+                scaler.referenceResolution=narrow?new Vector2(430,932):new Vector2(1440,900);
+                scaler.matchWidthOrHeight=.5f;
+            }
             actions.anchorMin=actions.anchorMax=new Vector2(1,1);actions.pivot=new Vector2(1,1);
             if(narrow)
             {
@@ -58,6 +72,7 @@ namespace MiniMarket.UI
                 guide.offsetMax=narrow?new Vector2(-14,-176):new Vector2(-88,-84);
             }
             if(handle)handle.gameObject.SetActive(narrow);
+            actions.gameObject.SetActive(!(narrow&&drawerOpen));
             if(sheetClose)sheetClose.gameObject.SetActive(narrow);
             // every entry stays reachable on a phone: the sheet holds all eight
             if(buttons==null)return;
@@ -69,6 +84,16 @@ namespace MiniMarket.UI
             }
         }
 
+        /// On a phone the drawer covers the screen, so the quick sheet under it
+        /// only pokes out along the bottom edge.
+        public bool Narrow=>narrowNow;
+
+        public void DrawerOpened(bool open)
+        {
+            drawerOpen=open;
+            if(actions)actions.gameObject.SetActive(!(narrowNow&&open));
+        }
+
         /// The top bar carries fixed cell widths tuned for the desktop sheet. On a
         /// phone the canvas is narrower than their sum, so the bar hangs off both
         /// edges; here it stretches to the screen and its cells shrink to fit.
@@ -78,14 +103,25 @@ namespace MiniMarket.UI
             if(narrow)
             {
                 topBar.anchorMin=new Vector2(0,1);topBar.anchorMax=new Vector2(1,1);topBar.pivot=new Vector2(.5f,1);
-                topBar.offsetMin=new Vector2(10,-92);topBar.offsetMax=new Vector2(-10,-12);
-                var available=topBar.rect.width-40f;
+                topBar.offsetMin=new Vector2(12,-92);topBar.offsetMax=new Vector2(-12,-12);
+                // Taken from the scaler's own reference width: the bar's rect has
+                // not been rebuilt yet at the moment the layout switches, so its
+                // width still reports the desktop figure.
+                var available=(scaler?scaler.referenceResolution.x:topBar.rect.width)-84f;
                 var total=0f;foreach(var (element,cell) in topCells)total+=cell;
                 var scale=total>0f?Mathf.Clamp(available/total,.5f,1f):1f;
                 foreach(var (element,cell) in topCells)
                 {
                     if(!element)continue;
                     element.preferredWidth=cell*scale;element.minWidth=cell*scale;
+                }
+                // The captions shrink with their cells; left at desktop size they
+                // simply spill past the narrower columns.
+                foreach(var (label,size) in topLabels)
+                {
+                    if(!label)continue;
+                    label.fontSize=Mathf.Max(8,Mathf.RoundToInt(size*scale));
+                    label.resizeTextMaxSize=label.fontSize;
                 }
             }
             else
@@ -96,6 +132,11 @@ namespace MiniMarket.UI
                 {
                     if(!element)continue;
                     element.preferredWidth=cell;element.minWidth=cell;
+                }
+                foreach(var (label,size) in topLabels)
+                {
+                    if(!label)continue;
+                    label.fontSize=size;label.resizeTextMaxSize=size;
                 }
             }
         }

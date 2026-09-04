@@ -33,7 +33,7 @@ namespace MiniMarket.UI
         static readonly Color Sage=Linear("676E4A");                       // verde medio
         static readonly Color Forest=Alpha(Linear("323524"),.96f);
         static readonly Color Positive=Linear("676E4A");static readonly Color Negative=Linear("C1705A");
-        Canvas canvas;Font font;Sprite roundedSprite;RectTransform loading;Text loadingText;Text money;Text clock;Text level;Text carry;Text save;Text prompt;Text toast;Text player;Text missionSummary;Text tutorialSummary;Text storeStatusText;Image storeStatusImage;RectTransform storeStatus;RectTransform carryChip;RectTransform saveChip;RectTransform promptPanel;RectTransform toastPanel;RectTransform tutorialCard;RectTransform drawer;RectTransform drawerContent;RectTransform drawerClose;RectTransform actions;readonly System.Collections.Generic.List<RectTransform> quickButtons=new();RectTransform levelBadge;Text levelBadgeText;RectTransform levelFill;RectTransform carrySlots;RectTransform toastRail;Image toastIconImage;Image saveIconImage;Image drawerIcon;Text drawerCountry;string currentPanel="inventory";int inventoryTab;int avatarTab;string setupCountry="ES";RectTransform loadingFill;Text loadingPercent;int loadingSteps;RectTransform qaPanel;Text qaText;float qaTimer;int qaFrames;int qaTriangles=-1;int qaRenderers;RenderTexture avatarTexture;Camera avatarCamera;Text saveStamp;Image statusChevronImage;Image missionIconImage;readonly System.Collections.Generic.List<Image> tutorialSteps=new();readonly System.Collections.Generic.List<RectTransform> carryThumbs=new();Text drawerTitle;
+        Canvas canvas;Font font;Sprite roundedSprite;RectTransform loading;Text loadingText;Text money;Text clock;Text level;Text carry;Text save;Text prompt;Text toast;Text player;Text missionSummary;Text tutorialSummary;Text storeStatusText;Image storeStatusImage;RectTransform storeStatus;RectTransform carryChip;RectTransform saveChip;RectTransform promptPanel;RectTransform toastPanel;RectTransform tutorialCard;RectTransform drawer;RectTransform drawerContent;RectTransform drawerClose;RectTransform actions;readonly System.Collections.Generic.List<RectTransform> quickButtons=new();RectTransform levelBadge;Text levelBadgeText;RectTransform levelFill;RectTransform carrySlots;RectTransform toastRail;Image toastIconImage;Image saveIconImage;Image drawerIcon;Text drawerCountry;string currentPanel="inventory";int inventoryTab;int avatarTab;string setupCountry="ES";RectTransform loadingFill;Text loadingPercent;int loadingSteps;RectTransform qaPanel;Text qaText;float qaTimer;int qaFrames;int qaTriangles=-1;int qaRenderers;RenderTexture avatarTexture;Camera avatarCamera;ResponsiveHudLayout responsiveLayout;Text saveStamp;Text brandLabel;Image statusChevronImage;Image missionIconImage;readonly System.Collections.Generic.List<Image> tutorialSteps=new();readonly System.Collections.Generic.List<RectTransform> carryThumbs=new();Text drawerTitle;
         // Unused by the project; the main camera still draws it, so the world view
         // is unchanged while the preview camera can cull down to the player alone.
         const int AvatarLayer=8;
@@ -60,7 +60,7 @@ namespace MiniMarket.UI
             var top=Panel("HudTop",root.transform,Glass);Anchor(top,new Vector2(.5f,1),new Vector2(.5f,1),new Vector2(-460,-82),new Vector2(460,-14));var layout=top.gameObject.AddComponent<HorizontalLayoutGroup>();layout.padding=new RectOffset(8,8,6,6);layout.spacing=0;layout.childForceExpandWidth=false;layout.childForceExpandHeight=true;
             var brandCell=Panel("Brand",top,new Color(0,0,0,0));SizeForLayout(brandCell,208);
             BrandMark(brandCell);
-            var brand=Label(brandCell,"Mercado del Barrio\nDistrito inicial",13,TextAnchor.MiddleLeft);
+            var brand=brandLabel=Label(brandCell,"Mercado del Barrio\nDistrito inicial",13,TextAnchor.MiddleLeft);
             brand.color=Ink;brand.resizeTextForBestFit=false;
             Anchor(brand.rectTransform,new Vector2(0,0),new Vector2(1,1),new Vector2(52,0),new Vector2(-4,0));
             Divider(top);
@@ -72,6 +72,8 @@ namespace MiniMarket.UI
             storeStatus=Pill(top,"CERRADO",()=>{runtime?.ToggleStore();audioService?.UiConfirm();},Green,Cream);
             SizeForLayout(storeStatus,124);
             storeStatusText=storeStatus.GetComponentInChildren<Text>();storeStatusImage=storeStatus.GetComponent<Image>();
+            // Room for the chevron: on a narrowed cell the caption ran under it.
+            storeStatusText.rectTransform.offsetMax=new Vector2(-26,0);
             var statusChevron=new GameObject("Chevron",typeof(RectTransform),typeof(Image));statusChevron.transform.SetParent(storeStatus,false);
             statusChevronImage=statusChevron.GetComponent<Image>();statusChevronImage.sprite=Icon("chevron");statusChevronImage.preserveAspect=true;statusChevronImage.raycastTarget=false;
             var statusChevronRect=statusChevron.GetComponent<RectTransform>();statusChevronRect.anchorMin=statusChevronRect.anchorMax=new Vector2(1,.5f);statusChevronRect.pivot=new Vector2(1,.5f);statusChevronRect.sizeDelta=new Vector2(13,13);statusChevronRect.anchoredPosition=new Vector2(-11,0);
@@ -265,7 +267,7 @@ namespace MiniMarket.UI
             sheetClose.gameObject.AddComponent<LayoutElement>().ignoreLayout=true;
             sheetClose.anchorMin=sheetClose.anchorMax=new Vector2(.5f,0);sheetClose.pivot=new Vector2(.5f,0);
             sheetClose.anchoredPosition=new Vector2(0,6);
-            var responsive=gameObject.AddComponent<ResponsiveHudLayout>();responsive.Bind(actions,drawer,row,quickButtons,handle,sheetClose,canvas.transform.Find("HudTop") as RectTransform,tutorialCard);
+            responsiveLayout=gameObject.AddComponent<ResponsiveHudLayout>();responsiveLayout.Bind(actions,drawer,row,quickButtons,handle,sheetClose,canvas.transform.Find("HudTop") as RectTransform,tutorialCard);
         }
 
         void BuildJoystick()
@@ -290,10 +292,13 @@ namespace MiniMarket.UI
             joystick=area.gameObject.AddComponent<VirtualJoystick>();joystick.Bind(area,visual,knob,runtime.Player);
         }
 
+        bool Narrow=>responsiveLayout&&responsiveLayout.Narrow;
+
         void CloseDrawer()
         {
             drawer.gameObject.SetActive(false);
             if(avatarCamera)avatarCamera.enabled=false;
+            responsiveLayout?.DrawerOpened(false);
         }
 
         public void OpenPanel(string id)
@@ -306,6 +311,7 @@ namespace MiniMarket.UI
             drawerCountry.text=$"{country?.Value<string>("name")??runtime.State.CountryCode}  ·  {country?.Value<string>("currency")??""}";
             var setup=id=="setup";if(drawerClose)drawerClose.gameObject.SetActive(!setup);if(actions)actions.gameObject.SetActive(!setup);
             if(avatarCamera)avatarCamera.enabled=id=="closet";
+            responsiveLayout?.DrawerOpened(true);
             drawer.SetAsLastSibling();
             drawer.gameObject.SetActive(true);
         }
@@ -376,7 +382,9 @@ namespace MiniMarket.UI
             var scopes=new[]{"Carga","Almacén","Estante"};
             var head=Row(38);
             var tabHost=Panel("Tabs",head,new Color(0,0,0,0));
-            Anchor(tabHost,new Vector2(0,0),new Vector2(.42f,1),Vector2.zero,Vector2.zero);
+            // On a phone the tabs take the row; at the desktop fraction the three
+            // captions wrap onto two lines inside 56 units each.
+            Anchor(tabHost,new Vector2(0,0),new Vector2(Narrow?.62f:.42f,1),Vector2.zero,Vector2.zero);
             Tabs(scopes,inventoryTab,index=>{inventoryTab=index;RefreshPanel("inventory");},38,tabHost);
             if(inventoryTab==0)
             {
@@ -398,12 +406,13 @@ namespace MiniMarket.UI
                 entries.Add((id,property.Value.Value<string>("name")??id,quantity));
             }
             if(entries.Count==0){SectionHeader("SIN EXISTENCIAS EN ESTA VISTA");return;}
-            for(var start=0;start<entries.Count;start+=5)
+            var columns=Narrow?3:5;
+            for(var start=0;start<entries.Count;start+=columns)
             {
-                var row=Row(96,5);
-                for(var i=start;i<Mathf.Min(start+5,entries.Count);i++)
+                var row=Row(96,columns);
+                for(var i=start;i<Mathf.Min(start+columns,entries.Count);i++)
                     ProductTile(row,entries[i].id,entries[i].name,entries[i].quantity);
-                for(var i=entries.Count;i<start+5;i++)Panel("Empty",row,Alpha(Cream,.35f));
+                for(var i=entries.Count;i<start+columns;i++)Panel("Empty",row,Alpha(Cream,.35f));
             }
         }
 
@@ -416,6 +425,14 @@ namespace MiniMarket.UI
                 var id=supplier.Value<string>("id");
                 var unlockLevel=supplier.Value<int?>("unlockLevel")??1;
                 var available=runtime.State.Level>=unlockLevel;
+                var offered=false;
+                foreach(var property in runtime.Spec.Products.Properties())
+                    if(property.Value.Value<string>("supplier")==id
+                       &&runtime.ProductPolicy.IsProductUnlocked(property.Name,runtime.State.Level))
+                    { offered=true;break; }
+                // A supplier whose whole catalogue is still locked printed a bare
+                // heading with nothing under it.
+                if(!offered)continue;
                 SectionHeader(supplier.Value<string>("name")?.ToUpperInvariant()??id);
                 foreach(var property in runtime.Spec.Products.Properties())
                 {
@@ -434,9 +451,7 @@ namespace MiniMarket.UI
                     var caption=Label(row,name,13,TextAnchor.MiddleLeft);caption.color=Ink;caption.resizeTextForBestFit=false;
                     caption.fontStyle=FontStyle.Bold;
                     Anchor(caption.rectTransform,new Vector2(0,0),new Vector2(.44f,1),new Vector2(50,0),new Vector2(0,0));
-                    Stars(row,4.9-(supplier.Value<double?>("discount")??0)*3,0);
-                    var stars=row.Find("Star") as RectTransform;
-                    if(stars)stars.anchoredPosition=new Vector2(row.rect.width*.46f,0);
+                    Stars(row,4.9-(supplier.Value<double?>("discount")??0)*3,.46f);
                     if(available)
                     {
                         var order=PrimaryButton(row,$"Pedir 10 · {Money(price)}",()=>
@@ -542,7 +557,7 @@ namespace MiniMarket.UI
                 else if(franchise.Value<int?>("unlockLevel")<=runtime.State.Level)building++;
             }
 
-            var head=Row(214,2,12f);
+            var head=Row(Narrow?398:214,Narrow?1:2,12f);
             var map=Card(head,Linear("DCE4CE"));
             for(var edge=0;edge<franchises.Count;edge++)
             {
@@ -632,7 +647,7 @@ namespace MiniMarket.UI
             var income=franchise.Value<long?>("revenueTodayMinor")??0;
             var spend=franchise.Value<long?>("expensesTodayMinor")??0;
 
-            var head=Row(70,4);
+            var head=Row(Narrow?146:70,Narrow?2:4);
             StatCard(head,"Ingresos hoy",Money(income),Ink);
             StatCard(head,"Gastos hoy",Money(spend),Ink);
             StatCard(head,"Beneficio hoy",Money(income-spend),income-spend<0?Negative:Green);
@@ -805,7 +820,7 @@ namespace MiniMarket.UI
             AvatarPreview();
             var avatarHead=Row(38);
             var avatarTabs=Panel("Tabs",avatarHead,new Color(0,0,0,0));
-            Anchor(avatarTabs,new Vector2(0,0),new Vector2(.42f,1),Vector2.zero,Vector2.zero);
+            Anchor(avatarTabs,new Vector2(0,0),new Vector2(Narrow?1f:.42f,1),Vector2.zero,Vector2.zero);
             Tabs(new[]{"Cuerpo","Sombreros","Peinados"},avatarTab,index=>{avatarTab=index;RefreshPanel("closet");},38,avatarTabs);
             if(avatarTab==0)
             {
@@ -817,30 +832,32 @@ namespace MiniMarket.UI
             {
                 var hats=new[]{("none","Sin gorro"),("red-panda","Panda rojo"),("red-fox","Zorro"),("chicken","Gallina"),("owl","Búho"),("elephant","Elefante"),("rhino","Rinoceronte"),("giraffe","Jirafa"),("panda","Panda"),("frog","Rana"),("cow","Vaca"),("rabbit","Conejo"),("capybara","Capibara")};
                 var assets=new[]{"none","Hat_01_RedPanda","Hat_02_Fox","Hat_03_Chicken","Hat_04_Owl","Hat_05_Elephant","Hat_06_Rhino","Hat_07_Giraffe","Hat_08_Panda","Hat_09_Frog","Hat_10_Cow","Hat_11_Rabbit","Hat_12_Capybara"};
-                for(var start=0;start<hats.Length;start+=5)
+                var columns=Narrow?3:5;
+                for(var start=0;start<hats.Length;start+=columns)
                 {
-                    var row=Row(78,5);
-                    for(var i=start;i<Mathf.Min(start+5,hats.Length);i++)
+                    var row=Row(78,columns);
+                    for(var i=start;i<Mathf.Min(start+columns,hats.Length);i++)
                     {
                         var asset=assets[i];var id=hats[i].Item1;
                         SwatchTile(row,hats[i].Item2,Linear("DFD3C3"),()=>_ = runtime.SelectAccessory("Hats",asset,id));
                     }
-                    for(var i=hats.Length;i<start+5;i++)Panel("Empty",row,new Color(0,0,0,0));
+                    for(var i=hats.Length;i<start+columns;i++)Panel("Empty",row,new Color(0,0,0,0));
                 }
             }
             else
             {
                 var hairIds=new[]{"side-part","fade","waves","swept","bob","ponytail","long-wavy","bun","messy","curls","short-fringe","quiff","blunt-bob","pigtails","braid","high-ponytail"};
                 var hairAssets=new[]{"Hair_01_SidePart","Hair_02_Fade","Hair_03_Wavy","Hair_04_SlickBack","Hair_05_Bob","Hair_06_Ponytail","Hair_07_LongWavy","Hair_08_Bun","Hair_09_MessyMale","Hair_10_CurlyMale","Hair_11_SideSweepMale","Hair_12_SpikyMale","Hair_13_BobBangs","Hair_14_Pigtails","Hair_15_SideBraid","Hair_16_HighPonytail"};
-                for(var start=0;start<hairAssets.Length;start+=5)
+                var columns=Narrow?3:5;
+                for(var start=0;start<hairAssets.Length;start+=columns)
                 {
-                    var row=Row(78,5);
-                    for(var i=start;i<Mathf.Min(start+5,hairAssets.Length);i++)
+                    var row=Row(78,columns);
+                    for(var i=start;i<Mathf.Min(start+columns,hairAssets.Length);i++)
                     {
                         var asset=hairAssets[i];var id=hairIds[i];
                         SwatchTile(row,id.Replace('-',' '),Linear("D2C4B4"),()=>_ = runtime.SelectAccessory("Hair",asset,id));
                     }
-                    for(var i=hairAssets.Length;i<start+5;i++)Panel("Empty",row,new Color(0,0,0,0));
+                    for(var i=hairAssets.Length;i<start+columns;i++)Panel("Empty",row,new Color(0,0,0,0));
                 }
             }
         }
@@ -930,10 +947,11 @@ namespace MiniMarket.UI
                 ("finance","Finanzas","El libro mayor recoge ventas, compras, nóminas e impuestos."),
                 ("map","Franquicias","Compra sucursales y viaja entre ellas cuando estén operativas.")
             };
-            for(var start=0;start<topics.Length;start+=3)
+            var columns=Narrow?2:3;
+            for(var start=0;start<topics.Length;start+=columns)
             {
-                var row=Row(96,3);
-                for(var i=start;i<Mathf.Min(start+3,topics.Length);i++)
+                var row=Row(Narrow?108:96,columns);
+                for(var i=start;i<Mathf.Min(start+columns,topics.Length);i++)
                 {
                     var (icon,title,detail)=topics[i];
                     var card=Card(row);
@@ -951,7 +969,7 @@ namespace MiniMarket.UI
                     detailText.color=Muted;detailText.resizeTextForBestFit=false;
                     Anchor(detailText.rectTransform,new Vector2(0,0),new Vector2(1,1),new Vector2(8,8),new Vector2(-8,-58));
                 }
-                for(var i=topics.Length;i<start+3;i++)Panel("Empty",row,new Color(0,0,0,0));
+                for(var i=topics.Length;i<start+columns;i++)Panel("Empty",row,new Color(0,0,0,0));
             }
         }
 
@@ -1068,11 +1086,11 @@ namespace MiniMarket.UI
             if(runtime==null||runtime.State==null||runtime.State.Root==null||!runtime.State.Root.HasValues)return;
             var franchise=runtime.State.CurrentFranchise;var open=franchise.Value<bool?>("open")??false;var status=runtime.Saves?.Status?.ToLowerInvariant()??"local";
             var franchiseName=franchise.Value<string>("name")??"Mini Market";var franchiseCity=franchise.Value<string>("city")??"Distrito inicial";
-            canvas.transform.Find("HudTop/Text");
-            var topBrand=canvas.transform.Find("HudTop/Text")?.GetComponent<Text>();if(topBrand)topBrand.text=$"M  {franchiseName}\n    {franchiseCity}";
+// The shrunken narrow cell fits one line; the city pushes the name onto three.
+            if(brandLabel)brandLabel.text=Narrow?franchiseName:$"{franchiseName}\n{franchiseCity}";
             money.text=$"CAJA GLOBAL\n{Money(runtime.State.BalanceMinor)}";
             clock.text=$"VENTAS HOY\n{Money(franchise.Value<long?>("revenueTodayMinor")??0)} · Día {runtime.State.Day} {runtime.State.MinuteOfDay/60:00}:{runtime.State.MinuteOfDay%60:00}";
-            level.text=$"NIVEL {runtime.State.Level}\nPROGRESO";
+            level.text=Narrow?$"NIVEL {runtime.State.Level}":$"NIVEL {runtime.State.Level}\nPROGRESO";
             var project=NextProject();var cost=project?.Value<long>("costMinor")??0;
             SetMeter(levelFill,cost>0?Mathf.Clamp01((float)project.Value<long>("contributedMinor")/cost):0f);
             if(levelBadgeText)levelBadgeText.text=runtime.State.Level.ToString();
@@ -1409,18 +1427,21 @@ namespace MiniMarket.UI
         };
 
         /// Star rating rendered as a figure beside a filled star, as on the sheet.
-        void Stars(Transform parent,double rating,float x)
+        /// Positioned by anchor fraction, not by pixel offset: the row has no
+        /// width yet while it is being built, so a computed x lands on zero and
+        /// the rating prints on top of the name.
+        void Stars(Transform parent,double rating,float fraction)
         {
             var star=new GameObject("Star",typeof(RectTransform),typeof(Image));
             star.transform.SetParent(parent,false);
             var image=star.GetComponent<Image>();image.sprite=Icon("target");image.color=Orange;
             image.preserveAspect=true;image.raycastTarget=false;
             var rect=star.GetComponent<RectTransform>();
-            rect.anchorMin=rect.anchorMax=new Vector2(0,.5f);rect.pivot=new Vector2(0,.5f);
-            rect.sizeDelta=new Vector2(13,13);rect.anchoredPosition=new Vector2(x,0);
+            rect.anchorMin=rect.anchorMax=new Vector2(fraction,.5f);rect.pivot=new Vector2(0,.5f);
+            rect.sizeDelta=new Vector2(13,13);rect.anchoredPosition=Vector2.zero;
             var value=Label(parent,rating.ToString("0.0"),12,TextAnchor.MiddleLeft);
             value.color=Ink;value.resizeTextForBestFit=false;
-            Anchor(value.rectTransform,new Vector2(0,0),new Vector2(0,1),new Vector2(x+17,0),new Vector2(x+56,0));
+            Anchor(value.rectTransform,new Vector2(fraction,0),new Vector2(fraction,1),new Vector2(17,0),new Vector2(56,0));
         }
 
         /// Two crossed bars rather than a glyph: the runtime font carries no
@@ -1543,7 +1564,8 @@ namespace MiniMarket.UI
             if(action!=null)go.AddComponent<Button>().onClick.AddListener(action);
             var element=go.GetComponent<LayoutElement>();element.preferredHeight=38;element.minHeight=30;
             var caption=Label(go.transform,label,15,TextAnchor.MiddleCenter);
-            caption.color=text;caption.fontStyle=FontStyle.Bold;caption.resizeTextForBestFit=false;
+            caption.color=text;caption.fontStyle=FontStyle.Bold;
+            caption.resizeTextForBestFit=true;caption.resizeTextMinSize=8;caption.resizeTextMaxSize=15;
             Anchor(caption.rectTransform,Vector2.zero,Vector2.one,new Vector2(10,0),new Vector2(-10,0));
             return go.GetComponent<RectTransform>();
         }
