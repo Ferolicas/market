@@ -42,36 +42,27 @@ def remap(x):
 # reach past the opening too, and stretching those would widen the door and the
 # sign along with the wall.
 SHELL = opts.get("shell", "tripo_part_3")
-# The bollards are carried bodily to where their recesses end up; stretching
-# them would leave two ovals squashed into the paving.
-RIGID = [n for n in opts.get("rigid", "tripo_part_29,tripo_part_30").split(",") if n]
+# The bollards go through the same mapping as the shell, vertex by vertex.
+# Carrying them bodily instead leaves them round inside sockets the stretch has
+# turned oval, and the ground shows through the gap around each one.
+ALSO = [n for n in opts.get("also", "tripo_part_29,tripo_part_30").split(",") if n]
 
 touched = {}
-shell = bpy.data.objects[SHELL]
-moved = 0
-for v in shell.data.vertices:
-    world = shell.matrix_world @ v.co
-    wanted = remap(world.x)
-    if abs(wanted - world.x) < 1e-6:
-        continue
-    v.co.x += wanted - world.x
-    moved += 1
-shell.data.update()
-touched[SHELL] = moved
-
-for name in RIGID:
+for name in [SHELL] + ALSO:
     obj = bpy.data.objects.get(name)
     if not obj:
         continue
-    pts = [obj.matrix_world @ v.co for v in obj.data.vertices]
-    centre = sum(p.x for p in pts) / len(pts)
-    shift = remap(centre) - centre
-    if abs(shift) < 1e-6:
-        continue
+    moved = 0
     for v in obj.data.vertices:
-        v.co.x += shift
-    obj.data.update()
-    touched[name] = round(shift, 3)
+        world = obj.matrix_world @ v.co
+        wanted = remap(world.x)
+        if abs(wanted - world.x) < 1e-6:
+            continue
+        v.co.x += wanted - world.x
+        moved += 1
+    if moved:
+        obj.data.update()
+        touched[name] = moved
 
 print(f"ESTIRADO x{stretch:.3f}, piezas tocadas: {touched}")
 pts = [o.matrix_world @ v.co for o in bpy.data.objects if o.type == "MESH"
