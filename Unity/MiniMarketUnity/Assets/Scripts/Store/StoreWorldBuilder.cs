@@ -196,8 +196,27 @@ namespace MiniMarket.Store
             // now does the same, which is what makes a cutaway unnecessary.
             var door=await PlaceFitted("StoreEntrance",new Vector3(0,0,15.9f),Quaternion.identity,
                                        new Vector3(8.6f,6.2f,4.4f),root,false);
-            RestOnFloor(door,0f);
+            // The entrance carries its own plinth: 0.107 of the model's 1.764
+            // height, which at the fitted 6.2 becomes 0.376 in the world. Resting
+            // its lowest point on y = 0 put that step above the plane everyone
+            // walks on, so feet sank into it. It rests a step lower instead, and
+            // the threshold meets the floor.
+            const float entrancePlinth=.376f;
+            RestOnFloor(door,-entrancePlinth);
+            // The facade either side of the opening is solid. The doorway itself
+            // is left clear so the automatic door is what governs entry.
+            var frameHalf=8.6f*.5f;const float openingHalf=2.95f;
+            var pierWidth=frameHalf-openingHalf;
+            foreach(var side in new[]{-1f,1f})
+                PhysicsBox(root,$"EntrancePier_{(side<0?"Left":"Right")}",
+                           new Vector3(pierWidth,5.2f,1.6f),
+                           new Vector3(side*(openingHalf+pierWidth*.5f),2.6f,15.9f));
             doorLeaves=FindDoorLeaves(door.transform);
+            // The centre post was separated out of the frame so it stops
+            // standing in the middle of an opening it belongs to. Each half is
+            // handed to whichever leaf shares its side -- matched by measured
+            // position, not by name, because glTFast mirrors X on import.
+            AttachMullions(door.transform,doorLeaves);
             // PlaceFitted marks every child static, and static batching bakes the
             // geometry in place: the leaf transforms moved their full travel and
             // not one pixel changed on screen. The leaves have to stay dynamic.
@@ -252,6 +271,22 @@ namespace MiniMarket.Store
         /// pair of thin, similar panels sitting either side of the doorway's
         /// centre. Matching on the mosaic's part names works only until an export
         /// renames them, and then the door silently stops opening.
+        static void AttachMullions(Transform door,(Transform left,Transform right) leaves)
+        {
+            if(!leaves.left||!leaves.right)return;
+            foreach(var piece in door.GetComponentsInChildren<Transform>(true))
+            {
+                if(!piece.name.StartsWith("EntranceMullion"))continue;
+                var renderer=piece.GetComponent<Renderer>();
+                if(!renderer)continue;
+                var mine=renderer.bounds.center.x;
+                var host=Mathf.Abs(mine-leaves.left.GetComponent<Renderer>().bounds.center.x)
+                       <=Mathf.Abs(mine-leaves.right.GetComponent<Renderer>().bounds.center.x)
+                       ?leaves.left:leaves.right;
+                piece.SetParent(host,true);
+            }
+        }
+
         /// How far a leaf can run before it leaves the front of the building.
         /// Measured in the leaf's own local units, which is what the presenter
         /// moves, with a margin so the pane tucks in rather than ending flush.

@@ -182,6 +182,68 @@ namespace MiniMarket.Core
             Debug.Log($"MINIMARKET_HIRE abierto={Days.IsOpen}");
         }
 
+        /// Names whatever stands behind the doorway, by looking through it the
+        /// way the camera does. Comparing colours guesses; this reads the scene.
+        public void ReportThroughDoor()
+        {
+            var camera=Camera.main;
+            if(!camera){Debug.Log("MINIMARKET_THROUGH sin camara");return;}
+            // Straight through the middle of the opening, and a little above the
+            // mat so the ray clears the floor.
+            var target=new Vector3(0,2.4f,15.9f);
+            var origin=camera.transform.position;
+            var direction=(target-origin).normalized;
+            var hits=Physics.RaycastAll(origin,direction,120f,~0,QueryTriggerInteraction.Ignore);
+            System.Array.Sort(hits,(a,b)=>a.distance.CompareTo(b.distance));
+            foreach(var hit in hits)
+                Debug.Log($"MINIMARKET_THROUGH d={hit.distance:0.0} {hit.collider.name} " +
+                          $"padre={hit.collider.transform.parent?.name} z={hit.point.z:0.0}");
+            // Colliders can be absent on decoration, so the renderers along the
+            // same line are reported too.
+            foreach(var r in FindObjectsByType<Renderer>(FindObjectsSortMode.None))
+            {
+                if(!r.enabled)continue;
+                var b=r.bounds;
+                if(b.size.x<1f&&b.size.y<1f)continue;
+                if(!b.IntersectRay(new Ray(origin,direction)))continue;
+                if(b.center.z>15.5f||b.center.z<-30f)continue;
+                Debug.Log($"MINIMARKET_THROUGH_R {r.name} padre={r.transform.parent?.name} " +
+                          $"centro_z={b.center.z:0.0} tam={b.size}");
+            }
+        }
+
+        /// Counts what actually blocks movement. A placement flag says a
+        /// collider was requested; this says whether one exists.
+        public void ReportColliders()
+        {
+            var solid=0;var triggers=0;
+            var names=new System.Collections.Generic.SortedDictionary<string,int>();
+            foreach(var c in FindObjectsByType<Collider>(FindObjectsSortMode.None))
+            {
+                if(c.isTrigger){triggers++;continue;}
+                solid++;
+                var key=c.transform.parent?c.transform.parent.name:c.name;
+                names.TryGetValue(key,out var n);names[key]=n+1;
+            }
+            Debug.Log($"MINIMARKET_COL solidos={solid} disparadores={triggers}");
+            foreach(var pair in names)Debug.Log($"MINIMARKET_COL_N {pair.Key} x{pair.Value}");
+            var floors=0f;
+            var probe=new Vector3(0,3f,15.2f);
+            if(Physics.Raycast(probe,Vector3.down,out var hit,8f,~0,QueryTriggerInteraction.Ignore))
+            {
+                floors=hit.point.y;
+                Debug.Log($"MINIMARKET_COL suelo bajo la entrada y={floors:0.000} sobre {hit.collider.name}");
+            }
+            else Debug.Log("MINIMARKET_COL sin suelo bajo la entrada");
+            var mesh=new Vector3(0,3f,15.2f);
+            foreach(var r in FindObjectsByType<Renderer>(FindObjectsSortMode.None))
+            {
+                var b=r.bounds;
+                if(b.Contains(new Vector3(mesh.x,b.center.y,mesh.z))&&b.max.y>0f&&b.max.y<1.2f)
+                    Debug.Log($"MINIMARKET_COL_SUP {r.name} padre={r.transform.parent?.name} techo_y={b.max.y:0.003}");
+            }
+        }
+
         public void ReportActorScale()
         {
             foreach(var actor in FindObjectsByType<MiniMarket.Animations.CharacterActor>(FindObjectsSortMode.None))
