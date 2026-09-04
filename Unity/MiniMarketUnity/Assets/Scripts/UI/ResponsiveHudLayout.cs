@@ -28,24 +28,25 @@ namespace MiniMarket.UI
             actions.anchorMin=actions.anchorMax=new Vector2(1,1);actions.pivot=new Vector2(1,1);
             if(narrow)
             {
-                // four across the top, the rest hidden, as the media query does
-                actions.anchorMin=actions.anchorMax=new Vector2(.5f,1);actions.pivot=new Vector2(.5f,1);
-                actions.offsetMin=new Vector2(-176,-116);actions.offsetMax=new Vector2(176,-70);
-                grid.padding=new RectOffset(4,4,4,4);grid.spacing=new Vector2(4,4);
-                grid.constraintCount=4;grid.cellSize=new Vector2(80,38);
+                // the mobile sheet shows the eight entries as a 2x4 grid pinned
+                // to the bottom, not as a strip across the top
+                actions.anchorMin=actions.anchorMax=new Vector2(.5f,0);actions.pivot=new Vector2(.5f,0);
+                actions.offsetMin=new Vector2(-176,16);actions.offsetMax=new Vector2(176,222);
+                grid.padding=new RectOffset(10,10,10,10);grid.spacing=new Vector2(8,8);
+                grid.constraintCount=2;grid.cellSize=new Vector2(162,44);
                 drawer.anchorMin=new Vector2(.035f,.09f);drawer.anchorMax=new Vector2(.965f,.91f);
             }
             else
             {
-                actions.offsetMin=new Vector2(-90,-581);actions.offsetMax=new Vector2(-14,-100);
+                actions.offsetMin=new Vector2(-186,-452);actions.offsetMax=new Vector2(-14,-100);
                 grid.padding=new RectOffset(7,7,7,7);grid.spacing=new Vector2(5,5);
-                grid.constraintCount=1;grid.cellSize=new Vector2(62,54);
+                grid.constraintCount=1;grid.cellSize=new Vector2(158,38);
                 drawer.anchorMin=new Vector2(.12f,.09f);drawer.anchorMax=new Vector2(.88f,.91f);
             }
             grid.constraint=GridLayoutGroup.Constraint.FixedColumnCount;
+            // every entry stays reachable on a phone: the sheet holds all eight
             if(buttons==null)return;
-            for(var i=0;i<buttons.Count;i++)
-                if(buttons[i])buttons[i].gameObject.SetActive(!narrow||i<4);
+            foreach(var button in buttons)if(button)button.gameObject.SetActive(true);
         }
     }
 }

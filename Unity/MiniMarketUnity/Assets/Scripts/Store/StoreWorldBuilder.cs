@@ -176,14 +176,54 @@ namespace MiniMarket.Store
                 var window=await PlaceFitted("StorefrontWindow",new Vector3(x,0,15.6f),Quaternion.identity,new Vector3(9.53f,5.6f,.72f),root,false);
                 window.AddComponent<StorefrontCameraCutaway>();
             }
-            var door=await PlaceFitted("AutomaticDoor",new Vector3(0,0,15.6f),Quaternion.identity,new Vector3(7.48f,5.8f,.9f),root,false);
+            // The entrance module is the shop's door: it carries the sign, the
+            // bollards and the two sliding leaves the sensor drives. It joins the
+            // cutaway like the rest of the facade -- seen from the street, out of
+            // the way once you are inside, which is what the original does. Left
+            // always visible it stands between the isometric camera and the
+            // player and hides him behind its own sign.
+            var door=await PlaceFitted("StoreEntrance",new Vector3(0,0,15.9f),Quaternion.identity,
+                                       new Vector3(8.6f,6.2f,4.4f),root,false);
+            RestOnFloor(door,0f);
             door.AddComponent<StorefrontCameraCutaway>();
+            doorLeaves=(FindLeaf(door.transform,"tripo_part_27"),FindLeaf(door.transform,"tripo_part_47"));
 
             // Physics remains independent from art: side facade collision is
             // exact, while the automatic doorway keeps its Next.js opening.
             PhysicsBox(root,"StorefrontCollider_Left",new Vector3(19.06f,5.6f,.64f),new Vector3(-13.17f,2.8f,15.6f));
             PhysicsBox(root,"StorefrontCollider_Right",new Vector3(19.06f,5.6f,.64f),new Vector3(13.17f,2.8f,15.6f));
             var sensor=new GameObject("StorefrontDoorSensor");sensor.transform.SetParent(root,false);sensor.transform.localPosition=new Vector3(0,1.5f,17f);var trigger=sensor.AddComponent<BoxCollider>();trigger.isTrigger=true;trigger.size=new Vector3(9.4f,3f,9.2f);var body=sensor.AddComponent<Rigidbody>();body.isKinematic=true;body.useGravity=false;
+            // Drive the entrance's own leaves from the sensor. The presenter
+            // existed but was never wired to anything, so the door has never
+            // opened. The slide is measured from a leaf's own width, because the
+            // leaves live inside an instance scaled to fit the doorway.
+            if(doorLeaves.left&&doorLeaves.right)
+            {
+                var presenter=sensor.AddComponent<StorefrontDoorPresenter>();
+                var leafRenderer=doorLeaves.left.GetComponent<Renderer>();
+                var width=leafRenderer?leafRenderer.localBounds.size.x:1f;
+                presenter.Bind(doorLeaves.left,doorLeaves.right,width*.92f);
+            }
+        }
+
+        (Transform left,Transform right) doorLeaves;
+
+        /// FitLocalSize only scales; the mosaic exports are centred on their own
+        /// origin, so an instance placed at floor level ends up half sunk.
+        static void RestOnFloor(GameObject instance,float floorY)
+        {
+            var renderers=instance.GetComponentsInChildren<Renderer>(true);
+            if(renderers.Length==0)return;
+            var bounds=renderers[0].bounds;
+            for(var i=1;i<renderers.Length;i++)bounds.Encapsulate(renderers[i].bounds);
+            instance.transform.position+=Vector3.up*(floorY-bounds.min.y);
+        }
+
+        static Transform FindLeaf(Transform root,string name)
+        {
+            foreach(var child in root.GetComponentsInChildren<Transform>(true))
+                if(child.name==name)return child;
+            return null;
         }
 
         static void PhysicsBox(Transform root,string name,Vector3 size,Vector3 position)

@@ -17,8 +17,18 @@ namespace MiniMarket.UI
         static Color Alpha(Color color,float alpha){color.a=alpha;return color;}
         // globals.css tokens verbatim: --ink, --cream, --mint, --coral, --forest
         // plus .glass-panel's #ffffffe3 and the .positive/.negative ledger pair.
-        static readonly Color Ink=Alpha(Linear("183B33"),.98f);static readonly Color Cream=Alpha(Linear("FFF7E5"),.98f);static readonly Color Green=Linear("56B997");static readonly Color Orange=Linear("EF6C4C");static readonly Color Glass=Alpha(Linear("FFFFFF"),.89f);static readonly Color Muted=Linear("637D75");
-        static readonly Color Forest=Alpha(Linear("173F35"),.90f);static readonly Color Positive=Linear("4EC694");static readonly Color Negative=Linear("F08A72");
+        // Palette measured from the delivered interface sheets, not carried over from
+        // the web build: those are teal on white, these are olive on warm cream.
+        static readonly Color Ink=Alpha(Linear("323524"),.98f);            // texto principal
+        static readonly Color Cream=Alpha(Linear("FDFAF6"),.99f);          // texto sobre verde
+        static readonly Color Green=Linear("4E5536");                      // accion primaria
+        static readonly Color Orange=Linear("CF8946");                     // acento
+        static readonly Color Glass=Alpha(Linear("F8F2EC"),.97f);          // panel
+        static readonly Color Muted=Linear("8A8670");                      // texto secundario
+        static readonly Color Border=Linear("E9E1D8");                     // separadores
+        static readonly Color Sage=Linear("676E4A");                       // verde medio
+        static readonly Color Forest=Alpha(Linear("323524"),.96f);
+        static readonly Color Positive=Linear("676E4A");static readonly Color Negative=Linear("C1705A");
         Canvas canvas;Font font;Sprite roundedSprite;RectTransform loading;Text loadingText;Text money;Text clock;Text level;Text carry;Text save;Text prompt;Text toast;Text player;Text missionSummary;Text tutorialSummary;Text storeStatusText;Image storeStatusImage;RectTransform storeStatus;RectTransform carryChip;RectTransform saveChip;RectTransform promptPanel;RectTransform toastPanel;RectTransform tutorialCard;RectTransform drawer;RectTransform drawerContent;RectTransform drawerClose;RectTransform actions;readonly System.Collections.Generic.List<RectTransform> quickButtons=new();Text drawerTitle;
         MiniMarketRuntime runtime;AudioManager audioService;Coroutine toastRoutine;VirtualJoystick joystick;
 
@@ -69,8 +79,8 @@ namespace MiniMarket.UI
             actions=Panel("QuickMenu",canvas.transform,Glass);
             // The stylesheet puts this menu in a 76px column down the right edge,
             // 100px from the top -- not as a bar across the bottom.
-            Anchor(actions,new Vector2(1,1),new Vector2(1,1),new Vector2(-90,-581),new Vector2(-14,-100));
-            var row=actions.gameObject.AddComponent<GridLayoutGroup>();row.padding=new RectOffset(7,7,7,7);row.spacing=new Vector2(5,5);row.constraint=GridLayoutGroup.Constraint.FixedColumnCount;row.constraintCount=1;row.cellSize=new Vector2(62,54);
+            Anchor(actions,new Vector2(1,1),new Vector2(1,1),new Vector2(-186,-452),new Vector2(-14,-100));
+            var row=actions.gameObject.AddComponent<GridLayoutGroup>();row.padding=new RectOffset(7,7,7,7);row.spacing=new Vector2(5,5);row.constraint=GridLayoutGroup.Constraint.FixedColumnCount;row.constraintCount=1;row.cellSize=new Vector2(158,38);
             QuickButton(row.transform,"inventory",()=>OpenPanel("inventory"),"Inventario");
             QuickButton(row.transform,"suppliers",()=>OpenPanel("supplier"),"Proveedores");
             QuickButton(row.transform,"team",()=>OpenPanel("hiring"),"Equipo");
@@ -325,29 +335,33 @@ namespace MiniMarket.UI
         RectTransform Button(Transform parent,string label,UnityEngine.Events.UnityAction action,Color color){var go=new GameObject(label,typeof(RectTransform),typeof(Image),typeof(Button),typeof(LayoutElement));go.transform.SetParent(parent,false);go.GetComponent<Image>().color=color;var button=go.GetComponent<Button>();button.onClick.AddListener(action);var element=go.GetComponent<LayoutElement>();element.preferredHeight=58;element.minHeight=46;var text=Label(go.transform,label,19,TextAnchor.MiddleCenter);text.color=color.grayscale<.42f?Cream:Ink;Anchor(text.rectTransform,Vector2.zero,Vector2.one,new Vector2(8,4),new Vector2(-8,-4));return go.GetComponent<RectTransform>();}
         void QuickButton(Transform parent,string icon,UnityEngine.Events.UnityAction action,string tooltip)
         {
-            // Next stacks a 20px stroke icon over an 8px caption; the client used
-            // to show three-letter stand-ins (INV, PED, EQ, $) instead.
+            // The sheet lays each entry out as a row: a 20px stroke icon on the
+            // left, the name beside it, left aligned. Stacking the label under a
+            // centred icon reads as a toolbar, not as this menu.
             var go=new GameObject(tooltip,typeof(RectTransform),typeof(Image),typeof(Button),typeof(LayoutElement));
             go.transform.SetParent(parent,false);
             var background=go.GetComponent<Image>();background.color=new Color(0,0,0,0);
             if(roundedSprite){background.sprite=roundedSprite;background.type=Image.Type.Sliced;}
             go.GetComponent<Button>().onClick.AddListener(action);
-            var element=go.GetComponent<LayoutElement>();element.preferredHeight=54;element.minHeight=38;
+            var element=go.GetComponent<LayoutElement>();element.preferredHeight=38;element.minHeight=32;
             var glyph=new GameObject("Icon",typeof(RectTransform),typeof(Image));
             glyph.transform.SetParent(go.transform,false);
-            var image=glyph.GetComponent<Image>();image.sprite=Icon(icon);image.color=Ink;image.preserveAspect=true;image.raycastTarget=false;
+            var image=glyph.GetComponent<Image>();image.sprite=Icon(icon);image.color=Ink;
+            image.preserveAspect=true;image.raycastTarget=false;
             var rect=glyph.GetComponent<RectTransform>();
-            rect.anchorMin=rect.anchorMax=new Vector2(.5f,1);rect.pivot=new Vector2(.5f,1);
-            rect.sizeDelta=new Vector2(20,20);rect.anchoredPosition=new Vector2(0,-9);
-            var caption=Label(go.transform,tooltip.ToUpperInvariant(),9,TextAnchor.UpperCenter);
-            caption.color=Linear("526D65");caption.fontStyle=FontStyle.Bold;
-            caption.resizeTextForBestFit=false;caption.horizontalOverflow=HorizontalWrapMode.Wrap;
-            Anchor(caption.rectTransform,new Vector2(0,0),new Vector2(1,1),new Vector2(2,3),new Vector2(-2,-31));
+            rect.anchorMin=rect.anchorMax=new Vector2(0,.5f);rect.pivot=new Vector2(0,.5f);
+            rect.sizeDelta=new Vector2(19,19);rect.anchoredPosition=new Vector2(11,0);
+            var caption=Label(go.transform,tooltip.ToUpperInvariant(),11,TextAnchor.MiddleLeft);
+            caption.color=Ink;caption.fontStyle=FontStyle.Bold;
+            caption.resizeTextForBestFit=false;caption.horizontalOverflow=HorizontalWrapMode.Overflow;
+            Anchor(caption.rectTransform,new Vector2(0,0),new Vector2(1,1),new Vector2(38,0),new Vector2(-6,0));
             quickButtons.Add(go.GetComponent<RectTransform>());
         }
+
         static void SizeForLayout(RectTransform rect,float width){var element=rect.GetComponent<LayoutElement>()??rect.gameObject.AddComponent<LayoutElement>();element.preferredWidth=width;element.minWidth=width;}
         static void Anchor(RectTransform rect,Vector2 min,Vector2 max,Vector2 offsetMin,Vector2 offsetMax){rect.anchorMin=min;rect.anchorMax=max;rect.offsetMin=offsetMin;rect.offsetMax=offsetMax;}
         static void Clear(Transform root){for(var i=root.childCount-1;i>=0;i--)Destroy(root.GetChild(i).gameObject);}
+
         void OnDestroy(){if(runtime?.Signals!=null){runtime.Signals.StateChanged-=Refresh;runtime.Signals.Notification-=Notify;}if(runtime?.Interactions!=null)runtime.Interactions.NearestChanged-=NearestChanged;}
     }
 }

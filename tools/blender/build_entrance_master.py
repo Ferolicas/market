@@ -46,6 +46,12 @@ OUTPUT  = opt("output")
 FONT    = opt("font", "/usr/share/fonts/liberation/LiberationSans-Bold.ttf")
 TEXT    = opt("text", "ENTRADA")
 DIAG    = opt("diagnostic", "")
+EXPORT  = opt("export", "")
+# Albedo for the runtime is not the albedo solved for this render. The solve
+# inverts *this* lighting rig so the preview matches the sheet; carried into the
+# game's own sun and ambient the same numbers come out muddy brown. What ships
+# is the illustration's local colour, which is lighting independent.
+EXPORTCOL = json.loads(open(opt("exportcolors")).read()) if opt("exportcolors") else None
 SWEEP   = opt("sweep", "")     # "az0,az1,step,el0,el1,step,d0:d1:d2" -> solve the framing
 
 TMP     = os.path.dirname(OUTPUT)
@@ -690,6 +696,25 @@ scene.render.resolution_x = scene.render.resolution_y = RES
 scene.cycles.samples = SAMPLES
 scene.render.filepath = OUTPUT
 bpy.ops.render.render(write_still=True)
+if EXPORT:
+    if EXPORTCOL:
+        for region, mat in mats.items():
+            rgb = EXPORTCOL.get(region)
+            if rgb:
+                mat.node_tree.nodes["Principled BSDF"].inputs["Base Color"].default_value = (
+                    *srgb_to_linear(rgb), 1)
+        print("EXPORT_COLORES " + json.dumps(sorted(EXPORTCOL)))
+    # Hand the finished entrance to the runtime, not just a render of it.
+    for ob in (floor, cam, key, fil):
+        try:
+            bpy.data.objects.remove(ob, do_unlink=True)
+        except Exception:
+            pass
+    bpy.ops.object.select_all(action="SELECT")
+    bpy.ops.export_scene.gltf(filepath=EXPORT, export_format="GLB", use_selection=True,
+                              export_materials="EXPORT", export_yup=True)
+    print("EXPORT_OK " + EXPORT)
+
 print("BUILD_OK " + OUTPUT)
 
 if DIAG:
