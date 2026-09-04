@@ -17,24 +17,31 @@ argv = sys.argv[sys.argv.index("--") + 1:]
 opts = dict(a.split("=", 1) for a in argv)
 SOURCE = opts["source"]
 OUT = opts["out"]
-# Where the opening ends and the pier begins, measured on the delivered mesh.
-INNER = float(opts.get("inner", 0.404))
-# Thickness the pier has to reach to hide a leaf and its frame half.
-TARGET = float(opts.get("target", 0.72))
-OUTER = float(opts.get("outer", 0.861))
+# Where the opening ends and the pier begins. Measured off a render of the
+# shell rather than off the vertices: the shell carries material right across
+# the doorway -- reveal, threshold, soffit -- so an x histogram cannot tell the
+# pier from the hole, and filtering "x greater than a guess" only ever returns
+# the guess. The opening runs -0.637 to +0.670.
+INNER = float(opts.get("inner", 0.645))
+# How much plain wall to insert. The pier is 0.216 thick as delivered and a
+# leaf with its frame half is 0.648, so it needs about half a unit more.
+GROW = float(opts.get("grow", 0.50))
 
 bpy.ops.wm.read_factory_settings(use_empty=True)
 bpy.ops.import_scene.gltf(filepath=SOURCE)
 
-stretch = TARGET / (OUTER - INNER)
-
-
 def remap(x):
-    """Push a coordinate away from the opening, leaving the inner edge fixed."""
+    """Carry everything outboard of the opening bodily outward.
+
+    Rigidly, not proportionally: a proportional stretch pulls the mouldings and
+    the bollard sockets out of shape along with the wall. Moving the outer
+    block instead leaves every profile as it was and lets the flat faces that
+    cross the cut do the stretching, which is the wall getting longer.
+    """
     if x > INNER:
-        return INNER + (x - INNER) * stretch
+        return x + GROW
     if x < -INNER:
-        return -INNER + (x + INNER) * stretch
+        return x - GROW
     return x
 
 
@@ -64,7 +71,7 @@ for name in [SHELL] + ALSO:
         obj.data.update()
         touched[name] = moved
 
-print(f"ESTIRADO x{stretch:.3f}, piezas tocadas: {touched}")
+print(f"ENSANCHADO +{GROW} desde {INNER}, piezas tocadas: {touched}")
 pts = [o.matrix_world @ v.co for o in bpy.data.objects if o.type == "MESH"
        for v in o.data.vertices]
 print(f"ANCHO x=[{min(p.x for p in pts):+.3f},{max(p.x for p in pts):+.3f}]")

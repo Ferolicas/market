@@ -185,9 +185,9 @@ namespace MiniMarket.Store
             // modules fill the exact two 19.06 m storefront spans while the
             // central 7.48 m automatic-door opening remains unchanged.
             // Two modules a side still fill the span, resized for the thicker
-            // piers: from the entrance's edge at 5.78 out to the same 22.70.
-            const float storefrontModule=8.46f;
-            foreach(var x in new[]{-18.47f,-10.01f,10.01f,18.47f})
+            // piers: from the entrance's edge at 6.46 out to the same 22.70.
+            const float storefrontModule=8.12f;
+            foreach(var x in new[]{-18.64f,-10.52f,10.52f,18.64f})
             {
                 var window=await PlaceFitted("StorefrontWindow",new Vector3(x,0,15.6f),Quaternion.identity,new Vector3(storefrontModule,5.6f,.72f),root,false);
                 window.AddComponent<StorefrontCameraCutaway>();
@@ -197,22 +197,23 @@ namespace MiniMarket.Store
             // focus -- because its glass is transparent (opacity .12 to .28 with
             // transmission), so the shop reads straight through the facade. Ours
             // now does the same, which is what makes a cutaway unnecessary.
-            // The wall beside the opening was 0.457 thick on the delivered mesh
+            // The pier beside the opening was 0.216 thick on the delivered mesh
             // against a leaf-and-frame of 0.648, so a door open enough to clear
             // its own opening always left a fifth of itself past the building.
-            // The pier is stretched away from the opening to 0.72 -- the inner
-            // edge stays put, so the doorway keeps its width and only the wall
-            // grows -- and the fitted width follows at the original 4.305 a
-            // unit, which keeps doorway, sign and frame the size they were.
-            const float entranceWidth=11.56f;
+            // Half a unit of plain wall is inserted either side, measured from
+            // the true edge of the opening at 0.645 -- read off a render of the
+            // shell, because the mesh carries material right across the doorway
+            // and an x histogram cannot tell the pier from the hole.
+            const float entranceWidth=12.91f;
+            // A fifth taller than it was, on request.
+            const float entranceHeight=7.13f;
             var door=await PlaceFitted("StoreEntrance",new Vector3(0,0,15.9f),Quaternion.identity,
-                                       new Vector3(entranceWidth,6.2f,4.4f),root,false);
+                                       new Vector3(entranceWidth,entranceHeight,4.4f),root,false);
             // The entrance carries its own plinth: 0.107 of the model's 1.764
-            // height, which at the fitted 6.2 becomes 0.376 in the world. Resting
-            // its lowest point on y = 0 put that step above the plane everyone
-            // walks on, so feet sank into it. It rests a step lower instead, and
-            // the threshold meets the floor.
-            const float entrancePlinth=.376f;
+            // height, which at this fit is 0.432 in the world. Resting its
+            // lowest point on y = 0 would put that step above the plane
+            // everyone walks on and feet would sink into it.
+            const float entrancePlinth=.432f;
             RestOnFloor(door,-entrancePlinth);
             // The facade either side of the opening is solid. The doorway itself
             // is left clear so the automatic door is what governs entry.
@@ -247,8 +248,8 @@ namespace MiniMarket.Store
 
             // Physics remains independent from art: side facade collision is
             // exact, while the automatic doorway keeps its Next.js opening.
-            PhysicsBox(root,"StorefrontCollider_Left",new Vector3(16.92f,5.6f,.64f),new Vector3(-14.24f,2.8f,15.6f));
-            PhysicsBox(root,"StorefrontCollider_Right",new Vector3(16.92f,5.6f,.64f),new Vector3(14.24f,2.8f,15.6f));
+            PhysicsBox(root,"StorefrontCollider_Left",new Vector3(16.25f,5.6f,.64f),new Vector3(-14.58f,2.8f,15.6f));
+            PhysicsBox(root,"StorefrontCollider_Right",new Vector3(16.25f,5.6f,.64f),new Vector3(14.58f,2.8f,15.6f));
             var sensor=new GameObject("StorefrontDoorSensor");sensor.transform.SetParent(root,false);sensor.transform.localPosition=new Vector3(0,2f,15.9f);var trigger=sensor.AddComponent<BoxCollider>();trigger.isTrigger=true;trigger.size=new Vector3(11f,5f,15f);var body=sensor.AddComponent<Rigidbody>();body.isKinematic=true;body.useGravity=false;
             // Drive the entrance's own leaves from the sensor. The presenter
             // existed but was never wired to anything, so the door has never
