@@ -162,6 +162,31 @@ for obj in list(bpy.data.objects):
     if obj is not arm and obj is not mesh:
         bpy.data.objects.remove(obj, do_unlink=True)
 
+# --- the surface the rest of the game already uses --------------------------
+# The delivered material leaves specular at its default, which reaches glTF as
+# 1.0 and gives the hard highlight that reads as moulded plastic. Every other
+# asset in the store carries KHR_materials_specular at 0.56 with roughness
+# 0.82, so the cast is brought onto the same surface.
+for slot in mesh.material_slots:
+    material = slot.material
+    if not material or not material.use_nodes:
+        continue
+    for node in material.node_tree.nodes:
+        if node.type != "BSDF_PRINCIPLED":
+            continue
+        node.inputs["Roughness"].default_value = 0.82
+        for name in ("Specular IOR Level", "Specular"):
+            if name in node.inputs:
+                node.inputs[name].default_value = 0.28
+                break
+        if "Metallic" in node.inputs:
+            node.inputs["Metallic"].default_value = 0.0
+# Soft creases rather than facets, the same 48 degrees the environment uses.
+bpy.context.view_layer.objects.active = mesh
+bpy.ops.object.select_all(action="DESELECT")
+mesh.select_set(True)
+bpy.ops.object.shade_auto_smooth(angle=math.radians(48))
+
 OUT.mkdir(parents=True, exist_ok=True)
 common = dict(export_format="GLB", export_yup=True, export_apply=False,
               export_skins=True, export_morph=True, export_materials="EXPORT",
