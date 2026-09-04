@@ -205,15 +205,15 @@ namespace MiniMarket.Store
             // shell, because the mesh carries material right across the doorway
             // and an x histogram cannot tell the pier from the hole.
             const float entranceWidth=12.91f;
-            // A fifth taller than it was, on request.
-            const float entranceHeight=7.13f;
+            // Raised twice on request, a fifth each time, from the 6.2 it was.
+            const float entranceHeight=8.20f;
             var door=await PlaceFitted("StoreEntrance",new Vector3(0,0,15.9f),Quaternion.identity,
                                        new Vector3(entranceWidth,entranceHeight,4.4f),root,false);
             // The entrance carries its own plinth: 0.107 of the model's 1.764
-            // height, which at this fit is 0.432 in the world. Resting its
+            // height, which at this fit is 0.497 in the world. Resting its
             // lowest point on y = 0 would put that step above the plane
             // everyone walks on and feet would sink into it.
-            const float entrancePlinth=.432f;
+            const float entrancePlinth=.497f;
             RestOnFloor(door,-entrancePlinth);
             // The facade either side of the opening is solid. The doorway itself
             // is left clear so the automatic door is what governs entry.

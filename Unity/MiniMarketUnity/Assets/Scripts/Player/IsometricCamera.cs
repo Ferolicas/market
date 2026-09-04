@@ -22,6 +22,9 @@ namespace MiniMarket.Player
         // 0.9 * PLAYER_SCALE(1.1): the constant height the rig aims at. Next
         // keeps it independent of the player's own Y, and so does this.
         const float TargetHeight = .99f;
+        // The frame sits this much of a half-height above the subject, so the
+        // view carries more of what is ahead than of the pavement behind.
+        const float FramingLift = .30f;
         const float FollowResponse = 2.8f;
         const float ZoomResponse = 5f;
         const float FocusResponse = 4.8f;
@@ -71,6 +74,10 @@ namespace MiniMarket.Player
 
             transform.rotation = Quaternion.LookRotation((lookAt - transform.position).normalized, Vector3.up);
             if (view && view.orthographic) view.orthographicSize = 1f / inverseSize;
+            // Slid along the camera's own up axis, which shifts the frame
+            // without turning it: the aim stays exactly where it was.
+            if (view && view.orthographic)
+                transform.position += transform.up * (view.orthographicSize * FramingLift);
         }
 
         // Next sizes the frustum in canvas pixels beneath a WORLD_SCALE=3 group:

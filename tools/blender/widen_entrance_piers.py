@@ -22,7 +22,7 @@ OUT = opts["out"]
 # the doorway -- reveal, threshold, soffit -- so an x histogram cannot tell the
 # pier from the hole, and filtering "x greater than a guess" only ever returns
 # the guess. The opening runs -0.637 to +0.670.
-INNER = float(opts.get("inner", 0.645))
+INNER = float(opts.get("inner", 0.60))
 # How much plain wall to insert. The pier is 0.216 thick as delivered and a
 # leaf with its frame half is 0.648, so it needs about half a unit more.
 GROW = float(opts.get("grow", 0.50))
