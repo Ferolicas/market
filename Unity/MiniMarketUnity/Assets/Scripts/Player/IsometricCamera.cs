@@ -75,9 +75,15 @@ namespace MiniMarket.Player
             }
             else
             {
-                var response = Damp(FollowResponse, delta);
-                transform.position = Vector3.Lerp(transform.position, desiredPosition, response);
-                lookAt = Vector3.Lerp(lookAt, desiredLookAt, response);
+                // The rig used to chase the player with a damped follow, which
+                // leaves the character wherever its own speed puts it: at 14.26
+                // units a second against a response of 2.8 that is five units of
+                // lag, and the lag points a different way on screen for every
+                // heading. It tracks exactly now, so the character holds the same
+                // place in frame whichever way it walks. Only the zoom is damped,
+                // since that changes with the window rather than with the player.
+                transform.position = desiredPosition;
+                lookAt = desiredLookAt;
                 inverseSize = Mathf.Lerp(inverseSize, desiredInverseSize, Damp(ZoomResponse, delta));
             }
 
