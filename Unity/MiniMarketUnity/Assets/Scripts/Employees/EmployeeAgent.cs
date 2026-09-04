@@ -22,9 +22,9 @@ namespace MiniMarket.Employees
         {
             target=destination;target.y=transform.position.y;moving=Vector3.SqrMagnitude(target-transform.position)>.06f;
             if(nav&&nav.isOnNavMesh){nav.speed=speed;nav.SetDestination(target);}
-            // Past a brisk walk the feet skate over the floor, so the stride
-            // changes with the pace instead of staying a walk at any speed.
-            if(moving)actor.Play(carrying?"CarryWalk":speed>2.6f?"Run":"Walk");
+            // Clip and rate both come from the pace, so the stride covers the
+            // ground the agent actually crosses instead of sliding over it.
+            if(moving){var(clip,rate)=CharacterActor.Locomotion(speed,carrying);actor.Play(clip,.18f,rate);}
         }
 
         public void Play(string animation)=>actor.Play(animation,.18f);

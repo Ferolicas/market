@@ -14,6 +14,7 @@ namespace MiniMarket.Animations
         float nextBoundsCheck;
         float blinkTime;
         string current;
+        float currentRate = 1f;
 
         public int AnimationCount => clips.Count;
         public int BlendShapeCount { get; private set; }
@@ -46,32 +47,57 @@ namespace MiniMarket.Animations
             nextBlink = Time.time + UnityEngine.Random.Range(2f, 5f);
         }
 
-        public bool Play(string requested, float fade = .18f)
+        /// How far each locomotion clip carries itself per second, in world
+        /// units at the presentation scale. Measured off the delivered files:
+        /// the run covers 1.978 m in 0.633 s, the walk 0.974 m in 1.017 s.
+        /// Without these the legs cycle at the pace they were authored for
+        /// while the controller carries the body three times faster, which is
+        /// the character taking one stride and sliding several metres.
+        public const float RunGroundSpeed = 12.18f;
+        public const float WalkGroundSpeed = 3.74f;
+        public const float CarryWalkGroundSpeed = 2.45f;
+
+        /// The clip whose own pace is nearest, and the rate that matches it.
+        public static (string clip, float rate) Locomotion(float worldSpeed, bool carrying)
         {
-            if (legacyAnimations.Length == 0 || current == requested) return false;
-            var speed = 1f;
+            if (carrying)
+                return ("CarryWalk", Mathf.Clamp(worldSpeed / CarryWalkGroundSpeed, .55f, 2.4f));
+            // Halfway between the two clips' own speeds: below it the walk is
+            // the closer match, above it the run is.
+            var crossover = (WalkGroundSpeed + RunGroundSpeed) * .5f;
+            return worldSpeed >= crossover
+                ? ("Run", Mathf.Clamp(worldSpeed / RunGroundSpeed, .6f, 2.2f))
+                : ("Walk", Mathf.Clamp(worldSpeed / WalkGroundSpeed, .55f, 2.4f));
+        }
+
+        public bool Play(string requested, float fade = .18f, float rate = 1f)
+        {
+            if (legacyAnimations.Length == 0) return false;
+            if (current == requested && Mathf.Approximately(currentRate, rate)) return false;
             var resolved = Resolve(requested);
             if (resolved == null && requested == "Run")
             {
-                // Every character carries a retargeted Run; this stands in only
-                // for one that somehow does not, so a sprint never freezes the
-                // actor mid-stride.
+                // Every character carries a Run; this stands in only for one
+                // that somehow does not, so a sprint never freezes mid-stride.
                 resolved = Resolve("Walk");
-                speed = 1.7f;
+                rate *= RunGroundSpeed / WalkGroundSpeed;
             }
             if (resolved == null) return false;
             var played = false;
+            var repeat = current == requested;
             foreach (var animation in legacyAnimations)
             {
                 var clip = animation.GetClip(resolved);
                 if (clip == null) continue;
                 var state = animation[resolved];
-                if (state != null) state.speed = speed;
-                animation.CrossFade(resolved, fade);
+                if (state != null) state.speed = rate;
+                // Re-issuing a crossfade for a rate change would restart the
+                // blend every frame the speed drifts, which reads as a stutter.
+                if (!repeat) animation.CrossFade(resolved, fade);
                 played = true;
             }
             if (!played) return false;
-            current = requested;
+            current = requested; currentRate = rate;
             return true;
         }
 

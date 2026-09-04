@@ -29,6 +29,8 @@ namespace MiniMarket.Player
         [SerializeField] float maxTurnRate = 540f;
         CharacterController controller;
         Vector3 velocity;
+        /// Ground speed in world units, which is what a stride has to match.
+        public float WorldSpeed => new Vector2(velocity.x, velocity.z).magnitude;
         float angularVelocity;
         GameStateDocument state;
         public Vector2 VirtualInput { get; set; }
