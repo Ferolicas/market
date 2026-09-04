@@ -133,7 +133,7 @@ namespace MiniMarket.Employees
             if(role=="farmer")AssignFarmer(mind);
             else if(role=="operator")AssignOperator(mind);
             else if(role=="stocker")AssignStocker(mind);
-            else { mind.Agent.Play(role=="manager"?"Tripo_LookAround":"Idle"); mind.Since=Time.time; }
+            else { mind.Agent.Play(role=="manager"?"LookAround":"Idle"); mind.Since=Time.time; }
         }
 
         void AssignFarmer(Mind mind)
@@ -207,9 +207,9 @@ namespace MiniMarket.Employees
 
         /// Hired staff run at this multiple of the base pace. The base numbers
         /// were tuned when the cast was a third of its present size, and the
-        /// player walks at 5.94: at 1.5 the staff moved 2.6 times slower than
-        /// the owner and read as sleepwalking.
-        const float WorkPace=2.25f;
+        /// player walks at 5.94, so anything under this reads as sleepwalking
+        /// beside the owner.
+        const float WorkPace=4f;
         static float EmployeeSpeed(Mind mind)=>Mathf.Min(2.15f,1.42f+Mathf.Max(1,mind.Data.Value<int?>("level")??1)*.08f)*WorkPace;
 
         void Rest(Mind mind)

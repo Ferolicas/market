@@ -173,7 +173,7 @@ namespace MiniMarket.Customers
                 if (inventory.Quantity("shelves", id) > 0 && world.ProductServicePoints.ContainsKey(id)) choices.Add(id);
             if (choices.Count == 0)
             {
-                mind.Agent.Play("Tripo_Angry"); mind.Agent.Expression("Frown", 55);
+                mind.Agent.Play("Impatient"); mind.Agent.Expression("Frown", 55);
                 mind.Phase = Phase.Leaving; mind.Agent.GoTo(world.ExitPoint.position); return;
             }
             for(var i=choices.Count-1;i>0;i--){var j=UnityEngine.Random.Range(0,i+1);(choices[i],choices[j])=(choices[j],choices[i]);}
@@ -199,7 +199,7 @@ namespace MiniMarket.Customers
             {
                 mind.Product=mind.ShoppingList[mind.ShoppingIndex];mind.Phase=Phase.Shopping;mind.Agent.Play("Browse");mind.Agent.GoTo(world.ServicePoint(mind.Product).position);return;
             }
-            if(mind.Basket.Count==0){mind.Phase=Phase.Leaving;mind.Agent.Play("Tripo_LookAround");mind.Agent.GoTo(world.ExitPoint.position);return;}
+            if(mind.Basket.Count==0){mind.Phase=Phase.Leaving;mind.Agent.Play("LookAround");mind.Agent.GoTo(world.ExitPoint.position);return;}
             mind.CheckoutLane=ChooseLane();mind.QueueSlot = queues[mind.CheckoutLane].Reserve(mind.Agent.CustomerId);
             if (mind.QueueSlot < 0) { PenalizeRating(); ReturnBasket(mind); mind.Agent.Play("Impatient"); mind.Phase = Phase.Leaving; mind.Agent.GoTo(world.ExitPoint.position); return; }
             mind.QueueJoinedAt=state.SimulationTimeMs;
@@ -230,7 +230,7 @@ namespace MiniMarket.Customers
             signals.PublishNotification($"Cliente atendido · +{total}");
             Debug.Log($"MINIMARKET_CHECKOUT customer={mind.Agent.CustomerId} totalMinor={total} balanceMinor={state.BalanceMinor}");
             mind.CheckoutFlow?.EndSession();
-            mind.Agent.Expression("Smile", 62); mind.Agent.Play("Tripo_Goodbye");
+            mind.Agent.Expression("Smile", 62); mind.Agent.Play("Wave");
             mind.Phase = Phase.Leaving; mind.Agent.GoTo(world.ExitPoint.position);
         }
 
@@ -273,7 +273,7 @@ namespace MiniMarket.Customers
         void AbandonQueue(Mind mind)
         {
             QueueFor(mind).Release(mind.Agent.CustomerId);mind.QueueSlot=-1;mind.QueueJoinedAt=-1;ReturnBasket(mind);PenalizeRating();
-            mind.Agent.Expression("Frown",65);mind.Agent.Play("Tripo_Angry");mind.Phase=Phase.Leaving;mind.Agent.GoTo(world.ExitPoint.position);
+            mind.Agent.Expression("Frown",65);mind.Agent.Play("Impatient");mind.Phase=Phase.Leaving;mind.Agent.GoTo(world.ExitPoint.position);
             signals.PublishNotification("Un cliente abandonó la cola tras esperar demasiado");
         }
         void PenalizeRating(){var franchise=state.CurrentFranchise;franchise["rating"]=Math.Round(Math.Max(1,(franchise.Value<double?>("rating")??3.5)-.15),2);state.Changed();}

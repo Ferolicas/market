@@ -170,6 +170,18 @@ namespace MiniMarket.Core
         /// Reports the world height of every actor on stage. Comparing the GLB
         /// files only proves the assets match; this proves what reaches the
         /// screen, scale chain and all.
+        /// Puts a worker on the floor with the store open, so the agent can be
+        /// watched doing real errands instead of standing at its home spot.
+        public void DebugHireAndOpen()
+        {
+            State.Level=Math.Max(State.Level,6);
+            Progression.ReconcileAllUnlocks();
+            foreach(var role in new[]{"stocker","farmer","cashier"})
+                Debug.Log($"MINIMARKET_HIRE {role}={Hiring.Hire(role)}");
+            if(!Days.IsOpen)Days.ToggleOpen();
+            Debug.Log($"MINIMARKET_HIRE abierto={Days.IsOpen}");
+        }
+
         public void ReportActorScale()
         {
             foreach(var actor in FindObjectsByType<MiniMarket.Animations.CharacterActor>(FindObjectsSortMode.None))
