@@ -77,9 +77,13 @@ namespace MiniMarket.Player
         // zoom = min(w / 32, h / 28.5) / CAMERA_DISTANCE_FACTOR(1.15). Unity
         // holds the authored coordinates directly, so the visible frame divides
         // by that outer scale and again by two to become a half-height.
-        float OverviewSize() => Mathf.Max(28.5f * 1.15f / 6f, 32f * 1.15f / (6f * Aspect));
+        // Both frames are pulled back by the same amount, so the cut to the
+        // checkout keeps its relationship with the overview. This is the only
+        // knob that departs from Next's framing parity.
+        const float PullBack = 1.15f;
+        float OverviewSize() => PullBack * Mathf.Max(28.5f * 1.15f / 6f, 32f * 1.15f / (6f * Aspect));
         // CHECKOUT_CAMERA_FRAME = { width: 39, height: 27 }, no distance factor.
-        float CheckoutSize() => Mathf.Max(27f / 6f, 39f / (6f * Aspect));
+        float CheckoutSize() => PullBack * Mathf.Max(27f / 6f, 39f / (6f * Aspect));
         float Aspect => view ? Mathf.Max(.1f, view.aspect) : 1f;
 
         static float FrameDelta(float delta) => Mathf.Clamp(delta, 0f, .05f);

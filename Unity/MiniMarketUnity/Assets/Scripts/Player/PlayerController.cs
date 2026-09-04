@@ -19,12 +19,15 @@ namespace MiniMarket.Player
         // Next's tier-one cap is 17.82 world units, and this used to be that
         // figure divided by Next's outer WORLD_SCALE of 3, because the cast was
         // presented at a third of world size. The cast is now presented at full
-        // size, so the divisor is gone: at 5.94 a character three times taller
+        // size, so the divisor went: at 5.94 a character three times taller
         // covered the same ground in the same time and read as a giant walking
-        // in slow motion. Acceleration and braking keep their old proportion.
-        [SerializeField] float walkSpeed = 17.82f;
-        [SerializeField] float acceleration = 97.2f;
-        [SerializeField] float braking = 129.6f;
+        // in slow motion. This sits a fifth under that full figure, which is
+        // where the pace was judged right on screen. Acceleration and braking
+        // keep their proportion to it, and the stride rate follows on its own
+        // because CharacterActor.Locomotion reads the speed itself.
+        [SerializeField] float walkSpeed = 14.26f;
+        [SerializeField] float acceleration = 77.76f;
+        [SerializeField] float braking = 103.68f;
         [SerializeField] float turnTime = .13f;
         [SerializeField] float maxTurnRate = 540f;
         CharacterController controller;
