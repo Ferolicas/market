@@ -166,6 +166,21 @@ namespace MiniMarket.Core
         void RecordPlayerDistance(float distance){pendingDistance+=distance;if(pendingDistance<1)return;var meters=Mathf.FloorToInt(pendingDistance);pendingDistance-=meters;Progression.Record("distance:player",meters);}
 
         public void ToggleStore(){Days.ToggleOpen();Debug.Log($"MINIMARKET_STORE open={Days.IsOpen}");}
+
+        /// Reports the world height of every actor on stage. Comparing the GLB
+        /// files only proves the assets match; this proves what reaches the
+        /// screen, scale chain and all.
+        public void ReportActorScale()
+        {
+            foreach(var actor in FindObjectsByType<MiniMarket.Animations.CharacterActor>(FindObjectsSortMode.None))
+            {
+                var renderers=actor.GetComponentsInChildren<Renderer>();
+                if(renderers.Length==0)continue;
+                var bounds=renderers[0].bounds;
+                for(var i=1;i<renderers.Length;i++)bounds.Encapsulate(renderers[i].bounds);
+                Debug.Log($"MINIMARKET_ACTORSCALE {actor.name} alto={bounds.size.y:0.000} escala={actor.transform.lossyScale.x:0.000}");
+            }
+        }
         public void CloseDay(){Days.CloseDay();_ = Saves.SyncRemoteAsync();}
         public void Interact()=>Interactions.ActivateNearest();
         public void ReturnCarriedItems()=>gameplayInteractions?.ReturnCarry();

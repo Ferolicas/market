@@ -41,7 +41,9 @@ for side, tag in (("Left", "L"), ("Right", "R")):
 
 # One long performance holding two stances; nothing in the delivery stands with
 # its arms down, so the game's idle is the arms-crossed half.
-SEGMENTS = {"ENOJADO": {"brazos_cruzados": (60, 530), "manos_cadera": (640, 1140)}}
+# Solved once with seamless_window() and written down: the window depends on
+# the clip, and the clip is the same for the whole cast.
+SEGMENTS = {"ENOJADO": {"brazos_cruzados": (222, 332), "manos_cadera": (660, 944)}}
 
 SINGLES = {
     "ENOJADO": "ENOJADO_BRAZOSCRUZADOS_SINPRODUCTO_ESPERANDO_FRUSTRADO.fbx",
@@ -85,6 +87,52 @@ MAPPING = {
     "ALCANZARALTO":    ["PickupHigh", "StockMid", "StockHigh", "ReachShelf"],
     "GESTODECAJA":     ["CheckoutScan", "CheckoutItem", "CheckoutBag", "ScanItem", "Pay"],
 }
+
+
+def pose_signature(armature):
+    return [b.rotation_quaternion.copy() for b in armature.pose.bones]
+
+
+def pose_distance(a, b):
+    total = 0.0
+    for p, q in zip(a, b):
+        d = p.rotation_difference(q).angle
+        total += min(d, math.tau - d)
+    return total
+
+
+def seamless_window(armature, action, lo, hi, shortest=110):
+    """Find the sub-range whose first and last pose match.
+
+    Cutting a long performance at round numbers leaves the loop jumping from
+    one pose to a different one -- the arms open at the end of the cycle and
+    the next frame has them already crossed. Sampling the region and picking
+    the pair of frames that agree removes the cut.
+    """
+    armature.animation_data.action = action
+    if hasattr(action, "slots") and action.slots:
+        armature.animation_data.action_slot = action.slots[0]
+    poses = {}
+    for frame in range(lo, hi + 1, 2):
+        bpy.context.scene.frame_set(frame)
+        bpy.context.view_layer.update()
+        poses[frame] = pose_signature(armature)
+    frames = sorted(poses)
+    best, choice = None, (lo, hi)
+    for i, start in enumerate(frames):
+        for end in frames[i:]:
+            if end - start < shortest:
+                continue
+            # A longer window is worth a little more mismatch: a two second
+            # idle that ticks is worse than a four second one that breathes.
+            score = pose_distance(poses[start], poses[end]) - (end - start) * 0.0016
+            if best is None or score < best:
+                best, choice = score, (start, end)
+    armature.animation_data.action = None
+    for bone in armature.pose.bones:
+        bone.matrix_basis = Matrix.Identity(4)
+    bpy.context.view_layer.update()
+    return choice
 
 
 def channels(action):
@@ -202,8 +250,35 @@ def hold_in_place(action):
     bpy.context.view_layer.update()
 
 
-for action in library.values():
-    hold_in_place(action)
+def travels(action, threshold=0.08):
+    """Coarse check first: most of these clips never leave the spot, and
+    walking the whole library frame by frame is what made a character take
+    five minutes to build."""
+    arm.animation_data.action = action
+    if hasattr(action, "slots") and action.slots:
+        arm.animation_data.action_slot = action.slots[0]
+    hips = arm.pose.bones.get("Hips")
+    if not hips:
+        return False
+    first, last = (int(v) for v in action.frame_range)
+    step = max(1, (last - first) // 12 or 1)
+    seen = []
+    for frame in range(first, last + 1, step):
+        bpy.context.scene.frame_set(frame)
+        bpy.context.view_layer.update()
+        spot = (arm.matrix_world @ hips.matrix).to_translation()
+        seen.append((spot.x, spot.y))
+    arm.animation_data.action = None
+    span_x = max(p[0] for p in seen) - min(p[0] for p in seen)
+    span_y = max(p[1] for p in seen) - min(p[1] for p in seen)
+    return max(span_x, span_y) > threshold
+
+
+moved = []
+for label, action in library.items():
+    if travels(action):
+        hold_in_place(action)
+        moved.append(label)
 
 produced, unmapped = [], []
 for label, targets in MAPPING.items():
@@ -271,7 +346,7 @@ fingers = [b.name for b in arm.data.bones if b.name.startswith(("Thumb_", "Index
 print("JSON_START" + json.dumps({
     "name": NAME, "sex": SEX,
     "clips": sorted(produced), "sin_fuente": sorted(unmapped),
-    "fuentes": sorted(library), "dedos": len(fingers),
+    "fuentes": sorted(library), "fijados": sorted(moved), "dedos": len(fingers),
     "verts": len(mesh.data.vertices), "faces": len(mesh.data.polygons),
     "bones": len(arm.data.bones),
 }) + "JSON_END")

@@ -123,7 +123,7 @@ namespace MiniMarket.Employees
             if((mind.Data.Value<double?>("energy")??100)<=0){Rest(mind);return;}
             if(role=="cashier")
             {
-                if(world.CheckoutPoint&&Vector3.SqrMagnitude(mind.Agent.transform.position-world.CheckoutPoint.position)>.25f)mind.Agent.GoTo(world.CheckoutPoint.position);
+                if(world.CheckoutPoint&&Vector3.SqrMagnitude(mind.Agent.transform.position-world.CheckoutPoint.position)>.25f)mind.Agent.GoTo(world.CheckoutPoint.position,EmployeeSpeed(mind));
                 else mind.Agent.Play("ScanItem");
                 mind.Since=Time.time;return;
             }
@@ -202,7 +202,10 @@ namespace MiniMarket.Employees
             Rest(mind);
         }
 
-        static float EmployeeSpeed(Mind mind)=>Mathf.Min(2.15f,1.42f+Mathf.Max(1,mind.Data.Value<int?>("level")??1)*.08f);
+        /// Hired staff move half again as fast as the base pace, so a shift
+        /// keeps up with the store instead of trailing it.
+        const float WorkPace=1.5f;
+        static float EmployeeSpeed(Mind mind)=>Mathf.Min(2.15f,1.42f+Mathf.Max(1,mind.Data.Value<int?>("level")??1)*.08f)*WorkPace;
 
         void Rest(Mind mind)
         {
