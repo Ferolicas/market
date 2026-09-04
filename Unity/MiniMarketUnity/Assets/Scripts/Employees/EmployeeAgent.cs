@@ -13,7 +13,7 @@ namespace MiniMarket.Employees
         {
             actor=character;
             var controller=GetComponent<CharacterController>();if(controller)controller.enabled=false;
-            nav=gameObject.AddComponent<NavMeshAgent>();nav.radius=.3f;nav.height=1.72f;nav.baseOffset=0;nav.angularSpeed=500;nav.acceleration=7;nav.stoppingDistance=.22f;nav.avoidancePriority=UnityEngine.Random.Range(10,24);
+            nav=gameObject.AddComponent<NavMeshAgent>();nav.radius=.3f;nav.height=1.72f;nav.baseOffset=0;nav.angularSpeed=500;nav.acceleration=18;nav.stoppingDistance=.22f;nav.avoidancePriority=UnityEngine.Random.Range(10,24);
             if(NavMesh.SamplePosition(transform.position,out var hit,5f,NavMesh.AllAreas))nav.Warp(hit.position);
             target=transform.position;
         }
@@ -22,7 +22,9 @@ namespace MiniMarket.Employees
         {
             target=destination;target.y=transform.position.y;moving=Vector3.SqrMagnitude(target-transform.position)>.06f;
             if(nav&&nav.isOnNavMesh){nav.speed=speed;nav.SetDestination(target);}
-            if(moving)actor.Play(carrying?"CarryWalk":"Walk");
+            // Past a brisk walk the feet skate over the floor, so the stride
+            // changes with the pace instead of staying a walk at any speed.
+            if(moving)actor.Play(carrying?"CarryWalk":speed>2.6f?"Run":"Walk");
         }
 
         public void Play(string animation)=>actor.Play(animation,.18f);

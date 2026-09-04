@@ -62,7 +62,10 @@ namespace MiniMarket.Employees
             if(state==null)return;
             if(Time.time>=reconcileAt){reconcileAt=Time.time+1f;if(!reconciling)_ = ReconcileAsync();}
             if(Time.time<decisionAt)return;
-            decisionAt=Time.time+(performance?performance.DecisionTickSeconds:.65f);
+            // The state machine only advances on this tick, so at four phase
+            // changes per errand it was costing up to three seconds of standing
+            // still per cycle -- far more than the walk itself.
+            decisionAt=Time.time+(performance?performance.DecisionTickSeconds:.65f)/WorkPace;
             foreach(var mind in minds.Values)Step(mind);
         }
 
@@ -100,19 +103,19 @@ namespace MiniMarket.Employees
             switch(mind.Phase)
             {
                 case WorkPhase.Idle:
-                    if(Time.time-mind.Since>=.45f)Assign(mind);
+                    if(Time.time-mind.Since>=.45f/WorkPace)Assign(mind);
                     break;
                 case WorkPhase.GoingToPickup:
                     if(mind.Agent.Arrived){mind.Phase=WorkPhase.Picking;mind.Since=Time.time;mind.Agent.Play(PickAnimation(mind.Kind));}
                     break;
                 case WorkPhase.Picking:
-                    if(Time.time-mind.Since>=.55f)Pickup(mind);
+                    if(Time.time-mind.Since>=.55f/WorkPace)Pickup(mind);
                     break;
                 case WorkPhase.GoingToDropoff:
                     if(mind.Agent.Arrived){mind.Phase=WorkPhase.Dropping;mind.Since=Time.time;mind.Agent.Play(DropAnimation(mind.Kind));}
                     break;
                 case WorkPhase.Dropping:
-                    if(Time.time-mind.Since>=.55f)Dropoff(mind);
+                    if(Time.time-mind.Since>=.55f/WorkPace)Dropoff(mind);
                     break;
             }
         }
@@ -202,9 +205,11 @@ namespace MiniMarket.Employees
             Rest(mind);
         }
 
-        /// Hired staff move half again as fast as the base pace, so a shift
-        /// keeps up with the store instead of trailing it.
-        const float WorkPace=1.5f;
+        /// Hired staff run at this multiple of the base pace. The base numbers
+        /// were tuned when the cast was a third of its present size, and the
+        /// player walks at 5.94: at 1.5 the staff moved 2.6 times slower than
+        /// the owner and read as sleepwalking.
+        const float WorkPace=2.25f;
         static float EmployeeSpeed(Mind mind)=>Mathf.Min(2.15f,1.42f+Mathf.Max(1,mind.Data.Value<int?>("level")??1)*.08f)*WorkPace;
 
         void Rest(Mind mind)
