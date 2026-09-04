@@ -19,7 +19,7 @@ namespace MiniMarket.UI
         // plus .glass-panel's #ffffffe3 and the .positive/.negative ledger pair.
         static readonly Color Ink=Alpha(Linear("183B33"),.98f);static readonly Color Cream=Alpha(Linear("FFF7E5"),.98f);static readonly Color Green=Linear("56B997");static readonly Color Orange=Linear("EF6C4C");static readonly Color Glass=Alpha(Linear("FFFFFF"),.89f);static readonly Color Muted=Linear("637D75");
         static readonly Color Forest=Alpha(Linear("173F35"),.90f);static readonly Color Positive=Linear("4EC694");static readonly Color Negative=Linear("F08A72");
-        Canvas canvas;Font font;Sprite roundedSprite;RectTransform loading;Text loadingText;Text money;Text clock;Text level;Text carry;Text save;Text prompt;Text toast;Text player;Text missionSummary;Text tutorialSummary;Text storeStatusText;Image storeStatusImage;RectTransform storeStatus;RectTransform carryChip;RectTransform saveChip;RectTransform promptPanel;RectTransform toastPanel;RectTransform tutorialCard;RectTransform drawer;RectTransform drawerContent;RectTransform drawerClose;RectTransform actions;Text drawerTitle;
+        Canvas canvas;Font font;Sprite roundedSprite;RectTransform loading;Text loadingText;Text money;Text clock;Text level;Text carry;Text save;Text prompt;Text toast;Text player;Text missionSummary;Text tutorialSummary;Text storeStatusText;Image storeStatusImage;RectTransform storeStatus;RectTransform carryChip;RectTransform saveChip;RectTransform promptPanel;RectTransform toastPanel;RectTransform tutorialCard;RectTransform drawer;RectTransform drawerContent;RectTransform drawerClose;RectTransform actions;readonly System.Collections.Generic.List<RectTransform> quickButtons=new();Text drawerTitle;
         MiniMarketRuntime runtime;AudioManager audioService;Coroutine toastRoutine;VirtualJoystick joystick;
 
         void Awake()=>Build();
@@ -66,16 +66,20 @@ namespace MiniMarket.UI
 
         void BuildNavigation()
         {
-            actions=Panel("QuickMenu",canvas.transform,Glass);Anchor(actions,new Vector2(.5f,0),new Vector2(.5f,0),new Vector2(-201,10),new Vector2(201,66));var row=actions.gameObject.AddComponent<GridLayoutGroup>();row.padding=new RectOffset(6,6,5,5);row.spacing=new Vector2(3,0);row.constraint=GridLayoutGroup.Constraint.FixedColumnCount;row.constraintCount=8;row.cellSize=new Vector2(45.5f,46);
-            QuickButton(row.transform,"INV",()=>OpenPanel("inventory"),"Inventario");
-            QuickButton(row.transform,"PED",()=>OpenPanel("supplier"),"Proveedores");
-            QuickButton(row.transform,"EQ",()=>OpenPanel("hiring"),"Equipo");
-            QuickButton(row.transform,"MAP",()=>OpenPanel("map"),"Franquicias");
-            QuickButton(row.transform,"$",()=>OpenPanel("finance"),"Finanzas");
-            QuickButton(row.transform,"+",()=>OpenPanel("upgrade"),"Construir");
-            QuickButton(row.transform,"YO",()=>OpenPanel("closet"),"Avatar");
-            QuickButton(row.transform,"?",()=>OpenPanel("help"),"Cómo jugar");
-            var responsive=gameObject.AddComponent<ResponsiveHudLayout>();responsive.Bind(actions,drawer,row);
+            actions=Panel("QuickMenu",canvas.transform,Glass);
+            // The stylesheet puts this menu in a 76px column down the right edge,
+            // 100px from the top -- not as a bar across the bottom.
+            Anchor(actions,new Vector2(1,1),new Vector2(1,1),new Vector2(-90,-581),new Vector2(-14,-100));
+            var row=actions.gameObject.AddComponent<GridLayoutGroup>();row.padding=new RectOffset(7,7,7,7);row.spacing=new Vector2(5,5);row.constraint=GridLayoutGroup.Constraint.FixedColumnCount;row.constraintCount=1;row.cellSize=new Vector2(62,54);
+            QuickButton(row.transform,"inventory",()=>OpenPanel("inventory"),"Inventario");
+            QuickButton(row.transform,"suppliers",()=>OpenPanel("supplier"),"Proveedores");
+            QuickButton(row.transform,"team",()=>OpenPanel("hiring"),"Equipo");
+            QuickButton(row.transform,"map",()=>OpenPanel("map"),"Franquicias");
+            QuickButton(row.transform,"finance",()=>OpenPanel("finance"),"Finanzas");
+            QuickButton(row.transform,"build",()=>OpenPanel("upgrade"),"Construir");
+            QuickButton(row.transform,"avatar",()=>OpenPanel("closet"),"Avatar");
+            QuickButton(row.transform,"help",()=>OpenPanel("help"),"Cómo jugar");
+            var responsive=gameObject.AddComponent<ResponsiveHudLayout>();responsive.Bind(actions,drawer,row,quickButtons);
         }
 
         void BuildJoystick()
@@ -294,6 +298,19 @@ namespace MiniMarket.UI
         void Notify(string message){if(toastRoutine!=null)StopCoroutine(toastRoutine);toastRoutine=StartCoroutine(Toast(message));}
         IEnumerator Toast(string message){toast.text=message;var group=toastPanel.GetComponent<CanvasGroup>();group.alpha=1;yield return new WaitForSecondsRealtime(2.8f);for(var t=0f;t<.35f;t+=Time.unscaledDeltaTime){group.alpha=1-t/.35f;yield return null;}group.alpha=0;}
 
+        readonly System.Collections.Generic.Dictionary<string,Sprite> iconCache=new();
+        Sprite Icon(string name)
+        {
+            if(iconCache.TryGetValue(name,out var cached))return cached;
+            var texture=Resources.Load<Texture2D>($"Icons/{name}");
+            // Built from the same SVG paths Next draws, by tools/ui/render_game_icons.py.
+            // Sprite.Create at runtime avoids depending on the PNG being imported
+            // with sprite settings, which cannot be authored without the editor.
+            var sprite=texture?Sprite.Create(texture,new Rect(0,0,texture.width,texture.height),new Vector2(.5f,.5f),100f,0,SpriteMeshType.FullRect):null;
+            iconCache[name]=sprite;
+            return sprite;
+        }
+
         Sprite CreateRoundedSprite()
         {
             const int size=64;const float radius=15f;var texture=new Texture2D(size,size,TextureFormat.RGBA32,false,true){name="RuntimeHud_RoundedRect",filterMode=FilterMode.Bilinear,wrapMode=TextureWrapMode.Clamp};var pixels=new Color32[size*size];
@@ -306,7 +323,28 @@ namespace MiniMarket.UI
         RectTransform Panel(string name,Transform parent,Color color){var go=new GameObject(name,typeof(RectTransform),typeof(Image));go.transform.SetParent(parent,false);var image=go.GetComponent<Image>();image.color=color;if(roundedSprite){image.sprite=roundedSprite;image.type=Image.Type.Sliced;}return go.GetComponent<RectTransform>();}
         Text Label(Transform parent,string value,int size,TextAnchor anchor){var go=new GameObject("Text",typeof(RectTransform),typeof(Text));go.transform.SetParent(parent,false);var text=go.GetComponent<Text>();text.font=font;text.text=value;text.fontSize=size;text.color=Ink;text.alignment=anchor;text.resizeTextForBestFit=true;text.resizeTextMinSize=9;text.resizeTextMaxSize=size;return text;}
         RectTransform Button(Transform parent,string label,UnityEngine.Events.UnityAction action,Color color){var go=new GameObject(label,typeof(RectTransform),typeof(Image),typeof(Button),typeof(LayoutElement));go.transform.SetParent(parent,false);go.GetComponent<Image>().color=color;var button=go.GetComponent<Button>();button.onClick.AddListener(action);var element=go.GetComponent<LayoutElement>();element.preferredHeight=58;element.minHeight=46;var text=Label(go.transform,label,19,TextAnchor.MiddleCenter);text.color=color.grayscale<.42f?Cream:Ink;Anchor(text.rectTransform,Vector2.zero,Vector2.one,new Vector2(8,4),new Vector2(-8,-4));return go.GetComponent<RectTransform>();}
-        void QuickButton(Transform parent,string icon,UnityEngine.Events.UnityAction action,string tooltip){var button=Button(parent,icon,action,Alpha(Linear("E8F4EC"),.96f));button.gameObject.name=tooltip;var text=button.GetComponentInChildren<Text>();text.fontSize=icon.Length>1?13:22;text.fontStyle=FontStyle.Bold;text.resizeTextMinSize=10;text.resizeTextMaxSize=icon.Length>1?13:22;}
+        void QuickButton(Transform parent,string icon,UnityEngine.Events.UnityAction action,string tooltip)
+        {
+            // Next stacks a 20px stroke icon over an 8px caption; the client used
+            // to show three-letter stand-ins (INV, PED, EQ, $) instead.
+            var go=new GameObject(tooltip,typeof(RectTransform),typeof(Image),typeof(Button),typeof(LayoutElement));
+            go.transform.SetParent(parent,false);
+            var background=go.GetComponent<Image>();background.color=new Color(0,0,0,0);
+            if(roundedSprite){background.sprite=roundedSprite;background.type=Image.Type.Sliced;}
+            go.GetComponent<Button>().onClick.AddListener(action);
+            var element=go.GetComponent<LayoutElement>();element.preferredHeight=54;element.minHeight=38;
+            var glyph=new GameObject("Icon",typeof(RectTransform),typeof(Image));
+            glyph.transform.SetParent(go.transform,false);
+            var image=glyph.GetComponent<Image>();image.sprite=Icon(icon);image.color=Ink;image.preserveAspect=true;image.raycastTarget=false;
+            var rect=glyph.GetComponent<RectTransform>();
+            rect.anchorMin=rect.anchorMax=new Vector2(.5f,1);rect.pivot=new Vector2(.5f,1);
+            rect.sizeDelta=new Vector2(20,20);rect.anchoredPosition=new Vector2(0,-9);
+            var caption=Label(go.transform,tooltip.ToUpperInvariant(),9,TextAnchor.UpperCenter);
+            caption.color=Linear("526D65");caption.fontStyle=FontStyle.Bold;
+            caption.resizeTextForBestFit=false;caption.horizontalOverflow=HorizontalWrapMode.Wrap;
+            Anchor(caption.rectTransform,new Vector2(0,0),new Vector2(1,1),new Vector2(2,3),new Vector2(-2,-31));
+            quickButtons.Add(go.GetComponent<RectTransform>());
+        }
         static void SizeForLayout(RectTransform rect,float width){var element=rect.GetComponent<LayoutElement>()??rect.gameObject.AddComponent<LayoutElement>();element.preferredWidth=width;element.minWidth=width;}
         static void Anchor(RectTransform rect,Vector2 min,Vector2 max,Vector2 offsetMin,Vector2 offsetMax){rect.anchorMin=min;rect.anchorMax=max;rect.offsetMin=offsetMin;rect.offsetMax=offsetMax;}
         static void Clear(Transform root){for(var i=root.childCount-1;i>=0;i--)Destroy(root.GetChild(i).gameObject);}
