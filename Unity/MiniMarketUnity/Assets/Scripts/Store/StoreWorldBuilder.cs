@@ -77,7 +77,20 @@ namespace MiniMarket.Store
             BuildNavigationAnchors(world);
             BuildNavMesh(world.Root);
             BuildOuterGroundCollider(parent);
+            // Take the door leaves out of the hierarchy while the batch is built.
+            // StaticBatchingUtility.Combine bakes every child into one mesh and
+            // ignores the isStatic flag entirely, so the leaves were welded into
+            // the storefront: their transforms moved their full travel and the
+            // picture did not change by a single pixel.
+            var detached = new List<(Transform leaf, Transform parent)>();
+            foreach (var leaf in new[] { doorLeaves.left, doorLeaves.right })
+            {
+                if (!leaf) continue;
+                detached.Add((leaf, leaf.parent));
+                leaf.SetParent(null, true);
+            }
             StaticBatchingUtility.Combine(world.Root.gameObject);
+            foreach (var (leaf, previous) in detached) leaf.SetParent(previous, true);
             return world;
         }
 
@@ -176,23 +189,30 @@ namespace MiniMarket.Store
                 var window=await PlaceFitted("StorefrontWindow",new Vector3(x,0,15.6f),Quaternion.identity,new Vector3(9.53f,5.6f,.72f),root,false);
                 window.AddComponent<StorefrontCameraCutaway>();
             }
-            // The entrance module is the shop's door: it carries the sign, the
-            // bollards and the two sliding leaves the sensor drives. It joins the
-            // cutaway like the rest of the facade -- seen from the street, out of
-            // the way once you are inside, which is what the original does. Left
-            // always visible it stands between the isometric camera and the
-            // player and hides him behind its own sign.
+            // The entrance stays on screen. Next never hides its storefront --
+            // the only visibility toggles there are particles and the checkout
+            // focus -- because its glass is transparent (opacity .12 to .28 with
+            // transmission), so the shop reads straight through the facade. Ours
+            // now does the same, which is what makes a cutaway unnecessary.
             var door=await PlaceFitted("StoreEntrance",new Vector3(0,0,15.9f),Quaternion.identity,
                                        new Vector3(8.6f,6.2f,4.4f),root,false);
             RestOnFloor(door,0f);
-            door.AddComponent<StorefrontCameraCutaway>();
-            doorLeaves=(FindLeaf(door.transform,"tripo_part_27"),FindLeaf(door.transform,"tripo_part_47"));
+            doorLeaves=FindDoorLeaves(door.transform);
+            // PlaceFitted marks every child static, and static batching bakes the
+            // geometry in place: the leaf transforms moved their full travel and
+            // not one pixel changed on screen. The leaves have to stay dynamic.
+            foreach(var leaf in new[]{doorLeaves.left,doorLeaves.right})
+            {
+                if(!leaf)continue;
+                foreach(var child in leaf.GetComponentsInChildren<Transform>(true))
+                    child.gameObject.isStatic=false;
+            }
 
             // Physics remains independent from art: side facade collision is
             // exact, while the automatic doorway keeps its Next.js opening.
             PhysicsBox(root,"StorefrontCollider_Left",new Vector3(19.06f,5.6f,.64f),new Vector3(-13.17f,2.8f,15.6f));
             PhysicsBox(root,"StorefrontCollider_Right",new Vector3(19.06f,5.6f,.64f),new Vector3(13.17f,2.8f,15.6f));
-            var sensor=new GameObject("StorefrontDoorSensor");sensor.transform.SetParent(root,false);sensor.transform.localPosition=new Vector3(0,1.5f,17f);var trigger=sensor.AddComponent<BoxCollider>();trigger.isTrigger=true;trigger.size=new Vector3(9.4f,3f,9.2f);var body=sensor.AddComponent<Rigidbody>();body.isKinematic=true;body.useGravity=false;
+            var sensor=new GameObject("StorefrontDoorSensor");sensor.transform.SetParent(root,false);sensor.transform.localPosition=new Vector3(0,2f,15.9f);var trigger=sensor.AddComponent<BoxCollider>();trigger.isTrigger=true;trigger.size=new Vector3(11f,5f,15f);var body=sensor.AddComponent<Rigidbody>();body.isKinematic=true;body.useGravity=false;
             // Drive the entrance's own leaves from the sensor. The presenter
             // existed but was never wired to anything, so the door has never
             // opened. The slide is measured from a leaf's own width, because the
@@ -202,7 +222,14 @@ namespace MiniMarket.Store
                 var presenter=sensor.AddComponent<StorefrontDoorPresenter>();
                 var leafRenderer=doorLeaves.left.GetComponent<Renderer>();
                 var width=leafRenderer?leafRenderer.localBounds.size.x:1f;
-                presenter.Bind(doorLeaves.left,doorLeaves.right,width*.92f);
+                // 72% of a leaf's width clears most of the opening while keeping the
+                // leaf inside the entrance: at its full width each pane slid past
+                // the building and hung over the street.
+                presenter.Bind(doorLeaves.left,doorLeaves.right,width*.72f);
+            }
+            else
+            {
+                Debug.LogWarning("MINIMARKET_DOOR no se localizaron las hojas de la entrada");
             }
         }
 
@@ -219,11 +246,33 @@ namespace MiniMarket.Store
             instance.transform.position+=Vector3.up*(floorY-bounds.min.y);
         }
 
-        static Transform FindLeaf(Transform root,string name)
+        /// Find the two sliding leaves by shape rather than by node name: the
+        /// pair of thin, similar panels sitting either side of the doorway's
+        /// centre. Matching on the mosaic's part names works only until an export
+        /// renames them, and then the door silently stops opening.
+        static (Transform left,Transform right) FindDoorLeaves(Transform root)
         {
-            foreach(var child in root.GetComponentsInChildren<Transform>(true))
-                if(child.name==name)return child;
-            return null;
+            var centre=0f;var bounds=new Bounds();var first=true;
+            foreach(var r in root.GetComponentsInChildren<Renderer>(true))
+            {
+                if(first){bounds=r.bounds;first=false;}else bounds.Encapsulate(r.bounds);
+            }
+            if(first)return (null,null);
+            centre=bounds.center.x;
+            Transform left=null,right=null;float leftScore=0,rightScore=0;
+            foreach(var r in root.GetComponentsInChildren<Renderer>(true))
+            {
+                var size=r.bounds.size;
+                var thin=size.z<bounds.size.z*.28f;                 // a panel, not the shell
+                var tall=size.y>bounds.size.y*.35f;
+                var narrow=size.x<bounds.size.x*.42f;
+                if(!thin||!tall||!narrow)continue;
+                var offset=r.bounds.center.x-centre;
+                var score=size.y*size.x;
+                if(offset<0&&score>leftScore){leftScore=score;left=r.transform;}
+                if(offset>0&&score>rightScore){rightScore=score;right=r.transform;}
+            }
+            return (left,right);
         }
 
         static void PhysicsBox(Transform root,string name,Vector3 size,Vector3 position)

@@ -10,11 +10,19 @@ const browser = await chromium.launch({ headless: true,
   args: ['--no-sandbox', '--disable-gpu-sandbox'] });
 const page = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 }).then(c => c.newPage());
 let ready; const signal = new Promise(r => { ready = r; });
-page.on('console', m => { if (m.text().includes('MINIMARKET_READY')) ready(true); });
+const notes = [];
+page.on('console', m => {
+  const t = m.text();
+  if (t.includes('MINIMARKET_READY')) ready(true);
+  // the door reports whether it found its leaves; without this the only way to
+  // tell a silent failure from a working door is to squint at a screenshot
+  if (t.includes('MINIMARKET_DOOR')) notes.push(t);
+});
 await page.goto(process.env.MINIMARKET_QA_URL || 'http://127.0.0.1:4173', { waitUntil: 'domcontentloaded', timeout: 30_000 });
 await page.click('#start').catch(() => {});
 await Promise.race([signal, page.waitForTimeout(120_000)]);
-await page.waitForTimeout(8_000);
+await page.waitForTimeout(12_000);
 await page.screenshot({ path: out });
+for (const n of notes) console.log(n);
 console.log('SHOT_OK', out);
 await browser.close();

@@ -21,6 +21,7 @@ def opt(name, default=""):
 SOURCE = opt("source")
 TARGET = int(opt("tris", "50000"))
 OUTPUT = opt("output")
+GLASS  = [g for g in opt("glass", "").split(",") if g]
 
 bpy.ops.object.select_all(action="SELECT")
 bpy.ops.object.delete(use_global=False)
@@ -70,9 +71,38 @@ for o in meshes:
         poly.use_smooth = True
     o.data.update()
     try:
-        bpy.ops.object.shade_auto_smooth(angle=0.5236)      # 30 degrees
+        # 48 degrees: the reference reads as soft moulded plastic, so the shading
+        # has to round over the small facets Tripo leaves and keep only the real
+        # creases. At 30 the mesh still shows every scan facet as a hard edge.
+        bpy.ops.object.shade_auto_smooth(angle=0.8378)
     except Exception:
         pass
+
+# Soften the surface response. A matte, slightly waxy dielectric reads as the
+# delicate moulded plastic of the reference; at the roughness the builder used
+# every panel caught a hard specular band and looked 3D printed.
+for o in meshes:
+    for slot in o.data.materials:
+        if not slot or not slot.use_nodes:
+            continue
+        bsdf = slot.node_tree.nodes.get("Principled BSDF")
+        if not bsdf:
+            continue
+        glassy = any(g and g in slot.name for g in GLASS)
+        bsdf.inputs["Roughness"].default_value = 0.09 if glassy else 0.82
+        bsdf.inputs["Metallic"].default_value = 0.0
+        if "Specular IOR Level" in bsdf.inputs:
+            bsdf.inputs["Specular IOR Level"].default_value = 0.62 if glassy else 0.28
+        if glassy:
+            # Real glass, not a pale opaque panel: an opaque leaf reads as a
+            # curtain hung in the doorway. Alpha blend plus a tight specular is
+            # what makes a pane look like a pane.
+            bsdf.inputs["Alpha"].default_value = 0.26
+            slot.blend_method = "BLEND"
+            if hasattr(slot, "shadow_method"):
+                slot.shadow_method = "HASHED"
+            base = bsdf.inputs["Base Color"].default_value
+            bsdf.inputs["Base Color"].default_value = (base[0], base[1], base[2], 0.26)
 
 after = sum(sum(len(p.vertices) - 2 for p in o.data.polygons) for o in meshes)
 bpy.ops.object.select_all(action="SELECT")
