@@ -39,7 +39,7 @@ namespace MiniMarket.Customers
             public CheckoutFlowVisual CheckoutFlow;
         }
 
-        static readonly string[] CharacterIds = { "CustomerFemale01", "CustomerFemale02", "CustomerFemale03", "CustomerMale01", "CustomerMale02" };
+        static readonly string[] CharacterIds = { "CustomerFemale01", "CustomerFemale02", "CustomerFemale03", "CustomerFemale04", "CustomerMale01" };
         readonly List<Mind> customers = new();
         readonly Dictionary<string,Stack<CharacterActor>> pools = new(StringComparer.OrdinalIgnoreCase);
         CharacterFactory factory;

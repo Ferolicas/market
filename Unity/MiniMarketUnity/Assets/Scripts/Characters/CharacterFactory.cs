@@ -18,11 +18,10 @@ namespace MiniMarket.Characters
             root.SetActive(false);
             root.transform.SetParent(parent, false);
             root.transform.localPosition = position;
-            // The authoritative Next presentation renders the stylized cast
-            // at roughly 2.2 m against its 5.4 m storefront.  The approved
-            // GameReady files are metric 1.7 m, so preserve their geometry and
-            // apply only the shared presentation scale used by every actor.
-            root.transform.localScale=Vector3.one*1.30f;
+            // The delivered cast is metric, about a metre tall in its own file,
+            // and read far too small beside the storefront. Geometry is never
+            // touched; only this shared presentation scale carries the size.
+            root.transform.localScale=Vector3.one*3.90f;
 
             // Web/PWA uses a tiny motion-only GLB (50-bone rig + 47 clips)
             // and one approved LOD2 renderer. Loading all three full skinned

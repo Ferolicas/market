@@ -13,7 +13,7 @@ const catalogPath=resolve(streaming,'Data/runtime-asset-catalog.json');
 const manifestPath=resolve(unity,'ASSET_SHA256SUMS.txt');
 const io=new NodeIO().registerExtensions(ALL_EXTENSIONS);
 const catalog=JSON.parse(await readFile(catalogPath,'utf8'));
-const characters=['AdultMale','AdultFemale','Boy','Girl','CustomerFemale01','CustomerFemale02','CustomerFemale03','CustomerMale01','CustomerMale02'];
+const characters=['AdultMale','AdultFemale','Boy','Girl','CustomerFemale01','CustomerFemale02','CustomerFemale03','CustomerFemale04','CustomerMale01'];
 
 for(const character of characters){
   const source=resolve(streaming,`Art/Characters/${character}/LOD0.glb`);

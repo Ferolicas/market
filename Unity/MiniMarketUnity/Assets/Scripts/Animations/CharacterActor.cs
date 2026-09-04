@@ -43,12 +43,24 @@ namespace MiniMarket.Animations
         public bool Play(string requested, float fade = .18f)
         {
             if (legacyAnimations.Length == 0 || current == requested) return false;
+            var speed = 1f;
             var resolved = Resolve(requested);
+            if (resolved == null && requested == "Run")
+            {
+                // The cast ships no run. Retargeting the retired rig's clip folds
+                // the knees backwards -- the two skeletons do not share a rest
+                // orientation -- so running is the delivered walk, carried faster.
+                resolved = Resolve("Walk");
+                speed = 1.7f;
+            }
             if (resolved == null) return false;
             var played = false;
             foreach (var animation in legacyAnimations)
             {
-                if (animation.GetClip(resolved) == null) continue;
+                var clip = animation.GetClip(resolved);
+                if (clip == null) continue;
+                var state = animation[resolved];
+                if (state != null) state.speed = speed;
                 animation.CrossFade(resolved, fade);
                 played = true;
             }
