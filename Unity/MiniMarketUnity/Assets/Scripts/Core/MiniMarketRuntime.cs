@@ -117,7 +117,7 @@ namespace MiniMarket.Core
             PlayerActor.gameObject.tag="Player";
             Player=PlayerActor.gameObject.AddComponent<PlayerController>();Player.Bind(State);Player.InputEnabled=!CompanySetup.Required;Interactions.Bind(Player);lastPlayerPosition=Player.transform.position;
             var bridge=PlayerActor.gameObject.AddComponent<PlayerAnimationBridge>();bridge.Bind(Player,PlayerActor,Carry);
-            cameraRig=Camera.main.GetComponent<IsometricCamera>();cameraRig.target=Player.transform;
+            cameraRig=Camera.main.GetComponent<IsometricCamera>();cameraRig.target=Player.transform;CharacterLod.Focus=Player.transform;if(PlayerActor.GetComponent<CharacterLod>() is CharacterLod playerLod)playerLod.PinNear=true;
             playerCarryVisual=gameObject.AddComponent<PlayerCarryVisual>();await playerCarryVisual.BindAsync(gltf,PlayerActor,Carry);
 
             productVisuals=new ProductVisualSystem(gltf,World,State,ProductPolicy,Signals);
@@ -128,6 +128,7 @@ namespace MiniMarket.Core
             Employees=new GameObject("Employees").AddComponent<EmployeeManager>();Employees.transform.SetParent(transform);Employees.Bind(characterFactory,gltf,World,State,Spec,Inventory,Farm,Production,ProductPolicy,Signals,performance,Progression);
             hud.Bind(this,audio);gameplayInteractions.OpenPanelRequested+=hud.OpenPanel;
             Ready=true;LoadStatus="Listo";hud.HideLoading();
+            await Customers.WarmAsync();
             Debug.Log($"MINIMARKET_READY characters=9 animations={PlayerActor.AnimationCount} morphs={PlayerActor.BlendShapeCount} shelves={World.Shelves.Count}");
         }
 
@@ -310,6 +311,28 @@ namespace MiniMarket.Core
             Debug.Log("MINIMARKET_STATE "+snapshot.ToString(Newtonsoft.Json.Formatting.None));
         }
         public void LogPerformanceState()=>performance?.LogRuntimeBudget();
+        /// Diagnostic: the twenty visible renderers that cost the most triangles,
+        /// so the budget is cut where it is actually spent.
+        public void LogHeavyRenderers()
+        {
+            var rows=new List<(long tris,string name)>();
+            foreach(var renderer in FindObjectsByType<Renderer>(FindObjectsInactive.Exclude,FindObjectsSortMode.None))
+            {
+                if(!renderer.enabled||!renderer.isVisible)continue;
+                long tris=0;
+                if(renderer is SkinnedMeshRenderer skinned&&skinned.sharedMesh){for(var i=0;i<skinned.sharedMesh.subMeshCount;i++)tris+=skinned.sharedMesh.GetIndexCount(i)/3;}
+                else if(renderer is MeshRenderer mr&&mr.GetComponent<MeshFilter>()?.sharedMesh is Mesh mesh)
+                {
+                    var first=mr.isPartOfStaticBatch?mr.subMeshStartIndex:0;var count=mr.isPartOfStaticBatch?Math.Min(mesh.subMeshCount-first,mr.sharedMaterials?.Length??0):mesh.subMeshCount;
+                    for(var i=first;i<first+count;i++)tris+=mesh.GetIndexCount(i)/3;
+                }
+                var owner=renderer.transform;while(owner.parent&&owner.parent!=transform&&owner.parent.name!="StoreWorld"&&owner.parent.parent)owner=owner.parent;
+                rows.Add((tris,$"{owner.name}/{renderer.name}{(renderer is SkinnedMeshRenderer?"[skin]":"")}"));
+            }
+            rows.Sort((a,b)=>b.tris.CompareTo(a.tris));
+            var top=new List<string>();for(var i=0;i<Math.Min(20,rows.Count);i++)top.Add($"{rows[i].name}={rows[i].tris}");
+            Debug.Log("MINIMARKET_HEAVY total="+rows.Count+" "+string.Join(" ",top));
+        }
         /// Diagnostic: names every renderer whose bounds sit near the player, so
         /// a stray attachment or a mis-scaled prop can be identified instead of
         /// guessed at from a screenshot.
@@ -341,7 +364,7 @@ namespace MiniMarket.Core
             var previous=PlayerActor.gameObject;var next=await characterFactory.CreateAsync(asset,transform,position,true);next.transform.rotation=rotation;
             next.gameObject.tag="Player";
             var controller=next.gameObject.AddComponent<PlayerController>();controller.Bind(State);controller.InputEnabled=!CompanySetup.Required;var bridge=next.gameObject.AddComponent<PlayerAnimationBridge>();bridge.Bind(controller,next,Carry);
-            PlayerActor=next;Player=controller;playerCharacterId=asset;Interactions.Bind(Player);gameplayInteractions.SetPlayerActor(PlayerActor);cameraRig=Camera.main.GetComponent<IsometricCamera>();cameraRig.target=Player.transform;hud.BindPlayer(Player);await playerCarryVisual.BindAsync(gltf,PlayerActor,Carry);
+            PlayerActor=next;Player=controller;playerCharacterId=asset;Interactions.Bind(Player);gameplayInteractions.SetPlayerActor(PlayerActor);cameraRig=Camera.main.GetComponent<IsometricCamera>();cameraRig.target=Player.transform;CharacterLod.Focus=Player.transform;if(next.GetComponent<CharacterLod>() is CharacterLod swappedLod)swappedLod.PinNear=true;hud.BindPlayer(Player);await playerCarryVisual.BindAsync(gltf,PlayerActor,Carry);
             ((JObject)State.Root["avatar"])["body"]=bodyId;State.Changed();Destroy(previous);Signals.PublishNotification($"Personaje cambiado: {bodyId}");
         }
 

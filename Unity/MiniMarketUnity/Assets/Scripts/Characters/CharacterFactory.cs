@@ -30,7 +30,16 @@ namespace MiniMarket.Characters
             var motion = await loader.InstantiateAsync($"{characterId}:Motion", root.transform, Vector3.zero, Quaternion.identity, Vector3.one);
             var boneMap = BuildBoneMap(motion.transform);
             var visual = await loader.InstantiateAsync($"{characterId}:LOD2", root.transform, Vector3.zero, Quaternion.identity, Vector3.one);
-            RebindRenderers(visual, root.transform, boneMap, "LOD2_Renderers");
+            var nearRenderers = RebindRenderers(visual, root.transform, boneMap, "LOD2_Renderers");
+            // The far mesh (same rig, a tenth of the triangles, no morphs) for
+            // when this character is not one of the few nearest the player.
+            Renderer[] farRenderers = System.Array.Empty<Renderer>();
+            if (loader.Has($"{characterId}:LOD3"))
+            {
+                var farVisual = await loader.InstantiateAsync($"{characterId}:LOD3", root.transform, Vector3.zero, Quaternion.identity, Vector3.one);
+                farRenderers = RebindRenderers(farVisual, root.transform, boneMap, "LOD3_Renderers");
+            }
+            root.AddComponent<CharacterLod>().Configure(nearRenderers, farRenderers);
 
             var actor = root.AddComponent<CharacterActor>();
             var sockets = root.AddComponent<CharacterSockets>();

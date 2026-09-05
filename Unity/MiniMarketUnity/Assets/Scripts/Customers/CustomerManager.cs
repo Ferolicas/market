@@ -94,6 +94,25 @@ namespace MiniMarket.Customers
 
         int MaximumCustomers() => Mathf.Clamp(4 + state.Level / 3, 4, Application.isMobilePlatform ? 14 : 22);
 
+        /// One body of every kind, with its cart, built during the loading
+        /// screen and parked in the pool: the first customers then walk in
+        /// without the 100 ms hitch of instantiating a 197k-triangle mesh.
+        public async Task WarmAsync()
+        {
+            foreach (var characterId in CharacterIds)
+            {
+                if (pools.TryGetValue(characterId, out var pool) && pool.Count > 0) continue;
+                try
+                {
+                    var actor = await factory.CreateAsync(characterId, transform, world.EntranceOutside.position, true);
+                    var agent = actor.gameObject.AddComponent<CustomerAgent>();
+                    var basket = actor.gameObject.AddComponent<CustomerBasketVisual>(); await basket.BindAsync(loader, actor);
+                    agent.PrepareForPool(); basket.ResetForPool(); Pool(characterId, actor);
+                }
+                catch (Exception exception) { Debug.LogWarning($"Precalentar {characterId}: {exception.Message}"); }
+            }
+        }
+
         async Task SpawnAsync()
         {
             spawning = true;var expectedGeneration=generation;

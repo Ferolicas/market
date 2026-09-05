@@ -28,7 +28,7 @@ namespace MiniMarket.Editor
             "FlourMillAlt","BreadOven","CheeseMachine","JuiceMachineAlt","FarmPlotEmpty","FarmPlotFurrows","FarmFenceLong","FarmFenceShort","FarmToolSet","CompostBin","MiniGreenhouse",
             "Scarecrow","FarmWaterTank","Chicken","Cow","SupplierTerminal","DeliveryDock","HiringPoint","UpgradePlatform","BasketStack",
             "ShoppingBasket","Parcel","CropSeed","CropSprout","CropSmall","CropGrowing","TomatoRipe","WheatRipe","CornRipe",
-            "CheckoutBag",
+            "CheckoutBag","HarvestBasket",
         };
 
         [MenuItem("Mini Market/Configure Project")]
@@ -164,7 +164,7 @@ namespace MiniMarket.Editor
             {
                 var entry=(JObject)entries[index];var kind=entry.Value<string>("kind");var id=entry.Value<string>("id");
                 var keep=kind is "character-motion" or "product" or "hair" or "hat" or "metadata"
-                    || kind=="character"&&id.EndsWith(":LOD2",StringComparison.OrdinalIgnoreCase)
+                    || kind=="character"&&(id.EndsWith(":LOD2",StringComparison.OrdinalIgnoreCase)||id.EndsWith(":LOD3",StringComparison.OrdinalIgnoreCase))
                     || kind=="environment"&&WebEnvironmentAssets.Contains(id);
                 if(keep)continue;var path=Path.Combine(root,entry.Value<string>("path"));if(File.Exists(path))File.Delete(path);entries.RemoveAt(index);
             }

@@ -19,6 +19,8 @@ namespace MiniMarket.Assets
 
         public RuntimeGltfLoader(RuntimeAssetCatalog runtimeCatalog) => catalog = runtimeCatalog;
 
+        public bool Has(string id) => catalog.TryGet(id, out _);
+
         public async Task<GameObject> InstantiateAsync(string id, Transform parent, Vector3 position, Quaternion rotation, Vector3 scale)
         {
             if (!catalog.TryGet(id, out var entry)) throw new KeyNotFoundException($"Asset runtime no encontrado: {id}");

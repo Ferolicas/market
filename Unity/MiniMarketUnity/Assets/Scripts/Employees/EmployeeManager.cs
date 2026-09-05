@@ -179,7 +179,7 @@ namespace MiniMarket.Employees
             }
             else if(mind.Kind==WorkKind.StartMachine)mind.Amount=1;
             if(mind.Amount<1){Rest(mind);return;}
-            mind.CarryVisual?.Show(mind.Product,mind.Kind is WorkKind.Stock or WorkKind.StartMachine);
+            mind.CarryVisual?.Show(mind.Product,mind.Kind is WorkKind.Stock or WorkKind.StartMachine,mind.Kind is WorkKind.Harvest or WorkKind.CollectOutput,mind.Amount);
 
             Vector3 destination;
             if(mind.Kind is WorkKind.Harvest or WorkKind.CollectOutput)destination=world.WarehousePoint.position;

@@ -19,6 +19,14 @@
       "sha256": "65ff0579fdadb4da1b26263904f1ee2a33a6844c92844be06ae6ea6fe4394a2f"
     },
     {
+      "id": "AdultFemale:LOD3",
+      "kind": "character",
+      "path": "Art/Characters/AdultFemale/LOD3.glb",
+      "source": "KIT MARKET/PERSONAJES/NUEVOSPERSONAJES/AdultFemale.zip (LOD2 diezmado, tools/character_pipeline/build_far_lod.py)",
+      "bytes": 2004552,
+      "sha256": "7ab45ce3eadfde0f94a42eedf87df4fa9c1d8581d5e54c62d07420657fcb7fd9"
+    },
+    {
       "id": "AdultMale:LOD0",
       "kind": "character",
       "path": "Art/Characters/AdultMale/LOD0.glb",
@@ -33,6 +41,14 @@
       "source": "KIT MARKET/PERSONAJES/NUEVOSPERSONAJES/AdultMale.zip",
       "bytes": 8780560,
       "sha256": "8502450c493df34ed939c7f46163daa610db67ee928252632de78abcc88c035d"
+    },
+    {
+      "id": "AdultMale:LOD3",
+      "kind": "character",
+      "path": "Art/Characters/AdultMale/LOD3.glb",
+      "source": "KIT MARKET/PERSONAJES/NUEVOSPERSONAJES/AdultMale.zip (LOD2 diezmado, tools/character_pipeline/build_far_lod.py)",
+      "bytes": 1954232,
+      "sha256": "4d12c0e5c965e3474edaa463dee0c7362ed33475a797121f622f056d84d7506b"
     },
     {
       "id": "Apple",
@@ -121,6 +137,14 @@
       "source": "KIT MARKET/PERSONAJES/NUEVOSPERSONAJES/Boy.zip",
       "bytes": 8775836,
       "sha256": "3af3a9aac56f459215a9898869b1a2979ddac21d84c29cfbb6745adbd2592881"
+    },
+    {
+      "id": "Boy:LOD3",
+      "kind": "character",
+      "path": "Art/Characters/Boy/LOD3.glb",
+      "source": "KIT MARKET/PERSONAJES/NUEVOSPERSONAJES/Boy.zip (LOD2 diezmado, tools/character_pipeline/build_far_lod.py)",
+      "bytes": 1998528,
+      "sha256": "e3cfaa021b4eb42d0911e4208ae1686f74d2bfc9e4d8bdf35ec1dd46eb755d58"
     },
     {
       "id": "Bread",
@@ -427,6 +451,14 @@
       "sha256": "ce6a38efe4098ded4005dbb7a832602a3c7cfad634b77437c288c96f9a52e6ca"
     },
     {
+      "id": "CustomerFemale01:LOD3",
+      "kind": "character",
+      "path": "Art/Characters/CustomerFemale01/LOD3.glb",
+      "source": "KIT MARKET/PERSONAJES/NUEVOSPERSONAJES/CustomerFemale01.zip (LOD2 diezmado, tools/character_pipeline/build_far_lod.py)",
+      "bytes": 1917808,
+      "sha256": "87c20f46824be1042496a199419bd2c048b0e6dd6c1ac81812295c31fd6312f1"
+    },
+    {
       "id": "CustomerFemale02:LOD0",
       "kind": "character",
       "path": "Art/Characters/CustomerFemale02/LOD0.glb",
@@ -441,6 +473,14 @@
       "source": "KIT MARKET/PERSONAJES/NUEVOSPERSONAJES/CustomerFemale02.zip",
       "bytes": 9037780,
       "sha256": "8e66a92577aa4bc81cf75d0c363fa4351c047a0b4304eed0abce9475f7006ec4"
+    },
+    {
+      "id": "CustomerFemale02:LOD3",
+      "kind": "character",
+      "path": "Art/Characters/CustomerFemale02/LOD3.glb",
+      "source": "KIT MARKET/PERSONAJES/NUEVOSPERSONAJES/CustomerFemale02.zip (LOD2 diezmado, tools/character_pipeline/build_far_lod.py)",
+      "bytes": 2236744,
+      "sha256": "a8ba84c7ac94fd4f6a8dd4a4533b078049b248dd5bf91b74466fe8e1396104e1"
     },
     {
       "id": "CustomerFemale03:LOD0",
@@ -459,6 +499,14 @@
       "sha256": "e1cfbb6d645cd4eaad615b22ddc97e3f2c361c9e8b9707711e3027ec67469896"
     },
     {
+      "id": "CustomerFemale03:LOD3",
+      "kind": "character",
+      "path": "Art/Characters/CustomerFemale03/LOD3.glb",
+      "source": "KIT MARKET/PERSONAJES/NUEVOSPERSONAJES/CustomerFemale03.zip (LOD2 diezmado, tools/character_pipeline/build_far_lod.py)",
+      "bytes": 2224328,
+      "sha256": "d0e75286ff86b04d314dd06418206980c7986769260c3919d70c23c4d41fbb0d"
+    },
+    {
       "id": "CustomerFemale04:LOD0",
       "kind": "character",
       "path": "Art/Characters/CustomerFemale04/LOD0.glb",
@@ -475,6 +523,14 @@
       "sha256": "7e7a8b6afdc0d510ddb64742695ee876bed48ceecfa03e491a5056817af30ee3"
     },
     {
+      "id": "CustomerFemale04:LOD3",
+      "kind": "character",
+      "path": "Art/Characters/CustomerFemale04/LOD3.glb",
+      "source": "KIT MARKET/PERSONAJES/NUEVOSPERSONAJES/CustomerFemale04.zip (LOD2 diezmado, tools/character_pipeline/build_far_lod.py)",
+      "bytes": 2000436,
+      "sha256": "f6f53fb06f3c34b880ea7c025b65eb51ebbca3e9bc86fe104e4d92e816981f1f"
+    },
+    {
       "id": "CustomerMale01:LOD0",
       "kind": "character",
       "path": "Art/Characters/CustomerMale01/LOD0.glb",
@@ -489,6 +545,14 @@
       "source": "KIT MARKET/PERSONAJES/NUEVOSPERSONAJES/CustomerMale01.zip",
       "bytes": 9067760,
       "sha256": "9ec36971e5df3e1d9a66efd3705071bba501f1fcde9c140a304eea14a76fbbcd"
+    },
+    {
+      "id": "CustomerMale01:LOD3",
+      "kind": "character",
+      "path": "Art/Characters/CustomerMale01/LOD3.glb",
+      "source": "KIT MARKET/PERSONAJES/NUEVOSPERSONAJES/CustomerMale01.zip (LOD2 diezmado, tools/character_pipeline/build_far_lod.py)",
+      "bytes": 2195580,
+      "sha256": "32cab35a460765de2f40f4bef5e43d4da254ea53ffc250f47c2e2fc9d8b2833f"
     },
     {
       "id": "DeliveryDock",
@@ -713,6 +777,14 @@
       "source": "KIT MARKET/PERSONAJES/NUEVOSPERSONAJES/Girl.zip",
       "bytes": 8947080,
       "sha256": "b19163ed7e2f1a6a3f12c19941aca1058035fabc627be6cb6fcdc55ceb09e983"
+    },
+    {
+      "id": "Girl:LOD3",
+      "kind": "character",
+      "path": "Art/Characters/Girl/LOD3.glb",
+      "source": "KIT MARKET/PERSONAJES/NUEVOSPERSONAJES/Girl.zip (LOD2 diezmado, tools/character_pipeline/build_far_lod.py)",
+      "bytes": 2042300,
+      "sha256": "5361b94d597faaa688a56fc88e8462ffbf22404bc9b2bf551c1da1d72118c8dd"
     },
     {
       "id": "GlassPartition",
