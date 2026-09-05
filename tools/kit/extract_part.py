@@ -146,24 +146,26 @@ mesh.shade_smooth()
 print(f"   agujeros: {len(holes)} aristas abiertas -> {open_after}, {len(degenerate)} caras sin area fuera")
 
 if flat_top:
-    # A floor has to be flat. The scan's top wanders by a quarter of the tile's
-    # own thickness and sits higher at the rim than in the middle, which at
-    # floor scale is a visible swell: neighbouring tiles then read as sitting at
-    # different heights and the joints stop lining up. Everything in the top
-    # band is brought onto one plane. The joints are in the texture, so they
-    # stay.
-    V = np.array([v.co.z for v in mesh.vertices])
-    height = V.max() - V.min()
-    ceiling = float(np.percentile(V[V > V.max() - height * 0.25], 60))
-    lifted = 0
+    # A floor has to be flat, and the scan is not: its top wanders by a quarter
+    # of the tile's own thickness and swells at the rim, which at floor scale is
+    # about a unit and makes neighbouring tiles read as sitting at different
+    # heights. Every vertex standing above the plane of the panels is brought
+    # down onto it. Nothing below it moves, so the joints stay the grooves they
+    # are -- flat face, sharp joint.
+    Z = np.array([v.co.z for v in mesh.vertices])
+    span = Z.max() - Z.min()
+    band = Z[Z > Z.max() - span * 0.30]
+    plane = float(np.percentile(band, 35))
+    clamped = 0
     for v in mesh.vertices:
-        if v.co.z > V.max() - height * 0.28:
-            v.co.z = ceiling
-            lifted += 1
+        if v.co.z > plane:
+            v.co.z = plane
+            clamped += 1
     mesh.update()
     W = np.array([v.co.z for v in mesh.vertices])
-    band = W[W > W.max() - height * 0.28]
-    print(f"   cara superior aplanada: {lifted} vertices a z={ceiling:.4f}, ondula {band.max()-band.min():.5f}")
+    top = W[W > plane - span * 0.02]
+    print(f"   cara recortada al plano z={plane:.4f}: {clamped} vertices bajados, "
+          f"la cara varia {top.max()-top.min():.6f}")
 
 V = np.array([[v.co.x, v.co.y, v.co.z] for v in mesh.vertices])
 lo, hi = V.min(0), V.max(0)
