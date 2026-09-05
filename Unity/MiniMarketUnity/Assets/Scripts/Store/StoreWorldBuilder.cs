@@ -29,6 +29,15 @@ namespace MiniMarket.Store
         public const float PieceScale = 2f;
         public const float SmallPieceScale = 2.5f;
         const float SmallThreshold = 2.5f;
+        /// The world outside the shop and the building's own face keep the size
+        /// they were approved at; only what stands inside the shop is enlarged.
+        static readonly HashSet<string> AuthoredScale = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "RoadSegment","SidewalkSegment","Crosswalk","ParkingSpace","CityBuilding","Car","BusStop","Bench","Tree","StreetLight",
+            "StoreEntrance","StoreEntranceAlt","StorefrontWindow","WallStraight","WallCorner","AutomaticDoor",
+        };
+        static float SizeFactor(string id,float authored)=>
+            AuthoredScale.Contains(id)?1f:authored<SmallThreshold?SmallPieceScale:PieceScale;
         const float LayoutScale = 2f;
         const float ElementScale = 1.6f;
 
@@ -168,8 +177,10 @@ namespace MiniMarket.Store
         /// `startLocal` to `endLocal` (authored, local units) along x or z at the
         /// fixed other coordinate; height and cross size are world units and the
         /// level `yWorld` is kept in world units too.
-        async Task FillSpan(string id,bool alongZ,float fixedLocal,float startLocal,float endLocal,float moduleWorld,float heightWorld,float crossWorld,float yWorld,Transform root,bool flip=false)
+        async Task FillSpan(string id,bool alongZ,float fixedLocal,float startLocal,float endLocal,float moduleAuthored,float heightAuthored,float crossAuthored,float yWorld,Transform root,bool flip=false)
         {
+            var factor=SizeFactor(id,moduleAuthored);
+            var moduleWorld=moduleAuthored*factor;var heightWorld=heightAuthored*factor;var crossWorld=crossAuthored*factor;
             var spanWorld=(endLocal-startLocal)*StoreScale;var count=Mathf.Max(1,Mathf.RoundToInt(spanWorld/moduleWorld));var fit=spanWorld/count;
             for(var module=0;module<count;module++)
             {
@@ -214,10 +225,10 @@ namespace MiniMarket.Store
             // [3.8, 0.09, 43.9] up x -15.85 and x 15.85, with kerbs at z -19.4,
             // z 16.05 and x +/-13.45. Only the front pair had been built, so the
             // other three sides of the block were bare ground.
-            const float roadModule=8f*PieceScale;const float roadWidth=7.6f*PieceScale;
+            const float roadModule=8f;const float roadWidth=7.6f;
             foreach(var z in new[]{36.5f,-43.6f})await FillSpan("RoadSegment",false,z,-36f,40f,roadModule,.09f,roadWidth,-.08f,root);
             foreach(var x in new[]{-31.7f,31.7f})await FillSpan("RoadSegment",true,x,-47.4f,40.4f,roadModule,.09f,roadWidth,-.08f,root);
-            const float sidewalkModule=53.6f/7f*PieceScale;const float sidewalkWidth=2.2f*PieceScale;
+            const float sidewalkModule=53.6f/7f;const float sidewalkWidth=2.2f;
             foreach(var z in new[]{32.1f,-38.8f})await FillSpan("SidewalkSegment",false,z,-26.8f,26.8f,sidewalkModule,.1f,sidewalkWidth,-.03f,root);
             foreach(var x in new[]{-26.9f,26.9f})await FillSpan("SidewalkSegment",true,x,-38.7f,32.1f,sidewalkModule,.1f,sidewalkWidth,-.03f,root);
 
@@ -242,11 +253,11 @@ namespace MiniMarket.Store
         {
             // Exact 23 x 17 logical store envelope (layout scale 2).
             // Modules twice their authored size, as many as the tripled spans need.
-            const float sideModule=32.66f/7f*PieceScale;const float wallHeight=5.6f*PieceScale;
-            foreach(var x in new[]{-23f,23f})await FillSpan("WallStraight",true,x,-17.1f,15.56f,sideModule,wallHeight,.34f*PieceScale,0,world.Root);
-            const float rearModule=35.28f/6f*PieceScale;const float doorHalf=5.68f*PieceScale/2f/StoreScale;   // the rear door's half width, local
-            await FillSpan("WallStraight",false,-17.1f,-23f,-15f-doorHalf,rearModule,wallHeight,.64f*PieceScale,0,world.Root);
-            await FillSpan("WallStraight",false,-17.1f,-15f+doorHalf,23f,rearModule,wallHeight,.64f*PieceScale,0,world.Root);
+            const float sideModule=32.66f/7f;const float wallHeight=5.6f;
+            foreach(var x in new[]{-23f,23f})await FillSpan("WallStraight",true,x,-17.1f,15.56f,sideModule,wallHeight,.34f,0,world.Root);
+            const float rearModule=35.28f/6f;const float doorHalf=5.68f/2f/StoreScale;   // the rear door's half width, local
+            await FillSpan("WallStraight",false,-17.1f,-23f,-15f-doorHalf,rearModule,wallHeight,.64f,0,world.Root);
+            await FillSpan("WallStraight",false,-17.1f,-15f+doorHalf,23f,rearModule,wallHeight,.64f,0,world.Root);
             PhysicsBox(world.Root,"LeftWallCollider",new Vector3(.34f,5.6f,34.4f),new Vector3(-23,2.8f,-.7f));
             PhysicsBox(world.Root,"RightWallCollider",new Vector3(.34f,5.6f,34.4f),new Vector3(23,2.8f,-.7f));
             PhysicsBox(world.Root,"RearWallLeftCollider",new Vector3(35.28f,5.6f,.64f),new Vector3(5.36f,2.8f,-17.1f));
@@ -267,9 +278,9 @@ namespace MiniMarket.Store
             // entrance's glass is transparent, so the facade stays on screen.
             // Windows twice their size fill each side from the entrance's edge
             // (its width is PieceScale of the authored) out to the corner.
-            const float storefrontModule=8.12f*PieceScale;var edge=12.91f*PieceScale/2f/StoreScale;   // entranceWidth, declared further down
-            await FillSpan("StorefrontWindow",false,15.6f,-22.7f,-edge,storefrontModule,5.6f*PieceScale,.72f*PieceScale,0,root);
-            await FillSpan("StorefrontWindow",false,15.6f,edge,22.7f,storefrontModule,5.6f*PieceScale,.72f*PieceScale,0,root);
+            const float storefrontModule=8.12f;var edge=12.91f/2f/StoreScale;   // entranceWidth, declared further down
+            await FillSpan("StorefrontWindow",false,15.6f,-22.7f,-edge,storefrontModule,5.6f,.72f,0,root);
+            await FillSpan("StorefrontWindow",false,15.6f,edge,22.7f,storefrontModule,5.6f,.72f,0,root);
             // The entrance stays on screen. Next never hides its storefront --
             // the only visibility toggles there are particles and the checkout
             // focus -- because its glass is transparent (opacity .12 to .28 with
@@ -709,7 +720,11 @@ namespace MiniMarket.Store
 
         // Three.js uses the opposite horizontal handedness from Unity's camera
         // basis.  Every authored Next X coordinate crosses this one boundary.
-        static Vector3 XZ(float x,float z,float y=0)=>new(-x*LayoutScale,y,z*LayoutScale);
+        /// The plan grows with the space, the mounting height does not: a clock,
+        /// a camera, a sign or a lamp hangs on the wall, and the wall keeps the
+        /// size it was authored at, so its height is divided back out of the
+        /// root's scale. Left as a plan coordinate they floated above the roof.
+        static Vector3 XZ(float x,float z,float y=0)=>new(-x*LayoutScale,y/StoreScale,z*LayoutScale);
 
         async Task BuildFixedInterior(Transform root)
         {
@@ -945,16 +960,21 @@ namespace MiniMarket.Store
         async Task<GameObject> Place(string id, Vector3 position, Quaternion rotation, Vector3 scale, Transform root, bool collider = false)
         {
             var instance = await loader.InstantiateAsync(id, root, position, rotation, Vector3.one);
-            if(TargetLocalSize.TryGetValue(id,out var targetSize))FitLocalSize(instance,targetSize);
-            else NormalizeScale(instance,TargetLongestDimension.TryGetValue(id,out var target)?target:Mathf.Max(scale.x,Mathf.Max(scale.y,scale.z)));
+            if(TargetLocalSize.TryGetValue(id,out var targetSize))FitLocalSize(instance,targetSize*SizeFactor(id,Mathf.Max(targetSize.x,Mathf.Max(targetSize.y,targetSize.z))));
+            else
+            {
+                var target=TargetLongestDimension.TryGetValue(id,out var listed)?listed:Mathf.Max(scale.x,Mathf.Max(scale.y,scale.z));
+                NormalizeScale(instance,target*SizeFactor(id,target));
+            }
             foreach(var child in instance.GetComponentsInChildren<Transform>(true))child.gameObject.isStatic=true;
             if (collider) AddBoundsCollider(instance);
             return instance;
         }
 
-        async Task<GameObject> PlaceFitted(string id,Vector3 position,Quaternion rotation,Vector3 targetSize,Transform root,bool collider,float sizeFactor=PieceScale)
+        async Task<GameObject> PlaceFitted(string id,Vector3 position,Quaternion rotation,Vector3 targetSize,Transform root,bool collider,float sizeFactor=0f)
         {
             var instance=await loader.InstantiateAsync(id,root,position,rotation,Vector3.one);
+            if(sizeFactor<=0f)sizeFactor=SizeFactor(id,Mathf.Max(targetSize.x,Mathf.Max(targetSize.y,targetSize.z)));
             FitLocalSize(instance,targetSize*sizeFactor);
             foreach(var child in instance.GetComponentsInChildren<Transform>(true))child.gameObject.isStatic=true;
             if(collider)AddBoundsCollider(instance);
@@ -972,7 +992,6 @@ namespace MiniMarket.Store
 
         static void NormalizeScale(GameObject instance,float targetLongest)
         {
-            targetLongest*=targetLongest<SmallThreshold?SmallPieceScale:PieceScale;   // the piece's own scale, not the floor's
             var renderers=instance.GetComponentsInChildren<Renderer>(true);if(renderers.Length==0||targetLongest<=0)return;
             var bounds=renderers[0].bounds;for(var i=1;i<renderers.Length;i++)bounds.Encapsulate(renderers[i].bounds);
             var longest=Mathf.Max(bounds.size.x,Mathf.Max(bounds.size.y,bounds.size.z));if(longest<=.0001f)return;
