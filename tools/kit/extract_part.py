@@ -104,11 +104,21 @@ for _ in range(6):
     tol = min(tol * 1.6, cap)
 print(f"   bordes enderezados: comba {depth:.4f}, margen {tol:.4f}, {moved} vertices a la recta, llena {100*fill_ratio():.1f}%")
 
+# Planar first: it merges faces that already lie in the same plane, so a flat
+# panel loses its triangles without losing its shape. Collapsing straight to a
+# ratio bends every flat face a little, which on a floor reads as a rippled
+# surface and a chewed edge.
 before = len(mesh.polygons)
-if budget and before > budget:
+mod = keep.modifiers.new("plano", "DECIMATE")
+mod.decimate_type = "DISSOLVE"
+mod.angle_limit = math.radians(2.5)
+bpy.ops.object.modifier_apply(modifier=mod.name)
+flat = len(mesh.polygons)
+if budget and len(mesh.polygons) > budget:
     mod = keep.modifiers.new("dec", "DECIMATE")
-    mod.ratio = budget / before
+    mod.ratio = budget / len(mesh.polygons)
     bpy.ops.object.modifier_apply(modifier=mod.name)
+print(f"   caras {before} -> {flat} tras fundir lo plano -> {len(mesh.polygons)}")
 
 # The scan is not watertight and decimating opens more: every hole shows as a
 # speck of whatever lies under the piece. Weld the seams and close the loops.
@@ -120,9 +130,19 @@ if holes:
     holes2 = [e for e in bm.edges if len(e.link_faces) < 2]
     if holes2:
         bmesh.ops.triangle_fill(bm, edges=holes2, use_beauty=True)
+# A filled hole inherits no winding, so half of the new faces point into the
+# piece and render as dark flecks all over it. Point them all outwards and drop
+# anything with no area, which shades as noise too.
+bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+degenerate = [f for f in bm.faces if f.calc_area() < 1e-12]
+if degenerate:
+    bmesh.ops.delete(bm, geom=degenerate, context="FACES")
+bmesh.ops.dissolve_degenerate(bm, dist=1e-6, edges=bm.edges)
+bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
 open_after = len([e for e in bm.edges if len(e.link_faces) < 2])
 bm.to_mesh(mesh); bm.free(); mesh.update()
-print(f"   agujeros: {len(holes)} aristas abiertas -> {open_after}")
+mesh.shade_smooth()
+print(f"   agujeros: {len(holes)} aristas abiertas -> {open_after}, {len(degenerate)} caras sin area fuera")
 
 V = np.array([[v.co.x, v.co.y, v.co.z] for v in mesh.vertices])
 lo, hi = V.min(0), V.max(0)
