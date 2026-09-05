@@ -70,7 +70,7 @@ namespace MiniMarket.Animations
         /// The fastest the legs may cycle above the rate they were animated
         /// at. A leg that cannot keep up is a foot sliding over the floor, so
         /// this is what buys a clean stride at the pace this shop is played.
-        public const float MaxRate = 15f;
+        public const float MaxRate = 4f;
 
         /// The clip to play and the rate that makes its stride cover exactly
         /// the ground travelled. Running is told, not guessed from the speed:

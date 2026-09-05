@@ -45,6 +45,11 @@ namespace MiniMarket.Player
         /// Feeds the WorkstationController port, which mirrors Next's rule that a
         /// deliberate new move cancels stationary work.
         public float InputMagnitude { get; private set; }
+        /// Hold a direction this long and the owner breaks into a run; let go
+        /// and he drops back to walking. A key would be no use on a touch
+        /// screen, where the joystick is the only control there is.
+        const float HoldToRun = 2f;
+        float held;
 
         void Awake() => controller = GetComponent<CharacterController>();
         public void Bind(GameStateDocument document)=>state=document;
@@ -73,9 +78,13 @@ namespace MiniMarket.Player
             var direction = Vector3.ClampMagnitude(right * input.x + forward * -input.y, 1f);
             var tier=Mathf.Max(1,state?.CurrentFranchise.Value<int?>("playerSpeedTier")??1);
             var tierMultiplier=1f+Mathf.Min(.32f,(tier-1)*.08f);
-            // Hold shift to run. The cast walks at walkSpeed and cannot do this.
-            var running=Keyboard.current!=null&&(Keyboard.current.leftShiftKey.isPressed||Keyboard.current.rightShiftKey.isPressed);
-            Running=running&&direction.sqrMagnitude>.01f;
+            // Two seconds of a held direction breaks into a run, and letting
+            // go drops back to a walk. Turning does not interrupt it: only
+            // releasing does. Shift still works for anyone on a keyboard.
+            var pushing=direction.sqrMagnitude>.01f;
+            held=pushing?held+Time.deltaTime:0f;
+            var running=pushing&&(held>=HoldToRun||(Keyboard.current!=null&&(Keyboard.current.leftShiftKey.isPressed||Keyboard.current.rightShiftKey.isPressed)));
+            Running=running;
             var pace=(running?runSpeed:walkSpeed)*tierMultiplier;
             var targetSpeed = direction.sqrMagnitude > .01f ? pace : 0f;
             var desired = direction * targetSpeed;
