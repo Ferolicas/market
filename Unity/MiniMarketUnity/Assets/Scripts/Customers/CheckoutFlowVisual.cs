@@ -24,7 +24,7 @@ namespace MiniMarket.Customers
             loader=runtimeLoader;if(lane<0||lane>=storeWorld.CheckoutBagPoints.Count)return;unloadPoint=storeWorld.CheckoutUnloadPoints[lane];scanPoint=storeWorld.CheckoutScanPoints[lane];bagPoint=storeWorld.CheckoutBagPoints[lane];
             if(!bagPoint||bag)return;
             bag=await loader.InstantiateAsync("CheckoutBag",bagPoint,Vector3.zero,Quaternion.identity,Vector3.one);
-            bag.name="CheckoutBag_Runtime";Normalize(bag,.58f);bag.transform.SetLocalPositionAndRotation(Vector3.zero,Quaternion.identity);
+            bag.name="CheckoutBag_Runtime";Normalize(bag,.9f);bag.transform.SetLocalPositionAndRotation(Vector3.zero,Quaternion.identity);
             foreach(var collider in bag.GetComponentsInChildren<Collider>(true))collider.enabled=false;
             bag.SetActive(false);
         }
@@ -38,7 +38,7 @@ namespace MiniMarket.Customers
             if(pools.TryGetValue(productId,out var pool)&&pool.Count>0){item=pool.Pop();item.SetActive(true);}
             else item=await loader.InstantiateAsync(asset,unloadPoint,Vector3.zero,Quaternion.identity,Vector3.one);
             if(expected!=generation){Pool(productId,item);return;}
-            active=item;activeId=productId;Normalize(item,.15f);Move(unloadPoint,Vector3.zero);
+            active=item;activeId=productId;Normalize(item,.4f);Move(unloadPoint,Vector3.zero);
         }
 
         public void MoveToScanner()=>Move(scanPoint,Vector3.zero);

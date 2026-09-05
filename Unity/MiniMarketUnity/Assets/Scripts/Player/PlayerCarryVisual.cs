@@ -38,7 +38,7 @@ namespace MiniMarket.Player
             if(socket)
             {
                 basket=await loader.InstantiateAsync("HarvestBasket",socket,Vector3.zero,Quaternion.identity,Vector3.one);
-                basket.name="PlayerCarryBasket";NormalizeWorldSize(basket,.52f);
+                basket.name="PlayerCarryBasket";NormalizeWorldSize(basket,1.2f);   // a 50 cm basket
                 basket.transform.localPosition=Vector3.zero;basket.transform.localRotation=Quaternion.identity;
                 foreach(var collider in basket.GetComponentsInChildren<Collider>(true))collider.enabled=false;
                 var bounds=Bounds(basket);
@@ -76,9 +76,9 @@ namespace MiniMarket.Player
                 if(pools.TryGetValue(asset,out var pool)&&pool.Count>0){unit=pool.Pop();unit.SetActive(true);}
                 else unit=await loader.InstantiateAsync(asset,contents,Vector3.zero,Quaternion.identity,Vector3.one);
                 if(expected!=generation||!contents){if(unit)Destroy(unit);return;}
-                unit.name="Carried_"+asset;unit.transform.SetParent(contents,false);NormalizeWorldSize(unit,.11f);
+                unit.name="Carried_"+asset;unit.transform.SetParent(contents,false);NormalizeWorldSize(unit,.28f);
                 var column=index%3;var row=index/3;
-                unit.transform.localPosition=new Vector3((column-1)*.075f,row*.05f,(index%2==0?-.05f:.05f));
+                unit.transform.position=contents.position+contents.right*((column-1)*.28f)+contents.up*(row*.16f)+contents.forward*(index%2==0?-.14f:.14f);
                 unit.transform.localRotation=Quaternion.Euler(0,index*53f,0);
                 foreach(var collider in unit.GetComponentsInChildren<Collider>(true))collider.enabled=false;
                 units.Add(unit);

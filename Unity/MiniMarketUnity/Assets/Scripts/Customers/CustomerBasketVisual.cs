@@ -29,10 +29,10 @@ namespace MiniMarket.Customers
                 // Keep the exact supplied GLB and only correct the isometric
                 // source yaw so its handle sits naturally beneath both hands.
                 basket=await loader.InstantiateAsync("ShoppingCart",actor.transform,Vector3.zero,Quaternion.identity,Vector3.one);
-                basket.name="CustomerShoppingCart";NormalizeWorldSize(basket,1.08f);
-                basket.transform.SetLocalPositionAndRotation(new Vector3(0,0,.66f),Quaternion.Euler(0,-56.4f,0));
+                basket.name="CustomerShoppingCart";NormalizeWorldSize(basket,2.6f);   // a 1.1 m trolley beside a 1.7 m customer
+                basket.transform.SetLocalPositionAndRotation(new Vector3(0,0,.44f),Quaternion.Euler(0,-56.4f,0));   // the trolley's centre 1.7 units ahead, its handle at the hands
                 foreach(var collider in basket.GetComponentsInChildren<Collider>(true))collider.enabled=false;
-                contents=new GameObject("CartContents").transform;contents.SetParent(actor.transform,false);contents.localPosition=new Vector3(0,.63f,.72f);
+                contents=new GameObject("CartContents").transform;contents.SetParent(actor.transform,false);contents.localPosition=new Vector3(0,.32f,.5f);
             }
             basket.SetActive(true);if(contents)contents.gameObject.SetActive(true);hands?.SetGrip(true,.54f);hands?.SetGrip(false,.54f);
         }
@@ -44,9 +44,9 @@ namespace MiniMarket.Customers
             if(pools.TryGetValue(productId,out var pool)&&pool.Count>0){item=pool.Pop();item.SetActive(true);}
             else item=await loader.InstantiateAsync(assetId,contents,Vector3.zero,Quaternion.identity,Vector3.one);
             if(expected!=generation||!contents){Pool(productId,item);return;}
-            item.transform.SetParent(contents,false);NormalizeWorldSize(item,.12f);
+            item.transform.SetParent(contents,false);NormalizeWorldSize(item,.32f);
             var index=shown.Count;var column=index%3;var row=index/3;
-            item.transform.localPosition=new Vector3((column-1)*.085f,row*.075f,(index%2==0?-.06f:.06f));
+            item.transform.position=contents.position+contents.right*((column-1)*.3f)+contents.up*(row*.2f)+contents.forward*(index%2==0?-.2f:.2f);
             item.transform.localRotation=Quaternion.Euler(0,index*47f,0);shown.Add((productId,item));
         }
 

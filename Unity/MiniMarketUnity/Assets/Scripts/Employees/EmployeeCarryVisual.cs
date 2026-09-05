@@ -32,7 +32,7 @@ namespace MiniMarket.Employees
             var asset=basket?"HarvestBasket":boxed?"Parcel":ProductAssets.TryGetValue(productId,out var mapped)?mapped:"Parcel";
             var item=await loader.InstantiateAsync(asset,socket,Vector3.zero,Quaternion.identity,Vector3.one);
             if(expected!=generation||!socket){if(item)Destroy(item);return;}
-            shown=item;shown.name=basket?$"CarriedBasket_{productId}":boxed?$"CarriedBox_{productId}":$"Carried_{productId}";NormalizeWorldSize(shown,twoHanded ? .42f : .15f);
+            shown=item;shown.name=basket?$"CarriedBasket_{productId}":boxed?$"CarriedBox_{productId}":$"Carried_{productId}";NormalizeWorldSize(shown,basket ? 1.1f : boxed ? 1.05f : .45f);
             shown.transform.SetLocalPositionAndRotation(Vector3.zero,Quaternion.identity);foreach(var collider in shown.GetComponentsInChildren<Collider>(true))collider.enabled=false;
             if(basket&&ProductAssets.TryGetValue(productId,out var produce))
             {
@@ -43,9 +43,9 @@ namespace MiniMarket.Employees
                 {
                     var unit=await loader.InstantiateAsync(produce,contents,Vector3.zero,Quaternion.identity,Vector3.one);
                     if(expected!=generation){if(unit)Destroy(unit);return;}
-                    unit.transform.SetParent(contents,false);NormalizeWorldSize(unit,.11f);
+                    unit.transform.SetParent(contents,false);NormalizeWorldSize(unit,.28f);
                     var column=index%3;var row=index/3;
-                    unit.transform.localPosition=new Vector3((column-1)*.07f,row*.05f,(index%2==0?-.05f:.05f));
+                    unit.transform.position=contents.position+contents.right*((column-1)*.26f)+contents.up*(row*.16f)+contents.forward*(index%2==0?-.14f:.14f);
                     unit.transform.localRotation=Quaternion.Euler(0,index*53f,0);
                     foreach(var collider in unit.GetComponentsInChildren<Collider>(true))collider.enabled=false;
                 }
