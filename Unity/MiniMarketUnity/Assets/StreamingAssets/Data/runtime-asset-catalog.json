@@ -1391,16 +1391,16 @@
       "kind": "environment",
       "path": "Art/Furniture/WallCorner.glb",
       "source": "GameAssets/Environment/Runtime/Furniture/WallCorner.glb",
-      "bytes": 802336,
-      "sha256": "f1b5d4a21e6ad0fd8bab82589178da7cbab0505c57c362a7c068851d85d3e859"
+      "bytes": 831044,
+      "sha256": "8adf2836fedea1ec3c881041be7ff510acb93041e8af7d8388278c26b3153bb7"
     },
     {
       "id": "WallStraight",
       "kind": "environment",
       "path": "Art/Furniture/WallStraight.glb",
       "source": "GameAssets/Environment/Runtime/Furniture/WallStraight.glb",
-      "bytes": 763856,
-      "sha256": "2f7c3b91bdebd413b84aa0e09c1a141bce95affb4911b907490c2ec06d865309"
+      "bytes": 720816,
+      "sha256": "3568d6b937479a6d58cea8276cc0f42ece2c55af74a3513b11eee8a63a4afab1"
     },
     {
       "id": "WateringCan",
@@ -1532,5 +1532,5 @@
     "metadata": 1,
     "character-motion": 9
   },
-  "totalBytes": 301575214
+  "totalBytes": 301560882
 }

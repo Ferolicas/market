@@ -14,6 +14,10 @@ argv = sys.argv[sys.argv.index("--") + 1:]
 src, part, texture, dst, budget = argv[0], argv[1], argv[2], argv[3], int(argv[4])
 opts = argv[5:]
 flat_top = "plano" in opts
+square_elev = "alzado" in opts
+flat_front = any(o.startswith("frentePlano") for o in opts)
+front_cut = next((float(o.split("=")[1]) for o in opts if o.startswith("frentePlano=")), 1.0)
+band_uv = "uvAltura" in opts
 fill_grooves = "sinSurcos" in opts
 extra_turn = next((float(o.split("=")[1]) for o in opts if o.startswith("giro=")), 0.0)
 shear_deg = next((float(o.split("=")[1]) for o in opts if o.startswith("cizalla=")), 0.0)
@@ -134,6 +138,42 @@ for _ in range(6):
         break
     tol = min(tol * 1.6, cap)
 print(f"   bordes enderezados: comba {depth:.4f}, margen {tol:.4f}, {moved} vertices a la recta, llena {100*fill_ratio():.1f}%")
+
+if square_elev:
+    # A wall module has to meet the next one: its scanned outline is bitten
+    # on all four sides, so modules fitted to their box leave gaps. Every
+    # vertex within the bite's depth of a side, the base or the top is pushed
+    # onto that bound; in plan the same was already done for the rim.
+    V3 = np.array([[v.co.x, v.co.y, v.co.z] for v in mesh.vertices])
+    l3, h3 = V3.min(0), V3.max(0); ext = h3 - l3
+    tx, tz = 0.05 * ext[0], 0.05 * ext[2]
+    moved3 = 0
+    for v in mesh.vertices:
+        was = (v.co.x, v.co.z)
+        if v.co.x - l3[0] < tx: v.co.x = l3[0]
+        elif h3[0] - v.co.x < tx: v.co.x = h3[0]
+        if v.co.z - l3[2] < tz: v.co.z = l3[2]
+        elif h3[2] - v.co.z < tz: v.co.z = h3[2]
+        if (v.co.x, v.co.z) != was: moved3 += 1
+    mesh.update()
+    print(f"   alzado enderezado: {moved3} vertices a los bordes")
+if flat_front:
+    # The scanned front bulges by a good part of the module's depth. Anything
+    # in the front half is brought onto one plane, the plane of its bulk.
+    V3 = np.array([[v.co.x, v.co.y, v.co.z] for v in mesh.vertices])
+    l3, h3 = V3.min(0), V3.max(0); depth = h3[1] - l3[1]
+    # Below the cut the front is one plane; above it (the cap) another, its
+    # own, so the cap keeps standing proud as the sheet shows it.
+    zcut = l3[2] + (h3[2] - l3[2]) * front_cut
+    sel = (V3[:, 1] < l3[1] + depth * 0.45)
+    body = V3[sel & (V3[:, 2] < zcut)][:, 1]; cap = V3[sel & (V3[:, 2] >= zcut)][:, 1]
+    front = float(np.percentile(body, 50)); capfront = float(np.percentile(cap, 15)) if len(cap) else front
+    n = 0
+    for v in mesh.vertices:
+        if v.co.y < l3[1] + depth * 0.45:
+            v.co.y = front if v.co.z < zcut else capfront; n += 1
+    mesh.update()
+    print(f"   frente aplanado: {n} vertices; cuerpo a y={front:.4f}, coronacion a y={capfront:.4f} (saliente {front-capfront:+.4f})")
 
 # Planar first: it merges faces that already lie in the same plane, so a flat
 # panel loses its triangles without losing its shape. Collapsing straight to a
@@ -302,8 +342,16 @@ if tex_joints and grid:
     kx_t = [0.0] + tex_joints["x"] + [1.0]
     ky_m = [0.0] + grid["y"][1] + [1.0]
     ky_t = [0.0] + sorted(1.0 - v for v in tex_joints["y"]) + [1.0]
+if band_uv:
+    # Bands by height: v runs from the foot (0) to the cap's top (1), u is
+    # simply the position along the module. Every face gets the same strip.
+    Vz = np.array([v.co.z for v in mesh.vertices]); zlo, zhi = Vz.min(), Vz.max()
+    Vx = np.array([v.co.x for v in mesh.vertices]); xlo, xhi = Vx.min(), Vx.max()
 for loop in mesh.loops:
-    if repeat:
+    if band_uv:
+        co = mesh.vertices[loop.vertex_index].co
+        uv.data[loop.index].uv = ((co.x - xlo) / (xhi - xlo), (co.z - zlo) / (zhi - zlo))
+    elif repeat:
         # One panel repeated across the tile: the texture is periodic, so the
         # tile's edges show half a joint each and meet the next tile's as one.
         co = mesh.vertices[loop.vertex_index].co
