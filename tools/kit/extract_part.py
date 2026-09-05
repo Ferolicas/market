@@ -194,6 +194,22 @@ if flat_top:
     top = W[W > plane - span * 0.02]
     print(f"   cara recortada al plano z={plane:.4f}: {clamped} vertices bajados, "
           f"la cara varia {top.max()-top.min():.6f}")
+    # The scan's top is riddled with small holes that no fill closes cleanly,
+    # and each one shows whatever lies under the floor. With the face now a
+    # true plane, a single quad a hair beneath it, inside the piece and in the
+    # same material, sits behind every hole and shows the same tile through
+    # it. It is part of the tile, not a bed under it.
+    bmq = bmesh.new(); bmq.from_mesh(mesh)
+    Vq = np.array([[v.co.x, v.co.y] for v in mesh.vertices])
+    qlo, qhi = Vq.min(0), Vq.max(0)
+    zq = plane - span * 0.012
+    vs = [bmq.verts.new((qlo[0], qlo[1], zq)), bmq.verts.new((qhi[0], qlo[1], zq)),
+          bmq.verts.new((qhi[0], qhi[1], zq)), bmq.verts.new((qlo[0], qhi[1], zq))]
+    fq = bmq.faces.new(vs)
+    fq.normal_update()
+    if fq.normal.z < 0: fq.normal_flip()
+    bmq.to_mesh(mesh); bmq.free(); mesh.update()
+    print(f"   respaldo interior bajo la cara a z={zq:.4f}")
 
 uv_before = None
 if grid:

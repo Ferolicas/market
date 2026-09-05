@@ -59,6 +59,19 @@ namespace MiniMarket.Store
             ["SupplierTerminal"]=new(1.9f,2.45f,1.05f),["DeliveryDock"]=new(3.1f,1.6f,2.2f),
         };
 
+        // Inspection switch. With it on, the shop's contents are stripped to bare
+        // floor and walls so the floor can be judged on its own: everything
+        // placed inside keeps its logic, sockets and interactions, and loses
+        // only what it shows and what it blocks.
+        public static bool BareInterior = true;
+        static GameObject HideIfBare(GameObject go)
+        {
+            if(!BareInterior||!go)return go;
+            foreach(var r in go.GetComponentsInChildren<Renderer>(true))r.enabled=false;
+            foreach(var c in go.GetComponentsInChildren<Collider>(true))c.enabled=false;
+            return go;
+        }
+
         public StoreWorldBuilder(RuntimeGltfLoader assetLoader, GameSpecRepository repository, InteractionDirector director, Transform worldParent)
         { loader = assetLoader; spec = repository; interactions = director; parent = worldParent; }
 
@@ -109,8 +122,8 @@ namespace MiniMarket.Store
             // to seven thousandths, pushed back out to the straight line. Both
             // now fill their rectangle exactly, so they are laid edge to edge:
             // no overlap, nothing underneath, nothing cut away.
-            await TileFloor(root,"FloorTileBeige",-23,23,-17.7f,16.3f,4,3,.99f,.99f,0,0,.16f,-.08f);
-            await TileFloor(root,"FloorTileWhite",-23,23,16.3f,31.3f,4,1,.99f,.99f,0,0,.14f,-.1f);
+            await TileFloor(root,"FloorTileBeige",-23,23,-17.7f,16.3f,4,3,1f,1f,0,0,.16f,-.08f);
+            await TileFloor(root,"FloorTileWhite",-23,23,16.3f,31.3f,4,1,1f,1f,0,0,.14f,-.1f);
             VisualBox(root,"StoreKerb",new Vector3(50,.12f,2.4f),new Vector3(0,-.09f,32.3f),Hex("566A62"),.02f,false);
             // MarketBuilding's entrance mat: the dark slab the player crosses in
             // the doorway, authored at [0, 0.035, 7.02] with a 3.75 x 1.05
@@ -673,18 +686,18 @@ namespace MiniMarket.Store
 
         async Task BuildFixedInterior(Transform root)
         {
-            await Place("OperationsWall",XZ(-1.6f,-8.05f),Quaternion.identity,Vector3.one,root,true);
-            await Place("BackroomStorage",XZ(5.25f,-8f),Quaternion.identity,Vector3.one,root,true);
-            await Place("StockroomRack",XZ(9.65f,-7.85f),Quaternion.identity,Vector3.one,root,true);
-            await Place("SeasonalDisplay",XZ(-7f,3.15f),Quaternion.identity,Vector3.one,root,true);
-            await Place("ShelfEndcap",XZ(6.4f,-2.2f),Quaternion.Euler(0,90,0),Vector3.one,root,true);
+            HideIfBare(await Place("OperationsWall",XZ(-1.6f,-8.05f),Quaternion.identity,Vector3.one,root,true));
+            HideIfBare(await Place("BackroomStorage",XZ(5.25f,-8f),Quaternion.identity,Vector3.one,root,true));
+            HideIfBare(await Place("StockroomRack",XZ(9.65f,-7.85f),Quaternion.identity,Vector3.one,root,true));
+            HideIfBare(await Place("SeasonalDisplay",XZ(-7f,3.15f),Quaternion.identity,Vector3.one,root,true));
+            HideIfBare(await Place("ShelfEndcap",XZ(6.4f,-2.2f),Quaternion.Euler(0,90,0),Vector3.one,root,true));
 
-            await Place("WallClock",XZ(9.65f,-8.34f,2.2f),Quaternion.identity,Vector3.one,root);
-            await Place("SecurityCamera",XZ(-10.75f,-8.05f,2.55f),Quaternion.identity,Vector3.one,root);
-            await Place("SecurityCamera",XZ(10.65f,7.2f,2.55f),Quaternion.Euler(0,180,0),Vector3.one,root);
-            await Place("HangingSign",XZ(7.25f,1.65f,2.45f),Quaternion.identity,Vector3.one,root);
-            await Place("HangingSign",XZ(-3.8f,-3.35f,2.45f),Quaternion.identity,Vector3.one,root);
-            foreach(var x in new[]{-7.2f,-2.4f,2.4f,7.2f})await Place("CeilingLight",XZ(x,-.6f,2.85f),Quaternion.identity,Vector3.one,root);
+            HideIfBare(await Place("WallClock",XZ(9.65f,-8.34f,2.2f),Quaternion.identity,Vector3.one,root));
+            HideIfBare(await Place("SecurityCamera",XZ(-10.75f,-8.05f,2.55f),Quaternion.identity,Vector3.one,root));
+            HideIfBare(await Place("SecurityCamera",XZ(10.65f,7.2f,2.55f),Quaternion.Euler(0,180,0),Vector3.one,root));
+            HideIfBare(await Place("HangingSign",XZ(7.25f,1.65f,2.45f),Quaternion.identity,Vector3.one,root));
+            HideIfBare(await Place("HangingSign",XZ(-3.8f,-3.35f,2.45f),Quaternion.identity,Vector3.one,root));
+            foreach(var x in new[]{-7.2f,-2.4f,2.4f,7.2f})HideIfBare(await Place("CeilingLight",XZ(x,-.6f,2.85f),Quaternion.identity,Vector3.one,root));
 
             await BuildProductionCubicle(root);
             await BuildFarmField(root);
@@ -698,7 +711,7 @@ namespace MiniMarket.Store
                 var wall=(JObject)token;var p=(JArray)wall["position"];
                 var halfX=wall.Value<float>("halfX")*ElementScale;var halfZ=wall.Value<float>("halfZ")*ElementScale;
                 var alongZ=halfZ>halfX;var length=Mathf.Max(halfX,halfZ)*2;
-                await PlaceFitted("GlassPartition",XZ(p[0].Value<float>(),p[2].Value<float>()),alongZ?Quaternion.Euler(0,90,0):Quaternion.identity,new Vector3(length,2.65f,.14f),root,false);
+                HideIfBare(await PlaceFitted("GlassPartition",XZ(p[0].Value<float>(),p[2].Value<float>()),alongZ?Quaternion.Euler(0,90,0):Quaternion.identity,new Vector3(length,2.65f,.14f),root,false));
                 PhysicsBox(root,wall.Value<string>("id")+"_Collider",new Vector3(halfX*2,2.65f,halfZ*2),XZ(p[0].Value<float>(),p[2].Value<float>(),1.325f));
             }
         }
@@ -739,7 +752,7 @@ namespace MiniMarket.Store
                 var data = (JObject)property.Value;
                 var pos = (JArray)data["display"];
                 var position = new Vector3(-pos[0].Value<float>() * LayoutScale, 0, pos[2].Value<float>() * LayoutScale);
-                var display = await Place(DisplayAssets[property.Name],position,Quaternion.identity,Vector3.one*ElementScale,world.Root,true);
+                var display = HideIfBare(await Place(DisplayAssets[property.Name],position,Quaternion.identity,Vector3.one*ElementScale,world.Root,true));
                 var shelf = display.AddComponent<ProductShelf>();
                 shelf.departmentId = property.Name;
                 shelf.allowedProducts = data["products"].ToObject<string[]>();
@@ -764,7 +777,7 @@ namespace MiniMarket.Store
                 var data = (JObject)lane.Value;
                 var counter = (JArray)data["counter"];
                 var position = new Vector3(-counter[0].Value<float>() * LayoutScale, 0, counter[2].Value<float>() * LayoutScale);
-                var checkout = await Place("CheckoutArea", position, Quaternion.identity, Vector3.one * ElementScale, world.Root, true);
+                var checkout = HideIfBare(await Place("CheckoutArea", position, Quaternion.identity, Vector3.one * ElementScale, world.Root, true));
                 if(lane.Name!="0")world.AvailabilityVisuals[$"checkout:{lane.Name}"]=checkout;
                 var customer = (JArray)data["customerFront"];
                 var laneIndex=int.Parse(lane.Name);var checkoutPoint=New($"CheckoutInteractionPoint_{laneIndex}", new Vector3(-customer[0].Value<float>() * LayoutScale, 0, customer[1].Value<float>() * LayoutScale));checkoutPoint.SetParent(world.Root,true);world.CheckoutPoints.Add(checkoutPoint);
@@ -790,7 +803,7 @@ namespace MiniMarket.Store
             foreach (var property in fixtures.Properties())
             {
                 var data = (JObject)property.Value; var pos = (JArray)data["position"];
-                var root = await Place(ids[property.Name], new Vector3(-pos[0].Value<float>() * LayoutScale, 0, pos[2].Value<float>() * LayoutScale), Quaternion.identity, Vector3.one * ElementScale, world.Root, true);
+                var root = HideIfBare(await Place(ids[property.Name], new Vector3(-pos[0].Value<float>() * LayoutScale, 0, pos[2].Value<float>() * LayoutScale), Quaternion.identity, Vector3.one * ElementScale, world.Root, true));
                 world.AvailabilityVisuals[$"machine:{data.Value<string>("machineId")}"]=root;
                 var work=(JArray)data["operatorWorkPoint"];
                 var workPoint=New($"MachineWork_{property.Name}",new Vector3(-work[0].Value<float>()*LayoutScale,0,work[1].Value<float>()*LayoutScale));workPoint.SetParent(world.Root,true);
@@ -834,11 +847,11 @@ namespace MiniMarket.Store
 
         async Task BuildServices(StoreWorld world)
         {
-            var supplier = await Place("SupplierTerminal",XZ(8.8f,-2.15f),Quaternion.identity,Vector3.one,world.Root,true);
-            await Place("DeliveryDock",XZ(8.8f,-3.23f),Quaternion.identity,Vector3.one,world.Root,true);
-            await Place("SupplierTerminal",XZ(8.8f,-5.35f),Quaternion.identity,Vector3.one,world.Root,true);
-            await Place("ReturnsStation",XZ(9.85f,5.45f),Quaternion.Euler(0,180,0),Vector3.one,world.Root,true);
-            await Place("CartBay",XZ(3.05f,6.55f),Quaternion.identity,Vector3.one,world.Root,true);
+            var supplier = HideIfBare(await Place("SupplierTerminal",XZ(8.8f,-2.15f),Quaternion.identity,Vector3.one,world.Root,true));
+            HideIfBare(await Place("DeliveryDock",XZ(8.8f,-3.23f),Quaternion.identity,Vector3.one,world.Root,true));
+            HideIfBare(await Place("SupplierTerminal",XZ(8.8f,-5.35f),Quaternion.identity,Vector3.one,world.Root,true));
+            HideIfBare(await Place("ReturnsStation",XZ(9.85f,5.45f),Quaternion.Euler(0,180,0),Vector3.one,world.Root,true));
+            HideIfBare(await Place("CartBay",XZ(3.05f,6.55f),Quaternion.identity,Vector3.one,world.Root,true));
             AddInteraction(world,supplier.transform,"supplier","Abrir proveedores",2.1f,false);
             var returnsPoint=New("ReturnsServicePoint",new Vector3(-20.1f,0,8.6f));returnsPoint.SetParent(world.Root,true);
             AddInteraction(world,returnsPoint,"returns","Devolver mercancía",1.5f,true,.08f,.75f);
