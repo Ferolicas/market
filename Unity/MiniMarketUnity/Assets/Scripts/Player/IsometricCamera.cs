@@ -14,8 +14,34 @@ namespace MiniMarket.Player
         /// `performingZoneId() === "checkout"`.
         public bool checkoutFocused;
 
-        // OVERVIEW_CAMERA_OFFSET = { x: 16, y: 23, z: 25.75 }, X mirrored.
-        static readonly Vector3 OverviewOffset = new(-16f, 23f, 25.75f);
+        // OVERVIEW_CAMERA_OFFSET = { x: 16, y: 23, z: 25.75 }, X mirrored: that
+        // is Next's azimuth and distance, 37 degrees up. The kit's geometry was
+        // built for a camera about 16 degrees up (the sheets' own view), so the
+        // rig keeps the azimuth and the distance and drops to that elevation.
+        const float ElevationDegrees = 40f;
+        static readonly Vector3 OverviewOffset = Lowered(new Vector3(-16f, 23f, 25.75f), ElevationDegrees);
+        static Vector3 Lowered(Vector3 offset, float degrees)
+        {
+            var flat = new Vector3(offset.x, 0f, offset.z);
+            var radius = offset.magnitude; var e = degrees * Mathf.Deg2Rad;
+            return flat.normalized * (radius * Mathf.Cos(e)) + Vector3.up * (radius * Mathf.Sin(e));
+        }
+        // The player is not framed at the centre but 30% of the frame height
+        // behind the way it faces, so the screen shows what lies ahead: the
+        // look-at point runs ahead of the player along its facing, by the
+        // ground distance that projects to that screen offset -- a step away
+        // from the camera climbs the screen by sin(elevation), a step across
+        // it moves a full step -- so the offset reads the same whichever way
+        // the player walks. The facing is damped so a turn re-frames smoothly.
+        const float AheadFraction = .30f;
+        const float HeadingResponse = 8f;
+        Vector3 heading;
+        // The damped follow lags a moving target by velocity / response; the
+        // point is to see ahead *while* walking, so that lag is fed forward
+        // and the player holds its place in the frame on the move, not only
+        // after stopping.
+        const float VelocityResponse = 12f;
+        Vector3 velocity, lastTargetPosition;
         // scaleStorePosition(CHECKOUT_CAMERA_POSITION / _TARGET), X mirrored.
         static readonly Vector3 CheckoutPosition = new(-16.6f, 7.2f, 17.6f);
         static readonly Vector3 CheckoutTarget = new(-16.6f, 1.35f, 7.6f);
@@ -41,11 +67,20 @@ namespace MiniMarket.Player
             if (!view) view = GetComponent<Camera>();
             var delta = FrameDelta(Time.deltaTime);
 
-            var overviewLookAt = new Vector3(target.position.x, TargetHeight, target.position.z);
+            var facing = new Vector3(target.forward.x, 0f, target.forward.z);
+            if (facing.sqrMagnitude < 1e-6f) facing = heading.sqrMagnitude < 1e-6f ? Vector3.forward : heading;
+            facing.Normalize();
+            heading = framed ? Vector3.Slerp(heading, facing, Damp(HeadingResponse, delta)) : facing;
+            var raw = Time.deltaTime > 1e-4f && framed ? (target.position - lastTargetPosition) / Time.deltaTime : Vector3.zero;
+            raw.y = 0f;
+            velocity = framed ? Vector3.Lerp(velocity, raw, Damp(VelocityResponse, delta)) : Vector3.zero;
+            lastTargetPosition = target.position;
+            var ahead = target.position + heading * AheadDistance(heading) + velocity / FollowResponse;
+            var overviewLookAt = new Vector3(ahead.x, TargetHeight, ahead.z);
             var overviewPosition = new Vector3(
-                target.position.x + OverviewOffset.x,
+                ahead.x + OverviewOffset.x,
                 TargetHeight + OverviewOffset.y,
-                target.position.z + OverviewOffset.z);
+                ahead.z + OverviewOffset.z);
             blend = Mathf.Lerp(blend, checkoutFocused ? 1f : 0f, Damp(checkoutFocused ? FocusResponse : ReleaseResponse, delta));
             var desiredLookAt = Vector3.Lerp(overviewLookAt, CheckoutTarget, blend);
             var desiredPosition = Vector3.Lerp(overviewPosition, CheckoutPosition, blend);
@@ -71,6 +106,20 @@ namespace MiniMarket.Player
 
             transform.rotation = Quaternion.LookRotation((lookAt - transform.position).normalized, Vector3.up);
             if (view && view.orthographic) view.orthographicSize = 1f / inverseSize;
+        }
+
+        /// Ground distance along `direction` whose screen displacement is
+        /// AheadFraction of the frame height, for the current orthographic size.
+        float AheadDistance(Vector3 direction)
+        {
+            var flat = new Vector3(-OverviewOffset.x, 0f, -OverviewOffset.z).normalized;   // towards the scene, on the ground
+            var right = Vector3.Cross(Vector3.up, flat).normalized;
+            var sinE = Mathf.Sin(ElevationDegrees * Mathf.Deg2Rad);
+            var across = Vector3.Dot(direction, right);
+            var away = Vector3.Dot(direction, flat) * sinE;
+            var perUnit = Mathf.Sqrt(across * across + away * away);
+            var halfHeight = 1f / Mathf.Max(1e-4f, inverseSize);
+            return perUnit < 1e-4f ? 0f : AheadFraction * 2f * halfHeight / perUnit;
         }
 
         // Next sizes the frustum in canvas pixels beneath a WORLD_SCALE=3 group:
