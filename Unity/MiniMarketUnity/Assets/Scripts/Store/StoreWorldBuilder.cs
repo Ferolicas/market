@@ -40,7 +40,7 @@ namespace MiniMarket.Store
             ["Car"]=4.2f,["BusStop"]=3.4f,["Bench"]=2.2f,["Tree"]=4.5f,["StreetLight"]=5.2f,
             ["ShelfWallTall"]=3.2f,["ShelfWallWide"]=3.5f,["EggDisplay"]=2.5f,
             ["DisplayProduceMixed"]=3.1f,["DisplayBakery"]=3.1f,["DisplayRefrigeratedDoors"]=3.5f,
-            ["CheckoutArea"]=7.12f,["OperationsWall"]=14.5f,["BackroomStorage"]=4f,["StockroomRack"]=3.7f,
+            ["CheckoutArea"]=7.12f,["OperationsWall"]=3.4f,["BackroomStorage"]=4f,["StockroomRack"]=3.7f,
             ["SeasonalDisplay"]=3.3f,["ShelfEndcap"]=3.1f,["ReturnsStation"]=2.4f,["CartBay"]=3.4f,
             ["WallClock"]=.7f,["SecurityCamera"]=.7f,["HangingSign"]=2.5f,["CeilingLight"]=2.2f,
             ["FlourMillAlt"]=2.1f,["BreadOven"]=2.2f,["CheeseMachine"]=2.1f,["JuiceMachineAlt"]=2.1f,
@@ -63,7 +63,7 @@ namespace MiniMarket.Store
         // floor and walls so the floor can be judged on its own: everything
         // placed inside keeps its logic, sockets and interactions, and loses
         // only what it shows and what it blocks.
-        public static bool BareInterior = true;
+        public static bool BareInterior = false;
         static GameObject HideIfBare(GameObject go)
         {
             if(!BareInterior||!go)return go;
@@ -714,13 +714,17 @@ namespace MiniMarket.Store
 
         async Task BuildProductionCubicle(Transform root)
         {
-            var walls=(JArray)spec.Layouts["production"]["PRODUCTION_CUBICLE"]["walls"];
+            // The kit's glass partition is one whole booth (its roof removed so the
+            // camera sees the machines), fitted to the cubicle's rectangle; the
+            // colliders keep the wall segments and the doorway exactly as before.
+            var cubicle=(JObject)spec.Layouts["production"]["PRODUCTION_CUBICLE"];var bounds=(JObject)cubicle["bounds"];var center=(JArray)cubicle["center"];
+            var width=(bounds.Value<float>("right")-bounds.Value<float>("left"))*LayoutScale;var depth=(bounds.Value<float>("front")-bounds.Value<float>("rear"))*LayoutScale;
+            HideIfBare(await PlaceFitted("GlassPartition",XZ(center[0].Value<float>(),center[1].Value<float>()),Quaternion.identity,new Vector3(width,2.65f,depth),root,false));
+            var walls=(JArray)cubicle["walls"];
             foreach(var token in walls)
             {
                 var wall=(JObject)token;var p=(JArray)wall["position"];
                 var halfX=wall.Value<float>("halfX")*ElementScale;var halfZ=wall.Value<float>("halfZ")*ElementScale;
-                var alongZ=halfZ>halfX;var length=Mathf.Max(halfX,halfZ)*2;
-                HideIfBare(await PlaceFitted("GlassPartition",XZ(p[0].Value<float>(),p[2].Value<float>()),alongZ?Quaternion.Euler(0,90,0):Quaternion.identity,new Vector3(length,2.65f,.14f),root,false));
                 PhysicsBox(root,wall.Value<string>("id")+"_Collider",new Vector3(halfX*2,2.65f,halfZ*2),XZ(p[0].Value<float>(),p[2].Value<float>(),1.325f));
             }
         }

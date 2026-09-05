@@ -39,8 +39,8 @@
       "kind": "product",
       "path": "Art/Products/Apple.glb",
       "source": "GameAssets/Environment/Runtime/Products/Apple.glb",
-      "bytes": 209552,
-      "sha256": "45452f4d14becacdf267255561d34654e2ec4e4f89e0c747493c974dbb8ff7ee"
+      "bytes": 317512,
+      "sha256": "9413051340fb923266cea1e804b45e18119afe2d5146da29dc6070eec7d10049"
     },
     {
       "id": "AutomaticDoor",
@@ -55,56 +55,56 @@
       "kind": "environment",
       "path": "Art/Utility/BackroomStorage.glb",
       "source": "GameAssets/Environment/Runtime/Utility/BackroomStorage.glb",
-      "bytes": 636136,
-      "sha256": "089694bed0ea5b4d2fa691c57df5dad7736a70d9758e6383c5c87cbdfd02a5a9"
+      "bytes": 512708,
+      "sha256": "b33a51ba0780717e11f78844dd8efac2a4412885883b1d869971cd9fbedf5d00"
     },
     {
       "id": "BaggingArea",
       "kind": "environment",
       "path": "Art/StoreEquipment/BaggingArea.glb",
       "source": "GameAssets/Environment/Runtime/StoreEquipment/BaggingArea.glb",
-      "bytes": 695208,
-      "sha256": "d5ba1738cd1db4bc75487149734b4a6e26fa4031af1fcee5a258889050b05f6c"
+      "bytes": 509304,
+      "sha256": "8e9ee505b2b20a818bddc813415c4b875e4c1e41707dc3523315144745e86095"
     },
     {
       "id": "BaggingAreaAlt",
       "kind": "environment",
       "path": "Art/StoreDisplays/BaggingAreaAlt.glb",
       "source": "GameAssets/Environment/Runtime/StoreDisplays/BaggingAreaAlt.glb",
-      "bytes": 707004,
-      "sha256": "af7f96e45429770a50040b7479a4ccae723c26f0b7d647d00793a2a3b982d20d"
+      "bytes": 416700,
+      "sha256": "a81bfef173e1b65510dd787b96d60bc48cc31110d13554c8d194229930b9fa04"
     },
     {
       "id": "BakeryWorkArea",
       "kind": "environment",
       "path": "Art/Utility/BakeryWorkArea.glb",
       "source": "GameAssets/Environment/Runtime/Utility/BakeryWorkArea.glb",
-      "bytes": 679056,
-      "sha256": "9b3732156a5983fd3af30a854eccb2ee32d0836f6fa01b8227e8f1d0beda42e1"
+      "bytes": 570556,
+      "sha256": "fda8113ec8b44b9c544be34d37fff5f21196475f91345c69280940ab839b0014"
     },
     {
       "id": "BasketStack",
       "kind": "environment",
       "path": "Art/StoreEquipment/BasketStack.glb",
       "source": "GameAssets/Environment/Runtime/StoreEquipment/BasketStack.glb",
-      "bytes": 729632,
-      "sha256": "8f1d2ade1b2f8ffd6f6441be8c9b53bde9e11d75d45f5a1cbadeca11630e02c6"
+      "bytes": 512196,
+      "sha256": "34d710b7d026ab1acaec7c4b3cf6e1062de7e7c914fc36f3e9112449f54e2949"
     },
     {
       "id": "BasketStackAlt",
       "kind": "environment",
       "path": "Art/StoreDisplays/BasketStackAlt.glb",
       "source": "GameAssets/Environment/Runtime/StoreDisplays/BasketStackAlt.glb",
-      "bytes": 707952,
-      "sha256": "cb3d450543542e7e8a99cc39c57f053cf9ed8711ca371cb2a374e7bc06dea703"
+      "bytes": 472908,
+      "sha256": "55176a3277c4caa54e0c920290b6441daaeb7a5b1f4fe2135e435edcf1c1bb4d"
     },
     {
       "id": "Bench",
       "kind": "environment",
       "path": "Art/Exterior/Bench.glb",
       "source": "GameAssets/Environment/Runtime/Exterior/Bench.glb",
-      "bytes": 511868,
-      "sha256": "071b7e698b50a5c7a44d06dcbc75fc4e6a227cd5d017b0e6fe97376512a9e56c"
+      "bytes": 430116,
+      "sha256": "ff6788325928689385c231298945f6e4fa4b109b44955fc0f6a24cfe15810fb0"
     },
     {
       "id": "Boy:LOD0",
@@ -127,288 +127,288 @@
       "kind": "product",
       "path": "Art/Products/Bread.glb",
       "source": "GameAssets/Environment/Runtime/Products/Bread.glb",
-      "bytes": 245904,
-      "sha256": "dd8ebc1931e7547dc609c9402a442be175aabb78797265aed3b08809d2238157"
+      "bytes": 347308,
+      "sha256": "bb5c117b419680feda4660cd24a28a42e863f99959e4adde987c4f6a4e726477"
     },
     {
       "id": "BreadOven",
       "kind": "environment",
       "path": "Art/Furniture/BreadOven.glb",
       "source": "GameAssets/Environment/Runtime/Furniture/BreadOven.glb",
-      "bytes": 994288,
-      "sha256": "6d46a3b229d907a2c7fdd2eac2b7db064aa32d1a4f9b379d05e9c03aa51095fb"
+      "bytes": 373860,
+      "sha256": "2593ba6dad6843634ce76a35c744c466de9acbfd0083e4a5d30b9a2ff043e882"
     },
     {
       "id": "BusStop",
       "kind": "environment",
       "path": "Art/Exterior/BusStop.glb",
       "source": "GameAssets/Environment/Runtime/Exterior/BusStop.glb",
-      "bytes": 586184,
-      "sha256": "59b37c27f29d82ca4f0ed94e8b39663bbea52c9e7650b095bdd4d7d1c9973592"
+      "bytes": 550660,
+      "sha256": "b2972fa1f85e776b69d2cbcc0f10d64847da8c67d7f1a5b2389f11778cdaf5b5"
     },
     {
       "id": "Car",
       "kind": "environment",
       "path": "Art/Exterior/Car.glb",
       "source": "GameAssets/Environment/Runtime/Exterior/Car.glb",
-      "bytes": 553624,
-      "sha256": "f44129aeae477eb7905817d81ff2f390bed8cf01d85d0f24022a52a9f598e3ed"
+      "bytes": 578260,
+      "sha256": "84c9a9943652d682ae2ece6b2b22846cfd9006b534d2751c9b5710d2c0965381"
     },
     {
       "id": "CardTerminal",
       "kind": "environment",
       "path": "Art/Furniture/CardTerminal.glb",
       "source": "GameAssets/Environment/Runtime/Furniture/CardTerminal.glb",
-      "bytes": 308024,
-      "sha256": "de818522ece339215b12a27b19b06b8c1d3efad7a0b70507ef0802f289da68f5"
+      "bytes": 212376,
+      "sha256": "b0416213f1eb27a5e336ef6b03cba102ecbe1a177bcecc26e0d50c81d5ea8435"
     },
     {
       "id": "CarrotRipe",
       "kind": "environment",
       "path": "Art/Farm/CarrotRipe.glb",
       "source": "GameAssets/Environment/Runtime/Farm/CarrotRipe.glb",
-      "bytes": 226924,
-      "sha256": "7f31308a149e1e9b350c0cf44cb4a04b4ff7aa663000f99f85905ae8ffe56b29"
+      "bytes": 386160,
+      "sha256": "e6c1bc2d5c8c479555e1c0c7004638cb399ca66ad7d0717dafc2526ce088e540"
     },
     {
       "id": "CartBay",
       "kind": "environment",
       "path": "Art/Utility/CartBay.glb",
       "source": "GameAssets/Environment/Runtime/Utility/CartBay.glb",
-      "bytes": 774036,
-      "sha256": "4af56c42a48886f1b39b382af7e06dc982bcfc84adfeb16272c0acae9f16f3ec"
+      "bytes": 608212,
+      "sha256": "b2a2c59b2660305456d9400765a6dd6fe2d323394bcce8c9ecb949b9f44fa969"
     },
     {
       "id": "CashDrawer",
       "kind": "environment",
       "path": "Art/StoreEquipment/CashDrawer.glb",
       "source": "GameAssets/Environment/Runtime/StoreEquipment/CashDrawer.glb",
-      "bytes": 706460,
-      "sha256": "7975de46bf39a3bf26d0017fc9f64b7a6aa2ac0e8de5a56328c6c7cf77eafcd5"
+      "bytes": 310612,
+      "sha256": "d019a424113784926638e4afd0c07837e8dae322fefd016f2813bdc4f2f17561"
     },
     {
       "id": "CashDrawerAlt",
       "kind": "environment",
       "path": "Art/StoreDisplays/CashDrawerAlt.glb",
       "source": "GameAssets/Environment/Runtime/StoreDisplays/CashDrawerAlt.glb",
-      "bytes": 715256,
-      "sha256": "f412e9d4e05959e65d41eee6d98345be87f8d608b85d1329ff3aaef928cdd8a2"
+      "bytes": 268120,
+      "sha256": "2696de924e9bdc8cf5cc74e3b145f4fa18a227874d162cb95a38b04d3bf04c0a"
     },
     {
       "id": "CashRegister",
       "kind": "environment",
       "path": "Art/Furniture/CashRegister.glb",
       "source": "GameAssets/Environment/Runtime/Furniture/CashRegister.glb",
-      "bytes": 778584,
-      "sha256": "446e40735e30dfd056bd513d7bb98abbe37328f36aeb0d9129ad34e297899eb8"
+      "bytes": 394700,
+      "sha256": "ec64163d7223ea395f12445a830617c21b59cd90d1b30b852cd67c0099b56817"
     },
     {
       "id": "CashierStool",
       "kind": "environment",
       "path": "Art/Utility/CashierStool.glb",
       "source": "GameAssets/Environment/Runtime/Utility/CashierStool.glb",
-      "bytes": 216548,
-      "sha256": "179cf3050d8d32ec7792b7af74e57bc56a5175fd4893881d9c2db9e2da413799"
+      "bytes": 254116,
+      "sha256": "e43a6544f5493900e039c604bb7476f213f458577f04247b7754e5a7ef503abd"
     },
     {
       "id": "CeilingLight",
       "kind": "environment",
       "path": "Art/Furniture/CeilingLight.glb",
       "source": "GameAssets/Environment/Runtime/Furniture/CeilingLight.glb",
-      "bytes": 237692,
-      "sha256": "566fa50448ca17e1ce2dc126f479954dd0f28a4469f1eb5b752a1e80fdfd08fe"
+      "bytes": 184420,
+      "sha256": "28c68a3f0b0ae6787640005173419653e2e4e1d6dabea1cdccf7d536d47c35bb"
     },
     {
       "id": "CheckoutArea",
       "kind": "environment",
       "path": "Art/StoreDisplays/CheckoutArea.glb",
       "source": "GameAssets/Environment/Runtime/StoreDisplays/CheckoutArea.glb",
-      "bytes": 736176,
-      "sha256": "36eb569182a754d44480fc352d747ccc3a9f9e45fcb981e32ed4ef14bda26d74"
+      "bytes": 568304,
+      "sha256": "24e6752138d647894abed45de99058ab10d34cab0184b8079fcc24a1f0334caf"
     },
     {
       "id": "CheckoutBag",
       "kind": "environment",
       "path": "Art/Utility/CheckoutBag.glb",
       "source": "GameAssets/Environment/Runtime/Utility/CheckoutBag.glb",
-      "bytes": 260272,
-      "sha256": "f968ee1a0b1f779cbef0ac9bba6eeedfb2edb71ffac23a5d983cd01900ffe32c"
+      "bytes": 396708,
+      "sha256": "042db0725b6e8535646febb5361800cce74b4fe4f26b61a914c226abb4feeecd"
     },
     {
       "id": "CheckoutCounter",
       "kind": "environment",
       "path": "Art/Furniture/CheckoutCounter.glb",
       "source": "GameAssets/Environment/Runtime/Furniture/CheckoutCounter.glb",
-      "bytes": 1018572,
-      "sha256": "ff65ebfe4e84df0eef7975fb72183b8329f4a5b0d06c35364356a447d74ef3e0"
+      "bytes": 471512,
+      "sha256": "86b4c7ed1148e213870662b6a89eedcec02fbaa8e8d664a539c503d00d14e98a"
     },
     {
       "id": "CheckoutScanner",
       "kind": "environment",
       "path": "Art/StoreEquipment/CheckoutScanner.glb",
       "source": "GameAssets/Environment/Runtime/StoreEquipment/CheckoutScanner.glb",
-      "bytes": 657004,
-      "sha256": "0e13fb3bbdca87fe6ba8c057fe8f4daa1ac285c1b6a44d2d9af6525471ad61f2"
+      "bytes": 375720,
+      "sha256": "f50a518a10281c28f5912599ae209f59d993315342a6b61ece3989e4bd11a780"
     },
     {
       "id": "CheckoutScannerAlt",
       "kind": "environment",
       "path": "Art/StoreDisplays/CheckoutScannerAlt.glb",
       "source": "GameAssets/Environment/Runtime/StoreDisplays/CheckoutScannerAlt.glb",
-      "bytes": 636656,
-      "sha256": "86e28b411145db288530d25ac05c915f63a79103862a38ca6c0c74c91f4c3032"
+      "bytes": 226100,
+      "sha256": "3a086faee5742bc76a1eb3d9f383db441e6b6e9612c2c8f40fcdc836a4e2edc1"
     },
     {
       "id": "CheckoutShelf",
       "kind": "environment",
       "path": "Art/Furniture2/CheckoutShelf.glb",
       "source": "GameAssets/Environment/Runtime/Furniture2/CheckoutShelf.glb",
-      "bytes": 1260676,
-      "sha256": "ea9cd6831f1eaae9f4d5fb71451504885f46c2070b32e825605073dc402d83db"
+      "bytes": 446556,
+      "sha256": "1b72652c1f012605c4d75bba627d821d1af97bcdee2f71684121a7e25a3781d1"
     },
     {
       "id": "Cheese",
       "kind": "product",
       "path": "Art/Products/Cheese.glb",
       "source": "GameAssets/Environment/Runtime/Products/Cheese.glb",
-      "bytes": 227012,
-      "sha256": "d252736b0c234e366762149bacdd4947d79e87443b52ebcfed7b077e28c28a1f"
+      "bytes": 377712,
+      "sha256": "56fc2cb01afd00c37d44ca6b5c80f1e797319da0b80ef8856b227185ab8b7bd3"
     },
     {
       "id": "CheeseMachine",
       "kind": "environment",
       "path": "Art/StoreEquipment/CheeseMachine.glb",
       "source": "GameAssets/Environment/Runtime/StoreEquipment/CheeseMachine.glb",
-      "bytes": 695188,
-      "sha256": "42185d1d9307f3f1eb4dd56e8c1b79468160965554d82bc80b3bcfc68e903e01"
+      "bytes": 408936,
+      "sha256": "a353df1fe060aad03e52a178fc557662addd7b1047ae7ca3e8b0e715e9d671fe"
     },
     {
       "id": "ChestFreezer",
       "kind": "environment",
       "path": "Art/Furniture/ChestFreezer.glb",
       "source": "GameAssets/Environment/Runtime/Furniture/ChestFreezer.glb",
-      "bytes": 770780,
-      "sha256": "f6f0bb555aefb04a752c647b37062368bf77906c1648073e4fd2ecb1b8e5bac8"
+      "bytes": 349404,
+      "sha256": "c6ebb4671a006fb7d37c1f4ef61cbf314ec26fce1a2154603fae423ac41b8320"
     },
     {
       "id": "Chicken",
       "kind": "environment",
       "path": "Art/StoreDisplays/Chicken.glb",
       "source": "GameAssets/Environment/Runtime/StoreDisplays/Chicken.glb",
-      "bytes": 625748,
-      "sha256": "9ee893f6c33a467755a0a79ff4bec1de8b69dd88424ba00f38ee6dce4f592718"
+      "bytes": 358528,
+      "sha256": "e3c3895d1bc12879c6094a2985bc99e0b16566c53b5a6e72aada4a3d13b24cc5"
     },
     {
       "id": "ChickenPaddock",
       "kind": "environment",
       "path": "Art/Utility/ChickenPaddock.glb",
       "source": "GameAssets/Environment/Runtime/Utility/ChickenPaddock.glb",
-      "bytes": 691112,
-      "sha256": "4123cc78d2626330190165de3d180333f5366b83e378d06c085ae77455395ebc"
+      "bytes": 500988,
+      "sha256": "a8543f2e8504a8378f24df4b298d43a7af10bcaf3066d3bfcb52226a2d10f82f"
     },
     {
       "id": "CityBuilding",
       "kind": "environment",
       "path": "Art/Exterior/CityBuilding.glb",
       "source": "GameAssets/Environment/Runtime/Exterior/CityBuilding.glb",
-      "bytes": 689076,
-      "sha256": "c0b9d5da25f141e0a4dc1217f83bc328931cc9b3c3b221da39616088a2ef2000"
+      "bytes": 761652,
+      "sha256": "8ed1b63ecdc350ca28f6ab52943b9f3a6e7d1ac88f418f46c190b67e071cab7a"
     },
     {
       "id": "Coffee",
       "kind": "product",
       "path": "Art/Products/Coffee.glb",
       "source": "GameAssets/Environment/Runtime/Products/Coffee.glb",
-      "bytes": 256884,
-      "sha256": "ea7714795fbd5876b62b285483d899984aba5a76ebaef5dbd69a8619e513dfbc"
+      "bytes": 356668,
+      "sha256": "9c03aca9c5caba23446172fee4d1efcfc472023765df30fea33a4739bde7edef"
     },
     {
       "id": "CompostBin",
       "kind": "environment",
       "path": "Art/Farm/CompostBin.glb",
       "source": "GameAssets/Environment/Runtime/Farm/CompostBin.glb",
-      "bytes": 397740,
-      "sha256": "612ec94ab53d356eb2dde473523a3ad056186ea1af264b45f11ccb7b78fc6f71"
+      "bytes": 286888,
+      "sha256": "f1f460d0eed22fa34c003c9768b595bfa36008761eb43f8e553e920ae3528c89"
     },
     {
       "id": "Conveyor",
       "kind": "environment",
       "path": "Art/Furniture/Conveyor.glb",
       "source": "GameAssets/Environment/Runtime/Furniture/Conveyor.glb",
-      "bytes": 775820,
-      "sha256": "4eff814a53f91e23e69ca7a2906f95072aa9a72bf0784a36cc8c1b6da3f42ea5"
+      "bytes": 368048,
+      "sha256": "e47ba59147772d502e59234f0ee8194921410f50b10ccb4c4b2672be364d6d58"
     },
     {
       "id": "Corn",
       "kind": "product",
       "path": "Art/Products/Corn.glb",
       "source": "GameAssets/Environment/Runtime/Products/Corn.glb",
-      "bytes": 244476,
-      "sha256": "e69789142ff832b4014ec952fff7038624701e59644c732f7e537f6f7191b4c5"
+      "bytes": 479112,
+      "sha256": "c3eef15361b5aff0e0caa1a31f811092c1984beca7d86ddc132f646a31a20373"
     },
     {
       "id": "CornRipe",
       "kind": "environment",
       "path": "Art/Farm/CornRipe.glb",
       "source": "GameAssets/Environment/Runtime/Farm/CornRipe.glb",
-      "bytes": 208852,
-      "sha256": "ccc2f5d917c08596c43fb308d30ee978d628d3a41bf37fc32b29c7fef4959fd6"
+      "bytes": 407120,
+      "sha256": "20409c1812907ac049b78d9249b92ee05b8582dc0b2c2a6f2deffb5018068fb6"
     },
     {
       "id": "Cow",
       "kind": "environment",
       "path": "Art/StoreDisplays/Cow.glb",
       "source": "GameAssets/Environment/Runtime/StoreDisplays/Cow.glb",
-      "bytes": 659496,
-      "sha256": "ccc66809dec17b476f37564c06f5258bf660ecf5e4945cc4432507679d8d6c45"
+      "bytes": 545292,
+      "sha256": "ad22917e85d0c95acccb7d809f6fda9c12463cc7f8faf4ee4f4bbd0a87f1d794"
     },
     {
       "id": "CowPaddock",
       "kind": "environment",
       "path": "Art/Utility/CowPaddock.glb",
       "source": "GameAssets/Environment/Runtime/Utility/CowPaddock.glb",
-      "bytes": 690020,
-      "sha256": "e03e4d07512f92e1a27cda5c1f529077d1401e36f05eca3cd666c71e58b5e85c"
+      "bytes": 581404,
+      "sha256": "469379ea46653acf07fb32b062f50e622ce33c1abd0db52bf0a9cbef053b5f7d"
     },
     {
       "id": "CropGrowing",
       "kind": "environment",
       "path": "Art/Farm/CropGrowing.glb",
       "source": "GameAssets/Environment/Runtime/Farm/CropGrowing.glb",
-      "bytes": 206408,
-      "sha256": "14f954374f6a9a964e72b5d06baf07bba8931b84d529fd6afc5035f9bbe5ba90"
+      "bytes": 374776,
+      "sha256": "2239d9409a69f48d59da26e6f1832a52d9c0e369e4d92f586bfde1bc46e801a3"
     },
     {
       "id": "CropSeed",
       "kind": "environment",
       "path": "Art/Farm/CropSeed.glb",
       "source": "GameAssets/Environment/Runtime/Farm/CropSeed.glb",
-      "bytes": 183320,
-      "sha256": "305fdbca673de0516c1d1158b4b9cd3749804ec8df543a9c278588f116cb82fa"
+      "bytes": 172448,
+      "sha256": "daefe7a1514e16cdd0052b72eb1681857947a114d50ad18de29f8d86701b1c6d"
     },
     {
       "id": "CropSmall",
       "kind": "environment",
       "path": "Art/Farm/CropSmall.glb",
       "source": "GameAssets/Environment/Runtime/Farm/CropSmall.glb",
-      "bytes": 193908,
-      "sha256": "f215cc1ec9ccbbd7b65729694222829ca88660d508b9035467a027ca30bda2d4"
+      "bytes": 277488,
+      "sha256": "bf40326877ac17eda46b8615ee810bcec70f58177a2b0deefddd79a6096921ac"
     },
     {
       "id": "CropSprout",
       "kind": "environment",
       "path": "Art/Farm/CropSprout.glb",
       "source": "GameAssets/Environment/Runtime/Farm/CropSprout.glb",
-      "bytes": 189172,
-      "sha256": "f2a81234a5d6e58e886b57716733c40beb47556c4e22801ce25573173497d0ce"
+      "bytes": 228720,
+      "sha256": "28b0d8d1dd61a93ee50d49acf094c61abe88669cdf1a92bcc6fc0ba1323dedc7"
     },
     {
       "id": "Crosswalk",
       "kind": "environment",
       "path": "Art/Exterior/Crosswalk.glb",
       "source": "GameAssets/Environment/Runtime/Exterior/Crosswalk.glb",
-      "bytes": 479328,
-      "sha256": "adfb532f444d9b80bbec5adcf6a7f4ad4d72293d321c095fd279f37ad4215f06"
+      "bytes": 213544,
+      "sha256": "b7f81f7d472f81708652ffd03741fbb2e5e07a7f1a96c87c88d0ebbecf59ca19"
     },
     {
       "id": "CustomerFemale01:LOD0",
@@ -495,160 +495,160 @@
       "kind": "environment",
       "path": "Art/StoreEquipment/DeliveryDock.glb",
       "source": "GameAssets/Environment/Runtime/StoreEquipment/DeliveryDock.glb",
-      "bytes": 706656,
-      "sha256": "38d2582a8dd1b9eada7a202fe75ebbd82650b9d5618b071af3f92ff3fa5a8146"
+      "bytes": 657140,
+      "sha256": "92f6e2cf05c5a75a95e42b9791f87f595f282043dd6c3407ff8629bdeb1ce088"
     },
     {
       "id": "DeliveryDockAlt",
       "kind": "environment",
       "path": "Art/StoreDisplays/DeliveryDockAlt.glb",
       "source": "GameAssets/Environment/Runtime/StoreDisplays/DeliveryDockAlt.glb",
-      "bytes": 608140,
-      "sha256": "5782b45d9b6750d40684af06c0fdb0ef9791419a2252472b4f25cce8ac2a9af0"
+      "bytes": 345392,
+      "sha256": "00787cc2048af5e85d15a9591981c80e6034d3ca3b23a9db59547334e3a9c57c"
     },
     {
       "id": "DisplayBakery",
       "kind": "environment",
       "path": "Art/Furniture2/DisplayBakery.glb",
       "source": "GameAssets/Environment/Runtime/Furniture2/DisplayBakery.glb",
-      "bytes": 1365216,
-      "sha256": "1ec0ccb9df6e603b516c47042b2b034af84335379920868d2928aa0252eb7af8"
+      "bytes": 482004,
+      "sha256": "315f5e082633e993a3d0dc266deb5e05a0755ee855398e77dcf12a56b876efb7"
     },
     {
       "id": "DisplayProduceMixed",
       "kind": "environment",
       "path": "Art/Furniture2/DisplayProduceMixed.glb",
       "source": "GameAssets/Environment/Runtime/Furniture2/DisplayProduceMixed.glb",
-      "bytes": 1284436,
-      "sha256": "938a6ba6dc2f18c802f34e74a01b84760456f252788a5f42726a39b821d55c90"
+      "bytes": 550016,
+      "sha256": "0d24d3fbb464cf693f882b566d344c3c53f3e6a6536e693e07b0e0900abd4e26"
     },
     {
       "id": "DisplayProduceSloped",
       "kind": "environment",
       "path": "Art/Furniture2/DisplayProduceSloped.glb",
       "source": "GameAssets/Environment/Runtime/Furniture2/DisplayProduceSloped.glb",
-      "bytes": 1124196,
-      "sha256": "45dacc19ee5d71d574b63ef2def6a3e6796c50db47968cb29401035a9eba50e0"
+      "bytes": 461808,
+      "sha256": "d5232373f6054cae38441c7e7110269a6b10293b89ed31e3effcd0c1c2d1d846"
     },
     {
       "id": "DisplayRefrigeratedDoors",
       "kind": "environment",
       "path": "Art/Furniture2/DisplayRefrigeratedDoors.glb",
       "source": "GameAssets/Environment/Runtime/Furniture2/DisplayRefrigeratedDoors.glb",
-      "bytes": 1300308,
-      "sha256": "353e05fb84184c82ab40f704b30dd167f29c6802912f1bb7c709f8d6eeb652dc"
+      "bytes": 492668,
+      "sha256": "1dc26996bc32b714dfad0049a6959e203661f2edd7b9730dbf723f146ad19237"
     },
     {
       "id": "DisplayTable",
       "kind": "environment",
       "path": "Art/Furniture2/DisplayTable.glb",
       "source": "GameAssets/Environment/Runtime/Furniture2/DisplayTable.glb",
-      "bytes": 1034916,
-      "sha256": "b7d98f041061cca97c99c304b1cfb54b16a03ade30f0d6b78fc3858d0475e364"
+      "bytes": 372348,
+      "sha256": "e4098e076ce9ac326bf20a30590b636b6002af9d09c9c1d0cb8ed42e10cab2b9"
     },
     {
       "id": "Egg",
       "kind": "product",
       "path": "Art/Products/Egg.glb",
       "source": "GameAssets/Environment/Runtime/Products/Egg.glb",
-      "bytes": 173080,
-      "sha256": "6289b9114e37d4f44ae746777e1c6bcffad70e3af52cf9cb67c42b45d11edc76"
+      "bytes": 246936,
+      "sha256": "a8b53ca06e3e067417aad6e3a1ea470c23d5b12bc3a4bf704e479cd94a3124cc"
     },
     {
       "id": "EggDisplay",
       "kind": "environment",
       "path": "Art/StoreDisplays/EggDisplay.glb",
       "source": "GameAssets/Environment/Runtime/StoreDisplays/EggDisplay.glb",
-      "bytes": 761828,
-      "sha256": "530f850081350175eda8325685213ac7b5bbfbea4dfbd058c5294b0d482d484b"
+      "bytes": 765164,
+      "sha256": "dca26801439e59adda00f05bcf34a13ac82fb620361de8b91beccff7c3cf3bec"
     },
     {
       "id": "EggTray",
       "kind": "environment",
       "path": "Art/StoreDisplays/EggTray.glb",
       "source": "GameAssets/Environment/Runtime/StoreDisplays/EggTray.glb",
-      "bytes": 274728,
-      "sha256": "432ec598f8de2ff72229029614b19431cfaa69bfbccf43ad570d7305fff0e1ba"
+      "bytes": 374744,
+      "sha256": "ea2eb229f0bbcbb39b31cb326f75d2660b1d09f52c005857f10567167d53e9a8"
     },
     {
       "id": "FarmFenceCorner",
       "kind": "environment",
       "path": "Art/Farm/FarmFenceCorner.glb",
       "source": "GameAssets/Environment/Runtime/Farm/FarmFenceCorner.glb",
-      "bytes": 384888,
-      "sha256": "b852ceaebcacd1468689a2c3676bd42debc2ba71fb0f016ac3cad10e08c05d93"
+      "bytes": 193668,
+      "sha256": "093f869695728fa8098bf78a9f87c3a54cd6013432eda7452dfc66ff2748b605"
     },
     {
       "id": "FarmFenceLong",
       "kind": "environment",
       "path": "Art/Farm/FarmFenceLong.glb",
       "source": "GameAssets/Environment/Runtime/Farm/FarmFenceLong.glb",
-      "bytes": 379284,
-      "sha256": "56c4d189ac577018f90299581e165658e46dd14fa3ffcf1a7d99402f8a042820"
+      "bytes": 199404,
+      "sha256": "670d9a94a1c5e5d845e3d70cb076bb167fb82a60310a57272abbc1723f7ce248"
     },
     {
       "id": "FarmFenceShort",
       "kind": "environment",
       "path": "Art/Farm/FarmFenceShort.glb",
       "source": "GameAssets/Environment/Runtime/Farm/FarmFenceShort.glb",
-      "bytes": 379828,
-      "sha256": "f7c0b3f7ee9a84078131435b378d2460b28fe9c19aa1aea9db44d47dfd48f946"
+      "bytes": 209472,
+      "sha256": "551fc295f6db31eaf254e9adf1ce4cc53d5cfe0dbe3ea173d6255b5846b6ad7d"
     },
     {
       "id": "FarmGate",
       "kind": "environment",
       "path": "Art/Farm/FarmGate.glb",
       "source": "GameAssets/Environment/Runtime/Farm/FarmGate.glb",
-      "bytes": 397700,
-      "sha256": "70f915dddec72f7feb9ad1263e7192dac4ac69278451f542656870479a793699"
+      "bytes": 227528,
+      "sha256": "f49c58660bc7fe2180257e4478e5d0770bd158dc0cdf13cd45dba77e4c55eb9d"
     },
     {
       "id": "FarmPlotEmpty",
       "kind": "environment",
       "path": "Art/Farm/FarmPlotEmpty.glb",
       "source": "GameAssets/Environment/Runtime/Farm/FarmPlotEmpty.glb",
-      "bytes": 402384,
-      "sha256": "8a5af560bc98877aa4c762cb13d7c5de49c53f29d304f5fec23e2841df021933"
+      "bytes": 178940,
+      "sha256": "775edc787363bab63dd9cc34145cce4954e38f2ef2f5687cba8ade3071cabd0c"
     },
     {
       "id": "FarmPlotFurrows",
       "kind": "environment",
       "path": "Art/Farm/FarmPlotFurrows.glb",
       "source": "GameAssets/Environment/Runtime/Farm/FarmPlotFurrows.glb",
-      "bytes": 410672,
-      "sha256": "f3970a03ec34a0cd09b4ef07dd300f01f69747281e41ae1c161679c5a7eeb17a"
+      "bytes": 183044,
+      "sha256": "c86473ce58251b9af42f2656a57475245efd7d8f4e66f19bf774f8580f977e7e"
     },
     {
       "id": "FarmPlotSeeded",
       "kind": "environment",
       "path": "Art/Farm/FarmPlotSeeded.glb",
       "source": "GameAssets/Environment/Runtime/Farm/FarmPlotSeeded.glb",
-      "bytes": 412040,
-      "sha256": "2817f49fdd46008bb47a348b865829322855124adc9d6d71f4b508e12bdace5c"
+      "bytes": 187572,
+      "sha256": "960f06f5f2984110ca29d472e6bd908c9fa09a5eafa6e35d9aadea28d42ca7a5"
     },
     {
       "id": "FarmPlotWatered",
       "kind": "environment",
       "path": "Art/Farm/FarmPlotWatered.glb",
       "source": "GameAssets/Environment/Runtime/Farm/FarmPlotWatered.glb",
-      "bytes": 405840,
-      "sha256": "e5d1c9649e577dd490f5a67b856271985d45a306ac2ba1d55f4906a91c725de0"
+      "bytes": 161696,
+      "sha256": "ec0c8a1aebd7c6419e1f88327501dd1e84122ebf7f20b0ab8fe1537434a4d225"
     },
     {
       "id": "FarmToolSet",
       "kind": "environment",
       "path": "Art/StoreDisplays/FarmToolSet.glb",
       "source": "GameAssets/Environment/Runtime/StoreDisplays/FarmToolSet.glb",
-      "bytes": 768620,
-      "sha256": "43f35063a888ddcb3090fea111f139b3d2ebd8e310e5cb61e97dc3ed0f3a9ed9"
+      "bytes": 493532,
+      "sha256": "9a280b04beb8a6014fe57a6eecfc77817e98eb30411c56c6cf68cdf946d468a6"
     },
     {
       "id": "FarmWaterTank",
       "kind": "environment",
       "path": "Art/Utility/FarmWaterTank.glb",
       "source": "GameAssets/Environment/Runtime/Utility/FarmWaterTank.glb",
-      "bytes": 672184,
-      "sha256": "b0e5e96bf1ef84f03c5216c57295e987043e242844d05a990a8277fef5a93b1e"
+      "bytes": 368624,
+      "sha256": "8c0e61ebe07d7394760c5f9ae605de73bb580c3d429a58d4f261ff8b874df78a"
     },
     {
       "id": "FloorTileBeige",
@@ -671,32 +671,32 @@
       "kind": "product",
       "path": "Art/Products/Flour.glb",
       "source": "GameAssets/Environment/Runtime/Products/Flour.glb",
-      "bytes": 278396,
-      "sha256": "d8579b1355cfb7c7e893043c31f0885493f9c34f608a1438cfbdf6a4e9bdb125"
+      "bytes": 387424,
+      "sha256": "4be2c467342dc47736517034b0cc3cc89293612702270dbfbe13af1c0600d384"
     },
     {
       "id": "FlourMill",
       "kind": "environment",
       "path": "Art/StoreEquipment/FlourMill.glb",
       "source": "GameAssets/Environment/Runtime/StoreEquipment/FlourMill.glb",
-      "bytes": 684252,
-      "sha256": "221c601e269aa63979dad2df79cbd0fcd2609aaf4f9b9abc4d682dbb81ef1bb6"
+      "bytes": 447480,
+      "sha256": "f364a36548ba62fbc0d1e7bf9677bb28890c3f5770f33ce8ae29f64be142e345"
     },
     {
       "id": "FlourMillAlt",
       "kind": "environment",
       "path": "Art/StoreDisplays/FlourMillAlt.glb",
       "source": "GameAssets/Environment/Runtime/StoreDisplays/FlourMillAlt.glb",
-      "bytes": 668588,
-      "sha256": "8be99c3271fca668bde65ea2bf49541c0bc8bf5154c5040a317e11732f4a3c44"
+      "bytes": 352536,
+      "sha256": "5e7b277c08b4bc8008e21e504230ae47ed2264c32fec603128ceb7a37052be05"
     },
     {
       "id": "Furniture2:WoodCrate",
       "kind": "environment",
       "path": "Art/Furniture2/WoodCrate.glb",
       "source": "GameAssets/Environment/Runtime/Furniture2/WoodCrate.glb",
-      "bytes": 958152,
-      "sha256": "ab5417a02bb86438443075dd8975cf9cc4f349f225c37756ca0d6194e4a289f6"
+      "bytes": 267024,
+      "sha256": "6069693f8b4715a2104e6a4868679bcbdfce218a323237b0773b82d79031392c"
     },
     {
       "id": "Girl:LOD0",
@@ -719,8 +719,8 @@
       "kind": "environment",
       "path": "Art/Utility/GlassPartition.glb",
       "source": "GameAssets/Environment/Runtime/Utility/GlassPartition.glb",
-      "bytes": 660992,
-      "sha256": "f535bb7759f823ab41847dca64a9e72ac060b656cd08a240d92d543a154c640a"
+      "bytes": 421284,
+      "sha256": "506d3197b7a9ed28a25c933d2040bf57963deab70c4e35534c95aaa00938ee4a"
     },
     {
       "id": "Hair_01_SidePart",
@@ -855,16 +855,16 @@
       "kind": "environment",
       "path": "Art/Furniture/HangingSign.glb",
       "source": "GameAssets/Environment/Runtime/Furniture/HangingSign.glb",
-      "bytes": 637572,
-      "sha256": "fe5e9fbf23864164431c637cc2bb6d09b972827930c3ef93eb03a2859c837e5f"
+      "bytes": 273548,
+      "sha256": "b71734f8968aba6f5d3a9b2d4e5bff8757964d0e25917d44194f4e1b17370662"
     },
     {
       "id": "HarvestBasket",
       "kind": "environment",
       "path": "Art/Utility/HarvestBasket.glb",
       "source": "GameAssets/Environment/Runtime/Utility/HarvestBasket.glb",
-      "bytes": 624796,
-      "sha256": "a9733f9eeb494870c597ff94d64b2c61ed23ca23d10ed9966eb3ce1666ec7892"
+      "bytes": 430812,
+      "sha256": "d4dbf327bbd19d396a31836f9267a55ad069170baf9a1927e81f6a576bd66b0e"
     },
     {
       "id": "Hat_01_RedPanda",
@@ -975,320 +975,320 @@
       "kind": "environment",
       "path": "Art/StoreEquipment/HiringPoint.glb",
       "source": "GameAssets/Environment/Runtime/StoreEquipment/HiringPoint.glb",
-      "bytes": 685544,
-      "sha256": "9155fddb89c9add68d202e12b425b74da334e6aba282c89a52288a46f1db3b5e"
+      "bytes": 285872,
+      "sha256": "69604b4d11bd8c8e987eb32812bac77f2b64549d2790e159eaf2af208d789661"
     },
     {
       "id": "IrrigationBed",
       "kind": "environment",
       "path": "Art/Farm/IrrigationBed.glb",
       "source": "GameAssets/Environment/Runtime/Farm/IrrigationBed.glb",
-      "bytes": 406660,
-      "sha256": "92b851d2762f82e6350fec0c30038a2db2bafeb5cae6e7addd2ad3512d8acc5f"
+      "bytes": 187532,
+      "sha256": "9791263901bcc5e81e3e7b88c17de6b56b1e7205c8ed8bebc1a47329083ceafe"
     },
     {
       "id": "IrrigationChannel",
       "kind": "environment",
       "path": "Art/Farm/IrrigationChannel.glb",
       "source": "GameAssets/Environment/Runtime/Farm/IrrigationChannel.glb",
-      "bytes": 392836,
-      "sha256": "2a21ab8bf45276b94f7176f62c4005b9dec564fb9fa346b5d2e65653a6ed2c46"
+      "bytes": 274304,
+      "sha256": "8b062fa69c0bd26be5afea1cf075273eab7364fc5477ee3db7a08a1947d50741"
     },
     {
       "id": "Juice",
       "kind": "product",
       "path": "Art/Products/Juice.glb",
       "source": "GameAssets/Environment/Runtime/Products/Juice.glb",
-      "bytes": 270936,
-      "sha256": "2f6b5eb263d8c5cabf0416052163b169d198d7da80fdae122bd5c5b0c05a4619"
+      "bytes": 350480,
+      "sha256": "83c2ca1b5374c0a41a2858724f8b083a01cd0ed2f30e8f633cebac65a07512bb"
     },
     {
       "id": "JuiceMachine",
       "kind": "environment",
       "path": "Art/StoreEquipment/JuiceMachine.glb",
       "source": "GameAssets/Environment/Runtime/StoreEquipment/JuiceMachine.glb",
-      "bytes": 724068,
-      "sha256": "5d93a20540c9c777397fcd2d4d5b1bd10d3a1428e64d9aabe82ccb86e34993a6"
+      "bytes": 453664,
+      "sha256": "14e20c305adc5ac6dcaa9a417d9a4e7b86bb7dc424883489aa0cf05baddfd917"
     },
     {
       "id": "JuiceMachineAlt",
       "kind": "environment",
       "path": "Art/StoreDisplays/JuiceMachineAlt.glb",
       "source": "GameAssets/Environment/Runtime/StoreDisplays/JuiceMachineAlt.glb",
-      "bytes": 682924,
-      "sha256": "15574b980974e9f37379e83ec8c07d30bf856ff4615afd9336aef68075b92f8c"
+      "bytes": 310644,
+      "sha256": "f1c22441c1e6bf35bf9097ac5e5aa6283571f9fbdb4be05d12771cd2afcf7623"
     },
     {
       "id": "LettuceRipe",
       "kind": "environment",
       "path": "Art/Farm/LettuceRipe.glb",
       "source": "GameAssets/Environment/Runtime/Farm/LettuceRipe.glb",
-      "bytes": 230436,
-      "sha256": "f21f66a40df17cbb22b2e37471b040f50b1c79571b6a960a02dfe37dee211943"
+      "bytes": 382156,
+      "sha256": "a9017bf3b99033e4e7cf87653071258e10f4af1431557ca8a04ae661dbd0aa23"
     },
     {
       "id": "Milk",
       "kind": "product",
       "path": "Art/Products/Milk.glb",
       "source": "GameAssets/Environment/Runtime/Products/Milk.glb",
-      "bytes": 189820,
-      "sha256": "15b2c3a9ae72299dcad062064fea653b4faea0a56da0fcc407909ca4b1be9047"
+      "bytes": 282572,
+      "sha256": "6dfbafb4e25ba6d6204fad8e7ae8a9053a26c39dc7427a061c354b805b6937b1"
     },
     {
       "id": "MilkCan",
       "kind": "environment",
       "path": "Art/StoreDisplays/MilkCan.glb",
       "source": "GameAssets/Environment/Runtime/StoreDisplays/MilkCan.glb",
-      "bytes": 248180,
-      "sha256": "daa7c2773ed3292a0404661345035a65109bd388e0dea74d000ba4c2be2fe1ae"
+      "bytes": 244952,
+      "sha256": "9f3548d7191356372b6d3db8074598157e8df469ec58544aa385ef949a1df1ef"
     },
     {
       "id": "MiniGreenhouse",
       "kind": "environment",
       "path": "Art/Farm/MiniGreenhouse.glb",
       "source": "GameAssets/Environment/Runtime/Farm/MiniGreenhouse.glb",
-      "bytes": 455660,
-      "sha256": "0e8fd57912e265736cd207f864105355439f762a17a200f36fd226b3641202de"
+      "bytes": 446760,
+      "sha256": "d106d7a1023693cb129d5aa76a4ba175b01ceddc448dc63c585ada729e4ba73c"
     },
     {
       "id": "OperationsWall",
       "kind": "environment",
       "path": "Art/StoreDisplays/OperationsWall.glb",
       "source": "GameAssets/Environment/Runtime/StoreDisplays/OperationsWall.glb",
-      "bytes": 732528,
-      "sha256": "67b79c2cfeb6373f9268333e78787bbf7c299dee663abdadf9901beeec7047bd"
+      "bytes": 513368,
+      "sha256": "779cc16f786a178000d54b1a697ba606da4b6416da126f198c834ea3bc5d15c4"
     },
     {
       "id": "Pallet",
       "kind": "environment",
       "path": "Art/Furniture/Pallet.glb",
       "source": "GameAssets/Environment/Runtime/Furniture/Pallet.glb",
-      "bytes": 874204,
-      "sha256": "2703d4548833b4396f58174f20c9553345dcb070532a7289487ded493be4306c"
+      "bytes": 368312,
+      "sha256": "ca381fce7c8b84f905854436abf4142220a2b5cb3ca706705eadcb885e896c3f"
     },
     {
       "id": "Parcel",
       "kind": "environment",
       "path": "Art/Furniture/Parcel.glb",
       "source": "GameAssets/Environment/Runtime/Furniture/Parcel.glb",
-      "bytes": 414456,
-      "sha256": "4646789ebcecc1bdaf632fd86df55198ab5260bbc8bddbc912cbecf0395f4c01"
+      "bytes": 194556,
+      "sha256": "11759d3a4453893faf20bfb18a7c35815e15a84282b55c374273eabf1c2dc84a"
     },
     {
       "id": "ParkingSpace",
       "kind": "environment",
       "path": "Art/Exterior/ParkingSpace.glb",
       "source": "GameAssets/Environment/Runtime/Exterior/ParkingSpace.glb",
-      "bytes": 525984,
-      "sha256": "7c8abcdb7c55355ad2607f27a0944c2bdc8c00b2da54564637c9c1ab61e2bcf2"
+      "bytes": 234228,
+      "sha256": "9a0f5b48d728c1754bc48744dd6b58c7a4ecd141a859f952a1be4f5d07a78a16"
     },
     {
       "id": "PromotionalBasket",
       "kind": "environment",
       "path": "Art/StoreDisplays/PromotionalBasket.glb",
       "source": "GameAssets/Environment/Runtime/StoreDisplays/PromotionalBasket.glb",
-      "bytes": 671708,
-      "sha256": "842aa40f2b18d29bcb117e3d733694bfd65f883096ed64325743e2fcd5068511"
+      "bytes": 615300,
+      "sha256": "09fb061bd17cf80e48a351abb63f49a5f8896ccf97db0e9c2ec429b36167ae6e"
     },
     {
       "id": "PumpkinRipe",
       "kind": "environment",
       "path": "Art/Farm/PumpkinRipe.glb",
       "source": "GameAssets/Environment/Runtime/Farm/PumpkinRipe.glb",
-      "bytes": 242528,
-      "sha256": "b24d46b4014b15e8b5b5041c1401e468bb16c9f666ae6774e809845a6319c9e8"
+      "bytes": 448200,
+      "sha256": "1422d79c3752ba0a588d7e07e2e62c7f45b30000901a855d4dc5bb558831da9d"
     },
     {
       "id": "RaisedBed",
       "kind": "environment",
       "path": "Art/Farm/RaisedBed.glb",
       "source": "GameAssets/Environment/Runtime/Farm/RaisedBed.glb",
-      "bytes": 420408,
-      "sha256": "568a815f6fbb27fe53be5a9619ad9aeb190d28138e5be937cc902930a18cf780"
+      "bytes": 265404,
+      "sha256": "91f59518bab331e9564af8479718339e57f87966614dd55021c0e89e3c867b64"
     },
     {
       "id": "ReceiptPrinter",
       "kind": "environment",
       "path": "Art/Furniture/ReceiptPrinter.glb",
       "source": "GameAssets/Environment/Runtime/Furniture/ReceiptPrinter.glb",
-      "bytes": 291432,
-      "sha256": "0d833bb8258176e715bf5846b85afe7a1b72f53002fb3e11f4f6db0bf84ed064"
+      "bytes": 212848,
+      "sha256": "335bd84357dc31d2a0bfb707a44291041a3a63a5ba1b6bf5d950886de4e622ca"
     },
     {
       "id": "RefrigeratedDisplay",
       "kind": "environment",
       "path": "Art/Furniture/RefrigeratedDisplay.glb",
       "source": "GameAssets/Environment/Runtime/Furniture/RefrigeratedDisplay.glb",
-      "bytes": 967608,
-      "sha256": "9614e95a50a2f3a16692ed2066a60ac4589f68cd0234b1929d4e3d7188f486e2"
+      "bytes": 386580,
+      "sha256": "53e48f806edd0191dda8f3e40b6854c87853a92b7eae7462a6d0d1ff4e9b32be"
     },
     {
       "id": "ReturnsStation",
       "kind": "environment",
       "path": "Art/Utility/ReturnsStation.glb",
       "source": "GameAssets/Environment/Runtime/Utility/ReturnsStation.glb",
-      "bytes": 737604,
-      "sha256": "8e3680cce385b5df626170be68631e569eda15517fb2ced2bf062f5d6bc794f2"
+      "bytes": 390252,
+      "sha256": "5d574cb767057660e90225b6b074ac76a9816f56a143fed6f0ac4b85d03f7e5b"
     },
     {
       "id": "ReusableShoppingBag",
       "kind": "environment",
       "path": "Art/StoreEquipment/ReusableShoppingBag.glb",
       "source": "GameAssets/Environment/Runtime/StoreEquipment/ReusableShoppingBag.glb",
-      "bytes": 237436,
-      "sha256": "551e5305a27b89778bf86575fdc76c1abcb86e1e91ccf019f6f834d0c0c962ac"
+      "bytes": 387720,
+      "sha256": "e2fdf4334fcc04244b25f71db7a92dd07a34b97d378fea8bf122f46cb0bbbf1c"
     },
     {
       "id": "RoadSegment",
       "kind": "environment",
       "path": "Art/Exterior/RoadSegment.glb",
       "source": "GameAssets/Environment/Runtime/Exterior/RoadSegment.glb",
-      "bytes": 521516,
-      "sha256": "c9ed9dd5289f09b9a970f321c735960e64b6fb6ef1cb3142a58eff38b1391641"
+      "bytes": 234608,
+      "sha256": "79cfd33973be2ca6a7d9dd0c048dfcfcb90141f0cb7c6618512132276364d74b"
     },
     {
       "id": "Scarecrow",
       "kind": "environment",
       "path": "Art/Farm/Scarecrow.glb",
       "source": "GameAssets/Environment/Runtime/Farm/Scarecrow.glb",
-      "bytes": 393660,
-      "sha256": "3107ddfaaaba9e69287ca0e852f7b4b8377aad9d9ef3b951a4945506a5e62ea5"
+      "bytes": 368344,
+      "sha256": "bbd34bd846ce053430cf24109f1eaba94fb07ea1c2e7e8ecb0663cc4d87e0bbb"
     },
     {
       "id": "SeasonalDisplay",
       "kind": "environment",
       "path": "Art/Utility/SeasonalDisplay.glb",
       "source": "GameAssets/Environment/Runtime/Utility/SeasonalDisplay.glb",
-      "bytes": 677852,
-      "sha256": "d5e0afb83c198517ec089c9d2bd47428c0aacb82cefdea03d001edfe57dd1abd"
+      "bytes": 612428,
+      "sha256": "76e6e07eb806a2e2496ad035fceb9a541ade5fa503702b0e3ab6aff3b5a5d468"
     },
     {
       "id": "SecurityCamera",
       "kind": "environment",
       "path": "Art/Furniture/SecurityCamera.glb",
       "source": "GameAssets/Environment/Runtime/Furniture/SecurityCamera.glb",
-      "bytes": 298892,
-      "sha256": "144601cded62450487c894d6c623ced60ac577b0ea747fb5973e791c68d7386c"
+      "bytes": 262076,
+      "sha256": "504932c480525608ce4dd2402ed5a1af42928923766e7d19c06502e66dba050a"
     },
     {
       "id": "SeedSack",
       "kind": "environment",
       "path": "Art/Farm/SeedSack.glb",
       "source": "GameAssets/Environment/Runtime/Farm/SeedSack.glb",
-      "bytes": 204148,
-      "sha256": "d41a655fd1947bdbe136cd350b63088474e684bbef37f74306fea904b1f903ec"
+      "bytes": 232348,
+      "sha256": "29dd112893683cb9ab33075effb6163a6164fb1d182b7a773cba87c44414f9bf"
     },
     {
       "id": "ShelfCorner",
       "kind": "environment",
       "path": "Art/Furniture2/ShelfCorner.glb",
       "source": "GameAssets/Environment/Runtime/Furniture2/ShelfCorner.glb",
-      "bytes": 1371392,
-      "sha256": "7870373a7d29ac2aee41a2abc273416e38ae9f1416617e76f5a958cc5dfc8c29"
+      "bytes": 447720,
+      "sha256": "5615a097162d9afa29117a5001c167a4acf49d5dd9b229e5410b8b131b81e02a"
     },
     {
       "id": "ShelfDivider",
       "kind": "environment",
       "path": "Art/Furniture2/ShelfDivider.glb",
       "source": "GameAssets/Environment/Runtime/Furniture2/ShelfDivider.glb",
-      "bytes": 283420,
-      "sha256": "dd4c3cf4ac0260d7e99938b4c0b9252651a8cbf899db5d39c4c8cab5570d4ed3"
+      "bytes": 163272,
+      "sha256": "df08bff6f7c76b5b4f061aec9882174e4f0abe4ddef0c979a46e991362ca9429"
     },
     {
       "id": "ShelfEndcap",
       "kind": "environment",
       "path": "Art/Furniture2/ShelfEndcap.glb",
       "source": "GameAssets/Environment/Runtime/Furniture2/ShelfEndcap.glb",
-      "bytes": 1045688,
-      "sha256": "ab0d2c71d5e064a3c80f31442f5ec9321dc34876a4270de69d18ec5fa7d182b6"
+      "bytes": 348164,
+      "sha256": "b7922f2becdb36ab4cab6fbc949f9ff19eee0766d6deb72961e23a66c0ef3c23"
     },
     {
       "id": "ShelfGondolaDouble",
       "kind": "environment",
       "path": "Art/Furniture2/ShelfGondolaDouble.glb",
       "source": "GameAssets/Environment/Runtime/Furniture2/ShelfGondolaDouble.glb",
-      "bytes": 1565148,
-      "sha256": "981475324cf07f467996b1c56e12a851abc448f9a5e27d618c5a4a4b5a151667"
+      "bytes": 587740,
+      "sha256": "cacaacafd18c7ee852e5c6b09e8d3b129e2414014586d010271cd117b0271865"
     },
     {
       "id": "ShelfGondolaSingle",
       "kind": "environment",
       "path": "Art/Furniture2/ShelfGondolaSingle.glb",
       "source": "GameAssets/Environment/Runtime/Furniture2/ShelfGondolaSingle.glb",
-      "bytes": 1381888,
-      "sha256": "7744274287ea519dca479d6c547355b6f48db771658771a19ef980b461e0982d"
+      "bytes": 469984,
+      "sha256": "77b05cfd4e8bf0983a3c83e038ead16517e1a194b4e7318334e28ca7f7b7cfcd"
     },
     {
       "id": "ShelfPriceRail",
       "kind": "environment",
       "path": "Art/Furniture2/ShelfPriceRail.glb",
       "source": "GameAssets/Environment/Runtime/Furniture2/ShelfPriceRail.glb",
-      "bytes": 235484,
-      "sha256": "234ede83a18e91dfe7daab3992947cfc9e2ce1756083a45269cd9da64a7b7d96"
+      "bytes": 162448,
+      "sha256": "83e7c3aeb07bee3d45376e0b0f07b2be931f269d1954887b16a82fa261072c5d"
     },
     {
       "id": "ShelfWallTall",
       "kind": "environment",
       "path": "Art/Furniture2/ShelfWallTall.glb",
       "source": "GameAssets/Environment/Runtime/Furniture2/ShelfWallTall.glb",
-      "bytes": 1514620,
-      "sha256": "0abccc7a9fc25b569f35fcbed0ce0ebcc030eccf81318cb646848bd950f07bdf"
+      "bytes": 501600,
+      "sha256": "3566e9104b108c1acb6bbcbee0820ede343db2258e49e97ae97c59c0a6d4f1fe"
     },
     {
       "id": "ShelfWallWide",
       "kind": "environment",
       "path": "Art/Furniture2/ShelfWallWide.glb",
       "source": "GameAssets/Environment/Runtime/Furniture2/ShelfWallWide.glb",
-      "bytes": 1463308,
-      "sha256": "33f1d0ae6b4daedf5f759f91570cd7ec1069d793bdbc0dab7cc61385d033f0d8"
+      "bytes": 580620,
+      "sha256": "61e81dc0a1faf9a3e52ac4f2dc870a070f067affdfab092e0e2d0debe04768bf"
     },
     {
       "id": "ShoppingBasket",
       "kind": "environment",
       "path": "Art/Furniture/ShoppingBasket.glb",
       "source": "GameAssets/Environment/Runtime/Furniture/ShoppingBasket.glb",
-      "bytes": 332912,
-      "sha256": "ae53372b456b8e65c8d17f8604a13941d35344e8417a2fac98fd21fbfc514ae0"
+      "bytes": 391756,
+      "sha256": "1565b64dd6f9940c638bcdd7dbe7787ec4861cd521d3d4984f025e3ccfc438f0"
     },
     {
       "id": "ShoppingBasketAlt",
       "kind": "environment",
       "path": "Art/Furniture2/ShoppingBasketAlt.glb",
       "source": "GameAssets/Environment/Runtime/Furniture2/ShoppingBasketAlt.glb",
-      "bytes": 737412,
-      "sha256": "da12436e2ccbe52995a97a6f6e39169e0c2c42f918a60e226be55e71df44e07c"
+      "bytes": 390284,
+      "sha256": "ce83f83363100ad2c379a4ac52037b5255cfb01e6c8b98d5b9dfea3d6db7552f"
     },
     {
       "id": "ShoppingCart",
       "kind": "environment",
       "path": "Art/Furniture/ShoppingCart.glb",
       "source": "GameAssets/Environment/Runtime/Furniture/ShoppingCart.glb",
-      "bytes": 567172,
-      "sha256": "36b4801eaa50f36b300f859cb7d269c80b5f3fcc21840a5d62c4bba79da9b041"
+      "bytes": 495404,
+      "sha256": "cd00c2dbf514369d3d7e05d41e4a4299ecb30db900ec0f13542fd0a94db59b5c"
     },
     {
       "id": "SidewalkSegment",
       "kind": "environment",
       "path": "Art/Exterior/SidewalkSegment.glb",
       "source": "GameAssets/Environment/Runtime/Exterior/SidewalkSegment.glb",
-      "bytes": 494792,
-      "sha256": "b0932634f97f47b0af87eeff0096b108a3ce9d6155052dfdfe9885f540e06322"
+      "bytes": 206648,
+      "sha256": "c57c7e47a850bc8cdfa2790d4a36a7bc41acec1f370d11d664ed908649c3a7da"
     },
     {
       "id": "Sprinkler",
       "kind": "environment",
       "path": "Art/Farm/Sprinkler.glb",
       "source": "GameAssets/Environment/Runtime/Farm/Sprinkler.glb",
-      "bytes": 189960,
-      "sha256": "bca8c82335e46314c4a9ab406db96ec1a85ce71d3800b3e8c9b3189dfcfb9fe8"
+      "bytes": 235408,
+      "sha256": "cc0242b8e4088f6e93dceb92ddcc0c00ec78a4647f53b25f76362507c6aac5f1"
     },
     {
       "id": "StockroomRack",
       "kind": "environment",
       "path": "Art/Furniture/StockroomRack.glb",
       "source": "GameAssets/Environment/Runtime/Furniture/StockroomRack.glb",
-      "bytes": 919696,
-      "sha256": "9e30772e089351da888fd7b62df6b27f7db893aa54ae107a46a180205cdb8a36"
+      "bytes": 474708,
+      "sha256": "d96222b872fe48d82ecbdd9f9b4b1e6129390c8e0b49006dd08235dea98e321a"
     },
     {
       "id": "StoreEntrance",
@@ -1303,8 +1303,8 @@
       "kind": "environment",
       "path": "Art/StoreDisplays/StoreEntranceAlt.glb",
       "source": "GameAssets/Environment/Runtime/StoreDisplays/StoreEntranceAlt.glb",
-      "bytes": 660092,
-      "sha256": "49f423a53da8642d9b055fee2d8eb6b6e3fce86240ec39a668ea8398fc8e5ab9"
+      "bytes": 426340,
+      "sha256": "a712f7342e759488da8d55b67ddff2de20ead4e88b3a5ca47a81e878db88401d"
     },
     {
       "id": "StorefrontWindow",
@@ -1319,72 +1319,72 @@
       "kind": "environment",
       "path": "Art/Exterior/StreetLight.glb",
       "source": "GameAssets/Environment/Runtime/Exterior/StreetLight.glb",
-      "bytes": 446448,
-      "sha256": "a714020916c87025003ade690da7948c84d5f4d27f7d9da3d0097531ea4a10e9"
+      "bytes": 289860,
+      "sha256": "5888d2cec6940640aee8e4b951b92011358c1b866b877983698462a05277f22a"
     },
     {
       "id": "SupplierTerminal",
       "kind": "environment",
       "path": "Art/Utility/SupplierTerminal.glb",
       "source": "GameAssets/Environment/Runtime/Utility/SupplierTerminal.glb",
-      "bytes": 630148,
-      "sha256": "7324b84bdb464b1331187c2348490ecb6cef1f8f24a85ab47b6bb8bd7d8bbac1"
+      "bytes": 308104,
+      "sha256": "501dae92c8e63dfb4c5aa4cd57dad61d47c3b4a0606836888177f69a10bc639e"
     },
     {
       "id": "Tomato",
       "kind": "product",
       "path": "Art/Products/Tomato.glb",
       "source": "GameAssets/Environment/Runtime/Products/Tomato.glb",
-      "bytes": 187196,
-      "sha256": "4b9598ea7cde1572aad610fdb63141c6e9b994674f0e674f5066710d83e094af"
+      "bytes": 363244,
+      "sha256": "596c0c4a368c497949045dcc42e09eacf18098d84ceeddf6129c70841a70a3fc"
     },
     {
       "id": "TomatoRipe",
       "kind": "environment",
       "path": "Art/Farm/TomatoRipe.glb",
       "source": "GameAssets/Environment/Runtime/Farm/TomatoRipe.glb",
-      "bytes": 224584,
-      "sha256": "7b408d57643f1f0476ccda316f669fa8f2cd21ad1f180506855587371d5c3586"
+      "bytes": 392308,
+      "sha256": "16b3c798e118e3a3d54ee10bb7ec2647e12e5f55351e30a1ca18a024859fdc28"
     },
     {
       "id": "Tree",
       "kind": "environment",
       "path": "Art/Exterior/Tree.glb",
       "source": "GameAssets/Environment/Runtime/Exterior/Tree.glb",
-      "bytes": 528116,
-      "sha256": "cfa99e06ae94b644d9c013bf67bdc8e4008b532723a9d7212c11b698be2beeb8"
+      "bytes": 586344,
+      "sha256": "bde228455ced026aa26111e1ca6d86ca801328a033ba6422479985c407b0bbcd"
     },
     {
       "id": "UpgradePlatform",
       "kind": "environment",
       "path": "Art/StoreEquipment/UpgradePlatform.glb",
       "source": "GameAssets/Environment/Runtime/StoreEquipment/UpgradePlatform.glb",
-      "bytes": 676752,
-      "sha256": "e6810b29f14455205ac7a450a62c80bf57b2291a44f118c0bacad3929ce70eb8"
+      "bytes": 297976,
+      "sha256": "4a6577c8a5b958097791d8dc2fe2d43d651c79bb52ee1c82d7b7b6d8f9adea2d"
     },
     {
       "id": "UpgradePlatformAlt",
       "kind": "environment",
       "path": "Art/StoreDisplays/UpgradePlatformAlt.glb",
       "source": "GameAssets/Environment/Runtime/StoreDisplays/UpgradePlatformAlt.glb",
-      "bytes": 641032,
-      "sha256": "67e8badca991b97a5ce373a0e2cf626b8792b3491821ab5ded12e6f1ff8a99d4"
+      "bytes": 221756,
+      "sha256": "613f636bea580b76ff43fc5d7f092a1a6ff767db46989327adc96fa94ba4dab6"
     },
     {
       "id": "UtilitySink",
       "kind": "environment",
       "path": "Art/Furniture/UtilitySink.glb",
       "source": "GameAssets/Environment/Runtime/Furniture/UtilitySink.glb",
-      "bytes": 832588,
-      "sha256": "586b811e2961cc3b9259af73802e480da0b18b5d1227d6975ec991cb7961b20c"
+      "bytes": 405192,
+      "sha256": "cb879df4365e78b5205dcfac6abfbd11ee6b34bd2cbadc40d90add146c0333ac"
     },
     {
       "id": "WallClock",
       "kind": "environment",
       "path": "Art/Furniture/WallClock.glb",
       "source": "GameAssets/Environment/Runtime/Furniture/WallClock.glb",
-      "bytes": 282128,
-      "sha256": "22475778514056a26fdcfdd3713e5bf220e685091575227726255fa731dd92a9"
+      "bytes": 193536,
+      "sha256": "ec7704170d0d8bcee6f1f71a01f415b495bdf13af9f97e62aa0df0f5917b5804"
     },
     {
       "id": "WallCorner",
@@ -1407,48 +1407,48 @@
       "kind": "environment",
       "path": "Art/Farm/WateringCan.glb",
       "source": "GameAssets/Environment/Runtime/Farm/WateringCan.glb",
-      "bytes": 191488,
-      "sha256": "2bb9e6b37a7c4bd3ad05997d46e5bdde07f3aef7395bbd9bb803bfdb98a1350e"
+      "bytes": 242700,
+      "sha256": "a7a35bf8b9e1311c99838056baac173af9a4baf187bff2a147eae2f9df579923"
     },
     {
       "id": "Wheat",
       "kind": "product",
       "path": "Art/Products/Wheat.glb",
       "source": "GameAssets/Environment/Runtime/Products/Wheat.glb",
-      "bytes": 227220,
-      "sha256": "5d84895ded513ce2883521e30f4b77ae8d0302d1dc7c90459f158006ff7f5a84"
+      "bytes": 336548,
+      "sha256": "b43b8137603bc1d0cb2384e82a4dce67838cda43f3337922656d9a55a6f37095"
     },
     {
       "id": "WheatGrowing",
       "kind": "environment",
       "path": "Art/Farm/WheatGrowing.glb",
       "source": "GameAssets/Environment/Runtime/Farm/WheatGrowing.glb",
-      "bytes": 210936,
-      "sha256": "d79e0fd4fabb4a9007a6183ec30f13b0127bb35cded3de5170f660e33d218517"
+      "bytes": 381852,
+      "sha256": "c62b7763b89df9c2443220c9f5500e139ee05eb311a6686bfd4de3bbd8d59750"
     },
     {
       "id": "WheatRipe",
       "kind": "environment",
       "path": "Art/Farm/WheatRipe.glb",
       "source": "GameAssets/Environment/Runtime/Farm/WheatRipe.glb",
-      "bytes": 210940,
-      "sha256": "08de9f1a0a3edd910378f6c9eb764efced6a37513bdf08e13a32dbf10e24223e"
+      "bytes": 394164,
+      "sha256": "a4fd56c9796f4a268b408511b61468b380e95db343a1ee9c1533d7a155406b1f"
     },
     {
       "id": "WoodCrate",
       "kind": "environment",
       "path": "Art/Farm/WoodCrate.glb",
       "source": "GameAssets/Environment/Runtime/Farm/WoodCrate.glb",
-      "bytes": 958152,
-      "sha256": "ab5417a02bb86438443075dd8975cf9cc4f349f225c37756ca0d6194e4a289f6"
+      "bytes": 270152,
+      "sha256": "8a3326f43f8f7fb7870bbb6d3e5f49155fa715448be9533e3041a3e38af0b016"
     },
     {
       "id": "WorkCounter",
       "kind": "environment",
       "path": "Art/Furniture/WorkCounter.glb",
       "source": "GameAssets/Environment/Runtime/Furniture/WorkCounter.glb",
-      "bytes": 984884,
-      "sha256": "f4ed9bf133c9226d48ff5d2bc5c5b8c6bffd1a2e3cb700535d2372a03676a583"
+      "bytes": 358508,
+      "sha256": "997f7cbd835afaecb29a53a67f2fdef3ef275a1447c79b976a8d4982488a88e4"
     },
     {
       "id": "AdultMale:Motion",
