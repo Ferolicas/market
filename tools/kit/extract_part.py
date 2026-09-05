@@ -14,6 +14,7 @@ argv = sys.argv[sys.argv.index("--") + 1:]
 src, part, texture, dst, budget = argv[0], argv[1], argv[2], argv[3], int(argv[4])
 opts = argv[5:]
 flat_top = "plano" in opts
+fill_grooves = "sinSurcos" in opts
 extra_turn = next((float(o.split("=")[1]) for o in opts if o.startswith("giro=")), 0.0)
 shear_deg = next((float(o.split("=")[1]) for o in opts if o.startswith("cizalla=")), 0.0)
 tex_joints = {}
@@ -190,6 +191,41 @@ if flat_top:
             v.co.z = plane
             clamped += 1
     mesh.update()
+    if fill_grooves:
+        # The scan cut its grooves crooked: on the beige the horizontal one
+        # steps up by a panel's worth of error where it crosses the vertical.
+        # No remap straightens a step. The grooves are filled back up to the
+        # plane and the joints left to the sheet's own texture, which draws
+        # them straight and is already keyed to exact fractions.
+        raised = 0
+        for v in mesh.vertices:
+            if plane - span * 0.50 < v.co.z < plane:
+                v.co.z = plane
+                raised += 1
+        mesh.update()
+        print(f"   surcos rellenados: {raised} vertices subidos al plano")
+    # Flattening squashes the grooves' walls into faces with no area whose
+    # normals still point sideways, and those shade as a dark line where the
+    # groove was. Drop them and point everything up again.
+    bmc = bmesh.new(); bmc.from_mesh(mesh)
+    bmesh.ops.remove_doubles(bmc, verts=bmc.verts, dist=1e-6)
+    dead = [f for f in bmc.faces if f.calc_area() < 1e-11]
+    if dead: bmesh.ops.delete(bmc, geom=dead, context="FACES")
+    bmesh.ops.dissolve_degenerate(bmc, dist=1e-6, edges=bmc.edges)
+    bmesh.ops.recalc_face_normals(bmc, faces=bmc.faces)
+    bmc.to_mesh(mesh); bmc.free(); mesh.update()
+    # The mesh is an open shell, so recalc cannot settle a consistent
+    # orientation and leaves the flattened groove walls facing down, which
+    # shades a dark line along every groove. Anything lying in the top plane
+    # faces up, no exceptions.
+    bmu = bmesh.new(); bmu.from_mesh(mesh); bmu.faces.ensure_lookup_table()
+    turned = 0
+    for f in bmu.faces:
+        c = f.calc_center_median()
+        if abs(c.z - plane) < span * 0.015 and f.normal.z < 0:
+            f.normal_flip(); turned += 1
+    bmu.to_mesh(mesh); bmu.free(); mesh.update()
+    print(f"   limpieza tras aplanar: {len(dead)} caras sin area fuera, {turned} caras del plano giradas hacia arriba")
     W = np.array([v.co.z for v in mesh.vertices])
     top = W[W > plane - span * 0.02]
     print(f"   cara recortada al plano z={plane:.4f}: {clamped} vertices bajados, "
