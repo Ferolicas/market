@@ -18,7 +18,7 @@ namespace MiniMarket.Employees
             target=transform.position;
         }
 
-        public void GoTo(Vector3 destination,float speed=Core.Pace.Walk,bool carrying=false)
+        public void GoTo(Vector3 destination,float speed=Core.Pace.Cast,bool carrying=false)
         {
             target=destination;target.y=transform.position.y;moving=Vector3.SqrMagnitude(target-transform.position)>.06f;
             if(nav&&nav.isOnNavMesh){nav.speed=speed;nav.SetDestination(target);}

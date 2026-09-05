@@ -29,7 +29,7 @@ namespace MiniMarket.Customers
 
         public void PrepareForPool(){moving=false;if(nav&&nav.isOnNavMesh)nav.ResetPath();if(nav)nav.enabled=false;}
 
-        public void GoTo(Vector3 destination, float movementSpeed = Core.Pace.Walk)
+        public void GoTo(Vector3 destination, float movementSpeed = Core.Pace.Cast)
         {
             target = destination;
             target.y = transform.position.y;
