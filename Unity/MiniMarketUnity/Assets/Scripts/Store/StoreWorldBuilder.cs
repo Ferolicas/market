@@ -247,8 +247,11 @@ namespace MiniMarket.Store
             const float storefrontModule=8.12f;
             foreach(var x in new[]{-18.64f,-10.52f,10.52f,18.64f})
             {
-                var window=await PlaceFitted("StorefrontWindow",new Vector3(x,0,15.6f),Quaternion.identity,new Vector3(storefrontModule,5.6f,.72f),root,false);
-                window.AddComponent<StorefrontCameraCutaway>();
+                // No cutaway: the module carries its own window picture and
+                // the entrance's glass is transparent, so the facade stays on
+                // screen. With the cutaway the storefront never rendered at all,
+                // which is why the shop's front read as floor meeting pavement.
+                await PlaceFitted("StorefrontWindow",new Vector3(x,0,15.6f),Quaternion.identity,new Vector3(storefrontModule,5.6f,.72f),root,false);
             }
             // The entrance stays on screen. Next never hides its storefront --
             // the only visibility toggles there are particles and the checkout

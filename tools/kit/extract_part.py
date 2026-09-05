@@ -18,6 +18,16 @@ square_elev = "alzado" in opts
 flat_front = any(o.startswith("frentePlano") for o in opts)
 front_cut = next((float(o.split("=")[1]) for o in opts if o.startswith("frentePlano=")), 1.0)
 band_uv = "uvAltura" in opts
+front_tex = next((o.split("=",1)[1] for o in opts if o.startswith("frente=")), None)
+# reveal=u0,u1,z0,z1,RRGGBB : faces inside this rectangle (fractions of width and
+# height) that do not look along y are the recess's own walls -- a window's
+# reveals -- and take the frame's colour instead of the wall bands.
+reveal = next((o.split("=",1)[1].split(",") for o in opts if o.startswith("hueco=")), None)
+# rellenarHueco=u0,u1,z0,z1 : inside this rectangle everything short of the
+# back face is brought to the front plane. The scan cut this window smaller
+# and lower than the sheet draws it, and the sheet is the design; the
+# picture goes on a flat front and the scan's recess goes.
+fill_rect = next((tuple(float(v) for v in o.split("=",1)[1].split(",")) for o in opts if o.startswith("rellenarHueco=")), None)
 fill_grooves = "sinSurcos" in opts
 extra_turn = next((float(o.split("=")[1]) for o in opts if o.startswith("giro=")), 0.0)
 shear_deg = next((float(o.split("=")[1]) for o in opts if o.startswith("cizalla=")), 0.0)
@@ -169,8 +179,10 @@ if flat_front:
     body = V3[sel & (V3[:, 2] < zcut)][:, 1]; cap = V3[sel & (V3[:, 2] >= zcut)][:, 1]
     front = float(np.percentile(body, 50)); capfront = float(np.percentile(cap, 15)) if len(cap) else front
     n = 0
+    wid = h3[0] - l3[0]; hgt = h3[2] - l3[2]
     for v in mesh.vertices:
-        if v.co.y < l3[1] + depth * 0.45:
+        in_rect = fill_rect is not None and fill_rect[0] <= (v.co.x - l3[0]) / wid <= fill_rect[1] and fill_rect[2] <= (v.co.z - l3[2]) / hgt <= fill_rect[3]
+        if v.co.y < l3[1] + depth * (0.95 if in_rect else 0.45):
             v.co.y = front if v.co.z < zcut else capfront; n += 1
     mesh.update()
     print(f"   frente aplanado: {n} vertices; cuerpo a y={front:.4f}, coronacion a y={capfront:.4f} (saliente {front-capfront:+.4f})")
@@ -379,6 +391,37 @@ tex.extension = "REPEAT"
 mat.node_tree.links.new(bsdf.inputs["Base Color"], tex.outputs["Color"])
 mesh.materials.clear()
 mesh.materials.append(mat)
+if front_tex:
+    # The faces that look out along y carry the module's front picture --
+    # window, door -- while sides and top keep the bands. Both faces get it:
+    # a shop window is glass from either side, and it spares any guess about
+    # which way the exporter turns the module.
+    fmat = bpy.data.materials.new(os.path.basename(dst)[:-4] + "_front")
+    fmat.use_nodes = True
+    fb = fmat.node_tree.nodes["Principled BSDF"]
+    fb.inputs["Roughness"].default_value = 0.6; fb.inputs["Metallic"].default_value = 0.0
+    ft = fmat.node_tree.nodes.new("ShaderNodeTexImage"); ft.image = bpy.data.images.load(front_tex)
+    fmat.node_tree.links.new(fb.inputs["Base Color"], ft.outputs["Color"])
+    mesh.materials.append(fmat)
+    nfront = 0
+    for poly in mesh.polygons:
+        if abs(poly.normal.y) > 0.7:
+            poly.material_index = 1; nfront += 1
+    print(f"   frente: {nfront} caras con la imagen del frente")
+    if reveal:
+        u0, u1, z0, z1 = map(float, reveal[:4]); col = reveal[4]
+        rgb = tuple(int(col[i:i+2], 16) / 255 for i in (0, 2, 4))
+        rmat = bpy.data.materials.new(os.path.basename(dst)[:-4] + "_hueco"); rmat.use_nodes = True
+        rb = rmat.node_tree.nodes["Principled BSDF"]; rb.inputs["Base Color"].default_value = (*rgb, 1); rb.inputs["Roughness"].default_value = 0.7
+        mesh.materials.append(rmat)
+        Vr = np.array([[v.co.x, v.co.z] for v in mesh.vertices]); rlo, rhi = Vr.min(0), Vr.max(0)
+        nrev = 0
+        for poly in mesh.polygons:
+            if abs(poly.normal.y) > 0.7: continue
+            c = poly.center; fu = (c.x - rlo[0]) / (rhi[0] - rlo[0]); fz = (c.z - rlo[1]) / (rhi[1] - rlo[1])
+            if u0 <= fu <= u1 and z0 <= fz <= z1:
+                poly.material_index = 2; nrev += 1
+        print(f"   hueco: {nrev} caras del rehundido en color del marco")
 
 bpy.ops.object.select_all(action="SELECT")
 bpy.ops.export_scene.gltf(filepath=dst, export_format="GLB", use_selection=True,
