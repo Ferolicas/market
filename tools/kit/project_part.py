@@ -511,6 +511,25 @@ def process(job):
     node.image = bpy.data.images.load(tex_out); node.extension = "EXTEND"
     mat.node_tree.links.new(bsdf.inputs["Base Color"], node.outputs["Color"])
     mesh.materials.clear(); mesh.materials.append(mat)
+    glass = np.zeros(nf, bool)
+    if int(job.get("cristal", 0)):
+        # Glass shows the ground through it: a seen face whose sheet colour is
+        # the ground's grey (little chroma, near its brightness) is glass and
+        # gets the same texture on a translucent material.
+        gc = facecol.max(1) - facecol.min(1); gl = np.abs(facecol.mean(1) - bg.mean())
+        glass = visible & (gc < 14) & (gl < 26)
+        gmat = bpy.data.materials.new(os.path.basename(dst)[:-4] + "_cristal"); gmat.use_nodes = True
+        gb = gmat.node_tree.nodes["Principled BSDF"]
+        gb.inputs["Roughness"].default_value = 0.15; gb.inputs["Metallic"].default_value = 0.0
+        gb.inputs["Alpha"].default_value = 0.35
+        gnode = gmat.node_tree.nodes.new("ShaderNodeTexImage"); gnode.image = node.image; gnode.extension = "EXTEND"
+        gmat.node_tree.links.new(gb.inputs["Base Color"], gnode.outputs["Color"])
+        for attr, val in (("blend_method", "BLEND"), ("surface_render_method", "BLENDED"), ("show_transparent_back", False)):
+            try: setattr(gmat, attr, val)
+            except Exception: pass
+        mesh.materials.append(gmat)
+        for i in np.nonzero(glass)[0]:
+            mesh.polygons[int(i)].material_index = 1
 
     # ---------------------------------------------------------------- square in yaw, re-centre
     deg = yaw_angle(V)
@@ -553,7 +572,7 @@ def process(job):
           "vistas": round(float(visible.mean()), 3), "espejadas": round(float(mirrored.mean()), 3), "espejo": mirror,
           "iou_inicial": round(float(iou_start), 3), "iou_afinado": round(float(iou_end), 3), "bordes": round(edge_score, 3), "giro": round(deg + extra_turn, 2),
           "camara": [round(state["az"], 1), round(state["el"], 1)], "camara_inicial": [round(az0, 1), round(el0, 1)],
-          "mide": [round(float(v), 4) for v in size], "textura": [int(TW), int(TH)], "muestras": len(keys),
+          "mide": [round(float(v), 4) for v in size], "textura": [int(TW), int(TH)], "muestras": len(keys), "cristal": int(glass.sum()),
           "az": round(az, 1), "el": round(el, 1), "recorte": [int(cx0), int(cy0), int(cx1), int(cy1)]}))
 
 

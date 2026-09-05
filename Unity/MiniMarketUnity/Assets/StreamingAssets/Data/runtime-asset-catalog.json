@@ -143,8 +143,8 @@
       "kind": "environment",
       "path": "Art/Exterior/BusStop.glb",
       "source": "GameAssets/Environment/Runtime/Exterior/BusStop.glb",
-      "bytes": 550660,
-      "sha256": "b2972fa1f85e776b69d2cbcc0f10d64847da8c67d7f1a5b2389f11778cdaf5b5"
+      "bytes": 555360,
+      "sha256": "6b2e7e005eef5e090dd7c9c6d051d8a406112504e432b824e9d8824abb1f55fa"
     },
     {
       "id": "Car",
@@ -231,8 +231,8 @@
       "kind": "environment",
       "path": "Art/Utility/CheckoutBag.glb",
       "source": "GameAssets/Environment/Runtime/Utility/CheckoutBag.glb",
-      "bytes": 396708,
-      "sha256": "042db0725b6e8535646febb5361800cce74b4fe4f26b61a914c226abb4feeecd"
+      "bytes": 334364,
+      "sha256": "c557594d0ea1e29de4709ee96afc75b2dc5a028d8500fbb23e3f61e4b290ec8a"
     },
     {
       "id": "CheckoutCounter",
@@ -247,8 +247,8 @@
       "kind": "environment",
       "path": "Art/StoreEquipment/CheckoutScanner.glb",
       "source": "GameAssets/Environment/Runtime/StoreEquipment/CheckoutScanner.glb",
-      "bytes": 375720,
-      "sha256": "f50a518a10281c28f5912599ae209f59d993315342a6b61ece3989e4bd11a780"
+      "bytes": 316756,
+      "sha256": "6b6c118bec1045f67fd5197785ca97dc240fb875481d218f8ac74ac03b19db6c"
     },
     {
       "id": "CheckoutScannerAlt",
@@ -279,8 +279,8 @@
       "kind": "environment",
       "path": "Art/StoreEquipment/CheeseMachine.glb",
       "source": "GameAssets/Environment/Runtime/StoreEquipment/CheeseMachine.glb",
-      "bytes": 408936,
-      "sha256": "a353df1fe060aad03e52a178fc557662addd7b1047ae7ca3e8b0e715e9d671fe"
+      "bytes": 409296,
+      "sha256": "007033706458d012fd142e60337b830627bf38be1695e10d8a51a93ad55f5929"
     },
     {
       "id": "ChestFreezer",
@@ -495,8 +495,8 @@
       "kind": "environment",
       "path": "Art/StoreEquipment/DeliveryDock.glb",
       "source": "GameAssets/Environment/Runtime/StoreEquipment/DeliveryDock.glb",
-      "bytes": 657140,
-      "sha256": "92f6e2cf05c5a75a95e42b9791f87f595f282043dd6c3407ff8629bdeb1ce088"
+      "bytes": 450464,
+      "sha256": "a7c0d60610fb9f7e781b0395b3b42a7f1d479e8567937abfde1a09f8a83c5c6c"
     },
     {
       "id": "DeliveryDockAlt",
@@ -679,8 +679,8 @@
       "kind": "environment",
       "path": "Art/StoreEquipment/FlourMill.glb",
       "source": "GameAssets/Environment/Runtime/StoreEquipment/FlourMill.glb",
-      "bytes": 447480,
-      "sha256": "f364a36548ba62fbc0d1e7bf9677bb28890c3f5770f33ce8ae29f64be142e345"
+      "bytes": 475176,
+      "sha256": "a74b16cd8fccdb92e0ca043dbe48aa911ef2bec73201f721096d9ddde4357153"
     },
     {
       "id": "FlourMillAlt",
@@ -719,8 +719,8 @@
       "kind": "environment",
       "path": "Art/Utility/GlassPartition.glb",
       "source": "GameAssets/Environment/Runtime/Utility/GlassPartition.glb",
-      "bytes": 421284,
-      "sha256": "506d3197b7a9ed28a25c933d2040bf57963deab70c4e35534c95aaa00938ee4a"
+      "bytes": 353544,
+      "sha256": "0a3c98724d71627270a518460d831417b2d16ac49b09919c7f949ab0949a4fed"
     },
     {
       "id": "Hair_01_SidePart",
@@ -1359,8 +1359,8 @@
       "kind": "environment",
       "path": "Art/StoreEquipment/UpgradePlatform.glb",
       "source": "GameAssets/Environment/Runtime/StoreEquipment/UpgradePlatform.glb",
-      "bytes": 297976,
-      "sha256": "4a6577c8a5b958097791d8dc2fe2d43d651c79bb52ee1c82d7b7b6d8f9adea2d"
+      "bytes": 363240,
+      "sha256": "52c2776fed624c25771ff00d0e8cfc07a50afa571b5973a4dc59c0b3c8d6307e"
     },
     {
       "id": "UpgradePlatformAlt",
