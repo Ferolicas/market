@@ -26,14 +26,13 @@ namespace MiniMarket.Player
             var radius = offset.magnitude; var e = degrees * Mathf.Deg2Rad;
             return flat.normalized * (radius * Mathf.Cos(e)) + Vector3.up * (radius * Mathf.Sin(e));
         }
-        // The player is not framed at the centre but 30% of the frame height
-        // behind the way it faces, so the screen shows what lies ahead: the
-        // look-at point runs ahead of the player along its facing, by the
-        // ground distance that projects to that screen offset -- a step away
-        // from the camera climbs the screen by sin(elevation), a step across
-        // it moves a full step -- so the offset reads the same whichever way
-        // the player walks. The facing is damped so a turn re-frames smoothly.
-        const float AheadFraction = .30f;
+        // The player is framed at the centre, standing or walking. The look-at
+        // point can run ahead of it along its facing, by the ground distance
+        // that projects to a fraction of the frame height -- a step away from
+        // the camera climbs the screen by sin(elevation), a step across it
+        // moves a full step -- but that fraction is zero on request. The
+        // velocity term below is what keeps the centre true while moving.
+        const float AheadFraction = 0f;
         const float HeadingResponse = 8f;
         Vector3 heading;
         // The damped follow lags a moving target by velocity / response; the

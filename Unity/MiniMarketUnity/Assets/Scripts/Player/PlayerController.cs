@@ -25,7 +25,8 @@ namespace MiniMarket.Player
         // where the pace was judged right on screen. Acceleration and braking
         // keep their proportion to it, and the stride rate follows on its own
         // because CharacterActor.Locomotion reads the speed itself.
-        [SerializeField] float walkSpeed = 14.26f;
+        [SerializeField] float walkSpeed = Core.Pace.Walk;
+        [SerializeField] float runSpeed = Core.Pace.Run;
         [SerializeField] float acceleration = 77.76f;
         [SerializeField] float braking = 103.68f;
         [SerializeField] float turnTime = .13f;
@@ -70,7 +71,10 @@ namespace MiniMarket.Player
             var direction = Vector3.ClampMagnitude(right * input.x + forward * -input.y, 1f);
             var tier=Mathf.Max(1,state?.CurrentFranchise.Value<int?>("playerSpeedTier")??1);
             var tierMultiplier=1f+Mathf.Min(.32f,(tier-1)*.08f);
-            var targetSpeed = direction.sqrMagnitude > .01f ? walkSpeed*tierMultiplier : 0f;
+            // Hold shift to run. The cast walks at walkSpeed and cannot do this.
+            var running=Keyboard.current!=null&&(Keyboard.current.leftShiftKey.isPressed||Keyboard.current.rightShiftKey.isPressed);
+            var pace=(running?runSpeed:walkSpeed)*tierMultiplier;
+            var targetSpeed = direction.sqrMagnitude > .01f ? pace : 0f;
             var desired = direction * targetSpeed;
             velocity = Vector3.MoveTowards(velocity, desired, (targetSpeed > .001f ? acceleration : braking) * Time.deltaTime);
             if (direction.sqrMagnitude > .01f)
@@ -80,7 +84,7 @@ namespace MiniMarket.Player
                 transform.rotation = Quaternion.Euler(0, yaw, 0);
             }
             controller.Move((velocity + Physics.gravity * .12f) * Time.deltaTime);
-            Speed01 = Mathf.InverseLerp(0, walkSpeed*tierMultiplier, velocity.magnitude);
+            Speed01 = Mathf.InverseLerp(0, runSpeed*tierMultiplier, velocity.magnitude);
         }
     }
 }

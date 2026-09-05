@@ -205,12 +205,11 @@ namespace MiniMarket.Employees
             Rest(mind);
         }
 
-        /// Hired staff run at this multiple of the base pace. The base numbers
-        /// were tuned when the cast was a third of its present size, and the
-        /// player walks at 5.94, so anything under this reads as sleepwalking
-        /// beside the owner.
+        /// How briskly the staff work: it shortens the pauses between deciding,
+        /// picking up and dropping off. It is not their walking speed, which is
+        /// the owner's -- one pace for everyone who cannot run.
         const float WorkPace=4f;
-        static float EmployeeSpeed(Mind mind)=>Mathf.Min(2.15f,1.42f+Mathf.Max(1,mind.Data.Value<int?>("level")??1)*.08f)*WorkPace;
+        static float EmployeeSpeed(Mind mind)=>Core.Pace.Walk;
 
         void Rest(Mind mind)
         {

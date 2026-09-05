@@ -13,18 +13,18 @@ namespace MiniMarket.Employees
         {
             actor=character;
             var controller=GetComponent<CharacterController>();if(controller)controller.enabled=false;
-            nav=gameObject.AddComponent<NavMeshAgent>();nav.radius=.3f;nav.height=1.72f;nav.baseOffset=0;nav.angularSpeed=500;nav.acceleration=18;nav.stoppingDistance=.22f;nav.avoidancePriority=UnityEngine.Random.Range(10,24);
+            nav=gameObject.AddComponent<NavMeshAgent>();nav.radius=.3f;nav.height=1.72f;nav.baseOffset=0;nav.angularSpeed=500;nav.acceleration=64;nav.stoppingDistance=.22f;nav.avoidancePriority=UnityEngine.Random.Range(10,24);
             if(NavMesh.SamplePosition(transform.position,out var hit,5f,NavMesh.AllAreas))nav.Warp(hit.position);
             target=transform.position;
         }
 
-        public void GoTo(Vector3 destination,float speed=1.5f,bool carrying=false)
+        public void GoTo(Vector3 destination,float speed=Core.Pace.Walk,bool carrying=false)
         {
             target=destination;target.y=transform.position.y;moving=Vector3.SqrMagnitude(target-transform.position)>.06f;
             if(nav&&nav.isOnNavMesh){nav.speed=speed;nav.SetDestination(target);}
             // Clip and rate both come from the pace, so the stride covers the
             // ground the agent actually crosses instead of sliding over it.
-            if(moving){var(clip,rate)=CharacterActor.Locomotion(speed,carrying);actor.Play(clip,.18f,rate);}
+            if(moving){var(clip,rate)=CharacterActor.Locomotion(speed,carrying,actor.StrideScale);actor.Play(clip,.18f,rate);}
         }
 
         public void Play(string animation)=>actor.Play(animation,.18f);

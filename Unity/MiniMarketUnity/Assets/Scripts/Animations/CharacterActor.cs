@@ -56,18 +56,30 @@ namespace MiniMarket.Animations
         public const float RunGroundSpeed = 12.18f;
         public const float WalkGroundSpeed = 3.74f;
         public const float CarryWalkGroundSpeed = 2.45f;
+        /// Those three were measured with the cast presented at 3.90. A body
+        /// twice that size carries its own stride twice as far per cycle, so
+        /// every speed above is read against the scale the actor is drawn at;
+        /// without this the legs cycled 44% too fast and the feet skated.
+        public const float MeasuredScale = 3.90f;
+        public float StrideScale => transform.localScale.x / MeasuredScale;
 
         /// The clip whose own pace is nearest, and the rate that matches it.
-        public static (string clip, float rate) Locomotion(float worldSpeed, bool carrying)
+        public static (string clip, float rate) Locomotion(float worldSpeed, bool carrying, float strideScale = 1f)
         {
-            if (carrying)
-                return ("CarryWalk", Mathf.Clamp(worldSpeed / CarryWalkGroundSpeed, .55f, 2.4f));
+            var walkPace = WalkGroundSpeed * strideScale;
+            var runPace = RunGroundSpeed * strideScale;
+            var carryPace = CarryWalkGroundSpeed * strideScale;
+            // The carry walk is a slow clip; past this it cannot cover the
+            // ground and the body would slide, so the run takes over and the
+            // hands keep their grip on the basket.
+            if (carrying && worldSpeed <= carryPace * 2.6f)
+                return ("CarryWalk", Mathf.Clamp(worldSpeed / carryPace, .55f, 2.6f));
             // Halfway between the two clips' own speeds: below it the walk is
             // the closer match, above it the run is.
-            var crossover = (WalkGroundSpeed + RunGroundSpeed) * .5f;
+            var crossover = (walkPace + runPace) * .5f;
             return worldSpeed >= crossover
-                ? ("Run", Mathf.Clamp(worldSpeed / RunGroundSpeed, .6f, 2.2f))
-                : ("Walk", Mathf.Clamp(worldSpeed / WalkGroundSpeed, .55f, 2.4f));
+                ? ("Run", Mathf.Clamp(worldSpeed / runPace, .6f, 2.2f))
+                : ("Walk", Mathf.Clamp(worldSpeed / walkPace, .55f, 2.4f));
         }
 
         public bool Play(string requested, float fade = .18f, float rate = 1f)

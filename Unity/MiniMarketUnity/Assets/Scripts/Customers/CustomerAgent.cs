@@ -22,21 +22,21 @@ namespace MiniMarket.Customers
             controller = GetComponent<CharacterController>();
             if(controller)controller.enabled=false;
             nav=GetComponent<NavMeshAgent>();if(!nav)nav=gameObject.AddComponent<NavMeshAgent>();
-            nav.enabled=true;nav.radius=.3f;nav.height=1.72f;nav.baseOffset=0;nav.angularSpeed=540;nav.acceleration=8;nav.stoppingDistance=.18f;nav.avoidancePriority=UnityEngine.Random.Range(25,75);
+            nav.enabled=true;nav.radius=.3f;nav.height=1.72f;nav.baseOffset=0;nav.angularSpeed=540;nav.acceleration=64;nav.stoppingDistance=.18f;nav.avoidancePriority=UnityEngine.Random.Range(25,75);
             if(NavMesh.SamplePosition(transform.position,out var hit,4f,NavMesh.AllAreas))nav.Warp(hit.position);
             target = transform.position;moving=false;speed=0;
         }
 
         public void PrepareForPool(){moving=false;if(nav&&nav.isOnNavMesh)nav.ResetPath();if(nav)nav.enabled=false;}
 
-        public void GoTo(Vector3 destination, float movementSpeed = 1.45f)
+        public void GoTo(Vector3 destination, float movementSpeed = Core.Pace.Walk)
         {
             target = destination;
             target.y = transform.position.y;
             speed = movementSpeed;
             moving = Vector3.SqrMagnitude(target - transform.position) > .05f;
             if(nav&&nav.isOnNavMesh){nav.speed=speed;nav.SetDestination(target);}
-            if (moving) actor.Play("Walk");
+            if (moving) { var (clip, rate) = CharacterActor.Locomotion(speed, false, actor.StrideScale); actor.Play(clip, .18f, rate); }
         }
 
         public void Play(string animation, float fade = .18f) => actor.Play(animation, fade);
