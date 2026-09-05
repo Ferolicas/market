@@ -12,7 +12,24 @@ from mathutils import Matrix, Vector
 
 argv = sys.argv[sys.argv.index("--") + 1:]
 src, part, texture, dst, budget = argv[0], argv[1], argv[2], argv[3], int(argv[4])
-flat_top = len(argv) > 5 and argv[5] == "plano"
+opts = argv[5:]
+flat_top = "plano" in opts
+extra_turn = next((float(o.split("=")[1]) for o in opts if o.startswith("giro=")), 0.0)
+shear_deg = next((float(o.split("=")[1]) for o in opts if o.startswith("cizalla=")), 0.0)
+tex_joints = {}
+for o in opts:
+    if o.startswith("textura="):
+        for spec in o[len("textura="):].split(";"):
+            axis, vals = spec.split(":")
+            tex_joints[axis] = [float(v) for v in vals.split(",")]
+grid = {}
+for o in opts:
+    if o.startswith("rejilla="):
+        for spec in o[len("rejilla="):].split(";"):
+            axis, vals = spec.split(":")
+            meas = [float(v) for v in vals.split(",")]
+            n = len(meas)
+            grid[axis] = (meas, [k / (n + 1) for k in range(1, n + 1)])
 
 bpy.ops.wm.read_factory_settings(use_empty=True)
 bpy.ops.import_scene.gltf(filepath=src)
@@ -46,8 +63,19 @@ for i in range(len(H)):
 deg = math.degrees(-best[1]) % 90
 if deg > 45:
     deg -= 90
-keep.data.transform(Matrix.Rotation(math.radians(deg), 4, "Z"))
+keep.data.transform(Matrix.Rotation(math.radians(deg + extra_turn), 4, "Z"))
 keep.data.update()
+if shear_deg:
+    # A scan can come out sheared, with its two joint families not at right
+    # angles. Once one family is upright, sliding x with y by the residual angle
+    # squares the other. Every vertex keeps its neighbours; only the lean goes.
+    Vs = np.array([[v.co.x, v.co.y] for v in keep.data.vertices])
+    cy = (Vs[:, 1].min() + Vs[:, 1].max()) / 2
+    k = math.tan(math.radians(shear_deg))
+    for v in keep.data.vertices:
+        v.co.x += k * (v.co.y - cy)
+    keep.data.update()
+    print(f"   cizalla corregida: {shear_deg:+.2f} grados")
 
 # The scan's outline bows in a few thousandths along each side, which is what
 # leaves slivers between two pieces laid side by side. The bow is pushed back
@@ -167,6 +195,34 @@ if flat_top:
     print(f"   cara recortada al plano z={plane:.4f}: {clamped} vertices bajados, "
           f"la cara varia {top.max()-top.min():.6f}")
 
+uv_before = None
+if grid:
+    # The texture must travel with the vertices, or the joint painted on it
+    # stays where the scan had it while the groove in the mesh moves: two
+    # lines instead of one. The fraction each vertex had before the remap is
+    # what it samples afterwards.
+    Vb = np.array([[v.co.x, v.co.y] for v in mesh.vertices])
+    lb, hb = Vb.min(0), Vb.max(0)
+    uv_before = {v.index: ((v.co.x - lb[0]) / (hb[0] - lb[0]), (v.co.y - lb[1]) / (hb[1] - lb[1]))
+                 for v in mesh.vertices}
+if grid:
+    # The scan's panels are not evenly spaced: the beige carries its joints at
+    # 0.325 / 0.668 across and 0.370 / 0.708 deep. Copies laid side by side then
+    # step 0.370, 0.338, 0.292, 0.370 ... and the grid never lines up. Each axis
+    # is stretched piecewise so the measured joints land on exact fractions;
+    # the panels keep their pixels, only their widths even out.
+    V = np.array([[v.co.x, v.co.y] for v in mesh.vertices])
+    lo2, hi2 = V.min(0), V.max(0)
+    for axis, (meas, targ) in grid.items():
+        i = 0 if axis == "x" else 1
+        src_knots = [0.0] + meas + [1.0]
+        dst_knots = [0.0] + targ + [1.0]
+        for v in mesh.vertices:
+            u = (v.co[i] - lo2[i]) / (hi2[i] - lo2[i])
+            v.co[i] = lo2[i] + float(np.interp(u, src_knots, dst_knots)) * (hi2[i] - lo2[i])
+        print(f"   rejilla {axis}: surcos {meas} -> {['%.3f' % t for t in targ]}")
+    mesh.update()
+
 V = np.array([[v.co.x, v.co.y, v.co.z] for v in mesh.vertices])
 lo, hi = V.min(0), V.max(0)
 mesh.transform(Matrix.Translation(Vector((-(lo[0] + hi[0]) / 2, -(lo[1] + hi[1]) / 2, -lo[2]))))
@@ -175,10 +231,28 @@ mesh.update()
 V = np.array([[v.co.x, v.co.y] for v in mesh.vertices])
 lo2, hi2 = V.min(0), V.max(0)
 uv = mesh.uv_layers[0] if mesh.uv_layers else mesh.uv_layers.new(name="UVMap")
+# Where the sheet paints its joints and where the scan cut its grooves do not
+# coincide -- on the beige they sit 5% apart -- so the texture is keyed to the
+# grooves: the fraction of the tile at which a groove now lies samples the
+# fraction of the image at which the painted joint lies, and the panels between
+# stretch to fit. Image rows are measured from the top; Blender's v runs from
+# the bottom, hence the flip.
+if tex_joints and grid:
+    kx_m = [0.0] + grid["x"][1] + [1.0]
+    kx_t = [0.0] + tex_joints["x"] + [1.0]
+    ky_m = [0.0] + grid["y"][1] + [1.0]
+    ky_t = [0.0] + sorted(1.0 - v for v in tex_joints["y"]) + [1.0]
 for loop in mesh.loops:
-    co = mesh.vertices[loop.vertex_index].co
-    uv.data[loop.index].uv = ((co.x - lo2[0]) / (hi2[0] - lo2[0]),
-                              (co.y - lo2[1]) / (hi2[1] - lo2[1]))
+    if tex_joints and grid:
+        co = mesh.vertices[loop.vertex_index].co
+        fx = (co.x - lo2[0]) / (hi2[0] - lo2[0]); fy = (co.y - lo2[1]) / (hi2[1] - lo2[1])
+        uv.data[loop.index].uv = (float(np.interp(fx, kx_m, kx_t)), float(np.interp(fy, ky_m, ky_t)))
+    elif uv_before is not None:
+        uv.data[loop.index].uv = uv_before[loop.vertex_index]
+    else:
+        co = mesh.vertices[loop.vertex_index].co
+        uv.data[loop.index].uv = ((co.x - lo2[0]) / (hi2[0] - lo2[0]),
+                                  (co.y - lo2[1]) / (hi2[1] - lo2[1]))
 
 mat = bpy.data.materials.new(os.path.basename(dst)[:-4])
 mat.use_nodes = True
