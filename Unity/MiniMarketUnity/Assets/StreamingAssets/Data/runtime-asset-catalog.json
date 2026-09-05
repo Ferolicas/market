@@ -655,16 +655,16 @@
       "kind": "environment",
       "path": "Art/Furniture/FloorTileBeige.glb",
       "source": "GameAssets/Environment/Runtime/Furniture/FloorTileBeige.glb",
-      "bytes": 1414928,
-      "sha256": "7c373852d20e20ede104bc03657d59e167721255854ba11b21152e4f9330d2b5"
+      "bytes": 724396,
+      "sha256": "e3b9a646938bd015bc4c555b4e8a037d3ae3fb163acd96d11592882a6a0f933b"
     },
     {
       "id": "FloorTileWhite",
       "kind": "environment",
       "path": "Art/Furniture/FloorTileWhite.glb",
       "source": "GameAssets/Environment/Runtime/Furniture/FloorTileWhite.glb",
-      "bytes": 1128140,
-      "sha256": "42fa90940f96ba3f2d8bde820730c03f9558cd1ce7b5add8411a6e0da833f01f"
+      "bytes": 593328,
+      "sha256": "0788f52d235faef6dc6ef3b4ef0445c6bf88ee323741cfd68868e1c70001f981"
     },
     {
       "id": "Flour",
@@ -1532,5 +1532,5 @@
     "metadata": 1,
     "character-motion": 9
   },
-  "totalBytes": 302799626
+  "totalBytes": 301574282
 }

@@ -23,6 +23,7 @@ for o in opts:
         for spec in o[len("textura="):].split(";"):
             axis, vals = spec.split(":")
             tex_joints[axis] = [float(v) for v in vals.split(",")]
+repeat = next((tuple(int(v) for v in o.split("=")[1].split(",")) for o in opts if o.startswith("repite=")), None)
 grid = {}
 for o in opts:
     if o.startswith("rejilla="):
@@ -295,7 +296,13 @@ if tex_joints and grid:
     ky_m = [0.0] + grid["y"][1] + [1.0]
     ky_t = [0.0] + sorted(1.0 - v for v in tex_joints["y"]) + [1.0]
 for loop in mesh.loops:
-    if tex_joints and grid:
+    if repeat:
+        # One panel repeated across the tile: the texture is periodic, so the
+        # tile's edges show half a joint each and meet the next tile's as one.
+        co = mesh.vertices[loop.vertex_index].co
+        fx = (co.x - lo2[0]) / (hi2[0] - lo2[0]); fy = (co.y - lo2[1]) / (hi2[1] - lo2[1])
+        uv.data[loop.index].uv = (fx * repeat[0], fy * repeat[1])
+    elif tex_joints and grid:
         co = mesh.vertices[loop.vertex_index].co
         fx = (co.x - lo2[0]) / (hi2[0] - lo2[0]); fy = (co.y - lo2[1]) / (hi2[1] - lo2[1])
         uv.data[loop.index].uv = (float(np.interp(fx, kx_m, kx_t)), float(np.interp(fy, ky_m, ky_t)))
@@ -313,6 +320,7 @@ bsdf.inputs["Roughness"].default_value = 0.78
 bsdf.inputs["Metallic"].default_value = 0.0
 tex = mat.node_tree.nodes.new("ShaderNodeTexImage")
 tex.image = bpy.data.images.load(texture)
+tex.extension = "REPEAT"
 mat.node_tree.links.new(bsdf.inputs["Base Color"], tex.outputs["Color"])
 mesh.materials.clear()
 mesh.materials.append(mat)

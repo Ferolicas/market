@@ -122,7 +122,7 @@ namespace MiniMarket.Store
             // to seven thousandths, pushed back out to the straight line. Both
             // now fill their rectangle exactly, so they are laid edge to edge:
             // no overlap, nothing underneath, nothing cut away.
-            await TileFloor(root,"FloorTileBeige",-23,23,-17.7f,16.3f,4,3,1f,1f,0,0,.16f,-.08f);
+            await TileFloor(root,"FloorTileWhite",-23,23,-17.7f,16.3f,6,3,1f,1f,0,0,.16f,-.08f);
             await TileFloor(root,"FloorTileWhite",-23,23,16.3f,31.3f,4,1,1f,1f,0,0,.14f,-.1f);
             VisualBox(root,"StoreKerb",new Vector3(50,.12f,2.4f),new Vector3(0,-.09f,32.3f),Hex("566A62"),.02f,false);
             // MarketBuilding's entrance mat: the dark slab the player crosses in
