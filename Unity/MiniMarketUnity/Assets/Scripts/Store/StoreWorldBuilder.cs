@@ -161,7 +161,11 @@ namespace MiniMarket.Store
             var fitX=cellX/faceX;var fitZ=cellZ/faceZ;
             for(var column=0;column<columns;column++)for(var row=0;row<rows;row++)
             {
-                var centre=new Vector3(x0+cellX*(column+.5f)-offX*fitX,y,z0+cellZ*(row+.5f)-offZ*fitZ);
+                // Alternate heights by parity: each tile's backing reaches a
+                // little past its outline, and two backings sharing a plane
+                // would fight for it.
+                var parity=((column+row)&1)==0?.0004f:-.0004f;
+                var centre=new Vector3(x0+cellX*(column+.5f)-offX*fitX,y+parity,z0+cellZ*(row+.5f)-offZ*fitZ);
                 var tile=await PlaceFitted(id,centre,Quaternion.identity,new Vector3(fitX,thickness,fitZ),root,false);
                 foreach(var renderer in tile.GetComponentsInChildren<Renderer>())
                     renderer.shadowCastingMode=ShadowCastingMode.Off;

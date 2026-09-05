@@ -239,6 +239,13 @@ if flat_top:
     bmq = bmesh.new(); bmq.from_mesh(mesh)
     Vq = np.array([[v.co.x, v.co.y] for v in mesh.vertices])
     qlo, qhi = Vq.min(0), Vq.max(0)
+    # Reaching past the outline: where two tiles meet, the face's edge and the
+    # quad's edge otherwise fall on one line, and a sub-pixel crack in that line
+    # shows the ground. Overlapping the neighbour by this much puts the quad
+    # under the crack. Tiles are laid at alternating heights so the overlaps
+    # never share a plane.
+    margin = 0.006 * max(qhi - qlo)
+    qlo = qlo - margin; qhi = qhi + margin
     zq = plane - span * 0.012
     vs = [bmq.verts.new((qlo[0], qlo[1], zq)), bmq.verts.new((qhi[0], qlo[1], zq)),
           bmq.verts.new((qhi[0], qhi[1], zq)), bmq.verts.new((qlo[0], qhi[1], zq))]
