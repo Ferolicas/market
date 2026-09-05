@@ -32,7 +32,13 @@ namespace MiniMarket.Assets
             string json;
             if (path.Contains("://"))
             {
-                using var request = UnityWebRequest.Get(path);
+                // The catalogue's address never changes from build to build, so a
+                // browser that once stored it can keep answering from its own HTTP
+                // cache for days: the player then boots new code against an old
+                // list of assets. It is 40 KB; ask for it by a fresh address every
+                // time and let the payloads it names be the ones that are cached.
+                using var request = UnityWebRequest.Get($"{path}?t={DateTime.UtcNow.Ticks}");
+                request.SetRequestHeader("Cache-Control", "no-cache");
                 var operation = request.SendWebRequest();
                 while (!operation.isDone) await Task.Yield();
                 if (request.result != UnityWebRequest.Result.Success) throw new InvalidOperationException(request.error);
@@ -53,7 +59,11 @@ namespace MiniMarket.Assets
                     Id = token.Value<string>("id"), Kind = token.Value<string>("kind"), Path = token.Value<string>("path"),
                     Sha256 = token.Value<string>("sha256"), Bytes = token.Value<long>("bytes"),
                 };
-                if(!entries.TryAdd(entry.Id,entry))throw new InvalidDataException($"ID duplicado en catálogo runtime: {entry.Id}");
+                // A repeated id is a fault in the catalogue, not a reason to
+                // refuse to play: keep the first and say so. Refusing left the
+                // game unopenable outside a private window until the browser's
+                // copy of the catalogue expired.
+                if(!entries.TryAdd(entry.Id,entry))Debug.LogWarning($"ID duplicado en catálogo runtime: {entry.Id}; se conserva {entries[entry.Id].Path} y se ignora {entry.Path}");
             }
         }
 
