@@ -272,36 +272,12 @@ namespace MiniMarket.UI
 
         void BuildJoystick()
         {
-            // The stick lives in the bottom right corner and is invisible until
-            // a finger takes it: a dial that appears wherever the screen is
-            // pressed cannot be found twice in the same place, and a solid one
-            // hides the floor the player is walking into.
+            // Nothing is drawn: a dial in the corner still covered the floor and
+            // could not be reached from the other side of the screen. The whole
+            // canvas is the control, the press is its centre, and the drag away
+            // from it is the direction.
             var area=Panel("GameInputSurface",canvas.transform,new Color(0,0,0,0));Anchor(area,Vector2.zero,Vector2.one,Vector2.zero,Vector2.zero);area.SetAsFirstSibling();
-            var visual=Disc("DragJoystick",area,Alpha(Linear("F7F1E8"),.20f));
-            visual.anchorMin=visual.anchorMax=new Vector2(1f,0f);visual.pivot=new Vector2(.5f,.5f);
-            visual.sizeDelta=new Vector2(176,176);visual.anchoredPosition=new Vector2(-140,140);
-            var group=visual.gameObject.AddComponent<CanvasGroup>();group.alpha=0f;group.blocksRaycasts=false;group.interactable=false;
-            // the socket the lever sits in
-            var socket=Disc("Socket",visual,Alpha(Sage,.28f),.86f);socket.sizeDelta=new Vector2(176,176);
-            var arrows=new[]{(0f,58f,0f),(0f,-58f,180f),(-58f,0f,90f),(58f,0f,-90f)};
-            foreach(var (x,y,angle) in arrows)
-            {
-                var arrow=new GameObject("Arrow",typeof(RectTransform),typeof(Image));
-                arrow.transform.SetParent(visual,false);
-                var image=arrow.GetComponent<Image>();image.sprite=Icon("chevron");image.color=Alpha(Sage,.32f);
-                image.preserveAspect=true;image.raycastTarget=false;
-                var rect=arrow.GetComponent<RectTransform>();
-                rect.anchorMin=rect.anchorMax=new Vector2(.5f,.5f);rect.pivot=new Vector2(.5f,.5f);
-                rect.sizeDelta=new Vector2(20,20);rect.anchoredPosition=new Vector2(x,y);
-                rect.localRotation=Quaternion.Euler(0,0,angle);
-            }
-            // the lever: a shadow under it, the stick itself, and a lit cap on
-            // top, so it reads as something standing off the surface
-            var knob=Disc("Knob",visual,new Color(0,0,0,0));knob.sizeDelta=new Vector2(74,74);
-            var shade=Disc("Shade",knob,Alpha(Linear("323524"),.16f));shade.sizeDelta=new Vector2(74,74);shade.anchoredPosition=new Vector2(0,-5);
-            var stick=Disc("Stick",knob,Alpha(Green,.32f));stick.sizeDelta=new Vector2(70,70);
-            var cap=Disc("Cap",knob,Alpha(Linear("F7F1E8"),.22f));cap.sizeDelta=new Vector2(40,40);cap.anchoredPosition=new Vector2(0,4);
-            joystick=area.gameObject.AddComponent<VirtualJoystick>();joystick.Bind(area,visual,knob,runtime.Player,group,canvas);
+            joystick=area.gameObject.AddComponent<VirtualJoystick>();joystick.Bind(area,runtime.Player,canvas);
         }
 
         bool Narrow=>responsiveLayout&&responsiveLayout.Narrow;
@@ -1088,7 +1064,7 @@ namespace MiniMarket.UI
             }
         }
 
-        public void BindPlayer(PlayerController playerController){if(joystick){var area=joystick.GetComponent<RectTransform>();var visual=area.Find("DragJoystick") as RectTransform;var knob=visual?.Find("Knob") as RectTransform;joystick.Bind(area,visual,knob,playerController);}}
+        public void BindPlayer(PlayerController playerController){if(joystick)joystick.Bind(joystick.GetComponent<RectTransform>(),playerController,canvas);}
         void Upgrade(string id){if(!runtime.Upgrades.Upgrade(id))Notify("Caja insuficiente");else audioService.UiConfirm();RefreshPanel("upgrade");}
         JObject NextProject(){foreach(var token in runtime.State.Array("buildProjects"))if(token.Value<int>("level")==runtime.State.Level+1)return token as JObject;return null;}
         void RefreshPanel(string id){if(drawer.gameObject.activeSelf)OpenPanel(id);}
@@ -1227,37 +1203,6 @@ namespace MiniMarket.UI
             var sprite=texture?Sprite.Create(texture,new Rect(0,0,texture.width,texture.height),new Vector2(.5f,.5f),100f,0,SpriteMeshType.FullRect):null;
             iconCache[name]=sprite;
             return sprite;
-        }
-
-        /// A disc, or a ring when an inner radius is given, drawn once and
-        /// reused: a joystick that is a rounded square does not read as a stick.
-        Sprite discSprite; Sprite ringSprite;
-        Sprite DiscSprite(float innerFraction)
-        {
-            if(innerFraction<=0f)return discSprite??=CreateDiscSprite(0f);
-            return ringSprite??=CreateDiscSprite(innerFraction);
-        }
-        Sprite CreateDiscSprite(float innerFraction=0f)
-        {
-            const int size=128;var texture=new Texture2D(size,size,TextureFormat.RGBA32,false,true){name="RuntimeHud_Disc",filterMode=FilterMode.Bilinear,wrapMode=TextureWrapMode.Clamp};
-            var pixels=new Color32[size*size];var centre=(size-1)*.5f;var outer=centre-1f;var inner=outer*innerFraction;
-            for(var y=0;y<size;y++)for(var x=0;x<size;x++)
-            {
-                var d=Mathf.Sqrt((x-centre)*(x-centre)+(y-centre)*(y-centre));
-                var a=Mathf.Clamp01(outer-d);
-                if(inner>0f)a=Mathf.Min(a,Mathf.Clamp01(d-inner));
-                pixels[y*size+x]=new Color32(255,255,255,(byte)Mathf.RoundToInt(a*255));
-            }
-            texture.SetPixels32(pixels);texture.Apply(false,true);
-            return Sprite.Create(texture,new Rect(0,0,size,size),new Vector2(.5f,.5f),100,0,SpriteMeshType.FullRect);
-        }
-
-        RectTransform Disc(string name,Transform parent,Color color,float innerFraction=0f)
-        {
-            var go=new GameObject(name,typeof(RectTransform),typeof(Image));go.transform.SetParent(parent,false);
-            var image=go.GetComponent<Image>();image.color=color;image.sprite=DiscSprite(innerFraction);image.raycastTarget=false;image.preserveAspect=true;
-            var rect=go.GetComponent<RectTransform>();rect.anchorMin=rect.anchorMax=new Vector2(.5f,.5f);rect.pivot=new Vector2(.5f,.5f);
-            return rect;
         }
 
         Sprite CreateRoundedSprite()

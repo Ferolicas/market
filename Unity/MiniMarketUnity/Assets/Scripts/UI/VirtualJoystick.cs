@@ -4,90 +4,54 @@ using UnityEngine.EventSystems;
 
 namespace MiniMarket.UI
 {
-    /// A stick fixed in the corner: invisible until a finger takes it, and
-    /// rubbery once it has one. The lever springs after the finger instead of
-    /// snapping to it, and springs back to the middle when it is let go, which
-    /// is what makes a touch control feel like a physical thing. The direction
-    /// the player moves comes from the finger, not from the springing lever, so
-    /// the feel costs nothing in precision.
+    /// Movement by dragging anywhere on the screen, with nothing drawn: the
+    /// press is the centre and the drag away from it is the direction, so the
+    /// control is wherever the thumb lands and never covers the shop. Holding
+    /// a direction still breaks into a run; that lives in PlayerController.
     public sealed class VirtualJoystick : MonoBehaviour, IPointerDownHandler, IDragHandler, IPointerUpHandler
     {
-        const float Radius = 74f;        // canvas units the lever may travel
-        const float Reach = 2.6f;        // how far around the dial a press still grabs it
-        const float Stiffness = 220f;    // spring pulling the lever to the finger
-        const float Damping = 14f;       // how quickly that spring settles
-        const float FadeIn = .10f;
-        const float FadeOut = .28f;
+        /// How far the finger travels from where it landed for a full push.
+        const float Reach = 74f;
 
-        RectTransform area; RectTransform visual; RectTransform knob; PlayerController player;
-        CanvasGroup group; Canvas root;
-        Vector2 want, at, velocity; int pointerId = int.MinValue; float shown;
+        RectTransform area; PlayerController player; Canvas root;
+        Vector2 origin; int pointerId = int.MinValue;
 
-        public void Bind(RectTransform touchArea, RectTransform visualRoot, RectTransform handle, PlayerController controller, CanvasGroup fade = null, Canvas canvas = null)
+        public void Bind(RectTransform touchArea, PlayerController controller, Canvas canvas = null)
         {
-            area = touchArea; visual = visualRoot; knob = handle; player = controller;
-            group = fade ? fade : visual ? visual.GetComponent<CanvasGroup>() : null;
+            area = touchArea; player = controller;
             root = canvas ? canvas : GetComponentInParent<Canvas>();
-            pointerId = int.MinValue; want = at = velocity = Vector2.zero; shown = 0f;
-            if (group) group.alpha = 0f;
-            if (knob) knob.anchoredPosition = Vector2.zero;
-            if (visual) visual.gameObject.SetActive(true);
+            pointerId = int.MinValue;
+            if (player) player.VirtualInput = Vector2.zero;
         }
 
         float Scale => root ? Mathf.Max(.01f, root.scaleFactor) : 1f;
-        Vector2 Centre => RectTransformUtility.WorldToScreenPoint(root && root.renderMode == RenderMode.ScreenSpaceOverlay ? null : root?.worldCamera, visual.position);
 
         public void OnPointerDown(PointerEventData eventData)
         {
-            if (!visual || !player || pointerId != int.MinValue) return;
-            if ((eventData.position - Centre).magnitude > Radius * Reach * Scale) return;   // a press far from the stick is not for it
-            pointerId = eventData.pointerId;
-            Track(eventData.position);
+            if (!player || pointerId != int.MinValue) return;
+            pointerId = eventData.pointerId; origin = eventData.position;
+            player.VirtualInput = Vector2.zero;
         }
 
         public void OnDrag(PointerEventData eventData)
         {
-            if (!visual || !player || eventData.pointerId != pointerId) return;
-            Track(eventData.position);
+            if (!player || eventData.pointerId != pointerId) return;
+            var delta = Vector2.ClampMagnitude((eventData.position - origin) / Scale, Reach);
+            // Screen coordinates count upwards; the player reads them the way
+            // the browser does, with a push up meaning forward.
+            player.VirtualInput = new Vector2(delta.x / Reach, -delta.y / Reach);
         }
 
         public void OnPointerUp(PointerEventData eventData)
         {
             if (eventData.pointerId != pointerId) return;
-            pointerId = int.MinValue; want = Vector2.zero;
+            pointerId = int.MinValue;
             if (player) player.VirtualInput = Vector2.zero;
-        }
-
-        void Track(Vector2 screen)
-        {
-            var delta = Vector2.ClampMagnitude((screen - Centre) / Scale, Radius);
-            want = delta;
-            // Screen coordinates run down the way the browser reads them.
-            player.VirtualInput = new Vector2(delta.x / Radius, -delta.y / Radius);
-        }
-
-        void Update()
-        {
-            var step = Mathf.Min(Time.unscaledDeltaTime, .05f);
-            velocity += (want - at) * Stiffness * step;
-            velocity *= Mathf.Exp(-Damping * step);
-            at += velocity * step;
-            if (knob)
-            {
-                knob.anchoredPosition = at;
-                // rubber: the lever leans and stretches into the push
-                var lean = at / Radius;
-                knob.localScale = new Vector3(1f + Mathf.Abs(lean.x) * .12f, 1f + Mathf.Abs(lean.y) * .12f, 1f);
-            }
-            var target = pointerId != int.MinValue ? 1f : 0f;
-            shown = Mathf.MoveTowards(shown, target, step / (target > shown ? FadeIn : FadeOut));
-            if (group) group.alpha = shown;
         }
 
         void OnDisable()
         {
-            pointerId = int.MinValue; want = at = velocity = Vector2.zero;
-            if (group) group.alpha = 0f;
+            pointerId = int.MinValue;
             if (player) player.VirtualInput = Vector2.zero;
         }
     }
