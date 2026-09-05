@@ -101,29 +101,16 @@ namespace MiniMarket.Store
             // same slab at layout scale. It had been standing in a pale pink,
             // which is what showed through wherever a floor was missing.
             VisualBox(root,"CityGround",new Vector3(108,.1f,128),new Vector3(0,-.2f,-4),Hex("ABC7A6"),.12f,false);
-            // MarketBuilding lays these as solid slabs with painted seams, not as
-            // tiles: [23, 0.16, 17] in #eee8dc for the sales floor, [23, 0.14,
-            // 7.5] in #d7e3db for the apron, and [25, 0.12, 1.2] in #566a62 for
-            // the kerb, all at layout scale here. They had been built by
-            // stretching one floor GLB per panel, which left the model's ragged
-            // scanned edge between panels -- the ground showed through in green
-            // strips -- and blew the apron up into a single slab metres thick.
-            VisualBox(root,"StoreFloor",new Vector3(46,.16f,34),new Vector3(0,-.08f,-.7f),Hex("EEE8DC"),.08f,false);
-            foreach(var x in new[]{-15.2f,-7.6f,0f,7.6f,15.2f})
-                VisualBox(root,$"StoreFloorSeamX{x}",new Vector3(.036f,.016f,33.4f),new Vector3(x,.012f,-.7f),Hex("D9D2C5"),.05f,false);
-            foreach(var z in new[]{-13.6f,-6.8f,0f,6.8f,13.6f})
-                VisualBox(root,$"StoreFloorSeamZ{z}",new Vector3(45.4f,.016f,.036f),new Vector3(0,.013f,z-.7f),Hex("D9D2C5"),.05f,false);
-            // MarketScene leaves the forecourt a flat #d7e3db, which reads as a
-            // pale aquamarine slab beside the stone of the street. It is paved
-            // instead, with the same SidewalkSegment the pavement uses, over a
-            // slab in that tile's own median colour so no seam of the scan's
-            // ragged edge shows a different tone through.
-            VisualBox(root,"StoreApron",new Vector3(46,.14f,15),new Vector3(0,-.1f,23.8f),Hex("BDAE9C"),.06f,false);
-            const float apronTileWidth=46f/8f;const float apronTileDepth=15f/4f;
-            for(var column=0;column<8;column++)for(var row=0;row<4;row++)
-                await PlaceFitted("SidewalkSegment",
-                    new Vector3(-23+apronTileWidth*(column+.5f),-.02f,16.3f+apronTileDepth*(row+.5f)),
-                    Quaternion.identity,new Vector3(apronTileWidth,.1f,apronTileDepth),root,false);
+            // The floor is the designer's own, taken whole out of MOBILIARIO.glb
+            // by tools/kit/extract_part.py: the beige is a 3 x 3 panel slab, the
+            // white a 3 x 2, coloured from MOBILIARIO.png seen square on. The
+            // kit is modelled at an isometric yaw, so each was turned back about
+            // 23 degrees and its outline, which the scan left bowed in by three
+            // to seven thousandths, pushed back out to the straight line. Both
+            // now fill their rectangle exactly, so they are laid edge to edge:
+            // no overlap, nothing underneath, nothing cut away.
+            await TileFloor(root,"FloorTileBeige",-23,23,-17.7f,16.3f,8,6,.99f,.99f,0,0,.16f,-.08f);
+            await TileFloor(root,"FloorTileWhite",-23,23,16.3f,31.3f,8,2,.99f,.99f,0,0,.14f,-.1f);
             VisualBox(root,"StoreKerb",new Vector3(50,.12f,2.4f),new Vector3(0,-.09f,32.3f),Hex("566A62"),.02f,false);
             // MarketBuilding's entrance mat: the dark slab the player crosses in
             // the doorway, authored at [0, 0.035, 7.02] with a 3.75 x 1.05
@@ -145,6 +132,27 @@ namespace MiniMarket.Store
             var floor=VisualBox(root,"NavigationFloor",new Vector3(53.4f,2f,68.6f),new Vector3(0,-1f,-2.5f),Color.clear,0,true);
             floor.GetComponent<Renderer>().enabled=false;
             await Task.CompletedTask;
+        }
+
+        /// Lay a floor GLB across a rectangle so the faces you see meet edge to
+        /// edge. faceX and faceZ are how much of the model's box its visible top
+        /// actually covers, and offX and offZ how far that face sits off the
+        /// box centre, both as fractions of the box, measured off the mesh. The
+        /// fit is enlarged by the first pair so one cell of face lands per cell
+        /// of floor, and the piece slid by the second so the face lands square.
+        async Task TileFloor(Transform root,string id,float x0,float x1,float z0,float z1,
+                             int columns,int rows,float faceX,float faceZ,float offX,float offZ,
+                             float thickness,float y)
+        {
+            var cellX=(x1-x0)/columns;var cellZ=(z1-z0)/rows;
+            var fitX=cellX/faceX;var fitZ=cellZ/faceZ;
+            for(var column=0;column<columns;column++)for(var row=0;row<rows;row++)
+            {
+                var centre=new Vector3(x0+cellX*(column+.5f)-offX*fitX,y,z0+cellZ*(row+.5f)-offZ*fitZ);
+                var tile=await PlaceFitted(id,centre,Quaternion.identity,new Vector3(fitX,thickness,fitZ),root,false);
+                foreach(var renderer in tile.GetComponentsInChildren<Renderer>())
+                    renderer.shadowCastingMode=ShadowCastingMode.Off;
+            }
         }
 
         static Material CreateFloorMaterial()
