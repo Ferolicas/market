@@ -47,8 +47,8 @@
       "kind": "environment",
       "path": "Art/Furniture/AutomaticDoor.glb",
       "source": "GameAssets/Environment/Runtime/Furniture/AutomaticDoor.glb",
-      "bytes": 925548,
-      "sha256": "0990491e771c85cd17863ae38bdf6967044c52d09c3ccc729ceb15b140e3b221"
+      "bytes": 924112,
+      "sha256": "faf54ec68ceacdd758e2d46b0ce4a531367402d4dfad373e2de8ad85f9d76810"
     },
     {
       "id": "BackroomStorage",
@@ -1532,5 +1532,5 @@
     "metadata": 1,
     "character-motion": 9
   },
-  "totalBytes": 301638066
+  "totalBytes": 301636630
 }

@@ -446,7 +446,9 @@ namespace MiniMarket.Store
 
         async Task BuildRearFarmDoor(Transform root)
         {
-            await PlaceFitted("AutomaticDoor",new Vector3(-15,0,-17.1f),Quaternion.Euler(0,180,0),new Vector3(5.68f,3.8f,.5f),root,false);
+            // The door is a full-height wall module on the sheet, cap level with the
+            // walls beside it; fitted to 3.8 it was squashed by a third.
+            await PlaceFitted("AutomaticDoor",new Vector3(-15,0,-17.1f),Quaternion.Euler(0,180,0),new Vector3(5.68f,5.6f,.5f),root,false);
         }
 
         static void BuildWallSegment(Vector3 position,Quaternion rotation,Transform root)
