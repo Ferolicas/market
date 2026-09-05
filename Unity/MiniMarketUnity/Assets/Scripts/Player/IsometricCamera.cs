@@ -18,7 +18,7 @@ namespace MiniMarket.Player
         // is Next's azimuth and distance, 37 degrees up. The kit's geometry was
         // built for a camera about 16 degrees up (the sheets' own view), so the
         // rig keeps the azimuth and the distance and drops to that elevation.
-        const float ElevationDegrees = 40f;
+        const float ElevationDegrees = 50f;
         static readonly Vector3 OverviewOffset = Lowered(new Vector3(-16f, 23f, 25.75f), ElevationDegrees);
         static Vector3 Lowered(Vector3 offset, float degrees)
         {
