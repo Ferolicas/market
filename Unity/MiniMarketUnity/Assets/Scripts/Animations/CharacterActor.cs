@@ -14,6 +14,8 @@ namespace MiniMarket.Animations
         float nextBoundsCheck;
         float blinkTime;
         string current;
+        /// The clip playing right now, so a caller can tell whether it has to change one.
+        public string Playing => current;
         float currentRate = 1f;
 
         public int AnimationCount => clips.Count;
@@ -47,21 +49,23 @@ namespace MiniMarket.Animations
             nextBlink = Time.time + UnityEngine.Random.Range(2f, 5f);
         }
 
-        /// How far each locomotion clip carries itself per second, in world
-        /// units at the presentation scale. Measured off the delivered files:
-        /// the run covers 1.978 m in 0.633 s, the walk 0.974 m in 1.017 s.
-        /// Without these the legs cycle at the pace they were authored for
-        /// while the controller carries the body three times faster, which is
-        /// the character taking one stride and sliding several metres.
-        public const float RunGroundSpeed = 12.18f;
-        public const float WalkGroundSpeed = 3.74f;
-        public const float CarryWalkGroundSpeed = 2.45f;
-        /// Those three were measured with the cast presented at 3.90. A body
-        /// twice that size carries its own stride twice as far per cycle, so
-        /// every speed above is read against the scale the actor is drawn at;
-        /// without this the legs cycled 44% too fast and the feet skated.
-        public const float MeasuredScale = 3.90f;
-        public float StrideScale => transform.localScale.x / MeasuredScale;
+        /// How far each locomotion clip carries itself per second, in the rig's
+        /// own units, so multiplying by the scale the actor is drawn at gives
+        /// world units. Measured on the delivered rigs, not taken on trust: the
+        /// clips hold the root in place, so a planted foot sweeps backwards at
+        /// exactly the speed the body would travel, and that sweep is the
+        /// number. All three are one cycle of two steps: the walk 2.04 s, the
+        /// run 1.25 s, the carrying walk 2.42 s.
+        /// The figures written here before were between two and five times
+        /// these, which is why a body could cross three metres on one stride:
+        /// the rate they produced cycled the legs far too slowly for the
+        /// ground the controller was covering.
+        public const float RunGroundSpeed = .674f;
+        public const float WalkGroundSpeed = .429f;
+        public const float CarryWalkGroundSpeed = .227f;
+        /// The scale the actor is drawn at: a body drawn twice as large carries
+        /// its own stride twice as far per cycle.
+        public float StrideScale => transform.localScale.x;
 
         /// The clip whose own pace is nearest, and the rate that matches it.
         public static (string clip, float rate) Locomotion(float worldSpeed, bool carrying, float strideScale = 1f)
@@ -72,14 +76,17 @@ namespace MiniMarket.Animations
             // The carry walk is a slow clip; past this it cannot cover the
             // ground and the body would slide, so the run takes over and the
             // hands keep their grip on the basket.
-            if (carrying && worldSpeed <= carryPace * 2.6f)
-                return ("CarryWalk", Mathf.Clamp(worldSpeed / carryPace, .55f, 2.6f));
+            if (carrying && worldSpeed <= carryPace * 4f)
+                return ("CarryWalk", Mathf.Clamp(worldSpeed / carryPace, .55f, 4f));
             // Halfway between the two clips' own speeds: below it the walk is
             // the closer match, above it the run is.
             var crossover = (walkPace + runPace) * .5f;
+            // The ceiling is high on purpose: at the pace this shop is played
+            // the legs have to cycle several times the rate they were authored
+            // at, and a leg that cannot keep up is a foot that slides.
             return worldSpeed >= crossover
-                ? ("Run", Mathf.Clamp(worldSpeed / runPace, .6f, 2.2f))
-                : ("Walk", Mathf.Clamp(worldSpeed / walkPace, .55f, 2.4f));
+                ? ("Run", Mathf.Clamp(worldSpeed / runPace, .6f, 8f))
+                : ("Walk", Mathf.Clamp(worldSpeed / walkPace, .55f, 8f));
         }
 
         public bool Play(string requested, float fade = .18f, float rate = 1f)

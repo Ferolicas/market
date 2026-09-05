@@ -12,6 +12,7 @@ namespace MiniMarket.Customers
         Vector3 target;
         float speed;
         bool moving;
+        float lastRate=-1f;
         public string CustomerId { get; private set; }
         public bool Arrived => !moving || (nav && nav.isOnNavMesh && !nav.pathPending && nav.remainingDistance <= nav.stoppingDistance + .08f);
 
@@ -36,7 +37,15 @@ namespace MiniMarket.Customers
             speed = movementSpeed;
             moving = Vector3.SqrMagnitude(target - transform.position) > .05f;
             if(nav&&nav.isOnNavMesh){nav.speed=speed;nav.SetDestination(target);}
-            if (moving) { var (clip, rate) = CharacterActor.Locomotion(speed, false, actor.StrideScale); actor.Play(clip, .18f, rate); }
+            if (moving) Stride(speed);
+        }
+
+        void Stride(float worldSpeed)
+        {
+            if (worldSpeed <= .12f) return;
+            var (clip, rate) = CharacterActor.Locomotion(worldSpeed, false, actor.StrideScale);
+            if (Mathf.Abs(rate - lastRate) < .05f && actor.Playing == clip) return;
+            lastRate = rate; actor.Play(clip, .18f, rate);
         }
 
         public void Play(string animation, float fade = .18f) => actor.Play(animation, fade);
@@ -47,7 +56,12 @@ namespace MiniMarket.Customers
             if(!moving)return;
             if(nav&&nav.isOnNavMesh)
             {
-                if(Arrived){moving=false;nav.ResetPath();actor.Play("Idle");return;}
+                if(Arrived){moving=false;nav.ResetPath();lastRate=-1f;actor.Play("Idle");return;}
+                // The stride follows the speed the body actually has, not the
+                // one it was asked for: an agent slows into corners, around
+                // other shoppers and as it arrives, and a stride left at the
+                // requested pace is a foot sliding over the floor.
+                Stride(nav.velocity.magnitude);
                 var velocity=nav.desiredVelocity;if(velocity.sqrMagnitude>.02f)transform.rotation=Quaternion.Slerp(transform.rotation,Quaternion.LookRotation(velocity.normalized),1f-Mathf.Exp(-8f*Time.deltaTime));
                 return;
             }

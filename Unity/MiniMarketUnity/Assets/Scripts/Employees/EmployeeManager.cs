@@ -209,7 +209,7 @@ namespace MiniMarket.Employees
         /// picking up and dropping off. It is not their walking speed, which is
         /// the owner's -- one pace for everyone who cannot run.
         const float WorkPace=4f;
-        static float EmployeeSpeed(Mind mind)=>Core.Pace.Cast;
+        static float EmployeeSpeed(Mind mind)=>Core.Pace.Staff;
 
         void Rest(Mind mind)
         {
