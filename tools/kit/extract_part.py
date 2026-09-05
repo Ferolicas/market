@@ -12,6 +12,7 @@ from mathutils import Matrix, Vector
 
 argv = sys.argv[sys.argv.index("--") + 1:]
 src, part, texture, dst, budget = argv[0], argv[1], argv[2], argv[3], int(argv[4])
+flat_top = len(argv) > 5 and argv[5] == "plano"
 
 bpy.ops.wm.read_factory_settings(use_empty=True)
 bpy.ops.import_scene.gltf(filepath=src)
@@ -143,6 +144,26 @@ open_after = len([e for e in bm.edges if len(e.link_faces) < 2])
 bm.to_mesh(mesh); bm.free(); mesh.update()
 mesh.shade_smooth()
 print(f"   agujeros: {len(holes)} aristas abiertas -> {open_after}, {len(degenerate)} caras sin area fuera")
+
+if flat_top:
+    # A floor has to be flat. The scan's top wanders by a quarter of the tile's
+    # own thickness and sits higher at the rim than in the middle, which at
+    # floor scale is a visible swell: neighbouring tiles then read as sitting at
+    # different heights and the joints stop lining up. Everything in the top
+    # band is brought onto one plane. The joints are in the texture, so they
+    # stay.
+    V = np.array([v.co.z for v in mesh.vertices])
+    height = V.max() - V.min()
+    ceiling = float(np.percentile(V[V > V.max() - height * 0.25], 60))
+    lifted = 0
+    for v in mesh.vertices:
+        if v.co.z > V.max() - height * 0.28:
+            v.co.z = ceiling
+            lifted += 1
+    mesh.update()
+    W = np.array([v.co.z for v in mesh.vertices])
+    band = W[W > W.max() - height * 0.28]
+    print(f"   cara superior aplanada: {lifted} vertices a z={ceiling:.4f}, ondula {band.max()-band.min():.5f}")
 
 V = np.array([[v.co.x, v.co.y, v.co.z] for v in mesh.vertices])
 lo, hi = V.min(0), V.max(0)
