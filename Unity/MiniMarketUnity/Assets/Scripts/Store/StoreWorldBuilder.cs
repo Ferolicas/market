@@ -113,7 +113,17 @@ namespace MiniMarket.Store
                 VisualBox(root,$"StoreFloorSeamX{x}",new Vector3(.036f,.016f,33.4f),new Vector3(x,.012f,-.7f),Hex("D9D2C5"),.05f,false);
             foreach(var z in new[]{-13.6f,-6.8f,0f,6.8f,13.6f})
                 VisualBox(root,$"StoreFloorSeamZ{z}",new Vector3(45.4f,.016f,.036f),new Vector3(0,.013f,z-.7f),Hex("D9D2C5"),.05f,false);
-            VisualBox(root,"StoreApron",new Vector3(46,.14f,15),new Vector3(0,-.1f,23.8f),Hex("D7E3DB"),.06f,false);
+            // MarketScene leaves the forecourt a flat #d7e3db, which reads as a
+            // pale aquamarine slab beside the stone of the street. It is paved
+            // instead, with the same SidewalkSegment the pavement uses, over a
+            // slab in that tile's own median colour so no seam of the scan's
+            // ragged edge shows a different tone through.
+            VisualBox(root,"StoreApron",new Vector3(46,.14f,15),new Vector3(0,-.1f,23.8f),Hex("BDAE9C"),.06f,false);
+            const float apronTileWidth=46f/8f;const float apronTileDepth=15f/4f;
+            for(var column=0;column<8;column++)for(var row=0;row<4;row++)
+                await PlaceFitted("SidewalkSegment",
+                    new Vector3(-23+apronTileWidth*(column+.5f),-.02f,16.3f+apronTileDepth*(row+.5f)),
+                    Quaternion.identity,new Vector3(apronTileWidth,.1f,apronTileDepth),root,false);
             VisualBox(root,"StoreKerb",new Vector3(50,.12f,2.4f),new Vector3(0,-.09f,32.3f),Hex("566A62"),.02f,false);
             // MarketBuilding's entrance mat: the dark slab the player crosses in
             // the doorway, authored at [0, 0.035, 7.02] with a 3.75 x 1.05
