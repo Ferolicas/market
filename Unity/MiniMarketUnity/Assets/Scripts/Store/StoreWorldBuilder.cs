@@ -96,21 +96,25 @@ namespace MiniMarket.Store
 
         async Task BuildWalkableFloor(Transform root)
         {
-            // Neutral world backing is not an authored object. Every occupied
-            // floor surface below is composed from the supplied floor GLBs.
-            VisualBox(root,"CityGround",new Vector3(108,.1f,128),new Vector3(0,-.2f,-4),Hex("F0E2E5"),.12f,false);
-            // Each floor GLB already carries a 3 x 2 sub-grid, so two columns by
-            // three rows reproduce the 6 x 6 panel seams MarketBuilding draws
-            // across this same 46 x 34 floor. Placing one GLB per panel gave
-            // 18 x 10 tiles and read as bathroom tiling next to the Next frame.
-            const float storeModuleWidth=46f/2f;const float storeModuleDepth=34f/3f;
-            for(var column=0;column<2;column++)for(var row=0;row<3;row++)
-                await PlaceFitted("FloorTileBeige",new Vector3(-23+storeModuleWidth*(column+.5f),-.16f,-17.7f+storeModuleDepth*(row+.5f)),Quaternion.identity,new Vector3(storeModuleWidth,.16f,storeModuleDepth),root,false);
-            // The apron is a single seamless slab in Next; two modules keep the
-            // store's six-across rhythm without inventing extra grout lines.
-            const float apronModuleWidth=46f/2f;const float apronModuleDepth=15f;
-            for(var column=0;column<2;column++)
-                await PlaceFitted("FloorTileWhite",new Vector3(-23+apronModuleWidth*(column+.5f),-.14f,16.3f+apronModuleDepth*.5f),Quaternion.identity,new Vector3(apronModuleWidth,.14f,apronModuleDepth),root,false);
+            // The world backing is authored: CityPerimeter draws it as a 54 x 64
+            // block at [0, -0.2, -2] in the soft green below, and this is the
+            // same slab at layout scale. It had been standing in a pale pink,
+            // which is what showed through wherever a floor was missing.
+            VisualBox(root,"CityGround",new Vector3(108,.1f,128),new Vector3(0,-.2f,-4),Hex("ABC7A6"),.12f,false);
+            // MarketBuilding lays these as solid slabs with painted seams, not as
+            // tiles: [23, 0.16, 17] in #eee8dc for the sales floor, [23, 0.14,
+            // 7.5] in #d7e3db for the apron, and [25, 0.12, 1.2] in #566a62 for
+            // the kerb, all at layout scale here. They had been built by
+            // stretching one floor GLB per panel, which left the model's ragged
+            // scanned edge between panels -- the ground showed through in green
+            // strips -- and blew the apron up into a single slab metres thick.
+            VisualBox(root,"StoreFloor",new Vector3(46,.16f,34),new Vector3(0,-.08f,-.7f),Hex("EEE8DC"),.08f,false);
+            foreach(var x in new[]{-15.2f,-7.6f,0f,7.6f,15.2f})
+                VisualBox(root,$"StoreFloorSeamX{x}",new Vector3(.036f,.016f,33.4f),new Vector3(x,.012f,-.7f),Hex("D9D2C5"),.05f,false);
+            foreach(var z in new[]{-13.6f,-6.8f,0f,6.8f,13.6f})
+                VisualBox(root,$"StoreFloorSeamZ{z}",new Vector3(45.4f,.016f,.036f),new Vector3(0,.013f,z-.7f),Hex("D9D2C5"),.05f,false);
+            VisualBox(root,"StoreApron",new Vector3(46,.14f,15),new Vector3(0,-.1f,23.8f),Hex("D7E3DB"),.06f,false);
+            VisualBox(root,"StoreKerb",new Vector3(50,.12f,2.4f),new Vector3(0,-.09f,32.3f),Hex("566A62"),.02f,false);
             // MarketBuilding's entrance mat: the dark slab the player crosses in
             // the doorway, authored at [0, 0.035, 7.02] with a 3.75 x 1.05
             // footprint beneath the layout-scale group, and receiveShadow only.
@@ -140,9 +144,28 @@ namespace MiniMarket.Store
 
         async Task BuildExterior(Transform root)
         {
-            for(var segment=0;segment<9;segment++)await PlaceFitted("RoadSegment",new Vector3(-32+segment*8,-.08f,36.5f),Quaternion.identity,new Vector3(8f,.09f,7.6f),root,false);
+            // CityPerimeter lays four roads and four kerbs around the block, not
+            // one of each: [36, 0.09, 3.8] across z -21.8 and z 18.25, and
+            // [3.8, 0.09, 43.9] up x -15.85 and x 15.85, with kerbs at z -19.4,
+            // z 16.05 and x +/-13.45. Only the front pair had been built, so the
+            // other three sides of the block were bare ground.
+            const float roadModule=8f;
+            foreach(var z in new[]{36.5f,-43.6f})
+                for(var segment=0;segment<9;segment++)
+                    await PlaceFitted("RoadSegment",new Vector3(-32+segment*roadModule,-.08f,z),Quaternion.identity,new Vector3(roadModule,.09f,7.6f),root,false);
+            const float sideRoadModule=87.8f/11f;
+            foreach(var x in new[]{-31.7f,31.7f})
+                for(var segment=0;segment<11;segment++)
+                    await PlaceFitted("RoadSegment",new Vector3(x,-.08f,-47.4f+sideRoadModule*(segment+.5f)),Quaternion.Euler(0,90,0),new Vector3(sideRoadModule,.09f,7.6f),root,false);
+
             const float sidewalkWidth=53.6f/7f;
-            for(var segment=0;segment<7;segment++)await PlaceFitted("SidewalkSegment",new Vector3(-26.8f+sidewalkWidth*(segment+.5f),-.03f,32.1f),Quaternion.identity,new Vector3(sidewalkWidth,.1f,2.2f),root,false);
+            foreach(var z in new[]{32.1f,-38.8f})
+                for(var segment=0;segment<7;segment++)
+                    await PlaceFitted("SidewalkSegment",new Vector3(-26.8f+sidewalkWidth*(segment+.5f),-.03f,z),Quaternion.identity,new Vector3(sidewalkWidth,.1f,2.2f),root,false);
+            const float sideWalkModule=70.8f/9f;
+            foreach(var x in new[]{-26.9f,26.9f})
+                for(var segment=0;segment<9;segment++)
+                    await PlaceFitted("SidewalkSegment",new Vector3(x,-.03f,-38.7f+sideWalkModule*(segment+.5f)),Quaternion.Euler(0,90,0),new Vector3(sideWalkModule,.1f,2.2f),root,false);
 
             var buildings=new[]{(-10.5f,-26.1f),(-4.4f,-26.5f),(1.3f,-26.3f),(7.3f,-26f),(19.2f,-7.1f),(19.4f,-.8f),(19.1f,5.2f),(-19.1f,-6.2f),(-19.3f,.1f),(-19.1f,6.7f)};
             foreach(var (x,z) in buildings)await Place("CityBuilding",XZ(x,z),Quaternion.Euler(0,z<-20?0:x>0?-90:90,0),Vector3.one,root,true);
@@ -669,6 +692,13 @@ namespace MiniMarket.Store
             var centerX=-center[0].Value<float>()*LayoutScale;var centerZ=center[2].Value<float>()*LayoutScale;
             for(var column=0;column<6;column++)for(var row=0;row<2;row++)
                 await PlaceFitted("FarmPlotEmpty",new Vector3(centerX-size[0].Value<float>()*LayoutScale*.5f+cellWidth*(column+.5f),-.03f,centerZ-size[2].Value<float>()*LayoutScale*.5f+cellDepth*(row+.5f)),Quaternion.identity,new Vector3(cellWidth,.14f,cellDepth),root,false);
+            // KitFarm stands the plots on a lawn -- two shape meshes, #315d36
+            // under a #59934f top a fifth of a unit above it, both the size of
+            // FARM_FIELD. Without it the plots sat straight on the city ground
+            // and the gaps between them read as bare grass.
+            var fieldWidth=size[0].Value<float>()*LayoutScale;var fieldDepth=size[2].Value<float>()*LayoutScale;
+            VisualBox(root,"FarmLawnEdge",new Vector3(fieldWidth*1.035f,.1f,fieldDepth*1.035f),new Vector3(centerX,-.038f,centerZ),Hex("315D36"),.03f,false);
+            VisualBox(root,"FarmLawn",new Vector3(fieldWidth,.1f,fieldDepth),new Vector3(centerX,-.03f,centerZ),Hex("59934F"),.03f,false);
             var gate=(JObject)spec.Layouts["farm"]["FARM_GATE"];
             foreach(var token in (JArray)gate["accessCorridorFences"])await BuildFence((JObject)token,root);
             foreach(var token in (JArray)gate["perimeterWallFences"])await BuildFence((JObject)token,root);
