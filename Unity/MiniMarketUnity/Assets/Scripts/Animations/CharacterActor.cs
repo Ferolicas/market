@@ -67,26 +67,25 @@ namespace MiniMarket.Animations
         /// its own stride twice as far per cycle.
         public float StrideScale => transform.localScale.x;
 
-        /// The clip whose own pace is nearest, and the rate that matches it.
-        public static (string clip, float rate) Locomotion(float worldSpeed, bool carrying, float strideScale = 1f)
+        /// The fastest the legs may cycle above the rate they were animated
+        /// at. A leg that cannot keep up is a foot sliding over the floor, so
+        /// this is what buys a clean stride at the pace this shop is played.
+        public const float MaxRate = 15f;
+
+        /// The clip to play and the rate that makes its stride cover exactly
+        /// the ground travelled. Running is told, not guessed from the speed:
+        /// only the owner runs, and a shopper crossing the floor quickly is
+        /// still walking.
+        public static (string clip, float rate) Locomotion(float worldSpeed, bool carrying, float strideScale = 1f, bool running = false)
         {
             var walkPace = WalkGroundSpeed * strideScale;
             var runPace = RunGroundSpeed * strideScale;
             var carryPace = CarryWalkGroundSpeed * strideScale;
-            // The carry walk is a slow clip; past this it cannot cover the
-            // ground and the body would slide, so the run takes over and the
-            // hands keep their grip on the basket.
-            if (carrying && worldSpeed <= carryPace * 4f)
-                return ("CarryWalk", Mathf.Clamp(worldSpeed / carryPace, .55f, 4f));
-            // Halfway between the two clips' own speeds: below it the walk is
-            // the closer match, above it the run is.
-            var crossover = (walkPace + runPace) * .5f;
-            // The ceiling is high on purpose: at the pace this shop is played
-            // the legs have to cycle several times the rate they were authored
-            // at, and a leg that cannot keep up is a foot that slides.
-            return worldSpeed >= crossover
-                ? ("Run", Mathf.Clamp(worldSpeed / runPace, .6f, 8f))
-                : ("Walk", Mathf.Clamp(worldSpeed / walkPace, .55f, 8f));
+            if (carrying && worldSpeed <= carryPace * MaxRate)
+                return ("CarryWalk", Mathf.Clamp(worldSpeed / carryPace, .55f, MaxRate));
+            if (running || worldSpeed > walkPace * MaxRate)
+                return ("Run", Mathf.Clamp(worldSpeed / runPace, .6f, MaxRate));
+            return ("Walk", Mathf.Clamp(worldSpeed / walkPace, .55f, MaxRate));
         }
 
         public bool Play(string requested, float fade = .18f, float rate = 1f)

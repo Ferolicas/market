@@ -273,7 +273,11 @@ namespace MiniMarket.UI
         void BuildJoystick()
         {
             var area=Panel("GameInputSurface",canvas.transform,new Color(0,0,0,0));Anchor(area,Vector2.zero,Vector2.one,Vector2.zero,Vector2.zero);area.SetAsFirstSibling();
-            var visual=Panel("DragJoystick",area,Alpha(Linear("F7F1E8"),.94f));
+            // The dial sits over the shop floor, so it is barely there: a hint of
+            // the cream disc, arrows a little firmer, and a knob in the same
+            // green as the interface but almost invisible. Solid, it hid the
+            // corner of the store the player was walking into.
+            var visual=Panel("DragJoystick",area,Alpha(Linear("F7F1E8"),.10f));
             visual.anchorMin=visual.anchorMax=new Vector2(.5f,.5f);visual.pivot=new Vector2(.5f,.5f);visual.sizeDelta=new Vector2(176,176);
             // Four cardinal arrows around a green knob, the dial the sheet draws.
             var arrows=new[]{(0f,58f,0f),(0f,-58f,180f),(-58f,0f,90f),(58f,0f,-90f)};
@@ -281,14 +285,14 @@ namespace MiniMarket.UI
             {
                 var arrow=new GameObject("Arrow",typeof(RectTransform),typeof(Image));
                 arrow.transform.SetParent(visual,false);
-                var image=arrow.GetComponent<Image>();image.sprite=Icon("chevron");image.color=Alpha(Sage,.6f);
+                var image=arrow.GetComponent<Image>();image.sprite=Icon("chevron");image.color=Alpha(Sage,.22f);
                 image.preserveAspect=true;image.raycastTarget=false;
                 var rect=arrow.GetComponent<RectTransform>();
                 rect.anchorMin=rect.anchorMax=new Vector2(.5f,.5f);rect.pivot=new Vector2(.5f,.5f);
                 rect.sizeDelta=new Vector2(20,20);rect.anchoredPosition=new Vector2(x,y);
                 rect.localRotation=Quaternion.Euler(0,0,angle);
             }
-            var knob=Panel("Knob",visual,Green);knob.anchorMin=knob.anchorMax=new Vector2(.5f,.5f);knob.pivot=new Vector2(.5f,.5f);knob.sizeDelta=new Vector2(62,62);knob.anchoredPosition=Vector2.zero;
+            var knob=Panel("Knob",visual,Alpha(Green,.22f));knob.anchorMin=knob.anchorMax=new Vector2(.5f,.5f);knob.pivot=new Vector2(.5f,.5f);knob.sizeDelta=new Vector2(62,62);knob.anchoredPosition=Vector2.zero;
             joystick=area.gameObject.AddComponent<VirtualJoystick>();joystick.Bind(area,visual,knob,runtime.Player);
         }
 

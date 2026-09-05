@@ -28,7 +28,7 @@ namespace MiniMarket.Animations
             // covers the ground the body actually crosses. A fixed threshold
             // also flipped Run and Walk on every frame that hovered around it,
             // restarting a 0.18 s crossfade each time.
-            var (clip, rate) = CharacterActor.Locomotion(speed, loaded, actor.StrideScale);
+            var (clip, rate) = CharacterActor.Locomotion(speed, loaded, actor.StrideScale, controller.Running);
             if (clip == current && Mathf.Abs(rate - lastRate) < .06f) return;
             current = clip; lastRate = rate; actor.Play(clip, .18f, rate);
         }

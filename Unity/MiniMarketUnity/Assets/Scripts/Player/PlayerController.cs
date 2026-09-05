@@ -40,6 +40,8 @@ namespace MiniMarket.Player
         public Vector2 VirtualInput { get; set; }
         public bool InputEnabled { get; set; } = true;
         public float Speed01 { get; private set; }
+        /// True while the owner holds the run key. The rest of the cast walks.
+        public bool Running { get; private set; }
         /// Feeds the WorkstationController port, which mirrors Next's rule that a
         /// deliberate new move cancels stationary work.
         public float InputMagnitude { get; private set; }
@@ -73,6 +75,7 @@ namespace MiniMarket.Player
             var tierMultiplier=1f+Mathf.Min(.32f,(tier-1)*.08f);
             // Hold shift to run. The cast walks at walkSpeed and cannot do this.
             var running=Keyboard.current!=null&&(Keyboard.current.leftShiftKey.isPressed||Keyboard.current.rightShiftKey.isPressed);
+            Running=running&&direction.sqrMagnitude>.01f;
             var pace=(running?runSpeed:walkSpeed)*tierMultiplier;
             var targetSpeed = direction.sqrMagnitude > .01f ? pace : 0f;
             var desired = direction * targetSpeed;
