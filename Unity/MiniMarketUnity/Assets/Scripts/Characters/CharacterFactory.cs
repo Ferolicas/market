@@ -9,6 +9,11 @@ namespace MiniMarket.Characters
 {
     public sealed class CharacterFactory
     {
+        // Two fifths taller than delivered, on request (3.90 -> 4.68 -> 5.616);
+        // the children keep 85% of that so a glance tells them apart.
+        const float BodyScale=5.616f;
+        const float ChildScale=4.776f;
+        static readonly HashSet<string> Children=new(StringComparer.OrdinalIgnoreCase){"Boy","Girl"};
         readonly RuntimeGltfLoader loader;
         public CharacterFactory(RuntimeGltfLoader runtimeLoader) => loader = runtimeLoader;
 
@@ -20,8 +25,11 @@ namespace MiniMarket.Characters
             root.transform.localPosition = position;
             // The delivered cast is metric, about a metre tall in its own file,
             // and read far too small beside the storefront. Geometry is never
-            // touched; only this shared presentation scale carries the size.
-            root.transform.localScale=Vector3.one*3.90f;
+            // touched; only this presentation scale carries the size. Measured,
+            // the nine bodies are all 0.98 tall -- the boy and the girl too, who
+            // differ only in their proportions -- so the shorter children are
+            // this scale and nothing else.
+            root.transform.localScale=Vector3.one*(Children.Contains(characterId)?ChildScale:BodyScale);
 
             // Web/PWA uses a tiny motion-only GLB (50-bone rig + 47 clips)
             // and one approved LOD2 renderer. Loading all three full skinned

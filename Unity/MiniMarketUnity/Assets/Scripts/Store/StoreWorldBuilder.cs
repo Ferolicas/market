@@ -29,15 +29,21 @@ namespace MiniMarket.Store
         public const float PieceScale = 2f;
         public const float SmallPieceScale = 2.5f;
         const float SmallThreshold = 2.5f;
-        /// The world outside the shop and the building's own face keep the size
-        /// they were approved at; only what stands inside the shop is enlarged.
+        /// The world outside the shop keeps the size it was approved at.
         static readonly HashSet<string> AuthoredScale = new(StringComparer.OrdinalIgnoreCase)
         {
             "RoadSegment","SidewalkSegment","Crosswalk","ParkingSpace","CityBuilding","Car","BusStop","Bench","Tree","StreetLight",
+        };
+        /// The building's face -- entrance, storefront, walls, rear door -- moves
+        /// as one piece; a fifth bigger than authored, on request. Split from the
+        /// street so the shop can grow without the cars and the trees growing.
+        public const float EnvelopeScale = 1.2f;
+        static readonly HashSet<string> Envelope = new(StringComparer.OrdinalIgnoreCase)
+        {
             "StoreEntrance","StoreEntranceAlt","StorefrontWindow","WallStraight","WallCorner","AutomaticDoor",
         };
         static float SizeFactor(string id,float authored)=>
-            AuthoredScale.Contains(id)?1f:authored<SmallThreshold?SmallPieceScale:PieceScale;
+            AuthoredScale.Contains(id)?1f:Envelope.Contains(id)?EnvelopeScale:authored<SmallThreshold?SmallPieceScale:PieceScale;
         const float LayoutScale = 2f;
         const float ElementScale = 1.6f;
 
@@ -255,7 +261,7 @@ namespace MiniMarket.Store
             // Modules twice their authored size, as many as the tripled spans need.
             const float sideModule=32.66f/7f;const float wallHeight=5.6f;
             foreach(var x in new[]{-23f,23f})await FillSpan("WallStraight",true,x,-17.1f,15.56f,sideModule,wallHeight,.34f,0,world.Root);
-            const float rearModule=35.28f/6f;const float doorHalf=5.68f/2f/StoreScale;   // the rear door's half width, local
+            const float rearModule=35.28f/6f;const float doorHalf=5.68f*EnvelopeScale/2f/StoreScale;   // the rear door's half width, local
             await FillSpan("WallStraight",false,-17.1f,-23f,-15f-doorHalf,rearModule,wallHeight,.64f,0,world.Root);
             await FillSpan("WallStraight",false,-17.1f,-15f+doorHalf,23f,rearModule,wallHeight,.64f,0,world.Root);
             PhysicsBox(world.Root,"LeftWallCollider",new Vector3(.34f,5.6f,34.4f),new Vector3(-23,2.8f,-.7f));
@@ -278,7 +284,7 @@ namespace MiniMarket.Store
             // entrance's glass is transparent, so the facade stays on screen.
             // Windows twice their size fill each side from the entrance's edge
             // (its width is PieceScale of the authored) out to the corner.
-            const float storefrontModule=8.12f;var edge=12.91f/2f/StoreScale;   // entranceWidth, declared further down
+            const float storefrontModule=8.12f;var edge=12.91f*EnvelopeScale/2f/StoreScale;   // entranceWidth, declared further down
             await FillSpan("StorefrontWindow",false,15.6f,-22.7f,-edge,storefrontModule,5.6f,.72f,0,root);
             await FillSpan("StorefrontWindow",false,15.6f,edge,22.7f,storefrontModule,5.6f,.72f,0,root);
             // The entrance stays on screen. Next never hides its storefront --
