@@ -113,7 +113,7 @@ namespace MiniMarket.Core
 
             LoadStatus="Cargando personaje y animaciones…";hud.ShowLoading(LoadStatus);
             characterFactory=new CharacterFactory(gltf);var body=BodyAsset(State.Root["avatar"]?.Value<string>("body"));playerCharacterId=body;
-            PlayerActor=await characterFactory.CreateAsync(body,transform,new Vector3(0,0,12.5f),true);
+            PlayerActor=await characterFactory.CreateAsync(body,transform,new Vector3(0,0,12.5f*StoreWorldBuilder.StoreScale),true);
             PlayerActor.gameObject.tag="Player";
             Player=PlayerActor.gameObject.AddComponent<PlayerController>();Player.Bind(State);Player.InputEnabled=!CompanySetup.Required;Interactions.Bind(Player);lastPlayerPosition=Player.transform.position;
             var bridge=PlayerActor.gameObject.AddComponent<PlayerAnimationBridge>();bridge.Bind(Player,PlayerActor,Carry);
@@ -159,7 +159,7 @@ namespace MiniMarket.Core
             // transform write is discarded and the guard would refire every frame.
             var body=Player.GetComponent<CharacterController>();
             if(body)body.enabled=false;
-            Player.transform.position=entrance?entrance.position:new Vector3(0,0,12.5f);
+            Player.transform.position=entrance?entrance.position:new Vector3(0,0,12.5f*StoreWorldBuilder.StoreScale);
             if(body)body.enabled=true;
         }
 

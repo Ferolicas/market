@@ -19,6 +19,10 @@ namespace MiniMarket.Store
         readonly InteractionDirector interactions;
         readonly Transform parent;
         static readonly Dictionary<string,Material> RuntimeMaterials=new();
+        /// The shop and everything in it, three times the authored size: the
+        /// world root carries the scale, so every placement, point and collider
+        /// under it grows together while the cast keeps its own size.
+        public const float StoreScale = 3f;
         const float LayoutScale = 2f;
         const float ElementScale = 1.6f;
 
@@ -78,6 +82,7 @@ namespace MiniMarket.Store
         public async Task<StoreWorld> BuildAsync()
         {
             var world = new StoreWorld { Root = New("StoreWorld", Vector3.zero) };
+            world.Root.localScale = Vector3.one * StoreScale;
             await BuildWalkableFloor(world.Root);
             await BuildEnvelope(world);
             await BuildExterior(world.Root);
@@ -440,7 +445,7 @@ namespace MiniMarket.Store
 
         static void PhysicsBox(Transform root,string name,Vector3 size,Vector3 position)
         {
-            var box=new GameObject(name);box.transform.SetParent(root,false);box.transform.position=position;var collider=box.AddComponent<BoxCollider>();collider.size=size;box.isStatic=true;
+            var box=new GameObject(name);box.transform.SetParent(root,false);box.transform.localPosition=position;var collider=box.AddComponent<BoxCollider>();collider.size=size;box.isStatic=true;
         }
 
 
@@ -495,7 +500,7 @@ namespace MiniMarket.Store
 
         static GameObject VisualBox(Transform root,string name,Vector3 size,Vector3 position,Color color,float smoothness,bool collider)
         {
-            var box=GameObject.CreatePrimitive(PrimitiveType.Cube);box.name=name;box.transform.SetParent(root,false);box.transform.position=position;box.transform.localScale=size;box.isStatic=true;
+            var box=GameObject.CreatePrimitive(PrimitiveType.Cube);box.name=name;box.transform.SetParent(root,false);box.transform.localPosition=position;box.transform.localScale=size;box.isStatic=true;
             box.GetComponent<Renderer>().sharedMaterial=RuntimeMaterial($"{name}_Material",color,smoothness);
             if(!collider)UnityEngine.Object.Destroy(box.GetComponent<Collider>());
             return box;
@@ -683,7 +688,7 @@ namespace MiniMarket.Store
 
         static GameObject TransparentBox(Transform root,string name,Vector3 size,Vector3 position,Color color,bool collider)
         {
-            var box=GameObject.CreatePrimitive(PrimitiveType.Cube);box.name=name;box.transform.SetParent(root,false);box.transform.position=position;box.transform.localScale=size;box.isStatic=true;
+            var box=GameObject.CreatePrimitive(PrimitiveType.Cube);box.name=name;box.transform.SetParent(root,false);box.transform.localPosition=position;box.transform.localScale=size;box.isStatic=true;
             box.GetComponent<Renderer>().sharedMaterial=TransparentRuntimeMaterial($"{name}_Material",color);
             if(!collider)UnityEngine.Object.Destroy(box.GetComponent<Collider>());
             return box;
@@ -894,8 +899,8 @@ namespace MiniMarket.Store
             // following while the body dropped out of sight.
             var ground = new GameObject("OuterGroundCollider");
             ground.transform.SetParent(parent, false);
-            ground.transform.localPosition = new Vector3(0, -1f, -4f);
-            ground.AddComponent<BoxCollider>().size = new Vector3(108f, 2f, 128f);
+            ground.transform.localPosition = new Vector3(0, -1f, -4f * StoreScale);
+            ground.AddComponent<BoxCollider>().size = new Vector3(108f * StoreScale, 2f, 128f * StoreScale);
             ground.isStatic = true;
 
             // And close the perimeter, so the edge of the ground cannot be walked
@@ -911,8 +916,8 @@ namespace MiniMarket.Store
             {
                 var wall = new GameObject("OuterGroundWall");
                 wall.transform.SetParent(parent, false);
-                wall.transform.localPosition = offset;
-                wall.AddComponent<BoxCollider>().size = size;
+                wall.transform.localPosition = new Vector3(offset.x * StoreScale, offset.y, offset.z * StoreScale);
+                wall.AddComponent<BoxCollider>().size = new Vector3(size.x * StoreScale, size.y, size.z * StoreScale);
                 wall.isStatic = true;
             }
         }
@@ -945,6 +950,7 @@ namespace MiniMarket.Store
 
         static void FitLocalSize(GameObject instance,Vector3 targetSize)
         {
+            targetSize*=instance.transform.parent?instance.transform.parent.lossyScale.x:1f;   // sizes are authored unscaled; the root scales them
             var renderers=instance.GetComponentsInChildren<Renderer>(true);if(renderers.Length==0)return;
             var rotation=instance.transform.localRotation;instance.transform.localRotation=Quaternion.identity;instance.transform.localScale=Vector3.one;
             var bounds=renderers[0].bounds;for(var i=1;i<renderers.Length;i++)bounds.Encapsulate(renderers[i].bounds);var current=bounds.size;
@@ -954,6 +960,7 @@ namespace MiniMarket.Store
 
         static void NormalizeScale(GameObject instance,float targetLongest)
         {
+            targetLongest*=instance.transform.parent?instance.transform.parent.lossyScale.x:1f;
             var renderers=instance.GetComponentsInChildren<Renderer>(true);if(renderers.Length==0||targetLongest<=0)return;
             var bounds=renderers[0].bounds;for(var i=1;i<renderers.Length;i++)bounds.Encapsulate(renderers[i].bounds);
             var longest=Mathf.Max(bounds.size.x,Mathf.Max(bounds.size.y,bounds.size.z));if(longest<=.0001f)return;
@@ -984,7 +991,7 @@ namespace MiniMarket.Store
 
         Transform New(string name, Vector3 position)
         {
-            var value = new GameObject(name).transform; value.SetParent(parent, false); value.position = position; return value;
+            var value = new GameObject(name).transform; value.SetParent(parent, false); value.position = position * StoreScale; return value;
         }
     }
 }
