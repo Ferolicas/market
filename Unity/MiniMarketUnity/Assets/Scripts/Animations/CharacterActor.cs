@@ -68,10 +68,10 @@ namespace MiniMarket.Animations
         public float StrideScale => transform.localScale.x;
 
         /// The fastest the legs may cycle above the rate they were animated at.
-        /// Eight: judged on screen as the point where a run reads natural and
-        /// fluid. Below it the legs cannot keep up with the ground at the pace
-        /// this shop is played and the feet slide.
-        public const float MaxRate = 8f;
+        /// Four: judged on screen as the point where the run reads natural and
+        /// fluid. Higher and the legs blur, lower and they cannot keep up with
+        /// the ground at the pace this shop is played.
+        public const float MaxRate = 4f;
 
         /// The clip to play and the rate that makes its stride cover exactly
         /// the ground travelled. Running is told, not guessed from the speed:
