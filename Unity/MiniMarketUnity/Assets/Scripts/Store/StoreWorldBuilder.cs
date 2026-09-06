@@ -84,6 +84,88 @@ namespace MiniMarket.Store
             ["SupplierTerminal"]=new(1.9f,2.45f,1.05f),["DeliveryDock"]=new(3.1f,1.6f,2.2f),
         };
 
+        /// Every piece of the kit that had no place in the shop until now, with
+        /// the size it should read at. Without an entry a piece falls back to
+        /// the generic element scale and a gondola comes out the size of a
+        /// crate.
+        static readonly Dictionary<string,float> KitPropSize = new()
+        {
+            ["CashRegister"]=0.45f,["CardTerminal"]=0.26f,["ReceiptPrinter"]=0.32f,["Conveyor"]=3.2f,["CashierStool"]=1.15f,["CheckoutScanner"]=0.64f,
+            ["CheckoutScannerAlt"]=0.58f,["CashDrawer"]=0.58f,["CashDrawerAlt"]=0.58f,["CheckoutShelf"]=1.53f,["CheckoutCounter"]=3.2f,["BaggingArea"]=1.92f,
+            ["BaggingAreaAlt"]=1.92f,["ReusableShoppingBag"]=0.51f,["BasketStackAlt"]=1.28f,["ShoppingBasket"]=0.58f,["ShoppingBasketAlt"]=0.58f,
+            ["PromotionalBasket"]=1.28f,["ShelfGondolaDouble"]=3.85f,["ShelfGondolaSingle"]=3.2f,["ShelfCorner"]=2.56f,["ShelfDivider"]=0.77f,
+            ["ShelfPriceRail"]=1.28f,["DisplayTable"]=1.8f,["DisplayProduceSloped"]=2.05f,["RefrigeratedDisplay"]=2.3f,["ChestFreezer"]=1.92f,
+            ["WorkCounter"]=2.05f,["UtilitySink"]=1.28f,["BakeryWorkArea"]=2.3f,["Pallet"]=1.53f,["WoodCrate"]=0.77f,["Furniture2:WoodCrate"]=0.77f,
+            ["MilkCan"]=0.64f,["EggTray"]=0.38f,["FlourMill"]=2.1f,["JuiceMachine"]=2.1f,["DeliveryDockAlt"]=3.1f,["UpgradePlatformAlt"]=2.2f,["FarmGate"]=2.05f,
+            ["FarmFenceCorner"]=1.28f,["RaisedBed"]=2.05f,["IrrigationBed"]=2.05f,["IrrigationChannel"]=3.2f,["Sprinkler"]=0.77f,["WateringCan"]=0.51f,
+            ["SeedSack"]=0.64f,["FarmPlotSeeded"]=3.0f,["FarmPlotWatered"]=3.0f,["CarrotRipe"]=1.6f,["LettuceRipe"]=1.6f,["PumpkinRipe"]=1.6f,
+            ["WheatGrowing"]=1.6f,["ChickenPaddock"]=3.85f,["CowPaddock"]=4.15f,
+        };
+
+        /// Where each of them stands: shop coordinates as the specification
+        /// uses them, the height above the floor in world units for the ones
+        /// that sit on a surface, and the turn. None of them carries a collider:
+        /// they are furnishing, and the navigation mesh is baked from what was
+        /// already there, so no customer or worker route changes.
+        static readonly (string id,float x,float z,float y,float yaw)[] KitProps =
+        {
+            ("CheckoutCounter",10.4f,2.6f,0f,90f),   // mostrador de atencion contra la pared derecha
+            ("CashRegister",10.4f,3.0f,4.41f,90f),
+            ("CardTerminal",10.4f,2.6f,4.41f,90f),
+            ("ReceiptPrinter",10.4f,2.2f,4.41f,90f),
+            ("CashierStool",10.0f,2.6f,0f,90f),
+            ("Conveyor",6.85f,3.95f,0f,90f),   // cinta junto a la caja 1
+            ("CheckoutShelf",6.85f,2.45f,0f,90f),   // estante entre las dos cajas
+            ("CheckoutScanner",6.85f,2.45f,2.89f,90f),
+            ("CashDrawer",6.85f,2.65f,2.89f,90f),
+            ("BaggingArea",8.95f,4.55f,0f,-90f),   // embolsado de la caja 1
+            ("ReusableShoppingBag",8.95f,4.0f,0f,-90f),
+            ("BaggingAreaAlt",8.95f,1.55f,0f,-90f),   // embolsado de la caja 2
+            ("BasketStackAlt",1.9f,6.5f,0f,180f),   // cestas junto a la entrada
+            ("ShoppingBasket",2.35f,6.15f,0f,180f),
+            ("ShoppingBasketAlt",2.35f,5.85f,0f,180f),
+            ("PromotionalBasket",5.3f,5.8f,0f,180f),   // cesta de ofertas frente a caja
+            ("ShelfGondolaDouble",-7.8f,0.9f,0f,90f),   // pasillo nuevo a la izquierda
+            ("ShelfGondolaSingle",-7.8f,-0.9f,0f,90f),
+            ("ShelfDivider",-7.8f,1.9f,0f,90f),
+            ("ShelfPriceRail",-7.8f,-1.9f,0f,90f),
+            ("DisplayTable",-9.9f,0.9f,0f,0f),
+            ("MilkCan",-9.9f,0.9f,2.17f,0f),
+            ("EggTray",-9.6f,0.9f,2.17f,0f),
+            ("DisplayProduceSloped",-9.9f,-0.9f,0f,0f),
+            ("ShelfCorner",-10.6f,2.1f,0f,0f),   // esquina delantera izquierda
+            ("RefrigeratedDisplay",10.4f,-0.6f,0f,90f),   // frio contra la pared derecha
+            ("ChestFreezer",10.4f,-2.2f,0f,90f),
+            ("WorkCounter",-8.25f,-4.6f,0f,0f),   // obrador dentro de la cabina
+            ("UtilitySink",-10.2f,-7.0f,0f,0f),
+            ("BakeryWorkArea",-6.3f,-7.0f,0f,0f),
+            ("Pallet",2.8f,-7.4f,0f,0f),   // trastienda
+            ("WoodCrate",2.8f,-7.4f,1.04f,0f),
+            ("Furniture2:WoodCrate",2.4f,-6.9f,0f,25f),
+            ("FlourMill",1.4f,-5.4f,0f,0f),
+            ("JuiceMachine",2.6f,-5.4f,0f,0f),
+            ("CashDrawerAlt",3.4f,-7.2f,0f,20f),
+            ("CheckoutScannerAlt",4.0f,-7.2f,0f,-15f),
+            ("DeliveryDockAlt",10.6f,-5.4f,0f,90f),   // segundo muelle
+            ("UpgradePlatformAlt",10.6f,-3.8f,0f,90f),
+            ("FarmGate",7.5f,-10.575f,0f,0f),   // porton de la granja
+            ("FarmFenceCorner",10.3f,-10.7f,0f,0f),
+            ("RaisedBed",-1.8f,-11.6f,0f,0f),   // franja de trabajo de la granja
+            ("IrrigationBed",0.4f,-11.6f,0f,0f),
+            ("IrrigationChannel",2.6f,-11.6f,0f,90f),
+            ("Sprinkler",4.4f,-11.6f,0f,0f),
+            ("WateringCan",-3.6f,-11.4f,0f,0f),
+            ("SeedSack",-4.8f,-11.4f,0f,0f),
+            ("FarmPlotSeeded",-8.2f,-12.72f,0f,0f),   // bancales extra
+            ("FarmPlotWatered",-8.2f,-15.45f,0f,0f),
+            ("ChickenPaddock",1.6f,-12.9f,0f,0f),   // corrales
+            ("CowPaddock",5.4f,-12.9f,0f,0f),
+            ("WheatGrowing",2.4f,-16.4f,0f,0f),   // cultivos maduros al fondo
+            ("CarrotRipe",3.8f,-16.4f,0f,0f),
+            ("LettuceRipe",5.0f,-16.4f,0f,0f),
+            ("PumpkinRipe",6.2f,-16.4f,0f,0f),
+        };
+
         // Inspection switch. With it on, the shop's contents are stripped to bare
         // floor and walls so the floor can be judged on its own: everything
         // placed inside keeps its logic, sockets and interactions, and loses
@@ -113,6 +195,7 @@ namespace MiniMarket.Store
             await BuildProduction(world);
             await BuildFarm(world);
             await BuildServices(world);
+            await BuildKitProps(world.Root);
             BuildNavigationAnchors(world);
             BuildNavMesh(world.Root);
             BuildOuterGroundCollider(parent);
@@ -768,6 +851,23 @@ namespace MiniMarket.Store
             }
         }
 
+        async Task BuildKitProps(Transform root)
+        {
+            var report=new List<string>();
+            foreach(var prop in KitProps)
+            {
+                var placed=HideIfBare(await Place(prop.id,XZ(prop.x,prop.z,prop.y),Quaternion.Euler(0,prop.yaw,0),Vector3.one,root));
+                if(!placed){report.Add($"{prop.id}=FALTA");continue;}
+                var renderers=placed.GetComponentsInChildren<Renderer>(true);
+                if(renderers.Length==0){report.Add($"{prop.id}=SIN_MALLA");continue;}
+                var bounds=renderers[0].bounds;for(var i=1;i<renderers.Length;i++)bounds.Encapsulate(renderers[i].bounds);
+                report.Add($"{prop.id}@{bounds.center.x:0.#},{bounds.center.z:0.#} base={bounds.min.y:0.##} alto={bounds.size.y:0.##}");
+            }
+            var rotos=report.FindAll(line=>line.Contains("FALTA")||line.Contains("SIN_MALLA"));
+            if(rotos.Count>0)Debug.LogWarning("MINIMARKET_PROPS "+string.Join(" ",rotos));
+            Debug.Log($"MINIMARKET_PROPS colocadas={report.Count-rotos.Count}/{KitProps.Length}");
+        }
+
         async Task BuildFarmField(Transform root)
         {
             var field=(JObject)spec.Layouts["farm"]["FARM_FIELD"];var center=(JArray)field["center"];var size=(JArray)field["size"];
@@ -969,7 +1069,9 @@ namespace MiniMarket.Store
             if(TargetLocalSize.TryGetValue(id,out var targetSize))FitLocalSize(instance,targetSize*SizeFactor(id,Mathf.Max(targetSize.x,Mathf.Max(targetSize.y,targetSize.z))));
             else
             {
-                var target=TargetLongestDimension.TryGetValue(id,out var listed)?listed:Mathf.Max(scale.x,Mathf.Max(scale.y,scale.z));
+                var target=TargetLongestDimension.TryGetValue(id,out var listed)?listed
+                    :KitPropSize.TryGetValue(id,out var kit)?kit
+                    :Mathf.Max(scale.x,Mathf.Max(scale.y,scale.z));
                 NormalizeScale(instance,target*SizeFactor(id,target));
             }
             foreach(var child in instance.GetComponentsInChildren<Transform>(true))child.gameObject.isStatic=true;

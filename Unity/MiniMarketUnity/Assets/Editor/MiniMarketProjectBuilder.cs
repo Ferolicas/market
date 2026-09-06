@@ -28,7 +28,13 @@ namespace MiniMarket.Editor
             "FlourMillAlt","BreadOven","CheeseMachine","JuiceMachineAlt","FarmPlotEmpty","FarmPlotFurrows","FarmFenceLong","FarmFenceShort","FarmToolSet","CompostBin","MiniGreenhouse",
             "Scarecrow","FarmWaterTank","Chicken","Cow","SupplierTerminal","DeliveryDock","HiringPoint","UpgradePlatform","BasketStack",
             "ShoppingBasket","Parcel","CropSeed","CropSprout","CropSmall","CropGrowing","TomatoRipe","WheatRipe","CornRipe",
-            "CheckoutBag","HarvestBasket",
+            "CheckoutBag","HarvestBasket","FlourMill","JuiceMachine",
+            "CashRegister","CardTerminal","ReceiptPrinter","Conveyor","CashierStool","CheckoutScanner","CheckoutScannerAlt","CashDrawer","CashDrawerAlt",
+            "CheckoutShelf","CheckoutCounter","BaggingArea","BaggingAreaAlt","ReusableShoppingBag","BasketStackAlt","ShoppingBasketAlt","PromotionalBasket",
+            "ShelfGondolaDouble","ShelfGondolaSingle","ShelfCorner","ShelfDivider","ShelfPriceRail","DisplayTable","DisplayProduceSloped","RefrigeratedDisplay",
+            "ChestFreezer","WorkCounter","UtilitySink","BakeryWorkArea","Pallet","WoodCrate","Furniture2:WoodCrate","MilkCan","EggTray","DeliveryDockAlt",
+            "UpgradePlatformAlt","FarmGate","FarmFenceCorner","RaisedBed","IrrigationBed","IrrigationChannel","Sprinkler","WateringCan","SeedSack",
+            "FarmPlotSeeded","FarmPlotWatered","CarrotRipe","LettuceRipe","PumpkinRipe","WheatGrowing","ChickenPaddock","CowPaddock",
         };
 
         [MenuItem("Mini Market/Configure Project")]
