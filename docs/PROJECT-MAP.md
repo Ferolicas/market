@@ -79,15 +79,16 @@ Simulador empresarial 3D individual y privado para la familia, jugable en navega
 - La vista previa del avatar usa cámara propia a `RenderTexture` con `cullingMask` en la capa 8, a la que se traslada la jerarquía del jugador: encuadrada dentro de la tienda, cualquier ángulo tiene una pared o una estantería por delante. Se orienta desde `RenderSettings.sun` para que la cara iluminada mire al panel.
 - `SaveCoordinator` escribe recuperación local cada 10 segundos y sincroniza con el backend como máximo cada 30 minutos, además del cierre explícito de jornada. Conserva eventos pendientes y copia local ante conflicto.
 - Licencias y franquicias conservan inventario/empleados propios; viajar reinicia agentes visuales sin mezclar el estado de las sucursales.
-- La build WebGL vigente (`194.218.112` bytes, sello `20260907-085228`,
-  commit `246d850`) vive en `Unity/MiniMarketUnity/Builds/WebGL/`, puede
+- La build WebGL vigente (`171.193.682` bytes, sello `20260907-204038`,
+  commit `2049c92`, catálogo `a5741f8a7a332ca8`) vive en `Unity/MiniMarketUnity/Builds/WebGL/`, puede
   servirse localmente en `http://127.0.0.1:4173` y está publicada desde el
   release inmutable
-  `/var/www/market-unity/releases/20260907-security-hardening-final`. El
+  `/var/www/market-unity/releases/20260907-environment-polish-final`. El
   despliegue usa `MigrationTools/deploy-web.sh`: normaliza directorios a `755`
   y archivos a `644` durante la copia, valida 174 hashes y lectura como
   `caddy`, vuelve el release de solo lectura y cambia `current` únicamente
   después de esas comprobaciones.
+- QA del entorno publicado (2026-09-07): carga real hasta `MINIMARKET_READY`, creación de empresa y locomoción por teclado sobre `market.olcas.app`; los primeros 200 fotogramas en movimiento y los 874 del recorrido sostenido quedaron en p95/p99 de `16,67 ms`, sin ningún frame de más de 50 ms, sin errores ni pérdida WebGL. El smoke test confirmó HTTP 200, PostgreSQL `ok`, manifiesto instalable y service worker activo. La compilación salió con cero advertencias y redujo el paquete WebGL en 23.024.430 bytes respecto al release anterior.
 - La plantilla PWA sella `__MINIMARKET_BUILD_STAMP__` en el build: `MiniMarketProjectBuilder.StampBuildVersion` lo sustituye en `index.html`, `sw.js` y `service-worker.js`, de modo que el `?v=` y el nombre de caché cambian en cada build y `activate` borra las caches anteriores. Antes la versión estaba escrita a mano y el caché era `mini-market-unity-v6` fijo, así que una build nueva seguía leyendo el catálogo anterior fuera de incógnito. Los GLB y el catálogo revalidan con `cache: "no-cache"`, y en localhost la purga de workers se espera antes de arrancar y recarga una vez si aún había controlador.
 - La ampliación conserva la retícula visual completa con sólo dos renderers y cuatro triángulos de suelo. En la prueba móvil con CPU limitada, el primer movimiento sostuvo 30 fps, no produjo ningún fotograma de más de 100 ms y mantuvo 254,1 MB asignados; en GPU de escritorio sostuvo 60 fps con p95 de 16,67 ms.
 - Hueco conocido: `EntranceMat` reproduce la geometría y la posición de Next pero renderiza a una décima parte de la luz difusa esperada —`(27,35,37)` frente a `(46,84,71)`—. Descartados espacio de color (el material guarda el lineal exacto), soporte de shader (`isSupported=True`), proyección y recepción de sombras, batching estático y GPU instancing. El suelo glTF contiguo se ilumina bien, así que la diferencia está en la ruta `GameObject.CreatePrimitive` + material creado por script.
@@ -282,8 +283,8 @@ Los valores solo existen en `.env` local, secretos de Actions y `/var/www/market
 - Caddy termina HTTPS, sirve el cliente Unity estático desde `/var/www/market-unity/current` y dirige `/api/*`, recuperación de contraseña y chunks Next a `127.0.0.1:4010`.
 - Next escucha únicamente en `127.0.0.1:4010`. Caddy añade HSTS, CSP compatible
   con WebAssembly, anti-frame, nosniff, referrer, permissions, COOP y COEP. El
-  release WebGL final es `20260907-security-hardening-final`, con 174 hashes y
-  la identidad del commit `246d850`.
+  release WebGL final es `20260907-environment-polish-final`, con 174 hashes y
+  la identidad del commit `2049c92`.
 - El restore dedicado de `market_db` fue ensayado el 2026-09-07 en una base
   aislada: ocho tablas comparadas sin diferencias y base temporal eliminada.
 - Comprobación previa al push: `pnpm typecheck && pnpm lint && pnpm test && pnpm build`.
