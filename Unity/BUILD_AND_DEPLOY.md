@@ -35,9 +35,9 @@ Abre `http://127.0.0.1:4173` y pulsa `ENTRAR AL JUEGO`. Ese gesto inicia Unity y
 
 Producción está activa en `https://market.olcas.app/`. Caddy sirve directamente el release inmutable enlazado desde `/var/www/market-unity/current`; no se introdujo Nginx ni un proceso Node adicional. El Next.js existente permanece en PM2 como `market`, puerto `4010`, y Caddy conserva allí `/api/*`, `/reset-password*` y `/_next/*` para Better Auth, guardado y recuperación de contraseña.
 
-- Release: `/var/www/market-unity/releases/20260907-security-hardening-final`
-- Manifiesto: `/var/www/market-unity/releases/20260907-security-hardening-final/SHA256SUMS` (174 archivos verificados)
-- Identidad: sello `20260907-085228`, build `202609070852`, commit `246d850`, catálogo `31fbdb82758aa7a5`, save schema 1
+- Release: `/var/www/market-unity/releases/20260907-facade-clean-final`
+- Manifiesto: `/var/www/market-unity/releases/20260907-facade-clean-final/SHA256SUMS` (174 archivos verificados)
+- Identidad: sello `20260907-162921`, build `202609071628`, commit `aaea7b7`, catálogo `a9aa2acfc73bbe50`, save schema 1
 - Configuración versionada: `Unity/MiniMarketUnity/Deploy/Caddyfile.snippet`
 
 El rollback consiste en restaurar el `Caddyfile` del backup, validarlo con `caddy validate` y recargar Caddy. No exige revertir base de datos ni Next porque ninguno fue reemplazado.
