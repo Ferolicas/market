@@ -8,6 +8,8 @@ export interface RetailDepartment {
   label: string;
   color: string;
   display: readonly [number, number, number];
+  /** Clockwise fixture rotation in degrees around its own vertical axis. */
+  yaw?: number;
   /** Half extents of the visible fixture before STORE_ELEMENT_SCALE. */
   fixtureHalfExtents: readonly [number, number];
   service: readonly [number, number];
@@ -24,8 +26,8 @@ export const RETAIL_DEPARTMENTS: Record<RetailDepartmentId, RetailDepartment> = 
   pantry: { id: "pantry", label: "DESPENSA", color: "#6f4938", display: [0, 0, -2.2], fixtureHalfExtents: [1.2, 0.78], service: [0, -0.88], products: ["coffee"] },
   eggs: { id: "eggs", label: "HUEVOS", color: "#d49a34", display: [4, 0, -2.2], fixtureHalfExtents: [1.2, 0.78], service: [4, -0.88], products: ["eggs"] },
   produce: { id: "produce", label: "FRUTAS Y VERDURAS", color: "#3f7b4c", display: [-4.1, 0, 2.45], fixtureHalfExtents: [1.25, 0.83], service: [-4.1, 1.08], products: ["tomatoes", "apples", "corn"] },
-  dairy: { id: "dairy", label: "LÁCTEOS", color: "#4382a1", display: [0, 0, 2.45], fixtureHalfExtents: [1.25, 0.83], service: [0, 3.82], products: ["milk", "cheese"] },
-  drinks: { id: "drinks", label: "BEBIDAS", color: "#cc6841", display: [4.05, 0, 2.45], fixtureHalfExtents: [1.18, 0.8], service: [4.05, 3.82], products: ["juice"] },
+  dairy: { id: "dairy", label: "LÁCTEOS", color: "#4382a1", display: [-10.5, 0, 6], yaw: -90, fixtureHalfExtents: [1.25, 0.83], service: [-9.4, 6], products: ["milk", "cheese"] },
+  drinks: { id: "drinks", label: "BEBIDAS", color: "#cc6841", display: [-10.5, 0, 2.25], yaw: -90, fixtureHalfExtents: [1.18, 0.8], service: [-9.4, 2.25], products: ["juice"] },
 };
 
 export const RETAIL_DEPARTMENT_IDS = Object.keys(RETAIL_DEPARTMENTS) as RetailDepartmentId[];
@@ -84,12 +86,13 @@ export function retailStockingMagnet(
   elementScale: number,
 ) {
   const department = RETAIL_DEPARTMENTS[departmentId];
+  const quarterTurn = Math.abs(department.yaw ?? 0) % 180 === 90;
   return {
     x: department.display[0] * layoutScale,
     z: department.display[2] * layoutScale,
     halfExtents: [
-      department.fixtureHalfExtents[0] * elementScale,
-      department.fixtureHalfExtents[1] * elementScale,
+      department.fixtureHalfExtents[quarterTurn ? 1 : 0] * elementScale,
+      department.fixtureHalfExtents[quarterTurn ? 0 : 1] * elementScale,
     ] as const,
     enterRadius: RETAIL_STOCKING_MAGNET_REACH.enter * elementScale,
     exitRadius: RETAIL_STOCKING_MAGNET_REACH.exit * elementScale,

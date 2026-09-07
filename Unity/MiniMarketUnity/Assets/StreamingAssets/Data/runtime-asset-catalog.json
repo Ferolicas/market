@@ -183,8 +183,8 @@
       "kind": "environment",
       "path": "Art/Furniture/CardTerminal.glb",
       "source": "GameAssets/Environment/Runtime/Furniture/CardTerminal.glb",
-      "bytes": 212376,
-      "sha256": "b0416213f1eb27a5e336ef6b03cba102ecbe1a177bcecc26e0d50c81d5ea8435"
+      "bytes": 203964,
+      "sha256": "474ce65cf8d5df5736fa46332a3e4ac5c308a25a0a841244162b7d764a30840e"
     },
     {
       "id": "CarrotRipe",
@@ -207,8 +207,8 @@
       "kind": "environment",
       "path": "Art/StoreEquipment/CashDrawer.glb",
       "source": "GameAssets/Environment/Runtime/StoreEquipment/CashDrawer.glb",
-      "bytes": 310612,
-      "sha256": "d019a424113784926638e4afd0c07837e8dae322fefd016f2813bdc4f2f17561"
+      "bytes": 297424,
+      "sha256": "7e1c94e2ae0c7107b93b00299633dacb5b626c6c8cc5a70511465bd0248ec776"
     },
     {
       "id": "CashDrawerAlt",
@@ -223,8 +223,8 @@
       "kind": "environment",
       "path": "Art/Furniture/CashRegister.glb",
       "source": "GameAssets/Environment/Runtime/Furniture/CashRegister.glb",
-      "bytes": 394700,
-      "sha256": "ec64163d7223ea395f12445a830617c21b59cd90d1b30b852cd67c0099b56817"
+      "bytes": 352668,
+      "sha256": "0b675cff9dce4d25a7dcf509fcb38cdd698e3b955c00695beba17c5a3594278a"
     },
     {
       "id": "CashierStool",
@@ -247,8 +247,8 @@
       "kind": "environment",
       "path": "Art/StoreDisplays/CheckoutArea.glb",
       "source": "GameAssets/Environment/Runtime/StoreDisplays/CheckoutArea.glb",
-      "bytes": 568304,
-      "sha256": "24e6752138d647894abed45de99058ab10d34cab0184b8079fcc24a1f0334caf"
+      "bytes": 756112,
+      "sha256": "b76fa52a274d7bc885763888eef2d7c8dc4f98e88947d43a572e548a3ef67fcc"
     },
     {
       "id": "CheckoutBag",
@@ -271,8 +271,8 @@
       "kind": "environment",
       "path": "Art/StoreEquipment/CheckoutScanner.glb",
       "source": "GameAssets/Environment/Runtime/StoreEquipment/CheckoutScanner.glb",
-      "bytes": 316756,
-      "sha256": "6b6c118bec1045f67fd5197785ca97dc240fb875481d218f8ac74ac03b19db6c"
+      "bytes": 297064,
+      "sha256": "654d832196ca085f964c01396bf2756073683959d0b463deb3f4d33d13d9c10b"
     },
     {
       "id": "CheckoutScannerAlt",
@@ -287,16 +287,16 @@
       "kind": "environment",
       "path": "Art/Furniture2/CheckoutShelf.glb",
       "source": "GameAssets/Environment/Runtime/Furniture2/CheckoutShelf.glb",
-      "bytes": 446556,
-      "sha256": "1b72652c1f012605c4d75bba627d821d1af97bcdee2f71684121a7e25a3781d1"
+      "bytes": 395724,
+      "sha256": "1e632fa247b703c927f67dc63e4c44ea2f721dd807330c191281e9c914719e93"
     },
     {
       "id": "Cheese",
       "kind": "product",
       "path": "Art/Products/Cheese.glb",
       "source": "GameAssets/Environment/Runtime/Products/Cheese.glb",
-      "bytes": 377712,
-      "sha256": "56fc2cb01afd00c37d44ca6b5c80f1e797319da0b80ef8856b227185ab8b7bd3"
+      "bytes": 91224,
+      "sha256": "d05b2749500c28cf0951034a78c46cd9675b32601159fa20b2546b1f25303f3a"
     },
     {
       "id": "CheeseMachine",
@@ -359,8 +359,8 @@
       "kind": "environment",
       "path": "Art/Furniture/Conveyor.glb",
       "source": "GameAssets/Environment/Runtime/Furniture/Conveyor.glb",
-      "bytes": 368048,
-      "sha256": "e47ba59147772d502e59234f0ee8194921410f50b10ccb4c4b2672be364d6d58"
+      "bytes": 357704,
+      "sha256": "3b1e4d2c227efbc54e8ff27f17ecf80a309a7cabacd13684def1b651c4576eab"
     },
     {
       "id": "Corn",
@@ -583,8 +583,8 @@
       "kind": "environment",
       "path": "Art/Furniture2/DisplayProduceMixed.glb",
       "source": "GameAssets/Environment/Runtime/Furniture2/DisplayProduceMixed.glb",
-      "bytes": 550016,
-      "sha256": "0d24d3fbb464cf693f882b566d344c3c53f3e6a6536e693e07b0e0900abd4e26"
+      "bytes": 529748,
+      "sha256": "5eb6aaaf6bb2db47877bc5a430f59c9b0a7b1fc30cea93140b6a75f240351086"
     },
     {
       "id": "DisplayProduceSloped",
@@ -599,32 +599,32 @@
       "kind": "environment",
       "path": "Art/Furniture2/DisplayRefrigeratedDoors.glb",
       "source": "GameAssets/Environment/Runtime/Furniture2/DisplayRefrigeratedDoors.glb",
-      "bytes": 492668,
-      "sha256": "1dc26996bc32b714dfad0049a6959e203661f2edd7b9730dbf723f146ad19237"
+      "bytes": 1222680,
+      "sha256": "e7529fd5a2ca0d13c41957b9d184cbef07cbb5d7cf71e9e84fbd34f5e57562f8"
     },
     {
       "id": "DisplayTable",
       "kind": "environment",
       "path": "Art/Furniture2/DisplayTable.glb",
       "source": "GameAssets/Environment/Runtime/Furniture2/DisplayTable.glb",
-      "bytes": 372348,
-      "sha256": "e4098e076ce9ac326bf20a30590b636b6002af9d09c9c1d0cb8ed42e10cab2b9"
+      "bytes": 594652,
+      "sha256": "489bb766b75a100d5e62997aef4f9cc1f3b88b2462dc5aa476b0e1f74c0a4b44"
     },
     {
       "id": "Egg",
       "kind": "product",
       "path": "Art/Products/Egg.glb",
       "source": "GameAssets/Environment/Runtime/Products/Egg.glb",
-      "bytes": 246936,
-      "sha256": "a8b53ca06e3e067417aad6e3a1ea470c23d5b12bc3a4bf704e479cd94a3124cc"
+      "bytes": 35140,
+      "sha256": "6867be5cd7b513a5d9075dae054eb2cc3581cdbe070459cd63d9fe462e78579b"
     },
     {
       "id": "EggDisplay",
       "kind": "environment",
       "path": "Art/StoreDisplays/EggDisplay.glb",
       "source": "GameAssets/Environment/Runtime/StoreDisplays/EggDisplay.glb",
-      "bytes": 765164,
-      "sha256": "dca26801439e59adda00f05bcf34a13ac82fb620361de8b91beccff7c3cf3bec"
+      "bytes": 1474708,
+      "sha256": "d25f2ffbfb6b06b7b464c871c844c1d53df0be5e5c8c54153a72da925e672093"
     },
     {
       "id": "EggTray",
@@ -719,16 +719,16 @@
       "kind": "environment",
       "path": "Art/Furniture/FloorTileBeige.glb",
       "source": "GameAssets/Environment/Runtime/Furniture/FloorTileBeige.glb",
-      "bytes": 724460,
-      "sha256": "19b7d3034377b7a64e8e0b69279f71625f602829c9860686fc58bc141b0378b0"
+      "bytes": 189340,
+      "sha256": "5168c23466019ce4a840847b2be3ee1f4c8f2195d58cc297d8cce2e5c2d9d9de"
     },
     {
       "id": "FloorTileWhite",
       "kind": "environment",
       "path": "Art/Furniture/FloorTileWhite.glb",
       "source": "GameAssets/Environment/Runtime/Furniture/FloorTileWhite.glb",
-      "bytes": 594196,
-      "sha256": "7ee54e62d9425c22e061d0cf1d5667d81dac082f7fde4744c47df47485809480"
+      "bytes": 196536,
+      "sha256": "f70c55982072e00ecebcdb3e3a9ec0fa327fef265fc77194ea49437a44314062"
     },
     {
       "id": "Flour",
@@ -935,8 +935,8 @@
       "kind": "environment",
       "path": "Art/Utility/HarvestBasket.glb",
       "source": "GameAssets/Environment/Runtime/Utility/HarvestBasket.glb",
-      "bytes": 430812,
-      "sha256": "d4dbf327bbd19d396a31836f9267a55ad069170baf9a1927e81f6a576bd66b0e"
+      "bytes": 200456,
+      "sha256": "fe7e39068395a1acbdd470b23199c38cfc0ecfd5ba2968c85f5983c2e848ab7f"
     },
     {
       "id": "Hat_01_RedPanda",
@@ -1103,8 +1103,8 @@
       "kind": "product",
       "path": "Art/Products/Milk.glb",
       "source": "GameAssets/Environment/Runtime/Products/Milk.glb",
-      "bytes": 282572,
-      "sha256": "6dfbafb4e25ba6d6204fad8e7ae8a9053a26c39dc7427a061c354b805b6937b1"
+      "bytes": 83148,
+      "sha256": "4d16e3e05d855b143c09650703dfb95320d7df3bd61aae923bd2a0a3ed73fd8c"
     },
     {
       "id": "MilkCan",
@@ -1183,8 +1183,8 @@
       "kind": "environment",
       "path": "Art/Furniture/ReceiptPrinter.glb",
       "source": "GameAssets/Environment/Runtime/Furniture/ReceiptPrinter.glb",
-      "bytes": 212848,
-      "sha256": "335bd84357dc31d2a0bfb707a44291041a3a63a5ba1b6bf5d950886de4e622ca"
+      "bytes": 170232,
+      "sha256": "d8cf0e9ca2aa07574a9241c251401ba1659c6d91b9f1a72d3401a5b901884e9a"
     },
     {
       "id": "RefrigeratedDisplay",
@@ -1231,8 +1231,8 @@
       "kind": "environment",
       "path": "Art/Utility/SeasonalDisplay.glb",
       "source": "GameAssets/Environment/Runtime/Utility/SeasonalDisplay.glb",
-      "bytes": 612428,
-      "sha256": "76e6e07eb806a2e2496ad035fceb9a541ade5fa503702b0e3ab6aff3b5a5d468"
+      "bytes": 651708,
+      "sha256": "7b0df240b46d1e5d91683b62e1428005cad1fd42b628fba2b1b4b9d072ab8665"
     },
     {
       "id": "SecurityCamera",
@@ -1271,8 +1271,8 @@
       "kind": "environment",
       "path": "Art/Furniture2/ShelfEndcap.glb",
       "source": "GameAssets/Environment/Runtime/Furniture2/ShelfEndcap.glb",
-      "bytes": 348164,
-      "sha256": "b7922f2becdb36ab4cab6fbc949f9ff19eee0766d6deb72961e23a66c0ef3c23"
+      "bytes": 516436,
+      "sha256": "b401cb1f5c69fc755e93b5ab3df4c73736492f68f81af60cb4bfe6528f113f57"
     },
     {
       "id": "ShelfGondolaDouble",
@@ -1303,16 +1303,16 @@
       "kind": "environment",
       "path": "Art/Furniture2/ShelfWallTall.glb",
       "source": "GameAssets/Environment/Runtime/Furniture2/ShelfWallTall.glb",
-      "bytes": 501600,
-      "sha256": "3566e9104b108c1acb6bbcbee0820ede343db2258e49e97ae97c59c0a6d4f1fe"
+      "bytes": 525588,
+      "sha256": "93e3b6917231b0d9dfa556a58fc58452278d7179fbc79047dc1219d62402d914"
     },
     {
       "id": "ShelfWallWide",
       "kind": "environment",
       "path": "Art/Furniture2/ShelfWallWide.glb",
       "source": "GameAssets/Environment/Runtime/Furniture2/ShelfWallWide.glb",
-      "bytes": 580620,
-      "sha256": "61e81dc0a1faf9a3e52ac4f2dc870a070f067affdfab092e0e2d0debe04768bf"
+      "bytes": 444980,
+      "sha256": "999045c6edd6778ec4eb23417325f52e139f07d88198be1910e1ae405c406878"
     },
     {
       "id": "ShoppingBasket",
@@ -1383,8 +1383,8 @@
       "kind": "environment",
       "path": "Art/Furniture/StorefrontWindow.glb",
       "source": "GameAssets/Environment/Runtime/Furniture/StorefrontWindow.glb",
-      "bytes": 968520,
-      "sha256": "e519ee298c6bb2390cc9b74f9d152c951105e65acedff3d847f98003628248d4"
+      "bytes": 869108,
+      "sha256": "af59eed6b497a95846a9f8d0e032131f45d085a70f7bb37f07f41a3f284c89f2"
     },
     {
       "id": "StreetLight",
@@ -1471,8 +1471,8 @@
       "kind": "environment",
       "path": "Art/Furniture/WallStraight.glb",
       "source": "GameAssets/Environment/Runtime/Furniture/WallStraight.glb",
-      "bytes": 720816,
-      "sha256": "3568d6b937479a6d58cea8276cc0f42ece2c55af74a3513b11eee8a63a4afab1"
+      "bytes": 397208,
+      "sha256": "a002d6ec8a6fa5d30d5498ff37995933ddd40f831616cbd53d4e8e053f363530"
     },
     {
       "id": "WateringCan",
@@ -1593,6 +1593,14 @@
       "source": "derived-from:CustomerMale01:LOD0",
       "bytes": 2564400,
       "sha256": "2bcdfe9f5130c17ed401e11cac916d6aee2a91307e04d66d17c992e1a6549c8a"
+    },
+    {
+      "id": "CheckoutLaneSign",
+      "kind": "environment",
+      "path": "Art/StoreDisplays/CheckoutLaneSign.glb",
+      "source": "separada de otra pieza del kit (CheckoutLaneSign.glb)",
+      "bytes": 196444,
+      "sha256": "2f7fe0f29f3a4272d1749387ab8f613447872838472fcdb8f2859ec0f7cf6964"
     }
   ],
   "counts": {
@@ -1604,5 +1612,5 @@
     "metadata": 1,
     "character-motion": 9
   },
-  "totalBytes": 301636630
+  "totalBytes": 294230146
 }

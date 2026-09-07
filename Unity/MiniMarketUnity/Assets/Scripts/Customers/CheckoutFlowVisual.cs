@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using MiniMarket.Assets;
 using MiniMarket.Store;
 using UnityEngine;
@@ -19,7 +20,7 @@ namespace MiniMarket.Customers
         RuntimeGltfLoader loader;Transform unloadPoint;Transform scanPoint;Transform bagPoint;GameObject active;string activeId;GameObject bag;int generation;
         public bool UnitReady=>active;
 
-        public async void Bind(RuntimeGltfLoader runtimeLoader,StoreWorld storeWorld,int lane)
+        public async Task BindAsync(RuntimeGltfLoader runtimeLoader,StoreWorld storeWorld,int lane)
         {
             loader=runtimeLoader;if(lane<0||lane>=storeWorld.CheckoutBagPoints.Count)return;unloadPoint=storeWorld.CheckoutUnloadPoints[lane];scanPoint=storeWorld.CheckoutScanPoints[lane];bagPoint=storeWorld.CheckoutBagPoints[lane];
             if(!bagPoint||bag)return;

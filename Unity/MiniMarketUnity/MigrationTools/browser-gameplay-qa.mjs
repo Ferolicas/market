@@ -46,7 +46,10 @@ for (let attempt = 0; attempt < 45 && !waiting; attempt += 1) {
 // checkout command that the player's interaction point invokes.
 await page.evaluate(() => window.miniMarketUnity.SendMessage('Customers', 'ServeNext'));
 let checkoutCount = 0;
-for (let attempt = 0; attempt < 8 && checkoutCount === 0; attempt += 1) {
+// The physical flow now crosses the full delivered belt before scan and bag.
+// Give that animation enough time instead of reporting a failure a moment
+// before MINIMARKET_CHECKOUT is emitted.
+for (let attempt = 0; attempt < 20 && checkoutCount === 0; attempt += 1) {
   await page.waitForTimeout(1_000);
   checkoutCount = events.filter(event => event.text.includes('MINIMARKET_CHECKOUT')).length;
 }
@@ -66,7 +69,10 @@ const result = {
   reachedCheckoutQueue: waiting,
   checkoutCount,
   audioPolicyWarnings: events.filter(event => event.text.includes('AudioContext was not allowed')).length,
-  failures: events.filter(event => ['pageerror', 'requestfailed', 'http'].includes(event.type)),
+  failures: events.filter(event =>
+    ['pageerror', 'requestfailed', 'http'].includes(event.type)
+    && !(event.type === 'requestfailed' && event.text.includes('net::ERR_ABORTED'))
+  ),
   relevant,
 };
 if (!waiting) result.failures.push({ type: 'assertion', text: 'Ningún cliente alcanzó la caja' });

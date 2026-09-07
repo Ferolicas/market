@@ -104,25 +104,37 @@ def process(job):
     before = len(keep.data.polygons)
 
     # ---------------------------------------------------------------- clean + decimate
+    # The scan is welded once; from that base the piece is built twice. Finding
+    # the camera means rasterising the mesh a couple of hundred times, so it is
+    # done on a light copy; the piece that ships keeps as many faces as its
+    # budget allows, because collapsing a kit piece to a tenth of its faces is
+    # what rounds its edges into a melted lump.
     mesh = keep.data
     bm = bmesh.new(); bm.from_mesh(mesh)
     bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-5)
     bm.to_mesh(mesh); bm.free(); mesh.update()
-    if 0 < budget < len(mesh.polygons):
-        mod = keep.modifiers.new("d", "DECIMATE")
-        mod.decimate_type = "COLLAPSE"; mod.ratio = budget / len(mesh.polygons)
-        bpy.ops.object.modifier_apply(modifier=mod.name)
-    mesh = keep.data
-    bm = bmesh.new(); bm.from_mesh(mesh)
-    bmesh.ops.triangulate(bm, faces=bm.faces)
-    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
-    bm.to_mesh(mesh); bm.free(); mesh.update()
+    base_mesh = mesh.copy()
 
-    nv = len(mesh.vertices); V = np.empty(nv * 3, np.float32); mesh.vertices.foreach_get("co", V)
-    V = V.reshape(nv, 3).astype(np.float64)
-    nf = len(mesh.polygons); LS = np.empty(nf, np.int32); mesh.polygons.foreach_get("loop_start", LS)
-    L = np.empty(len(mesh.loops), np.int32); mesh.loops.foreach_get("vertex_index", L)
-    F = L[LS[:, None] + np.arange(3)]
+    def construye(presupuesto):
+        keep.data = base_mesh.copy()
+        m = keep.data
+        if 0 < presupuesto < len(m.polygons):
+            mod = keep.modifiers.new("d", "DECIMATE")
+            mod.decimate_type = "COLLAPSE"; mod.ratio = presupuesto / len(m.polygons)
+            bpy.ops.object.modifier_apply(modifier=mod.name)
+        m = keep.data
+        b = bmesh.new(); b.from_mesh(m)
+        bmesh.ops.triangulate(b, faces=b.faces)
+        bmesh.ops.recalc_face_normals(b, faces=b.faces)
+        b.to_mesh(m); b.free(); m.update()
+        n_v = len(m.vertices); Vv = np.empty(n_v * 3, np.float32); m.vertices.foreach_get("co", Vv)
+        Vv = Vv.reshape(n_v, 3).astype(np.float64)
+        n_f = len(m.polygons); ls = np.empty(n_f, np.int32); m.polygons.foreach_get("loop_start", ls)
+        lo_ = np.empty(len(m.loops), np.int32); m.loops.foreach_get("vertex_index", lo_)
+        return m, Vv, n_v, n_f, ls, lo_[ls[:, None] + np.arange(3)]
+
+    ligera = int(job.get("caras_camara", 8000))
+    mesh, V, nv, nf, LS, F = construye(min(ligera, budget) if budget else ligera)
 
     # ---------------------------------------------------------------- the camera
     # Start: the global projective fit, seen from this part -- its direction to
@@ -262,27 +274,47 @@ def process(job):
         return (m & ref).sum() / max(1, (m | ref).sum())
 
     def unpack(p):
-        return {"az": p[0], "el": p[1], "L": L0 @ (np.eye(2) + p[2:6].reshape(2, 2)), "t": t0 + p[6:8]}
-    p_init = np.array([az0, el0, 0, 0, 0, 0, 0, 0], float)
+        # The kit is always drawn from above: an elevation at or below zero is
+        # never the right camera, only a silhouette that happens to match.
+        return {"az": p[0], "el": min(max(p[1], 4.0), 60.0),
+                "L": L0 @ (np.eye(2) + p[2:6].reshape(2, 2)), "t": t0 + p[6:8]}
+    plomada = np.array([[V[:, 0].mean(), V[:, 1].mean(), V[:, 2].max()],
+                        [V[:, 0].mean(), V[:, 1].mean(), V[:, 2].min()]])
+    def derecha(st):
+        """True when the piece stands up on the sheet: its top projects above its base."""
+        uv, _ = project(plomada, st)
+        return uv[0, 1] < uv[1, 1]
+    def mide(st):
+        return iou(st) if derecha(st) else 0.0
+    p_init = np.array([az0, el0 if el0 > 4 else 22.0, 0, 0, 0, 0, 0, 0], float)
     iou_start = iou(unpack(p_init))
     # first the silhouette's centroid onto the blob's: the global fit can be
     # tens of pixels off on an irregular piece
     ys_, xs_ = np.nonzero(sil0); ym_, xm_ = np.nonzero(partmask)
     if len(ys_) and len(ym_):
         p_init[6] += xm_.mean() - xs_.mean(); p_init[7] += ym_.mean() - ys_.mean()
-    # coarse: the direction and the offset, then everything together
-    best = (iou(unpack(p_init)), p_init)
+    # coarse: the direction and the offset, then everything together. The
+    # global fit's direction is the one that maps the mosaic's grid onto the
+    # sheet, which for some mosaics is nowhere near the direction the objects
+    # were drawn from, so the whole circle is swept before refining.
+    best = (mide(unpack(p_init)), p_init)
+    if not fixed_dir:
+        for az_ in range(0, 360, 15):
+            for el_ in (12, 22, 32, 42):
+                p = p_init.copy(); p[0] = az_ - 180; p[1] = el_
+                s_ = mide(unpack(p))
+                if s_ > best[0]: best = (s_, p)
     for da in ((0,) if fixed_dir else (-12, -6, 0, 6, 12)):
         for de in ((0,) if fixed_dir else (-12, -6, 0, 6, 12)):
-            p = p_init.copy(); p[0] += da; p[1] += de
-            s_ = iou(unpack(p))
+            p = best[1].copy(); p[0] += da; p[1] += de
+            s_ = mide(unpack(p))
             if s_ > best[0]: best = (s_, p)
     for dx in range(-18, 19, 6):
         for dy in range(-18, 19, 6):
             p = best[1].copy(); p[6] += dx; p[7] += dy
-            s_ = iou(unpack(p))
+            s_ = mide(unpack(p))
             if s_ > best[0]: best = (s_, p)
-    def f(p): return -iou(unpack(p))
+    def f(p): return -mide(unpack(p))
     n = 8; steps = [0.0 if fixed_dir else 3.0, 0.0 if fixed_dir else 3.0, 0.03, 0.02, 0.02, 0.03, 4.0, 4.0]
     simplex = [best[1]] + [best[1] + np.eye(n)[i] * steps[i] for i in range(n)]
     vals = [f(x) for x in simplex]
@@ -303,8 +335,11 @@ def process(job):
                 for i in range(1, n + 1):
                     simplex[i] = simplex[0] + 0.5 * (simplex[i] - simplex[0]); vals[i] = f(simplex[i])
     i = int(np.argmin(vals)); state = unpack(simplex[i]); iou_end = -vals[i]
+    if iou_end <= 0: state = unpack(best[1]); iou_end = best[0]
 
-    # ---------------------------------------------------------------- visibility
+    if budget != nf:
+        mesh, V, nv, nf, LS, F = construye(budget)
+
     SC = 2.0
     uvA, depth = project(V)
     d_view = basis(state["az"], state["el"])[0]
@@ -339,7 +374,16 @@ def process(job):
     unhidden = (gaps <= 0.02 * rng).all(1)
     Nf = np.cross(V[F[:, 1]] - V[F[:, 0]], V[F[:, 2]] - V[F[:, 0]])
     front = (Nf @ (-d_view)) > 0
-    visible = (nearby | (unhidden & front)) & inside & (area > 0.25)
+    # A face nearly edge-on to the sheet's camera projects to a sliver: the
+    # pixels under it are the silhouette's smear, not its own surface. Dressing
+    # it from its own projection is what stretches a side of the piece into
+    # streaks, so it is left to the reflections and to the wrap below.
+    cosv = np.abs(Nf @ d_view) / np.maximum(np.linalg.norm(Nf, axis=1), 1e-12)
+    # 0.08 is about four degrees from edge-on. Anything larger eats real
+    # surfaces: a sheet drawn from 14 degrees up shows its shelf tops at 0.24,
+    # and a threshold of 0.25 threw every shelf top away.
+    grazing = cosv < float(job.get("canto", 0.08))
+    visible = (nearby | (unhidden & front)) & inside & (area > 0.25) & ~grazing
     own = counts > 0
     cc = np.clip(cf, 0, None)
     facecol[~own] = sheet_rgb[np.minimum(y0 + cc[~own, 1], H - 1), np.minimum(x0 + cc[~own, 0], W - 1)]
@@ -373,32 +417,64 @@ def process(job):
     # z-buffer, on pixels of seen faces -- takes its UVs at the reflection.
     mirrored = np.zeros(nf, bool); uvM = uvA.copy()
     def reflect(mirror):
-        ax = 0 if mirror == "x" else 1
+        axes = [0] if mirror == "x" else [1] if mirror == "y" else [0, 1]
         ang = yaw_angle(V)          # reflect in the squared frame: the part may sit diagonally
         c_, s_ = math.cos(math.radians(ang)), math.sin(math.radians(ang))
         Rz = np.array([[c_, -s_], [s_, c_]])
         Vr = V.copy(); Vr[:, :2] = V[:, :2] @ Rz.T
-        Vr[:, ax] = Vr[:, ax].min() + Vr[:, ax].max() - Vr[:, ax]
+        for ax in axes: Vr[:, ax] = Vr[:, ax].min() + Vr[:, ax].max() - Vr[:, ax]
         Vm = Vr.copy(); Vm[:, :2] = Vr[:, :2] @ Rz
         uvm, dm = project(Vm)
         seen = np.zeros(idb.shape, bool); seen[idb >= 0] = visible[idb[idb >= 0]]
-        tol = 0.03 * rng
-        ok = np.ones(nf, bool)
+        # The scan is never symmetric to the millimetre: the centre has to land
+        # on seen surface, the corners only two out of three.
+        tol = 0.04 * rng
+        cuenta = np.zeros(nf, int); centro = np.zeros(nf, bool)
         pts = [((uvm[F[:, k]] - (x0, y0)) * SC, dm[F[:, k]]) for k in range(3)] + [((uvm[F].mean(1) - (x0, y0)) * SC, dm[F].mean(1))]
-        for pk, dk in pts:
+        for j, (pk, dk) in enumerate(pts):
             yy = np.clip(pk[:, 1].astype(int), 0, seen.shape[0] - 1); xx = np.clip(pk[:, 0].astype(int), 0, seen.shape[1] - 1)
-            ok &= seen[yy, xx] & (np.abs(dk - zb[yy, xx]) <= tol)
-        return hidden & ok, uvm
-    if mirror == "auto":
-        cands = [reflect(m) + (m,) for m in ("x", "y")]
-        mirrored, uvm, mirror = max(cands, key=lambda c: c[0].sum())
-    elif mirror in ("x", "y"):
-        mirrored, uvm = reflect(mirror)
-    if mirrored.any():
-        uvM[F[mirrored].ravel()] = uvm[F[mirrored].ravel()]
-        hidden = hidden & ~mirrored
-        cm = np.clip((uvm[F[mirrored]].mean(1)).astype(int), 0, None)
-        facecol[mirrored] = sheet_rgb[np.minimum(cm[:, 1], H - 1), np.minimum(cm[:, 0], W - 1)]
+            bien = seen[yy, xx] & (np.abs(dk - zb[yy, xx]) <= tol)
+            if j == 3: centro = bien
+            else: cuenta += bien
+        return hidden & centro & (cuenta >= 2), uvm
+    # A piece squared in yaw has three symmetries to try, and each dresses what
+    # the one before could not: left for right, front for back, and the half
+    # turn. "auto" runs the three in that order.
+    ejes = ("x", "y", "xy") if mirror == "auto" else ((mirror,) if mirror else ())
+    usados = []
+    for eje in ejes:
+        nuevas, uvm = reflect(eje)
+        nuevas &= hidden
+        if not nuevas.any(): continue
+        usados.append(f"{eje}:{nuevas.sum()}")
+        uvM[F[nuevas].ravel()] = uvm[F[nuevas].ravel()]
+        cm = np.clip((uvm[F[nuevas]].mean(1)).astype(int), 0, None)
+        facecol[nuevas] = sheet_rgb[np.minimum(cm[:, 1], H - 1), np.minimum(cm[:, 0], W - 1)]
+        mirrored |= nuevas; hidden = hidden & ~nuevas
+    mirror = "+".join(usados) if usados else ""
+
+    # Whatever no reflection reached takes its own projection, as long as it
+    # falls on the piece: seen from behind, a face is dressed with the sheet's
+    # pixels in front of it. Flat swatch colour is left for what is left over --
+    # the scan's inner shells and the faces of canto.
+    wrapped = np.zeros(nf, bool)
+    # "envolver": 0 turns the wrap off, 1 uses the default depth window, and a
+    # number is that window as a fraction of the piece's depth.
+    envolver = float(job.get("envolver", 1))
+    fondo = 0.12 if envolver == 1 else envolver
+    if envolver > 0:
+        cw = (uvA[F].mean(1) - (x0, y0)).astype(int)
+        pm_h, pm_w = partmask.shape
+        onpiece = partmask[np.clip(cw[:, 1], 0, pm_h - 1), np.clip(cw[:, 0], 0, pm_w - 1)]
+        # Only the other face of the same sheet of material: what the pixel
+        # shows has to lie right behind this face, not a metre of crates away.
+        # Wrapping deep faces is what painted fruit down the plinth of the
+        # seasonal stand.
+        cerca = np.abs(gaps[:, 3]) <= fondo * rng
+        wrapped = hidden & onpiece & cerca & ~grazing & (area > 0.25)
+        hidden = hidden & ~wrapped
+        cwc = np.clip(cw, 0, None)
+        facecol[wrapped] = sheet_rgb[np.minimum(y0 + cwc[wrapped, 1], H - 1), np.minimum(x0 + cwc[wrapped, 0], W - 1)]
     # Hidden faces are coloured by diffusion from the seen ones across the
     # surface, neighbours weighted by how alike their normals are, so a hidden
     # top takes its colour from seen tops and a hidden side from seen sides.
@@ -406,7 +482,7 @@ def process(job):
     pairs = np.array([(a, b) for a in range(nf) for b in adj[a]]) if nf else np.zeros((0, 2), int)
     wgt = np.maximum(0.05, (Nn[pairs[:, 0]] * Nn[pairs[:, 1]]).sum(1)) if len(pairs) else np.zeros(0)
     col = np.where(source[:, None] >= 0, facecol[np.maximum(source, 0)], meancol).astype(np.float64)
-    fixed = visible | mirrored
+    fixed = visible | mirrored | wrapped
     col[fixed] = facecol[fixed]
     for _ in range(60):
         acc = np.zeros((nf, 3)); wsum = np.zeros(nf)
@@ -495,8 +571,8 @@ def process(job):
     for i in range(nf):
         for k in range(3):
             li = LS[i] + k
-            if visible[i] or mirrored[i]:
-                u, v = (uvA if visible[i] else uvM)[F[i, k]]
+            if visible[i] or mirrored[i] or wrapped[i]:
+                u, v = (uvM if mirrored[i] else uvA)[F[i, k]]
                 uvdata[li] = ((u - cx0) / TW, 1 - (v - cy0) / TH)
             else:
                 su, sv = swatch_uv[tuple(int(x) for x in hidcol[i])]
@@ -547,12 +623,13 @@ def process(job):
         # the same mesh with every face painted by its class, to see which class shows where
         dup = keep.copy(); dup.data = keep.data.copy(); bpy.context.collection.objects.link(dup)
         dup.data.materials.clear()
-        for nm, col in (("vista", (0.2, 0.75, 0.2)), ("espejada", (0.2, 0.3, 0.9)), ("oculta", (0.85, 0.2, 0.2))):
+        for nm, col in (("vista", (0.2, 0.75, 0.2)), ("espejada", (0.2, 0.3, 0.9)), ("oculta", (0.85, 0.2, 0.2)),
+                        ("envuelta", (0.9, 0.75, 0.15))):
             mm = bpy.data.materials.new(nm); mm.diffuse_color = (*col, 1); mm.use_nodes = True
             mm.node_tree.nodes["Principled BSDF"].inputs["Base Color"].default_value = (*col, 1)
             dup.data.materials.append(mm)
         for i in range(min(nf, len(dup.data.polygons))):
-            dup.data.polygons[i].material_index = 0 if visible[i] else (1 if mirrored[i] else 2)
+            dup.data.polygons[i].material_index = 0 if visible[i] else (1 if mirrored[i] else (3 if wrapped[i] else 2))
         bpy.ops.object.select_all(action="DESELECT"); dup.select_set(True)
         bpy.ops.export_scene.gltf(filepath=os.path.join(outdir, "_" + name + "_clases.glb"), export_format="GLB",
                                   use_selection=True, export_yup=True, export_apply=True)
@@ -569,7 +646,8 @@ def process(job):
     size = hi - lo
     bpy.data.objects.remove(keep, do_unlink=True)
     print("PARTE " + json.dumps({"parte": part, "nombre": name, "caras": int(nf), "antes": int(before),
-          "vistas": round(float(visible.mean()), 3), "espejadas": round(float(mirrored.mean()), 3), "espejo": mirror,
+          "vistas": round(float(visible.mean()), 3), "espejadas": round(float(mirrored.mean()), 3),
+          "envueltas": round(float(wrapped.mean()), 3), "sueltas": round(float(hidden.mean()), 3), "espejo": mirror,
           "iou_inicial": round(float(iou_start), 3), "iou_afinado": round(float(iou_end), 3), "bordes": round(edge_score, 3), "giro": round(deg + extra_turn, 2),
           "camara": [round(state["az"], 1), round(state["el"], 1)], "camara_inicial": [round(az0, 1), round(el0, 1)],
           "mide": [round(float(v), 4) for v in size], "textura": [int(TW), int(TH)], "muestras": len(keys), "cristal": int(glass.sum()),

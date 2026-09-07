@@ -2722,17 +2722,18 @@
           "label": "LÁCTEOS",
           "color": "#4382a1",
           "display": [
+            -10.5,
             0,
-            0,
-            2.45
+            6
           ],
+          "yaw": -90,
           "fixtureHalfExtents": [
             1.25,
             0.83
           ],
           "service": [
-            0,
-            3.82
+            -9.4,
+            6
           ],
           "products": [
             "milk",
@@ -2744,17 +2745,18 @@
           "label": "BEBIDAS",
           "color": "#cc6841",
           "display": [
-            4.05,
+            -10.5,
             0,
-            2.45
+            2.25
           ],
+          "yaw": -90,
           "fixtureHalfExtents": [
             1.18,
             0.8
           ],
           "service": [
-            4.05,
-            3.82
+            -9.4,
+            2.25
           ],
           "products": [
             "juice"
@@ -3226,17 +3228,17 @@
         },
         {
           "id": "fixture:retail-dairy",
-          "x": 0,
-          "z": 4.9,
-          "halfX": 2,
-          "halfZ": 1.328
+          "x": -21,
+          "z": 12,
+          "halfX": 1.328,
+          "halfZ": 2
         },
         {
           "id": "fixture:retail-drinks",
-          "x": 8.1,
-          "z": 4.9,
-          "halfX": 1.888,
-          "halfZ": 1.2800000000000002
+          "x": -21,
+          "z": 4.5,
+          "halfX": 1.2800000000000002,
+          "halfZ": 1.888
         },
         {
           "x": 15.1,

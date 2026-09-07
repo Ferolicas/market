@@ -22,7 +22,10 @@ namespace MiniMarket.Animations
             Add("Product", right, new Vector3(0, .015f, .095f), Quaternion.Euler(0, -90, 0));
             Add("Money", right, new Vector3(0, .01f, .08f), Quaternion.Euler(0, -90, 0));
             Add("Basket", left, new Vector3(0, -.06f, .1f), Quaternion.Euler(10, 90, 0));
-            Add("Box", transform, new Vector3(0, .92f, .27f), Quaternion.identity);
+            // The rig is roughly one local unit tall before CharacterFactory's
+            // world scale. The old .92 put a carried box beside the face; the
+            // two-handed clips meet at chest height, around .56 of the body.
+            Add("Box", transform, new Vector3(0, .56f, .27f), Quaternion.identity);
             Add("CartLeft", left, new Vector3(0, 0, .08f), Quaternion.Euler(0, 90, 0));
             Add("CartRight", right, new Vector3(0, 0, .08f), Quaternion.Euler(0, -90, 0));
             Add("LookAt", head, new Vector3(0, .08f, .25f), Quaternion.identity);

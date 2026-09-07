@@ -9,10 +9,13 @@ namespace MiniMarket.Characters
 {
     public sealed class CharacterFactory
     {
-        // Two fifths taller than delivered, on request (3.90 -> 4.68 -> 5.616);
-        // the children keep 85% of that so a glance tells them apart.
-        const float BodyScale=5.616f;
-        const float ChildScale=4.776f;
+        // The store is measured at 6.2 world units to the metre, taken from the
+        // egg display the owner approved (9.23 units for a 1.49 m stand). An
+        // adult is 1.75 m, which is 10.85 units: 5.616 gave 6.49 and left the
+        // cast shorter than the furniture. The children keep 85% of that so a
+        // glance tells them apart.
+        const float BodyScale=9.39f;
+        const float ChildScale=7.99f;
         static readonly HashSet<string> Children=new(StringComparer.OrdinalIgnoreCase){"Boy","Girl"};
         readonly RuntimeGltfLoader loader;
         public CharacterFactory(RuntimeGltfLoader runtimeLoader) => loader = runtimeLoader;
@@ -37,8 +40,16 @@ namespace MiniMarket.Characters
             // cost without improving an orthographic management view.
             var motion = await loader.InstantiateAsync($"{characterId}:Motion", root.transform, Vector3.zero, Quaternion.identity, Vector3.one);
             var boneMap = BuildBoneMap(motion.transform);
-            var visual = await loader.InstantiateAsync($"{characterId}:LOD2", root.transform, Vector3.zero, Quaternion.identity, Vector3.one);
-            var nearRenderers = RebindRenderers(visual, root.transform, boneMap, "LOD2_Renderers");
+            // On a phone nobody ever draws the near mesh, so it is not even
+            // loaded: at 8.7 MB a body across nine bodies that is most of what
+            // was killing the tab.
+            var soloLejos = MiniMarket.Performance.PerformanceGovernor.Handheld && loader.Has($"{characterId}:LOD3");
+            var nearRenderers = System.Array.Empty<Renderer>();
+            if (!soloLejos)
+            {
+                var visual = await loader.InstantiateAsync($"{characterId}:LOD2", root.transform, Vector3.zero, Quaternion.identity, Vector3.one);
+                nearRenderers = RebindRenderers(visual, root.transform, boneMap, "LOD2_Renderers");
+            }
             // The far mesh (same rig, a tenth of the triangles, no morphs) for
             // when this character is not one of the few nearest the player.
             Renderer[] farRenderers = System.Array.Empty<Renderer>();

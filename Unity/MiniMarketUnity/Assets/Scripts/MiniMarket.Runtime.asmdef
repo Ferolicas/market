@@ -6,7 +6,8 @@
     "Unity.InputSystem",
     "Unity.InputSystem.ForUI",
     "Unity.ugui",
-    "Unity.AI.Navigation"
+    "Unity.AI.Navigation",
+    "Unity.RenderPipelines.Universal.Runtime"
   ],
   "includePlatforms": [],
   "excludePlatforms": [],

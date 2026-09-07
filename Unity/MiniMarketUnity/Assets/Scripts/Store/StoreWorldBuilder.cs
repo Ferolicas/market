@@ -19,10 +19,12 @@ namespace MiniMarket.Store
         readonly InteractionDirector interactions;
         readonly Transform parent;
         static readonly Dictionary<string,Material> RuntimeMaterials=new();
-        /// The shop and everything in it, three times the authored size: the
-        /// world root carries the scale, so every placement, point and collider
-        /// under it grows together while the cast keeps its own size.
-        public const float StoreScale = 3f;
+        /// The original expanded shop used a spatial factor of three. The owner
+        /// requested twice that usable space while every fixture, tile and actor
+        /// keeps its approved physical size, so only positions and spans use six.
+        public const float PreviousStoreScale = 3f;
+        public const float StoreScale = PreviousStoreScale * 2f;
+        static float FixedPlanFactor => PreviousStoreScale / StoreScale;
         /// The pieces do not grow with the floor: furniture and the building's
         /// modules are twice their authored size, the small props two and a half
         /// times, so everything reads at one scale beside the cast.
@@ -32,7 +34,7 @@ namespace MiniMarket.Store
         /// The world outside the shop keeps the size it was approved at.
         static readonly HashSet<string> AuthoredScale = new(StringComparer.OrdinalIgnoreCase)
         {
-            "RoadSegment","SidewalkSegment","Crosswalk","ParkingSpace","CityBuilding","Car","BusStop","Bench","Tree","StreetLight",
+            "SidewalkSegment","ParkingSpace","CityBuilding","Car","BusStop","Bench","Tree","StreetLight",
         };
         /// The building's face -- entrance, storefront, walls, rear door -- moves
         /// as one piece; a fifth bigger than authored, on request. Split from the
@@ -49,7 +51,7 @@ namespace MiniMarket.Store
 
         static readonly Dictionary<string, string> DisplayAssets = new()
         {
-            ["bakery"] = "DisplayBakery", ["pantry"] = "ShelfWallTall", ["eggs"] = "EggDisplay",
+            ["bakery"] = "DisplayTable", ["pantry"] = "ShelfWallTall", ["eggs"] = "EggDisplay",
             ["produce"] = "DisplayProduceMixed", ["dairy"] = "DisplayRefrigeratedDoors", ["drinks"] = "ShelfWallWide",
         };
         static readonly Dictionary<string, string> ProductAssets = new()
@@ -61,27 +63,45 @@ namespace MiniMarket.Store
         static readonly Dictionary<string, float> TargetLongestDimension = new()
         {
             ["StoreEntrance"]=7.1f,["StoreEntranceAlt"]=7.1f,["AutomaticDoor"]=5.8f,["StorefrontWindow"]=8.5f,["WallStraight"]=4.6f,
-            ["RoadSegment"]=8f,["SidewalkSegment"]=8f,["Crosswalk"]=7f,["CityBuilding"]=11f,
+            ["SidewalkSegment"]=8f,["CityBuilding"]=11f,
             ["Car"]=4.2f,["BusStop"]=3.4f,["Bench"]=2.2f,["Tree"]=4.5f,["StreetLight"]=5.2f,
-            ["ShelfWallTall"]=3.2f,["ShelfWallWide"]=3.5f,["EggDisplay"]=2.5f,
-            ["DisplayProduceMixed"]=3.1f,["DisplayBakery"]=3.1f,["DisplayRefrigeratedDoors"]=3.5f,
-            ["CheckoutArea"]=7.12f,["OperationsWall"]=3.4f,["BackroomStorage"]=4f,["StockroomRack"]=3.7f,
-            ["SeasonalDisplay"]=3.3f,["ShelfEndcap"]=3.1f,["ReturnsStation"]=2.4f,["CartBay"]=3.4f,
+            ["EggDisplay"]=4.62f,  // su alto; la pieza va entera, sin estirar por ejes
+            ["DisplayBakery"]=3.1f,["DisplayRefrigeratedDoors"]=9.24f,
+            ["OperationsWall"]=3.4f,["BackroomStorage"]=4f,["StockroomRack"]=3.7f,
+            ["ReturnsStation"]=2.4f,["CartBay"]=3.4f,
             ["WallClock"]=.7f,["SecurityCamera"]=.7f,["HangingSign"]=2.5f,["CeilingLight"]=2.2f,
             ["FlourMillAlt"]=2.1f,["BreadOven"]=2.2f,["CheeseMachine"]=2.1f,["JuiceMachineAlt"]=2.1f,
             ["FarmPlotFurrows"]=3.0f,["FarmToolSet"]=1.7f,["CompostBin"]=1.5f,["MiniGreenhouse"]=3.4f,
             ["Scarecrow"]=2.0f,["FarmWaterTank"]=2.5f,["Chicken"]=1.0f,["Cow"]=2.2f,
-            ["SupplierTerminal"]=1.7f,["DeliveryDock"]=3.0f,["HiringPoint"]=1.7f,["UpgradePlatform"]=2.4f,["BasketStack"]=1.5f,
+            ["SupplierTerminal"]=1.7f,["DeliveryDock"]=3.0f,["HiringPoint"]=1.7f,["UpgradePlatform"]=2.4f,
         };
         static readonly Dictionary<string,Vector3> TargetLocalSize=new()
         {
-            ["DisplayBakery"]=new(3.68f,3.65f,1.35f),["ShelfWallTall"]=new(3.68f,3.45f,1.8f),["EggDisplay"]=new(3.55f,3.35f,1.35f),
-            ["DisplayProduceMixed"]=new(3.87f,3.5f,2.4f),["DisplayRefrigeratedDoors"]=new(3.97f,4f,1.5f),["ShelfWallWide"]=new(3.81f,3.9f,1.5f),
-            ["CheckoutArea"]=new(7.12f,4.95f,1.9f),["OperationsWall"]=new(15.05f,4.1f,1.4f),["BackroomStorage"]=new(3.76f,4.32f,1.5f),
-            ["StockroomRack"]=new(2.66f,3.52f,1.32f),["SeasonalDisplay"]=new(3.12f,3.2f,1.38f),["ShelfEndcap"]=new(1.89f,3.2f,1.25f),
+            ["DisplayBakery"]=new(4.38f,4.34f,1.61f),
+            ["OperationsWall"]=new(15.05f,4.1f,1.4f),["BackroomStorage"]=new(3.76f,4.32f,1.5f),
+            ["StockroomRack"]=new(2.66f,3.52f,1.32f),
             ["ReturnsStation"]=new(2.3f,2.4f,1.7f),["CartBay"]=new(3.36f,2.75f,2.32f),
             ["FlourMillAlt"]=new(2.3f,3.25f,2.05f),["BreadOven"]=new(2.55f,3.25f,2.05f),["CheeseMachine"]=new(2.25f,3.2f,2.05f),["JuiceMachineAlt"]=new(2.25f,3.2f,2.05f),
             ["SupplierTerminal"]=new(1.9f,2.45f,1.05f),["DeliveryDock"]=new(3.1f,1.6f,2.2f),
+        };
+
+        /// The delivered September furniture was reconstructed from a single
+        /// view. Its proportions are already correct and must never be fitted
+        /// independently on X/Y/Z. These are final world heights, calibrated
+        /// between the approved 9.24-high egg display and 12.12-high dairy case.
+        static readonly Dictionary<string,float> TargetWorldHeight=new()
+        {
+            ["CheckoutArea"]=7.2f,
+            ["ShelfWallTall"]=11.16f,
+            ["ShelfWallWide"]=11.16f,
+            ["DisplayProduceMixed"]=7.44f,
+            ["SeasonalDisplay"]=8.4f,
+            ["DisplayTable"]=4.4f,
+            ["ShelfEndcap"]=6.4f,
+        };
+        static readonly HashSet<string> SeptemberFurniture=new(StringComparer.OrdinalIgnoreCase)
+        {
+            "CheckoutArea","ShelfWallTall","ShelfWallWide","DisplayProduceMixed","SeasonalDisplay","DisplayTable","ShelfEndcap",
         };
 
         /// Every piece of the kit that had no place in the shop until now, with
@@ -90,11 +110,8 @@ namespace MiniMarket.Store
         /// crate.
         static readonly Dictionary<string,float> KitPropSize = new()
         {
-            ["CashRegister"]=0.45f,["CardTerminal"]=0.26f,["ReceiptPrinter"]=0.32f,["Conveyor"]=3.2f,["CashierStool"]=1.15f,["CheckoutScanner"]=0.64f,
-            ["CheckoutScannerAlt"]=0.58f,["CashDrawer"]=0.58f,["CashDrawerAlt"]=0.58f,["CheckoutShelf"]=1.53f,["CheckoutCounter"]=3.2f,["BaggingArea"]=1.92f,
-            ["BaggingAreaAlt"]=1.92f,["ReusableShoppingBag"]=0.51f,["BasketStackAlt"]=1.28f,["ShoppingBasket"]=0.58f,["ShoppingBasketAlt"]=0.58f,
-            ["PromotionalBasket"]=1.28f,["ShelfGondolaDouble"]=3.85f,["ShelfGondolaSingle"]=3.2f,["ShelfCorner"]=2.56f,["ShelfDivider"]=0.77f,
-            ["ShelfPriceRail"]=1.28f,["DisplayTable"]=1.8f,["DisplayProduceSloped"]=2.05f,["RefrigeratedDisplay"]=2.3f,["ChestFreezer"]=1.92f,
+            ["ShelfGondolaDouble"]=3.85f,["ShelfGondolaSingle"]=3.2f,["ShelfDivider"]=0.77f,
+            ["ShelfPriceRail"]=1.28f,["ChestFreezer"]=1.92f,
             ["WorkCounter"]=2.05f,["UtilitySink"]=1.28f,["BakeryWorkArea"]=2.3f,["Pallet"]=1.53f,["WoodCrate"]=0.77f,["Furniture2:WoodCrate"]=0.77f,
             ["MilkCan"]=0.64f,["EggTray"]=0.38f,["FlourMill"]=2.1f,["JuiceMachine"]=2.1f,["DeliveryDockAlt"]=3.1f,["UpgradePlatformAlt"]=2.2f,["FarmGate"]=2.05f,
             ["FarmFenceCorner"]=1.28f,["RaisedBed"]=2.05f,["IrrigationBed"]=2.05f,["IrrigationChannel"]=3.2f,["Sprinkler"]=0.77f,["WateringCan"]=0.51f,
@@ -109,32 +126,10 @@ namespace MiniMarket.Store
         /// already there, so no customer or worker route changes.
         static readonly (string id,float x,float z,float y,float yaw)[] KitProps =
         {
-            ("CheckoutCounter",10.4f,2.6f,0f,90f),   // mostrador de atencion contra la pared derecha
-            ("CashRegister",10.4f,3.0f,4.41f,90f),
-            ("CardTerminal",10.4f,2.6f,4.41f,90f),
-            ("ReceiptPrinter",10.4f,2.2f,4.41f,90f),
-            ("CashierStool",10.0f,2.6f,0f,90f),
-            ("Conveyor",6.85f,3.95f,0f,90f),   // cinta junto a la caja 1
-            ("CheckoutShelf",6.85f,2.45f,0f,90f),   // estante entre las dos cajas
-            ("CheckoutScanner",6.85f,2.45f,2.89f,90f),
-            ("CashDrawer",6.85f,2.65f,2.89f,90f),
-            ("BaggingArea",8.95f,4.55f,0f,-90f),   // embolsado de la caja 1
-            ("ReusableShoppingBag",8.95f,4.0f,0f,-90f),
-            ("BaggingAreaAlt",8.95f,1.55f,0f,-90f),   // embolsado de la caja 2
-            ("BasketStackAlt",1.9f,6.5f,0f,180f),   // cestas junto a la entrada
-            ("ShoppingBasket",2.35f,6.15f,0f,180f),
-            ("ShoppingBasketAlt",2.35f,5.85f,0f,180f),
-            ("PromotionalBasket",5.3f,5.8f,0f,180f),   // cesta de ofertas frente a caja
             ("ShelfGondolaDouble",-7.8f,0.9f,0f,90f),   // pasillo nuevo a la izquierda
             ("ShelfGondolaSingle",-7.8f,-0.9f,0f,90f),
             ("ShelfDivider",-7.8f,1.9f,0f,90f),
             ("ShelfPriceRail",-7.8f,-1.9f,0f,90f),
-            ("DisplayTable",-9.9f,0.9f,0f,0f),
-            ("MilkCan",-9.9f,0.9f,2.17f,0f),
-            ("EggTray",-9.6f,0.9f,2.17f,0f),
-            ("DisplayProduceSloped",-9.9f,-0.9f,0f,0f),
-            ("ShelfCorner",-10.6f,2.1f,0f,0f),   // esquina delantera izquierda
-            ("RefrigeratedDisplay",10.4f,-0.6f,0f,90f),   // frio contra la pared derecha
             ("ChestFreezer",10.4f,-2.2f,0f,90f),
             ("WorkCounter",-8.25f,-4.6f,0f,0f),   // obrador dentro de la cabina
             ("UtilitySink",-10.2f,-7.0f,0f,0f),
@@ -144,8 +139,6 @@ namespace MiniMarket.Store
             ("Furniture2:WoodCrate",2.4f,-6.9f,0f,25f),
             ("FlourMill",1.4f,-5.4f,0f,0f),
             ("JuiceMachine",2.6f,-5.4f,0f,0f),
-            ("CashDrawerAlt",3.4f,-7.2f,0f,20f),
-            ("CheckoutScannerAlt",4.0f,-7.2f,0f,-15f),
             ("DeliveryDockAlt",10.6f,-5.4f,0f,90f),   // segundo muelle
             ("UpgradePlatformAlt",10.6f,-3.8f,0f,90f),
             ("FarmGate",7.5f,-10.575f,0f,0f),   // porton de la granja
@@ -211,8 +204,14 @@ namespace MiniMarket.Store
                 detached.Add((leaf, leaf.parent));
                 leaf.SetParent(null, true);
             }
-            StaticBatchingUtility.Combine(world.Root.gameObject);
+            // Combining bakes a second copy of every piece's geometry and keeps
+            // the originals loaded. On a desktop that trade -- memory for draw
+            // calls -- is worth it; on a phone, with sixty-odd renderers in
+            // frame, it is what pushes the tab over its limit and kills it.
+            if (!MiniMarket.Performance.PerformanceGovernor.Handheld)
+                StaticBatchingUtility.Combine(world.Root.gameObject);
             foreach (var (leaf, previous) in detached) leaf.SetParent(previous, true);
+            await Resources.UnloadUnusedAssets();
             return world;
         }
 
@@ -222,7 +221,7 @@ namespace MiniMarket.Store
             // block at [0, -0.2, -2] in the soft green below, and this is the
             // same slab at layout scale. It had been standing in a pale pink,
             // which is what showed through wherever a floor was missing.
-            VisualBox(root,"CityGround",new Vector3(108,.1f,128),new Vector3(0,-.2f,-4),Hex("ABC7A6"),.12f,false);
+            TexturedSurface(root,"CityGrass",new Vector2(108,128),new Vector3(0,-.15f,-4),"Grass",new Vector2(18,21.333f)*(StoreScale/PreviousStoreScale),.02f);
             // The floor is the designer's own, taken whole out of MOBILIARIO.glb
             // by tools/kit/extract_part.py: the beige is a 3 x 3 panel slab, the
             // white a 3 x 2, coloured from MOBILIARIO.png seen square on. The
@@ -231,9 +230,14 @@ namespace MiniMarket.Store
             // to seven thousandths, pushed back out to the straight line. Both
             // now fill their rectangle exactly, so they are laid edge to edge:
             // no overlap, nothing underneath, nothing cut away.
-            await TileFloor(root,"FloorTileBeige",-23,23,-17.7f,16.3f,4,3,1f,1f,0,0,.16f,-.08f);
-            await TileFloor(root,"FloorTileWhite",-23,23,16.3f,31.3f,4,1,1f,1f,0,0,.14f,-.1f);
-            VisualBox(root,"StoreKerb",new Vector3(50,.12f,2.4f),new Vector3(0,-.09f,32.3f),Hex("566A62"),.02f,false);
+            // Repeat the approved tile sheets over two two-triangle surfaces.
+            // They contain exactly the same visible 3 x 3 tiles as the old GLB;
+            // UV repetition adds floor area without enlarging a tile or creating
+            // 576 startup objects that would bring the first-movement hitch back.
+            TexturedSurface(root,"FloorBeige",new Vector2(46f,34f),new Vector3(0,-.006f,-.7f),"FloorTileBeige",new Vector2(24,18),.18f);
+            TexturedSurface(root,"FloorWhite",new Vector2(46f,15f),new Vector3(0,-.008f,23.8f),"FloorTileWhite",new Vector2(24,6),.16f);
+            Debug.Log($"MINIMARKET_EXPANSION escala={StoreScale:0.##} interior={46f*StoreScale:0.00}x{49f*StoreScale:0.00} modulos_baldosa=576 superficies=2 tamano_baldosa=sin_cambios");
+            VisualBox(root,"StoreKerb",new Vector3(50,.12f,2.4f*FixedPlanFactor),new Vector3(0,-.09f,32.3f),Hex("566A62"),.02f,false);
             // MarketBuilding's entrance mat: the dark slab the player crosses in
             // the doorway, authored at [0, 0.035, 7.02] with a 3.75 x 1.05
             // footprint beneath the layout-scale group, and receiveShadow only.
@@ -241,7 +245,9 @@ namespace MiniMarket.Store
             // roughly a tenth of the expected diffuse light. Ruled out so far:
             // colour space, shader support, shadow casting, shadow receiving
             // and static batching. The neighbouring glTF floor lights correctly.
-            var entranceMat=VisualBox(root,"EntranceMat",new Vector3(7.5f,.055f,2.1f),new Vector3(0,.035f,14.04f),Hex("2B4B43"),.08f,false);
+            const float entranceZ=15.9f;const float approvedMatOffset=5.58f;
+            var entranceMat=VisualBox(root,"EntranceMat",new Vector3(7.5f*FixedPlanFactor,.055f,2.1f*FixedPlanFactor),
+                                      new Vector3(0,.035f,entranceZ-approvedMatOffset/StoreScale),Hex("2B4B43"),.08f,false);
             entranceMat.GetComponent<Renderer>().shadowCastingMode=ShadowCastingMode.Off;
             foreach(var x in new[]{-12f,0,12f})await PlaceFitted("ParkingSpace",new Vector3(x,-.08f,32.3f),Quaternion.identity,new Vector3(8f,.12f,2.4f),root,false);
             await PlaceFitted("SidewalkSegment",new Vector3(-15,-.105f,-19.22f),Quaternion.identity,new Vector3(5.16f,.08f,4.4f),root,false);
@@ -314,9 +320,16 @@ namespace MiniMarket.Store
             // [3.8, 0.09, 43.9] up x -15.85 and x 15.85, with kerbs at z -19.4,
             // z 16.05 and x +/-13.45. Only the front pair had been built, so the
             // other three sides of the block were bare ground.
-            const float roadModule=8f;const float roadWidth=7.6f;
-            foreach(var z in new[]{36.5f,-43.6f})await FillSpan("RoadSegment",false,z,-36f,40f,roadModule,.09f,roadWidth,-.08f,root);
-            foreach(var x in new[]{-31.7f,31.7f})await FillSpan("RoadSegment",true,x,-47.4f,40.4f,roadModule,.09f,roadWidth,-.08f,root);
+            // The road sheet already contains asphalt, solid shoulders and lane
+            // markings. Four two-triangle surfaces replace the old chain of
+            // scanned 3k-triangle GLBs while preserving the same footprint.
+            const float roadWidth=7.6f;const float horizontalLength=76f;const float verticalLength=87.8f;
+            // Positions and lengths live in the expanded layout, while exterior
+            // widths retain their world size. Divide only the width by the root
+            // scale, exactly as PlaceFitted used to compensate the road GLB.
+            var horizontalTiles=horizontalLength*StoreScale/(roadWidth*3f);var verticalTiles=verticalLength*StoreScale/(roadWidth*3f);
+            foreach(var z in new[]{36.5f,-43.6f})TexturedSurface(root,$"Road_{z:0.0}",new Vector2(horizontalLength,roadWidth/StoreScale),new Vector3(2,-.034f,z),"Road",new Vector2(horizontalTiles,1),.08f);
+            foreach(var x in new[]{-31.7f,31.7f})TexturedSurface(root,$"Road_{x:0.0}",new Vector2(verticalLength,roadWidth/StoreScale),new Vector3(x,-.034f,-3.5f),"Road",new Vector2(verticalTiles,1),.08f,90);
             const float sidewalkModule=53.6f/7f;const float sidewalkWidth=2.2f;
             foreach(var z in new[]{32.1f,-38.8f})await FillSpan("SidewalkSegment",false,z,-26.8f,26.8f,sidewalkModule,.1f,sidewalkWidth,-.03f,root);
             foreach(var x in new[]{-26.9f,26.9f})await FillSpan("SidewalkSegment",true,x,-38.7f,32.1f,sidewalkModule,.1f,sidewalkWidth,-.03f,root);
@@ -334,23 +347,31 @@ namespace MiniMarket.Store
             await Place("Car",XZ(15.85f,8f),Quaternion.Euler(0,-90,0),Vector3.one,root,true);
             await Place("BusStop",XZ(-11.2f,20.35f),Quaternion.Euler(0,180,0),Vector3.one,root,true);
             await Place("Bench",XZ(9.4f,20.55f),Quaternion.identity,Vector3.one,root,true);
-            await Place("Crosswalk",XZ(0,17.95f),Quaternion.identity,Vector3.one,root);
-            await Place("Crosswalk",XZ(-15.55f,9.2f),Quaternion.Euler(0,90,0),Vector3.one,root);
+            TexturedSurface(root,"CrosswalkFront",new Vector2(7f/StoreScale,4.667f/StoreScale),new Vector3(0,-.026f,35.9f),"Crosswalk",Vector2.one,.04f);
+            TexturedSurface(root,"CrosswalkSide",new Vector2(7f/StoreScale,4.667f/StoreScale),new Vector3(31.1f,-.026f,18.4f),"Crosswalk",Vector2.one,.04f,90);
         }
 
         async Task BuildEnvelope(StoreWorld world)
         {
-            // Exact 23 x 17 logical store envelope (layout scale 2).
-            // Modules twice their authored size, as many as the tripled spans need.
-            const float sideModule=32.66f/7f;const float wallHeight=5.6f;
-            foreach(var x in new[]{-23f,23f})await FillSpan("WallStraight",true,x,-17.1f,15.56f,sideModule,wallHeight,.34f,0,world.Root);
-            const float rearModule=35.28f/6f;const float doorHalf=5.68f*EnvelopeScale/2f/StoreScale;   // the rear door's half width, local
-            await FillSpan("WallStraight",false,-17.1f,-23f,-15f-doorHalf,rearModule,wallHeight,.64f,0,world.Root);
-            await FillSpan("WallStraight",false,-17.1f,-15f+doorHalf,23f,rearModule,wallHeight,.64f,0,world.Root);
-            PhysicsBox(world.Root,"LeftWallCollider",new Vector3(.34f,5.6f,34.4f),new Vector3(-23,2.8f,-.7f));
-            PhysicsBox(world.Root,"RightWallCollider",new Vector3(.34f,5.6f,34.4f),new Vector3(23,2.8f,-.7f));
-            PhysicsBox(world.Root,"RearWallLeftCollider",new Vector3(35.28f,5.6f,.64f),new Vector3(5.36f,2.8f,-17.1f));
-            PhysicsBox(world.Root,"RearWallRightCollider",new Vector3(5.28f,5.6f,.64f),new Vector3(-20.36f,2.8f,-17.1f));
+            // The supplied wall belongs to the same architectural set as the
+            // facade and door. Give every module exactly the facade module's
+            // width, height and depth; FillSpan chooses how many are required
+            // and trims their width evenly to close each side without gaps.
+            const float wallModule=16.24f;const float wallHeight=11.2f;const float wallDepth=1.44f;
+            foreach(var x in new[]{-23f,23f})await FillSpan("WallStraight",true,x,-17.1f,15.56f,wallModule,wallHeight,wallDepth,0,world.Root);
+            const float doorHalf=5.68f*EnvelopeScale/2f/StoreScale;   // the rear door's half width, local
+            await FillSpan("WallStraight",false,-17.1f,-23f,-15f-doorHalf,wallModule,wallHeight,wallDepth,0,world.Root);
+            await FillSpan("WallStraight",false,-17.1f,-15f+doorHalf,23f,wallModule,wallHeight,wallDepth,0,world.Root);
+            var colliderHeight=wallHeight/StoreScale;var colliderY=wallHeight*.5f/StoreScale;var colliderDepth=wallDepth/StoreScale;
+            foreach(var x in new[]{-23f,23f})
+                PhysicsBox(world.Root,x<0?"LeftWallCollider":"RightWallCollider",
+                           new Vector3(colliderDepth,colliderHeight,32.66f),new Vector3(x,colliderY,-.77f));
+            var rearLeftEnd=-15f-doorHalf;
+            var rearLeftWidth=rearLeftEnd-(-23f);var rearRightStart=-15f+doorHalf;var rearRightWidth=23f-rearRightStart;
+            PhysicsBox(world.Root,"RearWallLeftCollider",new Vector3(rearLeftWidth,colliderHeight,colliderDepth),
+                       new Vector3(-23f+rearLeftWidth*.5f,colliderY,-17.1f));
+            PhysicsBox(world.Root,"RearWallRightCollider",new Vector3(rearRightWidth,colliderHeight,colliderDepth),
+                       new Vector3(rearRightStart+rearRightWidth*.5f,colliderY,-17.1f));
 
             await BuildStorefront(world.Root);
             await BuildRearFarmDoor(world.Root);
@@ -361,15 +382,20 @@ namespace MiniMarket.Store
             // Visuals come exclusively from the supplied mosaic GLBs. Four
             // modules fill the exact two 19.06 m storefront spans while the
             // central 7.48 m automatic-door opening remains unchanged.
-            // Two modules a side still fill the span, resized for the thicker
-            // piers: from the entrance's edge at 6.46 out to the same 22.70.
+            // The supplied facade arrived exactly half the entrance height. Its
+            // complete module is therefore doubled here (width, height and
+            // depth), then FillSpan chooses fewer repetitions to preserve the
+            // same side spans without stretching the texture.
             // No cutaway: the module carries its own window picture and the
             // entrance's glass is transparent, so the facade stays on screen.
             // Windows twice their size fill each side from the entrance's edge
             // (its width is PieceScale of the authored) out to the corner.
-            const float storefrontModule=8.12f;var edge=12.91f*EnvelopeScale/2f/StoreScale;   // entranceWidth, declared further down
-            await FillSpan("StorefrontWindow",false,15.6f,-22.7f,-edge,storefrontModule,5.6f,.72f,0,root);
-            await FillSpan("StorefrontWindow",false,15.6f,edge,22.7f,storefrontModule,5.6f,.72f,0,root);
+            const float storefrontModule=16.24f;var edge=20.57f*EnvelopeScale/2f/StoreScale;   // entranceWidth, declared further down
+            await FillSpan("StorefrontWindow",false,15.6f,-22.7f,-edge,storefrontModule,11.2f,1.44f,0,root);
+            await FillSpan("StorefrontWindow",false,15.6f,edge,22.7f,storefrontModule,11.2f,1.44f,0,root);
+            foreach(Transform child in root)
+                if(child.name.StartsWith("StorefrontWindow",StringComparison.OrdinalIgnoreCase))
+                    GlazePanes(child,"facadeglass");
             // The entrance stays on screen. Next never hides its storefront --
             // the only visibility toggles there are particles and the checkout
             // focus -- because its glass is transparent (opacity .12 to .28 with
@@ -382,11 +408,12 @@ namespace MiniMarket.Store
             // the true edge of the opening at 0.645 -- read off a render of the
             // shell, because the mesh carries material right across the doorway
             // and an x histogram cannot tell the pier from the hole.
-            const float entranceWidth=12.91f;
-            // A fifth taller than it was, on request.
-            const float entranceHeight=7.13f;
+            // Grown by 1.5935 with the cast on 6-9-2026: at 6.2 units to the
+            // metre the doorway has to clear a 1.75 m owner, and it did not.
+            const float entranceWidth=20.57f;
+            const float entranceHeight=11.37f;
             var door=await PlaceFitted("StoreEntrance",new Vector3(0,0,15.9f),Quaternion.identity,
-                                       new Vector3(entranceWidth,entranceHeight,4.4f),root,false);
+                                       new Vector3(entranceWidth,entranceHeight,7.01f),root,false);
             // The entrance carries its own plinth: 0.107 of the model's 1.764
             // height, which at this fit is 0.432 in the world. Resting its
             // lowest point on y = 0 would put that step above the plane
@@ -399,8 +426,8 @@ namespace MiniMarket.Store
             var pierWidth=frameHalf-openingHalf;
             foreach(var side in new[]{-1f,1f})
                 PhysicsBox(root,$"EntrancePier_{(side<0?"Left":"Right")}",
-                           new Vector3(pierWidth,5.2f,1.6f),
-                           new Vector3(side*(openingHalf+pierWidth*.5f),2.6f,15.9f));
+                           new Vector3(pierWidth*FixedPlanFactor,5.2f*FixedPlanFactor,1.6f*FixedPlanFactor),
+                           new Vector3(side*(openingHalf+pierWidth*.5f)*FixedPlanFactor,2.6f*FixedPlanFactor,15.9f));
             doorLeaves=FindDoorLeaves(door.transform);
             // The frame arrived as one fixed grid while only the panes moved, so
             // opening the door left jambs, head, sill and centre post standing in
@@ -426,9 +453,10 @@ namespace MiniMarket.Store
 
             // Physics remains independent from art: side facade collision is
             // exact, while the automatic doorway keeps its Next.js opening.
-            PhysicsBox(root,"StorefrontCollider_Left",new Vector3(16.25f,5.6f,.64f),new Vector3(-14.58f,2.8f,15.6f));
-            PhysicsBox(root,"StorefrontCollider_Right",new Vector3(16.25f,5.6f,.64f),new Vector3(14.58f,2.8f,15.6f));
-            var sensor=new GameObject("StorefrontDoorSensor");sensor.transform.SetParent(root,false);sensor.transform.localPosition=new Vector3(0,2f,15.9f);var trigger=sensor.AddComponent<BoxCollider>();trigger.isTrigger=true;trigger.size=new Vector3(11f,5f,15f);var body=sensor.AddComponent<Rigidbody>();body.isKinematic=true;body.useGravity=false;
+            var leftWidth=-edge-(-22.7f);var rightWidth=22.7f-edge;
+            PhysicsBox(root,"StorefrontCollider_Left",new Vector3(leftWidth,11.2f/StoreScale,1.44f/StoreScale),new Vector3(-22.7f+leftWidth*.5f,5.6f/StoreScale,15.6f));
+            PhysicsBox(root,"StorefrontCollider_Right",new Vector3(rightWidth,11.2f/StoreScale,1.44f/StoreScale),new Vector3(edge+rightWidth*.5f,5.6f/StoreScale,15.6f));
+            var sensor=new GameObject("StorefrontDoorSensor");sensor.transform.SetParent(root,false);sensor.transform.localPosition=new Vector3(0,2f*FixedPlanFactor,15.9f);var trigger=sensor.AddComponent<BoxCollider>();trigger.isTrigger=true;trigger.size=new Vector3(11f,5f,15f)*FixedPlanFactor;var body=sensor.AddComponent<Rigidbody>();body.isKinematic=true;body.useGravity=false;
             // Drive the entrance's own leaves from the sensor. The presenter
             // existed but was never wired to anything, so the door has never
             // opened. The slide is measured from a leaf's own width, because the
@@ -477,23 +505,26 @@ namespace MiniMarket.Store
         /// pair of thin, similar panels sitting either side of the doorway's
         /// centre. Matching on the mosaic's part names works only until an export
         /// renames them, and then the door silently stops opening.
-        static void GlazePanes(Transform door)
+        static void GlazePanes(Transform target,string materialToken="cristal")
         {
-            var glass=TransparentRuntimeMaterial("EntranceGlass",new Color(.60f,.71f,.74f,.14f));
+            var facade=materialToken.Equals("facadeglass",StringComparison.OrdinalIgnoreCase);
+            var glass=TransparentRuntimeMaterial(facade?"FacadeGlass":"EntranceGlass",
+                facade?new Color(.45f,.72f,.78f,.16f):new Color(.60f,.71f,.74f,.14f));
             var glazed=0;
-            foreach(var renderer in door.GetComponentsInChildren<Renderer>(true))
+            foreach(var renderer in target.GetComponentsInChildren<Renderer>(true))
             {
                 var shared=renderer.sharedMaterials;
                 var touched=false;
                 for(var i=0;i<shared.Length;i++)
                 {
-                    if(shared[i]==null||!shared[i].name.ToLowerInvariant().Contains("cristal"))continue;
+                    if(shared[i]==null||!shared[i].name.ToLowerInvariant().Contains(materialToken))continue;
                     shared[i]=glass;touched=true;
                 }
                 if(!touched)continue;
-                renderer.sharedMaterials=shared;glazed++;
+                renderer.sharedMaterials=shared;
+                renderer.shadowCastingMode=ShadowCastingMode.Off;renderer.receiveShadows=false;glazed++;
             }
-            Debug.Log($"MINIMARKET_DOOR cristales acristalados={glazed}");
+            Debug.Log($"MINIMARKET_GLASS tipo={(facade?"fachada":"entrada")} paneles={glazed}");
         }
 
         static (Transform left,Transform right) FindFrameHalves(Transform door,(Transform left,Transform right) leaves)
@@ -565,7 +596,7 @@ namespace MiniMarket.Store
         {
             // The door is a full-height wall module on the sheet, cap level with the
             // walls beside it; fitted to 3.8 it was squashed by a third.
-            await PlaceFitted("AutomaticDoor",new Vector3(-15,0,-17.1f),Quaternion.Euler(0,180,0),new Vector3(5.68f,5.6f,.5f),root,false);
+            await PlaceFitted("AutomaticDoor",new Vector3(-15,0,-17.1f),Quaternion.Euler(0,180,0),new Vector3(9.05f,8.92f,.8f),root,false);
         }
 
         static void BuildWallSegment(Vector3 position,Quaternion rotation,Transform root)
@@ -588,6 +619,36 @@ namespace MiniMarket.Store
             if(RuntimeMaterials.TryGetValue(name,out var existing)&&existing)return existing;
             var material=new Material(PrimitiveTemplate()){name=name};material.color=color;material.SetFloat("_Metallic",0);material.SetFloat("_Smoothness",smoothness);RuntimeMaterials[name]=material;
             return material;
+        }
+
+        static Material TexturedMaterial(string textureName,float smoothness)
+        {
+            var name=$"Surface_{textureName}";
+            if(RuntimeMaterials.TryGetValue(name,out var existing)&&existing)return existing;
+            var texture=Resources.Load<Texture2D>($"Surfaces/{textureName}");
+            if(!texture){Debug.LogError($"Falta la textura de superficie {textureName}");return RuntimeMaterial(name,Color.magenta,0);}
+            texture.wrapMode=TextureWrapMode.Repeat;texture.filterMode=FilterMode.Bilinear;
+            var material=new Material(PrimitiveTemplate()){name=name,color=Color.white};
+            material.mainTexture=texture;material.SetTexture("_BaseMap",texture);material.SetFloat("_Metallic",0);material.SetFloat("_Smoothness",smoothness);material.enableInstancing=true;
+            RuntimeMaterials[name]=material;return material;
+        }
+
+        /// A flat authored surface needs only two triangles. UV repetition lives
+        /// on the mesh, so horizontal and vertical roads share one material and
+        /// still preserve the supplied sheet's proportions.
+        static GameObject TexturedSurface(Transform root,string name,Vector2 size,Vector3 position,string textureName,Vector2 tiles,float smoothness,float yaw=0)
+        {
+            var surface=new GameObject(name,typeof(MeshFilter),typeof(MeshRenderer));surface.transform.SetParent(root,false);
+            surface.transform.localPosition=new Vector3(position.x,position.y/StoreScale,position.z);surface.transform.localRotation=Quaternion.Euler(0,yaw,0);surface.isStatic=true;
+            var halfX=size.x*.5f;var halfZ=size.y*.5f;
+            var mesh=new Mesh{name=name+"_Mesh"};
+            mesh.vertices=new[]{new Vector3(-halfX,0,-halfZ),new Vector3(-halfX,0,halfZ),new Vector3(halfX,0,halfZ),new Vector3(halfX,0,-halfZ)};
+            mesh.normals=new[]{Vector3.up,Vector3.up,Vector3.up,Vector3.up};
+            mesh.uv=new[]{Vector2.zero,new Vector2(0,tiles.y),tiles,new Vector2(tiles.x,0)};
+            mesh.triangles=new[]{0,1,2,0,2,3};mesh.RecalculateBounds();
+            surface.GetComponent<MeshFilter>().sharedMesh=mesh;
+            var renderer=surface.GetComponent<MeshRenderer>();renderer.sharedMaterial=TexturedMaterial(textureName,smoothness);renderer.shadowCastingMode=ShadowCastingMode.Off;renderer.receiveShadows=true;
+            return surface;
         }
 
         static Shader primitiveTemplate;
@@ -834,21 +895,44 @@ namespace MiniMarket.Store
             await BuildFarmField(root);
         }
 
-        async Task BuildProductionCubicle(Transform root)
+        Task BuildProductionCubicle(Transform root)
         {
-            // The kit's glass partition is one whole booth (its roof removed so the
-            // camera sees the machines), fitted to the cubicle's rectangle; the
-            // colliders keep the wall segments and the doorway exactly as before.
-            var cubicle=(JObject)spec.Layouts["production"]["PRODUCTION_CUBICLE"];var bounds=(JObject)cubicle["bounds"];var center=(JArray)cubicle["center"];
-            var width=(bounds.Value<float>("right")-bounds.Value<float>("left"))*LayoutScale;var depth=(bounds.Value<float>("front")-bounds.Value<float>("rear"))*LayoutScale;
-            HideIfBare(await PlaceFitted("GlassPartition",XZ(center[0].Value<float>(),center[1].Value<float>()),Quaternion.identity,new Vector3(width*StoreScale,2.65f*PieceScale,depth*StoreScale),root,false,1f));
-            var walls=(JArray)cubicle["walls"];
-            foreach(var token in walls)
-            {
-                var wall=(JObject)token;var p=(JArray)wall["position"];
-                var halfX=wall.Value<float>("halfX")*ElementScale;var halfZ=wall.Value<float>("halfZ")*ElementScale;
-                PhysicsBox(root,wall.Value<string>("id")+"_Collider",new Vector3(halfX*2,2.65f,halfZ*2),XZ(p[0].Value<float>(),p[2].Value<float>(),1.325f));
-            }
+            // The production room uses the shop's rear and side walls. Only the
+            // two exposed sides receive glass: one full inner side and a front
+            // split around the doorway, which produces the requested inverted L.
+            // These are three lightweight boxes, with the exact facade glass
+            // material, no roof, opaque module or decorative frame.
+            var cubicle=(JObject)spec.Layouts["production"]["PRODUCTION_CUBICLE"];
+            var bounds=(JObject)cubicle["bounds"];var doorway=(JObject)cubicle["doorway"];
+            const float buildingSide=23f,buildingRear=-17.1f,glassHeight=11.2f,glassThickness=.18f;
+            var innerX=-bounds.Value<float>("right")*LayoutScale;
+            var frontZ=bounds.Value<float>("front")*LayoutScale;
+            var doorCenter=-doorway.Value<float>("centerX")*LayoutScale;
+            var doorHalf=doorway.Value<float>("halfWidth")*LayoutScale;
+            var doorLeft=doorCenter-doorHalf;var doorRight=doorCenter+doorHalf;
+
+            ProductionGlassPanel(root,"ProductionGlass_Side",
+                new Vector3(glassThickness/StoreScale,glassHeight/StoreScale,frontZ-buildingRear),
+                new Vector3(innerX,glassHeight*.5f/StoreScale,(buildingRear+frontZ)*.5f));
+            ProductionGlassFront(root,"ProductionGlass_FrontLeft",innerX,doorLeft,frontZ,glassHeight,glassThickness);
+            ProductionGlassFront(root,"ProductionGlass_FrontRight",doorRight,buildingSide,frontZ,glassHeight,glassThickness);
+            Debug.Log($"MINIMARKET_PRODUCTION_GLASS forma=L_invertida ancho={(buildingSide-innerX)*StoreScale:0.00} fondo={(frontZ-buildingRear)*StoreScale:0.00} alto={glassHeight:0.00} puerta={(doorRight-doorLeft)*StoreScale:0.00}");
+            return Task.CompletedTask;
+        }
+
+        static void ProductionGlassFront(Transform root,string name,float start,float end,float z,float height,float thickness)
+        {
+            ProductionGlassPanel(root,name,new Vector3(end-start,height/StoreScale,thickness/StoreScale),
+                new Vector3((start+end)*.5f,height*.5f/StoreScale,z));
+        }
+
+        static void ProductionGlassPanel(Transform root,string name,Vector3 size,Vector3 position)
+        {
+            var panel=GameObject.CreatePrimitive(PrimitiveType.Cube);panel.name=name;panel.transform.SetParent(root,false);
+            panel.transform.localPosition=position;panel.transform.localScale=size;panel.isStatic=true;
+            var renderer=panel.GetComponent<Renderer>();renderer.sharedMaterial=TransparentRuntimeMaterial("FacadeGlass",new Color(.45f,.72f,.78f,.16f));
+            renderer.shadowCastingMode=ShadowCastingMode.Off;renderer.receiveShadows=false;
+            HideIfBare(panel);
         }
 
         async Task BuildKitProps(Transform root)
@@ -881,7 +965,7 @@ namespace MiniMarket.Store
             // and the gaps between them read as bare grass.
             var fieldWidth=size[0].Value<float>()*LayoutScale;var fieldDepth=size[2].Value<float>()*LayoutScale;
             VisualBox(root,"FarmLawnEdge",new Vector3(fieldWidth*1.035f,.1f,fieldDepth*1.035f),new Vector3(centerX,-.038f,centerZ),Hex("315D36"),.03f,false);
-            VisualBox(root,"FarmLawn",new Vector3(fieldWidth,.1f,fieldDepth),new Vector3(centerX,-.03f,centerZ),Hex("59934F"),.03f,false);
+            TexturedSurface(root,"FarmLawn",new Vector2(fieldWidth,fieldDepth),new Vector3(centerX,.021f,centerZ),"Grass",new Vector2(fieldWidth/6f,fieldDepth/6f)*(StoreScale/PreviousStoreScale),.02f);
             var gate=(JObject)spec.Layouts["farm"]["FARM_GATE"];
             foreach(var token in (JArray)gate["accessCorridorFences"])await BuildFence((JObject)token,root);
             foreach(var token in (JArray)gate["perimeterWallFences"])await BuildFence((JObject)token,root);
@@ -893,25 +977,243 @@ namespace MiniMarket.Store
             var p=(JArray)data["center"];var halfX=data.Value<float>("halfX")*ElementScale;var halfZ=data.Value<float>("halfZ")*ElementScale;
             var alongZ=halfZ>halfX;var length=Mathf.Max(halfX,halfZ)*2;var asset=length>5f?"FarmFenceLong":"FarmFenceShort";
             await PlaceFitted(asset,XZ(p[0].Value<float>(),p[2].Value<float>()),alongZ?Quaternion.Euler(0,90,0):Quaternion.identity,new Vector3(length,.85f,.22f),root,false);
-            PhysicsBox(root,"FarmFenceCollider",new Vector3(halfX*2,.85f,halfZ*2),XZ(p[0].Value<float>(),p[2].Value<float>(),.425f));
+            PhysicsBox(root,"FarmFenceCollider",new Vector3(halfX*2,.85f,halfZ*2)*FixedPlanFactor,XZ(p[0].Value<float>(),p[2].Value<float>(),.425f));
+        }
+
+        /// The slots where the stock shows up, laid out over the fixture the
+        /// piece really is. They are children of the display, so a local offset
+        /// is multiplied by its scale -- and that scale is whatever FitLocalSize
+        /// needed to blow a 15 cm export up to a six metre gondola. Written as
+        /// fixed local numbers they put the tomatoes fifty metres in the air,
+        /// which is why the shelves looked empty however much stock was on them.
+        /// The offsets are measured on the fitted piece and divided back.
+        static bool TryGetLocalRendererBounds(GameObject root, out Bounds bounds)
+        {
+            bounds = default;
+            var renderers = root.GetComponentsInChildren<Renderer>(true);
+            var found = false;
+            foreach (var renderer in renderers)
+            {
+                var source = renderer.localBounds;
+                for (var x = -1; x <= 1; x += 2)
+                for (var y = -1; y <= 1; y += 2)
+                for (var z = -1; z <= 1; z += 2)
+                {
+                    var corner = source.center + Vector3.Scale(source.extents, new Vector3(x, y, z));
+                    var local = root.transform.InverseTransformPoint(renderer.transform.TransformPoint(corner));
+                    if (!found) { bounds = new Bounds(local, Vector3.zero); found = true; }
+                    else bounds.Encapsulate(local);
+                }
+            }
+            return found;
+        }
+
+        static void BuildShelfSlots(ProductShelf shelf, GameObject display, string asset)
+        {
+            var renderers = display.GetComponentsInChildren<Renderer>(true);
+            if (renderers.Length == 0) { shelf.BuildSlots(30, Vector3.zero, Vector3.zero, 10); return; }
+            var bounds = renderers[0].bounds;
+            for (var i = 1; i < renderers.Length; i++) bounds.Encapsulate(renderers[i].bounds);
+            var size = bounds.size;
+            var scale = display.transform.lossyScale;
+            Vector3 Local(Vector3 world) => new(world.x / Mathf.Max(.0001f, scale.x),
+                                                world.y / Mathf.Max(.0001f, scale.y),
+                                                world.z / Mathf.Max(.0001f, scale.z));
+            if (asset == "EggDisplay")
+            {
+                // The cartons were measured on the piece: seven hollows across
+                // from .116 to .888 of its width, two deep at .274 and .567, on
+                // three trays whose floors sit at .064, .344 and .594 of its
+                // height. One egg per hollow, as wide as the hollow lets it be.
+                var puntos = new List<Vector3>();
+                foreach (var suelo in new[] { .0642f, .3435f, .5940f })
+                    // The depth axis turns over on import, so the rows measured
+                    // on the file at .274 and .567 are these two here.
+                    foreach (var fila in new[] { .7263f, .4330f })
+                        for (var i = 0; i < 7; i++)
+                            puntos.Add(Local(new Vector3((.1161f + i * .12862f - .5f) * size.x,
+                                                          suelo * size.y, (fila - .5f) * size.z)));
+                shelf.BuildSlotsAt(puntos, size.x * .1286f * .86f, true);
+                return;
+            }
+            if (asset == "DisplayRefrigeratedDoors")
+            {
+                // The delivered three-bay fridge has five usable shelf levels.
+                // Slots alternate milk/cheese because ProductVisualSystem uses
+                // that same alternating order. Milk occupies the left half and
+                // cheese the right half, three products per level on each side.
+                if (!TryGetLocalRendererBounds(display, out var localBounds)) return;
+                var localSize = localBounds.size;
+                var puntos = new List<Vector3>(30);
+                foreach (var nivel in new[] { .34f, .46f, .58f, .70f, .82f })
+                    for (var columna = 0; columna < 3; columna++)
+                    {
+                        var lecheX = -.41f + columna * .165f;
+                        var quesoX = .08f + columna * .165f;
+                        puntos.Add(new Vector3(localBounds.center.x + lecheX * localSize.x,
+                                               localBounds.min.y + nivel * localSize.y,
+                                               localBounds.center.z + localSize.z * .18f));
+                        puntos.Add(new Vector3(localBounds.center.x + quesoX * localSize.x,
+                                               localBounds.min.y + nivel * localSize.y,
+                                               localBounds.center.z + localSize.z * .18f));
+                    }
+                shelf.BuildSlotsAt(puntos, Mathf.Min(localSize.x * Mathf.Abs(scale.x) * .07f,
+                                                     localSize.y * Mathf.Abs(scale.y) * .10f), false);
+                return;
+            }
+            if (asset == "DisplayProduceMixed")
+            {
+                // Two rows of three wooden bins. ProductVisualSystem consumes
+                // slots tomato/apple/corn in that order, so every SKU owns one
+                // physical compartment per row instead of forming generic rows
+                // across the front of the furniture.
+                if (!TryGetLocalRendererBounds(display, out var localBounds)) return;
+                var localSize = localBounds.size;var puntos = new List<Vector3>(30);
+                for(var item=0;item<10;item++)
+                {
+                    var row=item/5;var within=item%5;
+                    for(var product=0;product<3;product++)
+                        puntos.Add(new Vector3(localBounds.center.x+(product-1)*localSize.x*.31f+(within-2)*localSize.x*.047f,
+                                               localBounds.min.y+(row==0 ? .43f : .75f)*localSize.y,
+                                               localBounds.center.z+localSize.z*.14f));
+                }
+                shelf.BuildSlotsAt(puntos,Mathf.Min(localSize.x*Mathf.Abs(scale.x)*.055f,
+                                                    localSize.y*Mathf.Abs(scale.y)*.11f),false);
+                return;
+            }
+            if (asset == "DisplayTable")
+            {
+                // The approved table is the bread display. Eighteen slots cover
+                // only its top, so bread follows the real shelf inventory and
+                // the old milk can and egg tray can never reappear on it.
+                if (!TryGetLocalRendererBounds(display, out var localBounds)) return;
+                var localSize=localBounds.size;var puntos=new List<Vector3>(18);
+                for(var row=0;row<3;row++)
+                    for(var column=0;column<6;column++)
+                        puntos.Add(new Vector3(localBounds.center.x+(column-2.5f)*localSize.x*.145f,
+                                               localBounds.max.y+localSize.y*.025f,
+                                               localBounds.center.z+(row-1)*localSize.z*.22f));
+                shelf.BuildSlotsAt(puntos,Mathf.Min(localSize.x*Mathf.Abs(scale.x)*.11f,
+                                                    localSize.z*Mathf.Abs(scale.z)*.20f),false);
+                return;
+            }
+            if (asset == "ShelfWallTall" || asset == "ShelfWallWide")
+            {
+                if (!TryGetLocalRendererBounds(display, out var localBounds)) return;
+                var localSize=localBounds.size;var wide=asset=="ShelfWallWide";
+                var columns=wide?9:8;var levels=wide?5:4;var puntos=new List<Vector3>(columns*levels);
+                for(var level=0;level<levels;level++)
+                    for(var column=0;column<columns;column++)
+                        puntos.Add(new Vector3(localBounds.center.x+(column-(columns-1)*.5f)*localSize.x*(wide ? .088f : .105f),
+                                               localBounds.min.y+(.18f+level*(wide ? .17f : .215f))*localSize.y,
+                                               localBounds.center.z+localSize.z*.18f));
+                shelf.BuildSlotsAt(puntos,Mathf.Min(localSize.x*Mathf.Abs(scale.x)*(wide ? .075f : .09f),
+                                                    localSize.y*Mathf.Abs(scale.y)*.085f),false);
+                return;
+            }
+            // Three rows up the front of the piece, ten across, in front of its face.
+            var centre = Local(new Vector3(0f, size.y * .30f, size.z * .24f));
+            var step = Local(new Vector3(size.x * .085f, size.y * .24f, 0f));
+            shelf.slotSize = .24f * SmallPieceScale; shelf.fitFootprint = false;
+            shelf.BuildSlots(30, centre, step, 10);
+        }
+
+        /// The refrigerator arrived as one opaque mesh, so its frames cannot be
+        /// separated into animated leaves without damaging that mesh. Three
+        /// lightweight glass leaves are fitted over the bays and remain dynamic;
+        /// DairyDoorPresenter opens the one approached by the owner.
+        static void BuildDairyDoors(GameObject display)
+        {
+            if (!display || BareInterior) return;
+            if (!TryGetLocalRendererBounds(display, out var bounds)) return;
+
+            var scale = display.transform.lossyScale;
+            var bayWidth = bounds.size.x * .265f;
+            var glassHeight = bounds.size.y * .58f;
+            var glassY = bounds.min.y + bounds.size.y * .55f;
+            var glassZ = bounds.max.z + .025f / Mathf.Max(.0001f, Mathf.Abs(scale.z));
+            var thickness = Mathf.Max(.025f / Mathf.Max(.0001f, Mathf.Abs(scale.z)), bounds.size.z * .009f);
+            var hinges = new Transform[3];
+            var glass = TransparentRuntimeMaterial("DairyDoorGlass", new Color(.55f,.82f,.88f,.15f));
+            var handle = RuntimeMaterial("DairyDoorHandle", Hex("202928"), .48f);
+
+            for (var bay = 0; bay < 3; bay++)
+            {
+                var bayCentreX = bounds.center.x + (bay - 1) * bounds.size.x * .325f;
+                var hinge = new GameObject($"DairyDoorHinge_{bay + 1}").transform;
+                hinge.SetParent(display.transform, false);
+                hinge.localPosition = new Vector3(bayCentreX - bayWidth * .5f, glassY, glassZ);
+                hinge.localRotation = Quaternion.identity;
+                hinges[bay] = hinge;
+
+                var pane = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                pane.name = $"DairyDoorGlass_{bay + 1}";
+                pane.transform.SetParent(hinge, false);
+                pane.transform.localPosition = new Vector3(bayWidth * .5f, 0, 0);
+                pane.transform.localScale = new Vector3(bayWidth, glassHeight, thickness);
+                UnityEngine.Object.Destroy(pane.GetComponent<Collider>());
+                var paneRenderer = pane.GetComponent<Renderer>();
+                paneRenderer.sharedMaterial = glass;
+                paneRenderer.shadowCastingMode = ShadowCastingMode.Off;
+                paneRenderer.receiveShadows = false;
+                pane.isStatic = false;
+
+                var grip = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                grip.name = $"DairyDoorHandle_{bay + 1}";
+                grip.transform.SetParent(hinge, false);
+                grip.transform.localPosition = new Vector3(bayWidth * .90f, 0, thickness * 1.8f);
+                grip.transform.localScale = new Vector3(Mathf.Max(.035f / Mathf.Max(.0001f, Mathf.Abs(scale.x)),bayWidth*.018f),
+                                                        glassHeight * .22f,
+                                                        thickness * 1.6f);
+                UnityEngine.Object.Destroy(grip.GetComponent<Collider>());
+                grip.GetComponent<Renderer>().sharedMaterial = handle;
+                grip.isStatic = false;
+            }
+
+            var presenter = display.AddComponent<DairyDoorPresenter>();
+            presenter.Bind(hinges, bayWidth * Mathf.Abs(scale.x));
+            var worldSize = Vector3.Scale(bounds.size, new Vector3(Mathf.Abs(scale.x), Mathf.Abs(scale.y), Mathf.Abs(scale.z)));
+            var worldCenter = display.transform.TransformPoint(bounds.center);
+            var front = display.transform.forward;
+            Debug.Log($"MINIMARKET_DAIRY nevera={worldSize.x:0.00}x{worldSize.y:0.00}x{worldSize.z:0.00} puertas=3 " +
+                      $"centro=({worldCenter.x:0.00},{worldCenter.z:0.00}) frente=({front.x:0.00},{front.z:0.00})");
         }
 
         async Task BuildRetail(StoreWorld world)
         {
             var departments = (JObject)spec.Layouts["retail"]["RETAIL_DEPARTMENTS"];
+            var dairyData=(JObject)departments["dairy"];
+            var dairyDisplay=(JArray)dairyData["display"];
+            var dairyService=(JArray)dairyData["service"];
             foreach (var property in departments.Properties())
             {
                 var data = (JObject)property.Value;
                 var pos = (JArray)data["display"];
-                var position = new Vector3(-pos[0].Value<float>() * LayoutScale, 0, pos[2].Value<float>() * LayoutScale);
-                var display = HideIfBare(await Place(DisplayAssets[property.Name],position,Quaternion.identity,Vector3.one*ElementScale,world.Root,true));
+                var displayZ=pos[2].Value<float>();
+                // The drinks shelf was approved beside dairy. Doubling the plan
+                // would otherwise double their gap as well; retain that one
+                // deliberate adjacency while the rest of the shop spreads out.
+                if(property.Name=="drinks")
+                    displayZ=dairyDisplay[2].Value<float>()+(displayZ-dairyDisplay[2].Value<float>())*FixedPlanFactor;
+                var position = new Vector3(-pos[0].Value<float>() * LayoutScale, 0, displayZ * LayoutScale);
+                var rotation = Quaternion.Euler(0, data.Value<float?>("yaw") ?? 0, 0);
+                var display = HideIfBare(await Place(DisplayAssets[property.Name],position,rotation,Vector3.one*ElementScale,world.Root,true));
                 var shelf = display.AddComponent<ProductShelf>();
                 shelf.departmentId = property.Name;
-                shelf.allowedProducts = data["products"].ToObject<string[]>();
-                shelf.BuildSlots(30, new Vector3(0, .7f*ElementScale, .16f*ElementScale), new Vector3(.23f*ElementScale, .34f*ElementScale, .04f*ElementScale), 10);
+                var listedProducts=data["products"].ToObject<string[]>();
+                // The table replaces the old bakery fixture and is reserved for
+                // bread. Flour and wheat are production inputs, not retail stock.
+                shelf.allowedProducts = property.Name=="bakery"
+                    ? new[]{"bread"}
+                    : listedProducts;
+                BuildShelfSlots(shelf, display, DisplayAssets[property.Name]);
+                if (property.Name == "dairy") BuildDairyDoors(display);
                 world.Shelves[property.Name] = shelf;
                 var service = (JArray)data["service"];
-                var servicePoint = New($"Service_{property.Name}", new Vector3(-service[0].Value<float>() * LayoutScale, 0, service[1].Value<float>() * LayoutScale));
+                var serviceZ=service[1].Value<float>();
+                if(property.Name=="drinks")
+                    serviceZ=dairyService[1].Value<float>()+(serviceZ-dairyService[1].Value<float>())*FixedPlanFactor;
+                var servicePoint = New($"Service_{property.Name}", new Vector3(-service[0].Value<float>() * LayoutScale, 0, serviceZ * LayoutScale));
                 servicePoint.SetParent(world.Root, true);
                 foreach (var product in shelf.allowedProducts)
                 {
@@ -930,6 +1232,10 @@ namespace MiniMarket.Store
                 var counter = (JArray)data["counter"];
                 var position = new Vector3(-counter[0].Value<float>() * LayoutScale, 0, counter[2].Value<float>() * LayoutScale);
                 var checkout = HideIfBare(await Place("CheckoutArea", position, Quaternion.identity, Vector3.one * ElementScale, world.Root, true));
+                // The delivered checkout is the complete approved set: belt,
+                // monitor, payment terminal and lane post are one coherent
+                // piece. Do not layer the older split sign or loose checkout
+                // props over it.
                 if(lane.Name!="0")world.AvailabilityVisuals[$"checkout:{lane.Name}"]=checkout;
                 var customer = (JArray)data["customerFront"];
                 var laneIndex=int.Parse(lane.Name);var checkoutPoint=New($"CheckoutInteractionPoint_{laneIndex}", new Vector3(-customer[0].Value<float>() * LayoutScale, 0, customer[1].Value<float>() * LayoutScale));checkoutPoint.SetParent(world.Root,true);world.CheckoutPoints.Add(checkoutPoint);
@@ -1066,7 +1372,8 @@ namespace MiniMarket.Store
         async Task<GameObject> Place(string id, Vector3 position, Quaternion rotation, Vector3 scale, Transform root, bool collider = false)
         {
             var instance = await loader.InstantiateAsync(id, root, position, rotation, Vector3.one);
-            if(TargetLocalSize.TryGetValue(id,out var targetSize))FitLocalSize(instance,targetSize*SizeFactor(id,Mathf.Max(targetSize.x,Mathf.Max(targetSize.y,targetSize.z))));
+            if(TargetWorldHeight.TryGetValue(id,out var targetHeight))FitWorldHeight(instance,targetHeight);
+            else if(TargetLocalSize.TryGetValue(id,out var targetSize))FitLocalSize(instance,targetSize*SizeFactor(id,Mathf.Max(targetSize.x,Mathf.Max(targetSize.y,targetSize.z))));
             else
             {
                 var target=TargetLongestDimension.TryGetValue(id,out var listed)?listed
@@ -1074,6 +1381,7 @@ namespace MiniMarket.Store
                     :Mathf.Max(scale.x,Mathf.Max(scale.y,scale.z));
                 NormalizeScale(instance,target*SizeFactor(id,target));
             }
+            if(SeptemberFurniture.Contains(id))LogFurnitureSize(id,instance);
             foreach(var child in instance.GetComponentsInChildren<Transform>(true))child.gameObject.isStatic=true;
             if (collider) AddBoundsCollider(instance);
             return instance;
@@ -1104,6 +1412,21 @@ namespace MiniMarket.Store
             var bounds=renderers[0].bounds;for(var i=1;i<renderers.Length;i++)bounds.Encapsulate(renderers[i].bounds);
             var longest=Mathf.Max(bounds.size.x,Mathf.Max(bounds.size.y,bounds.size.z));if(longest<=.0001f)return;
             instance.transform.localScale=Vector3.one*(targetLongest/longest);
+        }
+
+        static void FitWorldHeight(GameObject instance,float targetHeight)
+        {
+            var renderers=instance.GetComponentsInChildren<Renderer>(true);if(renderers.Length==0||targetHeight<=0)return;
+            var bounds=renderers[0].bounds;for(var i=1;i<renderers.Length;i++)bounds.Encapsulate(renderers[i].bounds);
+            if(bounds.size.y<=.0001f)return;
+            instance.transform.localScale*=targetHeight/bounds.size.y;
+        }
+
+        static void LogFurnitureSize(string id,GameObject instance)
+        {
+            var renderers=instance.GetComponentsInChildren<Renderer>(true);if(renderers.Length==0)return;
+            var bounds=renderers[0].bounds;for(var i=1;i<renderers.Length;i++)bounds.Encapsulate(renderers[i].bounds);
+            Debug.Log($"MINIMARKET_MUEBLE id={id} medida={bounds.size.x:0.00}x{bounds.size.y:0.00}x{bounds.size.z:0.00}");
         }
 
         void AddBoundsCollider(GameObject root)

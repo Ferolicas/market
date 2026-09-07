@@ -5,6 +5,7 @@ using MiniMarket.Animations;
 using MiniMarket.Assets;
 using MiniMarket.Audio;
 using MiniMarket.Characters;
+using MiniMarket.Configuration;
 using MiniMarket.Customers;
 using MiniMarket.Data;
 using MiniMarket.Economy;
@@ -13,6 +14,8 @@ using MiniMarket.Farm;
 using MiniMarket.Interactions;
 using MiniMarket.Inventory;
 using MiniMarket.Networking;
+using MiniMarket.Diagnostics;
+using MiniMarket.Observability;
 using MiniMarket.Performance;
 using MiniMarket.Persistence;
 using MiniMarket.Player;
@@ -22,6 +25,7 @@ using MiniMarket.Store;
 using MiniMarket.UI;
 using Newtonsoft.Json.Linq;
 using UnityEngine;
+using UnityEngine.AI;
 using UnityEngine.EventSystems;
 using UnityEngine.Rendering;
 
@@ -63,6 +67,8 @@ namespace MiniMarket.Core
         AvatarAppearanceSystem avatarAppearance;CharacterFactory characterFactory;string playerCharacterId;
         PlayerCarryVisual playerCarryVisual;
         float simulationClock;float worldClock;float simulationDeltaMs;Vector3 lastPlayerPosition;
+        readonly IGameTelemetry telemetry=new UnityGameTelemetry();
+        IRuntimeConfigProvider runtimeConfig;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void EnsureRuntime()
@@ -75,7 +81,7 @@ namespace MiniMarket.Core
         {
             DontDestroyOnLoad(gameObject);
             try{await BootAsync();}
-            catch(Exception exception){LoadStatus=$"Error de inicio: {exception.Message}";Debug.LogException(exception);if(hud)hud.ShowFatal(LoadStatus);}
+            catch(Exception exception){LoadStatus=$"Error de inicio: {exception.Message}";telemetry.TrackError("STARTUP","fatal",exception);Debug.LogException(exception);if(hud)hud.ShowFatal(LoadStatus);}
         }
 
         async Task BootAsync()
@@ -89,7 +95,7 @@ namespace MiniMarket.Core
             LoadStatus="Leyendo reglas originales…";hud.ShowLoading(LoadStatus);
             Signals=new GameSignals();Spec=new GameSpecRepository();await Spec.LoadAsync();
             var catalog=new RuntimeAssetCatalog();await catalog.LoadAsync();gltf=new RuntimeGltfLoader(catalog);avatarAppearance=new AvatarAppearanceSystem(catalog,gltf);await avatarAppearance.LoadAsync();
-            var api=new MarketApiClient();Saves=new SaveCoordinator(api,Signals);State=await Saves.LoadAsync(Spec);
+            var api=new MarketApiClient();runtimeConfig=new RuntimeConfigProvider(api);runtimeConfig.LoadCached();Saves=new SaveCoordinator(api,Signals);State=await Saves.LoadAsync(Spec);
             Inventory=new InventorySystem(State);Carry=new PlayerCarrySystem(State,Inventory,Signals);ProductPolicy=new ProductAvailabilityPolicy(Spec);ProductPolicy.ReconcileProgressionState(State);
             Ledger=new GameLedger(State,Saves);Progression=new ProgressionSystem(State,Spec,Signals,Ledger);Progression.ReconcileAllUnlocks();Economy=new EconomySystem(State,Spec,Inventory,Signals,Progression,Ledger);
             Farm=new FarmSystem(State,Spec,Inventory,Carry,ProductPolicy,Signals,Progression);Production=new ProductionSystem(State,Spec,Inventory,Carry,ProductPolicy,Signals,Progression);
@@ -115,21 +121,48 @@ namespace MiniMarket.Core
             characterFactory=new CharacterFactory(gltf);var body=BodyAsset(State.Root["avatar"]?.Value<string>("body"));playerCharacterId=body;
             PlayerActor=await characterFactory.CreateAsync(body,transform,new Vector3(0,0,12.5f*StoreWorldBuilder.StoreScale),true);
             PlayerActor.gameObject.tag="Player";
-            Player=PlayerActor.gameObject.AddComponent<PlayerController>();Player.Bind(State);Player.InputEnabled=!CompanySetup.Required;Interactions.Bind(Player);lastPlayerPosition=Player.transform.position;
+            Player=PlayerActor.gameObject.AddComponent<PlayerController>();Player.Bind(State);Player.InputEnabled=false;Interactions.Bind(Player);lastPlayerPosition=Player.transform.position;
             var bridge=PlayerActor.gameObject.AddComponent<PlayerAnimationBridge>();bridge.Bind(Player,PlayerActor,Carry);
-            cameraRig=Camera.main.GetComponent<IsometricCamera>();cameraRig.target=Player.transform;CharacterLod.Focus=Player.transform;if(PlayerActor.GetComponent<CharacterLod>() is CharacterLod playerLod)playerLod.PinNear=true;
+            cameraRig=Camera.main.GetComponent<IsometricCamera>();cameraRig.target=Player.transform;CharacterLod.Focus=Player.transform;if(PlayerActor.GetComponent<CharacterLod>() is CharacterLod playerLod)playerLod.PinNear=!MiniMarket.Performance.PerformanceGovernor.Handheld;
             playerCarryVisual=gameObject.AddComponent<PlayerCarryVisual>();await playerCarryVisual.BindAsync(gltf,PlayerActor,Carry);
 
             productVisuals=new ProductVisualSystem(gltf,World,State,ProductPolicy,Signals);
-            farmVisuals=new FarmVisualSystem(gltf,World,State);farmVisuals.Tick(State.SimulationTimeMs);
+            farmVisuals=new FarmVisualSystem(gltf,World,State);
             gameplayInteractions=new GameplayInteractionSystem(Interactions,World,State,Spec,Inventory,Carry,ProductPolicy,Farm,Production,Progression,Signals,PlayerActor);
-            Customers=new GameObject("Customers").AddComponent<CustomerManager>();Customers.transform.SetParent(transform);Customers.Bind(characterFactory,gltf,World,State,Spec,Inventory,Economy,ProductPolicy,Signals,performance,Progression);
+            Customers=new GameObject("Customers").AddComponent<CustomerManager>();Customers.transform.SetParent(transform);Customers.enabled=false;Customers.Bind(characterFactory,gltf,World,State,Spec,Inventory,Economy,ProductPolicy,Signals,performance,Progression);
             gameplayInteractions.CheckoutRequested+=lane=>Customers.ServeLane(lane);
-            Employees=new GameObject("Employees").AddComponent<EmployeeManager>();Employees.transform.SetParent(transform);Employees.Bind(characterFactory,gltf,World,State,Spec,Inventory,Farm,Production,ProductPolicy,Signals,performance,Progression);
+            Employees=new GameObject("Employees").AddComponent<EmployeeManager>();Employees.transform.SetParent(transform);Employees.enabled=false;Employees.Bind(characterFactory,gltf,World,State,Spec,Inventory,Farm,Production,ProductPolicy,Signals,performance,Progression);
             hud.Bind(this,audio);gameplayInteractions.OpenPanelRequested+=hud.OpenPanel;
-            Ready=true;LoadStatus="Listo";hud.HideLoading();
+
+            // Nothing below may overlap the first playable frame. Previously the
+            // player was enabled and the loading card was hidden before these
+            // imports and the synchronous shader compilation had finished. A
+            // first movement therefore froze for several seconds while the first
+            // shelf/crop texture and the remaining character materials arrived.
+            LoadStatus="Colocando productos y cultivos…";hud.ShowLoading(LoadStatus);
+            await productVisuals.WarmAsync();await farmVisuals.WarmAsync(State.SimulationTimeMs);
+            LoadStatus="Preparando empleados y clientes…";hud.ShowLoading(LoadStatus);
+            await Employees.WarmAsync();
             await Customers.WarmAsync();
+            LoadStatus="Preparando el primer fotograma…";hud.ShowLoading(LoadStatus);
+            // All opening models and every later product/crop asset are imported
+            // above. Do not call Shader.WarmupAllShaders on WebGL: Unity also
+            // tries unsupported internal variants, stalls the main thread and
+            // emits browser shader errors unrelated to the materials we use.
+            await Task.Yield();
+            Ready=true;Customers.enabled=true;Employees.enabled=true;Player.InputEnabled=!CompanySetup.Required;
+            LoadStatus="Listo";hud.ShowLoading(LoadStatus);
             Debug.Log($"MINIMARKET_READY characters=9 animations={PlayerActor.AnimationCount} morphs={PlayerActor.BlendShapeCount} shelves={World.Shelves.Count}");
+            Debug.Log($"MINIMARKET_BUILD version={RuntimeBuildInfo.Version} build={RuntimeBuildInfo.BuildNumber} commit={RuntimeBuildInfo.GitCommit} catalog={RuntimeBuildInfo.ContentCatalog} saveSchema={RuntimeBuildInfo.SaveSchema} tier={performance.ActiveTier}");
+            telemetry.Track("STARTUP","ready");
+            _=RefreshRuntimeConfigAsync();
+            hud.HideLoading();
+        }
+
+        async Task RefreshRuntimeConfigAsync()
+        {
+            if(runtimeConfig==null)return;
+            if(await runtimeConfig.RefreshAsync())telemetry.Track("NETWORK","remote-config");
         }
 
         void Update()
@@ -274,8 +307,68 @@ namespace MiniMarket.Core
         {
             if(!LocalQaAllowed())return;
             EnsureLocalQaSetup();
+            // Level 13 so the shelves under test are unlocked: eggs open at 8,
+            // coffee at 9, corn at 11 and milk at 13.
+            State.Level=Math.Max(State.Level,13);Progression.ReconcileAllUnlocks();
             State.SetQuantity("shelves","tomatoes",Math.Max(8,State.Quantity("shelves","tomatoes")));
-            Debug.Log("MINIMARKET_QA seeded=tomatoes shelf="+State.Quantity("shelves","tomatoes"));
+            State.SetQuantity("shelves","eggs",Math.Max(24,State.Quantity("shelves","eggs")));
+            Debug.Log($"MINIMARKET_QA seeded tomates={State.Quantity("shelves","tomatoes")} huevos={State.Quantity("shelves","eggs")}");
+        }
+        public void PrepareLocalDairyQaScenario()
+        {
+            if(!LocalQaAllowed())return;
+            EnsureLocalQaSetup();
+            State.Level=Math.Max(State.Level,16);Progression.ReconcileAllUnlocks();
+            State.SetQuantity("shelves","milk",Math.Max(15,State.Quantity("shelves","milk")));
+            State.SetQuantity("shelves","cheese",Math.Max(15,State.Quantity("shelves","cheese")));
+            if(World.Shelves.TryGetValue("dairy",out var shelf))
+            {
+                var fixture=shelf.GetComponent<BoxCollider>();
+                if(fixture)
+                {
+                    var scale=shelf.transform.lossyScale;
+                    var target=shelf.transform.TransformPoint(new Vector3(
+                        fixture.center.x-fixture.size.x*.325f,
+                        fixture.center.y-fixture.size.y*.5f,
+                        fixture.center.z+fixture.size.z*.5f+1.2f/Mathf.Max(.0001f,Mathf.Abs(scale.z))));
+                    target.y=.08f;
+                    var body=Player.GetComponent<CharacterController>();
+                    if(body)body.enabled=false;Player.transform.position=target;if(body)body.enabled=true;
+                    var route="sin-ruta";
+                    if(World.ProductServicePoints.TryGetValue("milk",out var service)
+                       &&NavMesh.SamplePosition(World.EntranceInside.position,out var startHit,3f,NavMesh.AllAreas)
+                       &&NavMesh.SamplePosition(service.position,out var endHit,3f,NavMesh.AllAreas))
+                    {
+                        var path=new NavMeshPath();
+                        if(NavMesh.CalculatePath(startHit.position,endHit.position,NavMesh.AllAreas,path))
+                            route=$"{path.status}:{path.corners.Length}";
+                    }
+                    Debug.Log($"MINIMARKET_DAIRY_QA leche={State.Quantity("shelves","milk")} queso={State.Quantity("shelves","cheese")} " +
+                              $"jugador=({target.x:0.00},{target.z:0.00}) ruta={route}");
+                }
+            }
+        }
+        public void PrepareLocalFurnitureQaScenario()
+        {
+            if(!LocalQaAllowed())return;
+            EnsureLocalQaSetup();
+            // Juice is the last product in this furniture pass and unlocks at 21.
+            State.Level=Math.Max(State.Level,21);Progression.ReconcileAllUnlocks();
+            foreach(var id in new[]{"tomatoes","apples","corn","eggs","milk","cheese","juice","bread","flour","wheat","coffee"})
+                State.SetQuantity("shelves",id,Math.Max(ProductPolicy.ShelfCapacity(State,id),State.Quantity("shelves",id)));
+            Carry.ReturnAllToWarehouse();Carry.Add("bread",Math.Min(3,Carry.Capacity));
+            Debug.Log($"MINIMARKET_FURNITURE_QA estantes={World.Shelves.Count} cajon={Carry.Total} nivel={State.Level}");
+        }
+        public void ViewLocalFurnitureQa(string assetId)
+        {
+            if(!LocalQaAllowed()||string.IsNullOrWhiteSpace(assetId))return;
+            var target=GameObject.Find(assetId);if(!target)return;
+            var renderers=target.GetComponentsInChildren<Renderer>(true);if(renderers.Length==0)return;
+            var bounds=renderers[0].bounds;for(var i=1;i<renderers.Length;i++)bounds.Encapsulate(renderers[i].bounds);
+            var destination=bounds.center+new Vector3(-bounds.extents.x-3.2f,0,-bounds.extents.z-3.2f);destination.y=.08f;
+            var body=Player.GetComponent<CharacterController>();if(body)body.enabled=false;Player.transform.position=destination;if(body)body.enabled=true;
+            Player.transform.LookAt(new Vector3(bounds.center.x,destination.y,bounds.center.z));
+            Debug.Log($"MINIMARKET_FURNITURE_VIEW id={assetId} medida={bounds.size.x:0.00}x{bounds.size.y:0.00}x{bounds.size.z:0.00}");
         }
         public void PrepareLocalWorkerQaScenario()
         {
@@ -306,10 +399,34 @@ namespace MiniMarket.Core
                 ["playerX"]=Player?Math.Round(Player.transform.position.x,3):0,
                 ["playerY"]=Player?Math.Round(Player.transform.position.y,3):0,
                 ["playerZ"]=Player?Math.Round(Player.transform.position.z,3):0,
+                ["playerYaw"]=Player?Math.Round(Player.transform.eulerAngles.y,2):0,
                 ["grounded"]=Player&&Player.TryGetComponent<CharacterController>(out var body)&&body.isGrounded,
             };
             Debug.Log("MINIMARKET_STATE "+snapshot.ToString(Newtonsoft.Json.Formatting.None));
         }
+        /// Where the memory actually is, by kind and by the worst offenders.
+        /// A phone dies at half of what this build asks for, so the answer had
+        /// to be measured, not guessed.
+        public void LogMemoryBreakdown()
+        {
+            long TotalOf<T>(out int count, out string worst) where T : UnityEngine.Object
+            {
+                var all = Resources.FindObjectsOfTypeAll<T>(); count = all.Length; long sum = 0; long top = 0; worst = "";
+                foreach (var item in all)
+                {
+                    var size = UnityEngine.Profiling.Profiler.GetRuntimeMemorySizeLong(item);
+                    sum += size; if (size > top) { top = size; worst = $"{item.name}:{size / 1048576f:0.0}MB"; }
+                }
+                return sum;
+            }
+            var textures = TotalOf<Texture>(out var nt, out var wt);
+            var meshes = TotalOf<Mesh>(out var nm, out var wm);
+            var clips = TotalOf<AnimationClip>(out var nc, out var wc);
+            Debug.Log($"MINIMARKET_MEMORIA reservado={UnityEngine.Profiling.Profiler.GetTotalAllocatedMemoryLong()/1048576}MB "
+                    + $"texturas={textures/1048576}MB({nt} peor {wt}) mallas={meshes/1048576}MB({nm} peor {wm}) "
+                    + $"clips={clips/1048576}MB({nc} peor {wc}) monoBehaviours={FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None).Length}");
+        }
+
         public void LogPerformanceState()=>performance?.LogRuntimeBudget();
         /// Diagnostic: the twenty visible renderers that cost the most triangles,
         /// so the budget is cut where it is actually spent.
@@ -364,7 +481,7 @@ namespace MiniMarket.Core
             var previous=PlayerActor.gameObject;var next=await characterFactory.CreateAsync(asset,transform,position,true);next.transform.rotation=rotation;
             next.gameObject.tag="Player";
             var controller=next.gameObject.AddComponent<PlayerController>();controller.Bind(State);controller.InputEnabled=!CompanySetup.Required;var bridge=next.gameObject.AddComponent<PlayerAnimationBridge>();bridge.Bind(controller,next,Carry);
-            PlayerActor=next;Player=controller;playerCharacterId=asset;Interactions.Bind(Player);gameplayInteractions.SetPlayerActor(PlayerActor);cameraRig=Camera.main.GetComponent<IsometricCamera>();cameraRig.target=Player.transform;CharacterLod.Focus=Player.transform;if(next.GetComponent<CharacterLod>() is CharacterLod swappedLod)swappedLod.PinNear=true;hud.BindPlayer(Player);await playerCarryVisual.BindAsync(gltf,PlayerActor,Carry);
+            PlayerActor=next;Player=controller;playerCharacterId=asset;Interactions.Bind(Player);gameplayInteractions.SetPlayerActor(PlayerActor);cameraRig=Camera.main.GetComponent<IsometricCamera>();cameraRig.target=Player.transform;CharacterLod.Focus=Player.transform;if(next.GetComponent<CharacterLod>() is CharacterLod swappedLod)swappedLod.PinNear=!MiniMarket.Performance.PerformanceGovernor.Handheld;hud.BindPlayer(Player);await playerCarryVisual.BindAsync(gltf,PlayerActor,Carry);
             ((JObject)State.Root["avatar"])["body"]=bodyId;State.Changed();Destroy(previous);Signals.PublishNotification($"Personaje cambiado: {bodyId}");
         }
 
@@ -404,6 +521,28 @@ namespace MiniMarket.Core
         {
             if(gameplayInteractions!=null&&hud)gameplayInteractions.OpenPanelRequested-=hud.OpenPanel;
             gameplayInteractions?.Dispose();productVisuals?.Dispose();availabilityPresenter?.Dispose();Saves?.Dispose();gltf?.Dispose();
+        }
+
+        void OnApplicationPause(bool paused)
+        {
+            if(paused)FlushForLifecycle("pause");
+        }
+
+        void OnApplicationFocus(bool hasFocus)
+        {
+            if(!hasFocus)FlushForLifecycle("focus-lost");
+        }
+
+        void OnApplicationQuit()
+        {
+            FlushForLifecycle("quit");
+        }
+
+        void FlushForLifecycle(string reason)
+        {
+            if(Saves==null)return;
+            _=Saves.FlushLocalAsync();
+            Debug.Log($"SAVE flush solicitado por lifecycle={reason}");
         }
     }
 }

@@ -6,12 +6,15 @@ import { savePayloadSchema, type ValidSavePayload } from "@/lib/game-validation"
 import type { GameState } from "@/game/types";
 import { validateSaveTransition } from "@/game/persistence/SaveAuthority";
 import { Prisma } from "@/generated/prisma/client";
+import { consumeApiRateLimit, rateLimitExceeded } from "@/lib/api-rate-limit";
 
 export const runtime = "nodejs";
 
 export async function GET(request: Request) {
   const session = await auth.api.getSession({ headers: request.headers });
   if (!session) return Response.json({ error: "UNAUTHORIZED" }, { status: 401 });
+  const rateLimit = await consumeApiRateLimit({ scope: "save:read", subject: session.user.id, limit: 120, windowSeconds: 60 });
+  if (!rateLimit.allowed) return rateLimitExceeded(rateLimit);
 
   const existing = await db.gameSave.findUnique({ where: { userId_slot: { userId: session.user.id, slot: 1 } } });
   if (existing) return Response.json({ state: normalizeGameState(existing.state), saveRevision: existing.revision, savedAt: existing.updatedAt });
@@ -42,6 +45,8 @@ export async function GET(request: Request) {
 export async function PUT(request: Request) {
   const session = await auth.api.getSession({ headers: request.headers });
   if (!session) return Response.json({ error: "UNAUTHORIZED" }, { status: 401 });
+  const rateLimit = await consumeApiRateLimit({ scope: "save:write", subject: session.user.id, limit: 30, windowSeconds: 60 });
+  if (!rateLimit.allowed) return rateLimitExceeded(rateLimit);
 
   const contentLength = Number(request.headers.get("content-length") ?? 0);
   if (contentLength > 600_000) return Response.json({ error: "SAVE_TOO_LARGE" }, { status: 413 });

@@ -29,13 +29,10 @@ namespace MiniMarket.Player
         [SerializeField] float runSpeed = Core.Pace.Run;
         [SerializeField] float acceleration = 77.76f;
         [SerializeField] float braking = 103.68f;
-        [SerializeField] float turnTime = .13f;
-        [SerializeField] float maxTurnRate = 540f;
         CharacterController controller;
         Vector3 velocity;
         /// Ground speed in world units, which is what a stride has to match.
         public float WorldSpeed => new Vector2(velocity.x, velocity.z).magnitude;
-        float angularVelocity;
         GameStateDocument state;
         public Vector2 VirtualInput { get; set; }
         public bool InputEnabled { get; set; } = true;
@@ -87,14 +84,17 @@ namespace MiniMarket.Player
             Running=running;
             var pace=(running?runSpeed:walkSpeed)*tierMultiplier;
             var targetSpeed = direction.sqrMagnitude > .01f ? pace : 0f;
-            var desired = direction * targetSpeed;
-            velocity = Vector3.MoveTowards(velocity, desired, (targetSpeed > .001f ? acceleration : braking) * Time.deltaTime);
-            if (direction.sqrMagnitude > .01f)
+            if (pushing)
             {
+                // Direction is input, not inertia. Redirect the current speed and
+                // the body in the same frame; smoothing the velocity vector and
+                // yaw separately made the owner skate sideways before turning.
+                var speed=Mathf.MoveTowards(WorldSpeed,targetSpeed,acceleration*Time.deltaTime);
+                velocity=direction*speed;
                 var targetYaw = Mathf.Atan2(direction.x, direction.z) * Mathf.Rad2Deg;
-                var yaw = Mathf.SmoothDampAngle(transform.eulerAngles.y, targetYaw, ref angularVelocity, turnTime, maxTurnRate, Time.deltaTime);
-                transform.rotation = Quaternion.Euler(0, yaw, 0);
+                transform.rotation = Quaternion.Euler(0,targetYaw,0);
             }
+            else velocity=Vector3.MoveTowards(velocity,Vector3.zero,braking*Time.deltaTime);
             controller.Move((velocity + Physics.gravity * .12f) * Time.deltaTime);
             Speed01 = Mathf.InverseLerp(0, runSpeed*tierMultiplier, velocity.magnitude);
         }

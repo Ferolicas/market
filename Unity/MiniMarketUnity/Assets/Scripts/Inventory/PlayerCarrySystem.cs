@@ -21,6 +21,7 @@ namespace MiniMarket.Inventory
 
         JObject Carry => (JObject)state.CurrentFranchise["carry"];
         JObject Items => (JObject)Carry["items"];
+        public int Version { get; private set; }
         public int Capacity => Math.Max(1, Carry.Value<int?>("capacity") ?? 3);
         public int Total
         {
@@ -122,6 +123,7 @@ namespace MiniMarket.Inventory
 
         void Changed(string productId)
         {
+            Version++;
             state.Changed();
             signals.PublishInventory(productId, inventory.Quantity("shelves", productId));
         }

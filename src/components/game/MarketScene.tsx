@@ -482,14 +482,17 @@ function StockMagnetBurst({ sequence, productId, quantity, shelfStart, basketTar
   const completionPublished = useRef(false);
   const departmentId = PRODUCT_RETAIL_DEPARTMENT[productId];
   const displayPosition = retailDisplayPosition(departmentId);
+  const displayYaw = THREE.MathUtils.degToRad(RETAIL_DEPARTMENTS[departmentId].yaw ?? 0);
   const particleTargets = useMemo(() => Array.from({ length: particleCount }, (_, index): [number, number, number] => {
     const landing = retailStockLandingLocalPosition(productId, shelfStart + index, shelfStart + particleCount);
+    const localX = landing[0] * Math.cos(displayYaw) + landing[2] * Math.sin(displayYaw);
+    const localZ = -landing[0] * Math.sin(displayYaw) + landing[2] * Math.cos(displayYaw);
     return [
-      displayPosition[0] * STORE_LAYOUT_SCALE + landing[0] * STORE_ELEMENT_SCALE,
+      displayPosition[0] * STORE_LAYOUT_SCALE + localX * STORE_ELEMENT_SCALE,
       landing[1] * STORE_ELEMENT_SCALE,
-      displayPosition[2] * STORE_LAYOUT_SCALE + landing[2] * STORE_ELEMENT_SCALE,
+      displayPosition[2] * STORE_LAYOUT_SCALE + localZ * STORE_ELEMENT_SCALE,
     ];
-  }), [displayPosition, particleCount, productId, shelfStart]);
+  }), [displayPosition, displayYaw, particleCount, productId, shelfStart]);
   const targetPosition = particleTargets[0];
   const [targetX, targetY, targetZ] = targetPosition;
 

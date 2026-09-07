@@ -60,6 +60,7 @@ namespace MiniMarket.Customers
         bool spawning;
         int generation;
         readonly List<CheckoutFlowVisual> checkoutFlows=new();
+        readonly List<Task> checkoutWarmups=new();
         public int ActiveCount => customers.Count;
 
         public void Bind(CharacterFactory characterFactory, RuntimeGltfLoader runtimeLoader, StoreWorld storeWorld, GameStateDocument document,
@@ -70,10 +71,10 @@ namespace MiniMarket.Customers
             inventory = inventorySystem; economy = economySystem; signals = gameSignals; performance = governor;
             progression = progressionSystem;
             availability = productAvailability;
-            queues.Clear();checkoutFlows.Clear();
+            queues.Clear();checkoutFlows.Clear();checkoutWarmups.Clear();
             for(var lane=0;lane<world.CheckoutQueuePoints.Count;lane++)
             {
-                queues.Add(new QueueSystem(world.CheckoutQueuePoints[lane].Count));var flow=gameObject.AddComponent<CheckoutFlowVisual>();flow.Bind(loader,world,lane);checkoutFlows.Add(flow);
+                queues.Add(new QueueSystem(world.CheckoutQueuePoints[lane].Count));var flow=gameObject.AddComponent<CheckoutFlowVisual>();checkoutWarmups.Add(flow.BindAsync(loader,world,lane));checkoutFlows.Add(flow);
             }
             spawnAt = Time.time + 2f;
         }
@@ -99,6 +100,7 @@ namespace MiniMarket.Customers
         /// without the 100 ms hitch of instantiating a 197k-triangle mesh.
         public async Task WarmAsync()
         {
+            await Task.WhenAll(checkoutWarmups);checkoutWarmups.Clear();
             foreach (var characterId in CharacterIds)
             {
                 if (pools.TryGetValue(characterId, out var pool) && pool.Count > 0) continue;

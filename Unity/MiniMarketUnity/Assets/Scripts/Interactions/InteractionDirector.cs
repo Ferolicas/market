@@ -16,6 +16,8 @@ namespace MiniMarket.Interactions
         InteractionPoint previous;
         float enteredAt;
         float nextAutomaticAt;
+        float nextNearestSample;
+        Vector3 lastSamplePosition=Vector3.one*float.MaxValue;
 
         public void Bind(PlayerController controller) => player = controller;
         public void Register(InteractionPoint point)
@@ -28,15 +30,20 @@ namespace MiniMarket.Interactions
         void Update()
         {
             if (!player) return;
-            var best = float.MaxValue; Nearest = null;
-            for (var i = points.Count - 1; i >= 0; i--)
+            var position=player.transform.position;
+            if(Time.unscaledTime>=nextNearestSample||Vector3.SqrMagnitude(position-lastSamplePosition)>.0025f)
             {
-                if (!points[i]) { points.RemoveAt(i); continue; }
-                if(!points[i].isActiveAndEnabled)continue;
-                var distance = Vector3.SqrMagnitude(points[i].transform.position - player.transform.position);
-                if (distance < best && distance <= points[i].range * points[i].range) { best = distance; Nearest = points[i]; }
+                nextNearestSample=Time.unscaledTime+.12f;lastSamplePosition=position;
+                var best = float.MaxValue; Nearest = null;
+                for (var i = points.Count - 1; i >= 0; i--)
+                {
+                    if (!points[i]) { points.RemoveAt(i); continue; }
+                    if(!points[i].isActiveAndEnabled)continue;
+                    var distance = Vector3.SqrMagnitude(points[i].transform.position - position);
+                    if (distance < best && distance <= points[i].range * points[i].range) { best = distance; Nearest = points[i]; }
+                }
+                if (previous != Nearest) { previous = Nearest;enteredAt=Time.time;nextAutomaticAt=enteredAt+(Nearest?Nearest.dwellSeconds:0);NearestChanged?.Invoke(Nearest); }
             }
-            if (previous != Nearest) { previous = Nearest;enteredAt=Time.time;nextAutomaticAt=enteredAt+(Nearest?Nearest.dwellSeconds:0);NearestChanged?.Invoke(Nearest); }
             if(Nearest&&Nearest.automatic&&Time.time>=nextAutomaticAt)
             {
                 Nearest.Activate();nextAutomaticAt=Time.time+Nearest.repeatSeconds;

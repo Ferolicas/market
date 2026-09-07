@@ -14,27 +14,25 @@ namespace MiniMarket.Employees
             ["tomatoes"]="Tomato",["apples"]="Apple",["wheat"]="Wheat",["flour"]="Flour",["bread"]="Bread",
             ["eggs"]="Egg",["coffee"]="Coffee",["corn"]="Corn",["milk"]="Milk",["cheese"]="Cheese",["juice"]="Juice",
         };
-        RuntimeGltfLoader loader;Transform productSocket;Transform boxSocket;HandPoseDriver hands;GameObject shown;int generation;
+        RuntimeGltfLoader loader;Transform boxSocket;HandPoseDriver hands;GameObject shown;int generation;
 
         public void Bind(RuntimeGltfLoader runtimeLoader,CharacterActor actor)
         {
-            loader=runtimeLoader;var sockets=actor.GetComponent<CharacterSockets>();productSocket=sockets?.Get("Product");boxSocket=sockets?.Get("Box");hands=actor.GetComponent<HandPoseDriver>();Hide();
+            loader=runtimeLoader;var sockets=actor.GetComponent<CharacterSockets>();boxSocket=sockets?.Get("Box");hands=actor.GetComponent<HandPoseDriver>();Hide();
         }
 
-        /// What the worker carries: a shelf run goes in a parcel box, a machine
-        /// start is the ingredient in hand, and a harvest or a collected batch
-        /// travels in the kit's harvest basket, two-handed, with the goods
-        /// visible inside -- up to six of them, one per unit carried.
+        /// Every physical transfer uses the same wooden crate as the owner.
+        /// Stocking, machine inputs, harvests and collected batches therefore
+        /// match the two-handed box animation and show their real contents.
         public void Show(string productId,bool boxed)=>Show(productId,boxed,false,1);
         public async void Show(string productId,bool boxed,bool basket,int amount)
         {
-            Hide();var expected=generation;var twoHanded=boxed||basket;var socket=twoHanded?boxSocket:productSocket;if(loader==null||!socket)return;
-            var asset=basket?"HarvestBasket":boxed?"Parcel":ProductAssets.TryGetValue(productId,out var mapped)?mapped:"Parcel";
-            var item=await loader.InstantiateAsync(asset,socket,Vector3.zero,Quaternion.identity,Vector3.one);
+            Hide();_ = boxed;_ = basket;var expected=generation;var socket=boxSocket;if(loader==null||!socket)return;
+            var item=await loader.InstantiateAsync("HarvestBasket",socket,Vector3.zero,Quaternion.identity,Vector3.one);
             if(expected!=generation||!socket){if(item)Destroy(item);return;}
-            shown=item;shown.name=basket?$"CarriedBasket_{productId}":boxed?$"CarriedBox_{productId}":$"Carried_{productId}";NormalizeWorldSize(shown,basket ? 1.1f : boxed ? 1.05f : .45f);
+            shown=item;shown.name=$"CarriedTransportCrate_{productId}";NormalizeWorldSize(shown,3.4f);
             shown.transform.SetLocalPositionAndRotation(Vector3.zero,Quaternion.identity);foreach(var collider in shown.GetComponentsInChildren<Collider>(true))collider.enabled=false;
-            if(basket&&ProductAssets.TryGetValue(productId,out var produce))
+            if(ProductAssets.TryGetValue(productId,out var produce))
             {
                 var bounds=Bounds(shown);var contents=new GameObject("BasketContents").transform;contents.SetParent(shown.transform,false);
                 contents.position=new Vector3(bounds.center.x,bounds.min.y+bounds.size.y*.55f,bounds.center.z);
@@ -43,14 +41,14 @@ namespace MiniMarket.Employees
                 {
                     var unit=await loader.InstantiateAsync(produce,contents,Vector3.zero,Quaternion.identity,Vector3.one);
                     if(expected!=generation){if(unit)Destroy(unit);return;}
-                    unit.transform.SetParent(contents,false);NormalizeWorldSize(unit,.28f);
+                    unit.transform.SetParent(contents,false);NormalizeWorldSize(unit,.8f);
                     var column=index%3;var row=index/3;
-                    unit.transform.position=contents.position+contents.right*((column-1)*.26f)+contents.up*(row*.16f)+contents.forward*(index%2==0?-.14f:.14f);
+                    unit.transform.position=contents.position+contents.right*((column-1)*.68f)+contents.up*(row*.4f)+contents.forward*(index%2==0?-.32f:.32f);
                     unit.transform.localRotation=Quaternion.Euler(0,index*53f,0);
                     foreach(var collider in unit.GetComponentsInChildren<Collider>(true))collider.enabled=false;
                 }
             }
-            hands?.SetGrip(true,twoHanded ? .56f : .2f);hands?.SetGrip(false,twoHanded ? .56f : .64f);
+            hands?.SetGrip(true,.56f);hands?.SetGrip(false,.56f);
         }
 
         public void Hide()

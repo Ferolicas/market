@@ -134,6 +134,7 @@ namespace MiniMarket.Animations
         /// intermittent visual glitch into a log line.
         void WatchForBurst()
         {
+            if(!Debug.isDebugBuild)return;
             if (Time.time < nextBoundsCheck) return;
             nextBoundsCheck = Time.time + .1f;
             foreach (var face in faces)

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using MiniMarket.Animations;
 using UnityEngine;
 
@@ -12,7 +13,7 @@ namespace MiniMarket.Store
     /// </summary>
     public sealed class StorefrontDoorPresenter : MonoBehaviour
     {
-        static readonly Collider[] Hits = new Collider[16];
+        readonly List<CharacterActor> actors = new();
         Transform left; Transform right;
         // The frame halves ride with their leaf. They are driven, not
         // parented: re-parenting them under a leaf that lives inside a
@@ -62,6 +63,7 @@ namespace MiniMarket.Store
         bool open_;
 
         Transform player;
+        float nextActorRefresh;
 
         static float Direction(Transform leaf)
         {
@@ -94,13 +96,22 @@ namespace MiniMarket.Store
                 var d = player.position - doorway;
                 if (Mathf.Abs(d.x) < 5.5f && Mathf.Abs(d.z) < 7.5f) return true;
             }
-            foreach (var actor in FindObjectsByType<CharacterActor>(FindObjectsSortMode.None))
+            RefreshActors();
+            foreach (var actor in actors)
             {
                 if (!actor || !actor.gameObject.activeInHierarchy) continue;
                 var d = actor.transform.position - doorway;
                 if (Mathf.Abs(d.x) < 5.5f && Mathf.Abs(d.z) < 7.5f) return true;
             }
             return false;
+        }
+
+        void RefreshActors()
+        {
+            if(Time.unscaledTime<nextActorRefresh)return;
+            nextActorRefresh=Time.unscaledTime+1f;
+            actors.Clear();
+            actors.AddRange(FindObjectsByType<CharacterActor>(FindObjectsSortMode.None));
         }
 
         bool? reported; float nextSample;
@@ -129,11 +140,10 @@ namespace MiniMarket.Store
             // Sample where the leaves actually end up. The state line fires the
             // instant the sensor flips, which is before anything has moved, so on
             // its own it cannot tell a working door from a stuck one.
-            if (Time.time >= nextSample)
+            if (Debug.isDebugBuild && Time.time >= nextSample)
             {
                 nextSample = Time.time + 2f;
                 var p = player ? player.position : Vector3.one * -999f;
-                var actors = FindObjectsByType<CharacterActor>(FindObjectsSortMode.None);
                 var nearest = "ninguno"; var best = float.MaxValue;
                 foreach (var a in actors)
                 {
@@ -143,7 +153,7 @@ namespace MiniMarket.Store
                 }
                 Debug.Log($"MINIMARKET_DOOR muestra abierta={open} x_izq={left.localPosition.x:F3} " +
                           $"vano=({doorway.x:F1},{doorway.z:F1}) jugador=({p.x:F1},{p.z:F1}) " +
-                          $"actores={actors.Length} cercano={nearest}");
+                          $"actores={actors.Count} cercano={nearest}");
             }
         }
     }

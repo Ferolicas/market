@@ -24,12 +24,7 @@ namespace MiniMarket.Assets
         public async Task<GameObject> InstantiateAsync(string id, Transform parent, Vector3 position, Quaternion rotation, Vector3 scale)
         {
             if (!catalog.TryGet(id, out var entry)) throw new KeyNotFoundException($"Asset runtime no encontrado: {id}");
-            if (!imports.TryGetValue(id, out var importTask))
-            {
-                importTask = LoadAsync(entry);
-                imports[id] = importTask;
-            }
-            var gltf = await importTask;
+            var gltf = await ImportAsync(entry);
             var root = new GameObject(id);
             root.SetActive(false);
             root.transform.SetParent(parent, false);
@@ -57,6 +52,21 @@ namespace MiniMarket.Assets
             }
             root.SetActive(true);
             return root;
+        }
+
+        /// Download, decode and upload an asset without creating scene objects.
+        /// Later instances reuse the parsed import, so a gameplay transition no
+        /// longer becomes the first texture upload for that product or crop.
+        public async Task PreloadAsync(string id)
+        {
+            if(!catalog.TryGet(id,out var entry))throw new KeyNotFoundException($"Asset runtime no encontrado: {id}");
+            await ImportAsync(entry);
+        }
+
+        Task<GltfImport> ImportAsync(RuntimeAssetCatalog.Entry entry)
+        {
+            if(imports.TryGetValue(entry.Id,out var existing))return existing;
+            var task=LoadAsync(entry);imports[entry.Id]=task;return task;
         }
 
         async Task<GltfImport> LoadAsync(RuntimeAssetCatalog.Entry entry)

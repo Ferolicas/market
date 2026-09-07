@@ -257,8 +257,8 @@ function AuthoritativeRetailStock({ productId, count }: { productId: ProductId; 
   return <RetailProductBatch productId={productId} transforms={transforms} capacity={RETAIL_VISUAL_CAPACITY[productId]} />;
 }
 
-function StoreElement({ position, children }: { position: Position; children: ReactNode }) {
-  return <group position={scaleStorePosition(position)} scale={STORE_ELEMENT_SCALE}>{children}</group>;
+function StoreElement({ position, yaw = 0, children }: { position: Position; yaw?: number; children: ReactNode }) {
+  return <group position={scaleStorePosition(position)} rotation={[0, THREE.MathUtils.degToRad(yaw), 0]} scale={STORE_ELEMENT_SCALE}>{children}</group>;
 }
 
 type EnvironmentFrameHandler = (model: THREE.Group, delta: number, elapsed: number) => void;
@@ -325,8 +325,8 @@ export const KitFurniture = memo(function KitFurniture({ shelves, machines, cust
     <StoreElement position={retailDisplayPosition("pantry")}><Gondola position={[0, 0, 0]} count={shelves.coffee} /></StoreElement>
     <StoreElement position={retailDisplayPosition("eggs")}><EggDisplay count={shelves.eggs} /></StoreElement>
     <StoreElement position={retailDisplayPosition("produce")}><ProduceTable position={[0, 0, 0]} tomatoes={shelves.tomatoes} apples={shelves.apples} corn={shelves.corn} /></StoreElement>
-    <StoreElement position={retailDisplayPosition("dairy")}><ChilledDisplay position={[0, 0, 0]} milk={shelves.milk} cheese={shelves.cheese} open={coldDoorActive} /></StoreElement>
-    <StoreElement position={retailDisplayPosition("drinks")}><DrinksDisplay position={[0, 0, 0]} count={shelves.juice} /></StoreElement>
+    <StoreElement position={retailDisplayPosition("dairy")} yaw={RETAIL_DEPARTMENTS.dairy.yaw}><ChilledDisplay position={[0, 0, 0]} milk={shelves.milk} cheese={shelves.cheese} open={coldDoorActive} /></StoreElement>
+    <StoreElement position={retailDisplayPosition("drinks")} yaw={RETAIL_DEPARTMENTS.drinks.yaw}><DrinksDisplay position={[0, 0, 0]} count={shelves.juice} /></StoreElement>
     <StoreElement position={[-7.0, 0, 3.15]}><SeasonalDisplay position={[0, 0, 0]} /></StoreElement>
     <StoreElement position={[...STORE_SERVICE_FIXTURES.promotionalEndcap.position]}><PromotionalEndcap unlocked={unlockedAreas.includes("endcap-display")} /></StoreElement>
 

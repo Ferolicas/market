@@ -1,9 +1,9 @@
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using MiniMarket.Core;
 using MiniMarket.Data;
 using MiniMarket.Networking;
-using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using UnityEngine;
 
@@ -11,13 +11,14 @@ namespace MiniMarket.Persistence
 {
     public sealed class SaveCoordinator : IDisposable
     {
-        const string LocalKey = "mini-market-unity-recovery-v1";
         const string SessionKey = "mini-market-unity-session-v1";
         const float LocalFlushSeconds = 10f;
         public const float RemoteSyncSeconds = 30f * 60f;
 
         readonly MarketApiClient api;
         readonly GameSignals signals;
+        readonly ILocalSaveStore localStore;
+        readonly object localWriteLock = new();
         GameStateDocument state;
         float lastLocalFlush;
         float lastRemoteAttempt;
@@ -25,15 +26,19 @@ namespace MiniMarket.Persistence
         int serverRevision;
         JArray pendingEvents = new();
         string sessionId;
+        JObject pendingLocalEnvelope;
+        Task localWriteTask = Task.CompletedTask;
 
         public int ServerRevision => serverRevision;
         public string Status { get; private set; } = "local";
         public int PendingEventCount => pendingEvents.Count;
+        public LocalSaveReadStatus LastLocalReadStatus { get; private set; } = LocalSaveReadStatus.Missing;
         public JArray PendingEventsSnapshot() => (JArray)pendingEvents.DeepClone();
 
-        public SaveCoordinator(MarketApiClient client, GameSignals gameSignals)
+        public SaveCoordinator(MarketApiClient client, GameSignals gameSignals, ILocalSaveStore saveStore = null)
         {
             api = client; signals = gameSignals;
+            localStore = saveStore ?? LocalSaveStoreFactory.Create();
             sessionId = PlayerPrefs.GetString(SessionKey, "");
             if (!Guid.TryParse(sessionId, out var parsedSession))
             {
@@ -48,10 +53,20 @@ namespace MiniMarket.Persistence
             JObject local = null;
             try
             {
-                var text = PlayerPrefs.GetString(LocalKey, "");
-                if (!string.IsNullOrWhiteSpace(text)) local = JObject.Parse(text);
+                var localResult = await localStore.ReadAsync();
+                LastLocalReadStatus = localResult.Status;
+                local = localResult.Envelope;
+                if (localResult.Status is LocalSaveReadStatus.Previous or LocalSaveReadStatus.Temporary)
+                {
+                    Debug.LogWarning($"SAVE recuperación local desde {localResult.Status}: {localStore.Description}");
+                    Status = "recovered-local";
+                }
+                else if (localResult.Status == LocalSaveReadStatus.Corrupt)
+                {
+                    Debug.LogWarning($"SAVE ninguna copia local válida: {localResult.Detail}");
+                }
             }
-            catch (Exception exception) { Debug.LogWarning($"Recuperación local inválida: {exception.Message}"); }
+            catch (Exception exception) { Debug.LogWarning($"SAVE recuperación local inválida: {exception.Message}"); }
 
             JObject selected = local?["state"] as JObject;
             serverRevision = local?.Value<int?>("saveRevision") ?? 0;
@@ -123,20 +138,41 @@ namespace MiniMarket.Persistence
         public void SaveLocal(bool forceFlush)
         {
             if (state == null) return;
-            var envelope = new JObject
-            {
-                ["state"] = state.CloneRoot(),
-                ["saveRevision"] = serverRevision,
-                ["pendingEvents"] = pendingEvents.DeepClone(),
-                ["savedAt"] = DateTime.UtcNow.ToString("O"),
-            };
-            PlayerPrefs.SetString(LocalKey, envelope.ToString(Formatting.None));
+            pendingLocalEnvelope = LocalSaveEnvelope.Create(state.CloneRoot(), serverRevision, (JArray)pendingEvents.DeepClone());
             if (forceFlush)
             {
-                PlayerPrefs.Save();
                 lastLocalFlush = Time.unscaledTime;
+                ScheduleLocalWrite((JObject)pendingLocalEnvelope.DeepClone());
             }
             if (state.IsDirty) Status = "dirty";
+        }
+
+        public Task FlushLocalAsync(CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (state == null) return Task.CompletedTask;
+            SaveLocal(forceFlush: true);
+            lock (localWriteLock) return localWriteTask;
+        }
+
+        void ScheduleLocalWrite(JObject envelope)
+        {
+            lock (localWriteLock)
+                localWriteTask = WriteAfterAsync(localWriteTask, envelope);
+        }
+
+        async Task WriteAfterAsync(Task previous, JObject envelope)
+        {
+            try
+            {
+                await previous;
+                await localStore.WriteAsync(envelope);
+            }
+            catch (Exception exception)
+            {
+                Status = "local-error";
+                Debug.LogError($"SAVE no pudo persistir en {localStore.Description}: {exception.Message}");
+            }
         }
 
         public async Task<bool> SyncRemoteAsync(float unscaledTime = -1f)
@@ -164,8 +200,8 @@ namespace MiniMarket.Persistence
                 if (response.Value<long?>("httpStatus") == 409)
                 {
                     state.MarkDirty();
-                    var backupKey = $"mini-market-unity-conflict-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}";
-                    PlayerPrefs.SetString(backupKey, state.ToJson());
+                    var conflict = LocalSaveEnvelope.Create(state.CloneRoot(), serverRevision, (JArray)pendingEvents.DeepClone());
+                    await localStore.WriteConflictBackupAsync(conflict);
                     Status = "conflict";
                     signals.PublishNotification("Conflicto remoto: se conservó una copia local");
                     return false;
@@ -195,6 +231,16 @@ namespace MiniMarket.Persistence
         public void Dispose()
         {
             SaveLocal(forceFlush: true);
+            try
+            {
+                Task pending;
+                lock (localWriteLock) pending = localWriteTask;
+                pending.GetAwaiter().GetResult();
+            }
+            catch (Exception exception)
+            {
+                Debug.LogError($"SAVE cierre local incompleto: {exception.Message}");
+            }
         }
     }
 }

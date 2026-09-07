@@ -159,14 +159,14 @@ namespace MiniMarket.Tests
         [Test]
         public async Task LedgerEventsMatchTheAuthoritativeBackendContract()
         {
-            PlayerPrefs.DeleteKey("mini-market-unity-recovery-v1");PlayerPrefs.DeleteKey("mini-market-unity-session-v1");
+            PlayerPrefs.DeleteKey(PlayerPrefsLocalSaveStore.CurrentKey);PlayerPrefs.DeleteKey(PlayerPrefsLocalSaveStore.PreviousKey);PlayerPrefs.DeleteKey("mini-market-unity-session-v1");
             var spec=new GameSpecRepository();await spec.LoadAsync();var signals=new GameSignals();var saves=new SaveCoordinator(new MarketApiClient("http://127.0.0.1:9"),signals);var state=await saves.LoadAsync(spec);
             saves.QueueEvent("sales","Venta contractual",212);
             var domainEvent=(JObject)saves.PendingEventsSnapshot()[0];
             Assert.That(Guid.TryParse(domainEvent.Value<string>("eventId"),out _),Is.True);Assert.That(domainEvent.Value<int>("sequence"),Is.EqualTo(1));Assert.That(domainEvent.Value<string>("type"),Is.EqualTo("sales"));
             Assert.That(DateTimeOffset.TryParse(domainEvent.Value<string>("occurredAt"),out _),Is.True);Assert.That(domainEvent["payload"]?.Value<string>("scope"),Is.EqualTo("franchise"));
             Assert.That(state.Root.Value<int>("eventSequence"),Is.EqualTo(1));Assert.That(((JArray)state.Root["processedEventIds"])[0].Value<string>(),Is.EqualTo(domainEvent.Value<string>("eventId")));
-            saves.Dispose();PlayerPrefs.DeleteKey("mini-market-unity-recovery-v1");PlayerPrefs.DeleteKey("mini-market-unity-session-v1");
+            saves.Dispose();PlayerPrefs.DeleteKey(PlayerPrefsLocalSaveStore.CurrentKey);PlayerPrefs.DeleteKey(PlayerPrefsLocalSaveStore.PreviousKey);PlayerPrefs.DeleteKey("mini-market-unity-session-v1");
         }
 
         [Test]

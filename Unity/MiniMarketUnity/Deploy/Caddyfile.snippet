@@ -1,6 +1,12 @@
 # Sustituye el bloque market.olcas.app existente. Caddy sirve Unity directamente
 # y conserva Next.js en 127.0.0.1:4010 como backend de autenticacion/guardado.
 market.olcas.app {
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Frame-Options DENY
+		Content-Security-Policy "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; worker-src 'self' blob:; child-src 'self' blob:; media-src 'self' blob:; manifest-src 'self'; upgrade-insecure-requests"
+	}
+
 	@next_backend path /api/* /reset-password /reset-password/* /_next/*
 	handle @next_backend {
 		reverse_proxy 127.0.0.1:4010

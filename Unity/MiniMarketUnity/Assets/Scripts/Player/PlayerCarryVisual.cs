@@ -8,8 +8,9 @@ using UnityEngine;
 
 namespace MiniMarket.Player
 {
-    /// <summary>The owner's harvest basket -- Next's HarvestBasket, here the kit's
-    /// own -- with the carried goods visible inside, up to six units as in Next;
+    /// <summary>The owner's universal wooden transport crate, kept behind the
+    /// HarvestBasket asset id for save/runtime compatibility, with the carried
+    /// goods visible inside, up to six units as in Next;
     /// inventory remains pure state.</summary>
     public sealed class PlayerCarryVisual : MonoBehaviour
     {
@@ -26,7 +27,8 @@ namespace MiniMarket.Player
         HandPoseDriver hands;
         readonly List<GameObject> units=new();
         readonly Dictionary<string,Stack<GameObject>> pools=new(StringComparer.OrdinalIgnoreCase);
-        string lastSignature;
+        int lastVersion=-1;
+        bool refreshing;
         int generation;
 
         public async Task BindAsync(RuntimeGltfLoader runtimeLoader,CharacterActor actor,PlayerCarrySystem playerCarry)
@@ -34,55 +36,53 @@ namespace MiniMarket.Player
             loader=runtimeLoader;carry=playerCarry;generation++;
             if(basket)Destroy(basket);units.Clear();pools.Clear();
             var sockets=actor.GetComponent<CharacterSockets>();hands=actor.GetComponent<HandPoseDriver>();
-            var socket=sockets?.Get("Basket");
+            var socket=sockets?.Get("Box");
             if(socket)
             {
                 basket=await loader.InstantiateAsync("HarvestBasket",socket,Vector3.zero,Quaternion.identity,Vector3.one);
-                basket.name="PlayerCarryBasket";NormalizeWorldSize(basket,1.2f);   // a 50 cm basket
+                basket.name="PlayerTransportCrate";NormalizeWorldSize(basket,3.6f);
                 basket.transform.localPosition=Vector3.zero;basket.transform.localRotation=Quaternion.identity;
                 foreach(var collider in basket.GetComponentsInChildren<Collider>(true))collider.enabled=false;
                 var bounds=Bounds(basket);
                 contents=new GameObject("BasketContents").transform;contents.SetParent(basket.transform,false);
                 contents.position=new Vector3(bounds.center.x,bounds.min.y+bounds.size.y*.6f,bounds.center.z);
             }
-            lastSignature=null;Refresh();
+            lastVersion=-1;await RefreshAsync();
         }
 
         void Update()
         {
-            if(carry==null)return;
-            if(Signature()!=lastSignature)Refresh();
+            if(carry==null||refreshing||carry.Version==lastVersion)return;
+            _=RefreshAsync();
         }
 
-        string Signature()
+        async Task RefreshAsync()
         {
-            var parts=new List<string>();foreach(var entry in carry.Contents())if(entry.Value>0)parts.Add(entry.Key+":"+entry.Value);
-            return string.Join(",",parts);
-        }
-
-        async void Refresh()
-        {
-            if(carry==null)return;var signature=Signature();lastSignature=signature;var active=carry.Total>0;var expected=generation;
-            if(basket)basket.SetActive(active);
-            if(hands){hands.SetGrip(true,active ? .58f : .14f);hands.SetGrip(false,active ? .28f : .14f);}
-            foreach(var unit in units)Pool(unit);units.Clear();
-            if(!active||!contents||loader==null)return;
-            var wanted=new List<string>();
-            foreach(var entry in carry.Contents())for(var i=0;i<entry.Value&&wanted.Count<VisibleUnits;i++)wanted.Add(entry.Key);
-            for(var index=0;index<wanted.Count;index++)
+            if(carry==null)return;refreshing=true;lastVersion=carry.Version;var active=carry.Total>0;var expected=generation;
+            try
             {
-                if(!ProductAssets.TryGetValue(wanted[index],out var asset))continue;
-                GameObject unit;
-                if(pools.TryGetValue(asset,out var pool)&&pool.Count>0){unit=pool.Pop();unit.SetActive(true);}
-                else unit=await loader.InstantiateAsync(asset,contents,Vector3.zero,Quaternion.identity,Vector3.one);
-                if(expected!=generation||!contents){if(unit)Destroy(unit);return;}
-                unit.name="Carried_"+asset;unit.transform.SetParent(contents,false);NormalizeWorldSize(unit,.28f);
-                var column=index%3;var row=index/3;
-                unit.transform.position=contents.position+contents.right*((column-1)*.28f)+contents.up*(row*.16f)+contents.forward*(index%2==0?-.14f:.14f);
-                unit.transform.localRotation=Quaternion.Euler(0,index*53f,0);
-                foreach(var collider in unit.GetComponentsInChildren<Collider>(true))collider.enabled=false;
-                units.Add(unit);
+                if(basket)basket.SetActive(active);
+                if(hands){hands.SetGrip(true,active ? .56f : .14f);hands.SetGrip(false,active ? .56f : .14f);}
+                foreach(var unit in units)Pool(unit);units.Clear();
+                if(!active||!contents||loader==null)return;
+                var wanted=new List<string>(VisibleUnits);
+                foreach(var entry in carry.Contents())for(var i=0;i<entry.Value&&wanted.Count<VisibleUnits;i++)wanted.Add(entry.Key);
+                for(var index=0;index<wanted.Count;index++)
+                {
+                    if(!ProductAssets.TryGetValue(wanted[index],out var asset))continue;
+                    GameObject unit;
+                    if(pools.TryGetValue(asset,out var pool)&&pool.Count>0){unit=pool.Pop();unit.SetActive(true);}
+                    else unit=await loader.InstantiateAsync(asset,contents,Vector3.zero,Quaternion.identity,Vector3.one);
+                    if(expected!=generation||!contents){if(unit)Destroy(unit);return;}
+                    unit.name="Carried_"+asset;unit.transform.SetParent(contents,false);NormalizeWorldSize(unit,.85f);
+                    var column=index%3;var row=index/3;
+                    unit.transform.position=contents.position+contents.right*((column-1)*.72f)+contents.up*(row*.42f)+contents.forward*(index%2==0?-.34f:.34f);
+                    unit.transform.localRotation=Quaternion.Euler(0,index*53f,0);
+                    foreach(var collider in unit.GetComponentsInChildren<Collider>(true))collider.enabled=false;
+                    units.Add(unit);
+                }
             }
+            finally{refreshing=false;}
         }
 
         void Pool(GameObject unit)

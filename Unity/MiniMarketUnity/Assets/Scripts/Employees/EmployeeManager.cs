@@ -54,8 +54,10 @@ namespace MiniMarket.Employees
         {
             factory=characterFactory;loader=runtimeLoader;world=storeWorld;state=document;spec=repository;inventory=inventorySystem;farm=farmSystem;
             production=productionSystem;availability=productAvailability;performance=governor;progression=progressionSystem;
-            planner=new SupplyDemandPlanner(state,spec,availability);_ = ReconcileAsync();
+            planner=new SupplyDemandPlanner(state,spec,availability);
         }
+
+        public Task WarmAsync()=>ReconcileAsync();
 
         void Update()
         {
@@ -71,6 +73,7 @@ namespace MiniMarket.Employees
 
         async Task ReconcileAsync()
         {
+            if(reconciling)return;
             reconciling=true;var expectedGeneration=generation;
             try
             {

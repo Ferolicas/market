@@ -35,9 +35,9 @@ Abre `http://127.0.0.1:4173` y pulsa `ENTRAR AL JUEGO`. Ese gesto inicia Unity y
 
 Producción está activa en `https://market.olcas.app/`. Caddy sirve directamente el release inmutable enlazado desde `/var/www/market-unity/current`; no se introdujo Nginx ni un proceso Node adicional. El Next.js existente permanece en PM2 como `market`, puerto `4010`, y Caddy conserva allí `/api/*`, `/reset-password*` y `/_next/*` para Better Auth, guardado y recuperación de contraseña.
 
-- Release: `/var/www/market-unity/releases/20260903T152317Z`
-- Manifiesto: `/var/www/market-unity/releases/20260903T152317Z/SHA256SUMS`
-- Backup previo: `/var/backups/market-unity-predeploy-20260903T135112Z`
+- Release: `/var/www/market-unity/releases/20260907-production-hardening-v2`
+- Manifiesto: `/var/www/market-unity/releases/20260907-production-hardening-v2/SHA256SUMS` (174 archivos verificados)
+- Identidad: sello `20260907-045817`, build `202609070454`, catálogo `31fbdb82758aa7a5`, save schema 1
 - Configuración versionada: `Unity/MiniMarketUnity/Deploy/Caddyfile.snippet`
 
 El rollback consiste en restaurar el `Caddyfile` del backup, validarlo con `caddy validate` y recargar Caddy. No exige revertir base de datos ni Next porque ninguno fue reemplazado.
@@ -60,4 +60,4 @@ node Unity/MiniMarketUnity/MigrationTools/browser-production-smoke-qa.mjs
 node Unity/MiniMarketUnity/MigrationTools/browser-production-game-qa.mjs
 ```
 
-Android e iOS se mantienen como objetivos futuros; no se generan builds móviles en esta fase.
+Los métodos `BuildAndroidAab` y `ExportIos` y el workflow manual de Unity están preparados. La firma Android, el SDK iOS 26 y las pruebas en dispositivos físicos siguen siendo requisitos externos antes de publicar una beta móvil.

@@ -42,12 +42,13 @@ const productionCubicleObstacles: StoreObstacle[] = PRODUCTION_CUBICLE.walls.map
 
 const retailObstacles: StoreObstacle[] = RETAIL_DEPARTMENT_IDS.map((departmentId) => {
   const department = RETAIL_DEPARTMENTS[departmentId];
+  const quarterTurn = Math.abs(department.yaw ?? 0) % 180 === 90;
   return {
     id: `fixture:retail-${departmentId}`,
     x: department.display[0],
     z: department.display[2],
-    halfX: department.fixtureHalfExtents[0],
-    halfZ: department.fixtureHalfExtents[1],
+    halfX: department.fixtureHalfExtents[quarterTurn ? 1 : 0],
+    halfZ: department.fixtureHalfExtents[quarterTurn ? 0 : 1],
   };
 });
 

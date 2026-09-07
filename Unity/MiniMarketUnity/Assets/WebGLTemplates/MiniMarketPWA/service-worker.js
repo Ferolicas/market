@@ -15,7 +15,11 @@ self.addEventListener("fetch",event=>{
   // cache is the one layer the per-build cache name cannot invalidate.
   const streamed=url.pathname.includes("/StreamingAssets/");
   event.respondWith(fetch(streamed?new Request(event.request,{cache:"no-cache"}):event.request).then(response=>{
-    if(response&&response.status===200){const copy=response.clone();caches.open(CACHE).then(cache=>cache.put(event.request,copy)).catch(()=>{});}
+    // The shell is worth keeping; the art is not. Copying a hundred megabytes
+    // of GLB into CacheStorage carried on while the owner took his first steps
+    // and made them stutter on the phone -- and the browser's own http cache
+    // already spares the second visit.
+    if(response&&response.status===200&&!streamed){const copy=response.clone();caches.open(CACHE).then(cache=>cache.put(event.request,copy)).catch(()=>{});}
     return response;
   }).catch(()=>caches.match(event.request)));
 });

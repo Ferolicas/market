@@ -16,7 +16,7 @@ namespace MiniMarket.Animations
         static float nextEvaluation;
         public static Transform Focus;
         public static int NearBudget = 4;
-        public static float NearRadius = 16f;
+        public static float NearRadius = 27f;   // 16 before the cast grew by 1.67
 
         Renderer[] near = System.Array.Empty<Renderer>();
         Renderer[] far = System.Array.Empty<Renderer>();

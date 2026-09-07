@@ -12,6 +12,7 @@ namespace MiniMarket.Farm
     /// <summary>Visual state follows crop data; it never owns production rules.</summary>
     public sealed class FarmVisualSystem
     {
+        static readonly string[] StageAssets={"CropSeed","CropSprout","CropSmall","CropGrowing","TomatoRipe","WheatRipe","CornRipe"};
         readonly RuntimeGltfLoader loader;
         readonly StoreWorld world;
         readonly GameStateDocument state;
@@ -22,6 +23,17 @@ namespace MiniMarket.Farm
 
         public FarmVisualSystem(RuntimeGltfLoader runtimeLoader,StoreWorld storeWorld,GameStateDocument document)
         {loader=runtimeLoader;world=storeWorld;state=document;}
+
+        /// Materialise the current crop stage while the loading card still owns
+        /// the screen. Tick remains non-blocking for normal stage transitions.
+        public Task WarmAsync(long nowMs)
+        {
+            nextRefresh=nowMs+500;
+            var tasks=new List<Task>();
+            foreach(var asset in StageAssets)tasks.Add(loader.PreloadAsync(asset));
+            foreach(var token in state.Array("crops"))if(token is JObject crop)tasks.Add(RefreshAsync(crop,nowMs));
+            return Task.WhenAll(tasks);
+        }
 
         public void Tick(long nowMs)
         {

@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
 using Newtonsoft.Json.Linq;
 using UnityEditor;
 using UnityEditor.Build.Reporting;
@@ -22,17 +23,15 @@ namespace MiniMarket.Editor
         const string RendererPath="Assets/Settings/MiniMarketRenderer.asset";
         static readonly HashSet<string> WebEnvironmentAssets=new(StringComparer.OrdinalIgnoreCase)
         {
-            "RoadSegment","SidewalkSegment","ParkingSpace","Crosswalk","CityBuilding","Car","BusStop","Bench","Tree","StreetLight","StoreEntrance","StoreEntranceAlt","StorefrontWindow","AutomaticDoor","WallStraight","FloorTileBeige","FloorTileWhite","GlassPartition","ShoppingCart",
-            "ShelfWallTall","ShelfWallWide","EggDisplay","DisplayProduceMixed","DisplayBakery","DisplayRefrigeratedDoors","CheckoutArea",
+            "SidewalkSegment","ParkingSpace","CityBuilding","Car","BusStop","Bench","Tree","StreetLight","StoreEntrance","StoreEntranceAlt","StorefrontWindow","AutomaticDoor","WallStraight","ShoppingCart",
+            "ShelfWallTall","ShelfWallWide","EggDisplay","DisplayProduceMixed","DisplayRefrigeratedDoors","CheckoutArea",
             "OperationsWall","BackroomStorage","StockroomRack","SeasonalDisplay","ShelfEndcap","ReturnsStation","CartBay","WallClock","SecurityCamera","HangingSign","CeilingLight",
             "FlourMillAlt","BreadOven","CheeseMachine","JuiceMachineAlt","FarmPlotEmpty","FarmPlotFurrows","FarmFenceLong","FarmFenceShort","FarmToolSet","CompostBin","MiniGreenhouse",
-            "Scarecrow","FarmWaterTank","Chicken","Cow","SupplierTerminal","DeliveryDock","HiringPoint","UpgradePlatform","BasketStack",
-            "ShoppingBasket","Parcel","CropSeed","CropSprout","CropSmall","CropGrowing","TomatoRipe","WheatRipe","CornRipe",
+            "Scarecrow","FarmWaterTank","Chicken","Cow","SupplierTerminal","DeliveryDock","HiringPoint","UpgradePlatform",
+            "CropSeed","CropSprout","CropSmall","CropGrowing","TomatoRipe","WheatRipe","CornRipe",
             "CheckoutBag","HarvestBasket","FlourMill","JuiceMachine",
-            "CashRegister","CardTerminal","ReceiptPrinter","Conveyor","CashierStool","CheckoutScanner","CheckoutScannerAlt","CashDrawer","CashDrawerAlt",
-            "CheckoutShelf","CheckoutCounter","BaggingArea","BaggingAreaAlt","ReusableShoppingBag","BasketStackAlt","ShoppingBasketAlt","PromotionalBasket",
-            "ShelfGondolaDouble","ShelfGondolaSingle","ShelfCorner","ShelfDivider","ShelfPriceRail","DisplayTable","DisplayProduceSloped","RefrigeratedDisplay",
-            "ChestFreezer","WorkCounter","UtilitySink","BakeryWorkArea","Pallet","WoodCrate","Furniture2:WoodCrate","MilkCan","EggTray","DeliveryDockAlt",
+            "ShelfGondolaDouble","ShelfGondolaSingle","ShelfDivider","ShelfPriceRail","DisplayTable",
+            "ChestFreezer","WorkCounter","UtilitySink","BakeryWorkArea","Pallet","WoodCrate","Furniture2:WoodCrate","DeliveryDockAlt",
             "UpgradePlatformAlt","FarmGate","FarmFenceCorner","RaisedBed","IrrigationBed","IrrigationChannel","Sprinkler","WateringCan","SeedSack",
             "FarmPlotSeeded","FarmPlotWatered","CarrotRipe","LettuceRipe","PumpkinRipe","WheatGrowing","ChickenPaddock","CowPaddock",
         };
@@ -41,8 +40,22 @@ namespace MiniMarket.Editor
         public static void Configure()
         {
             Directory.CreateDirectory("Assets/Scenes");Directory.CreateDirectory("Assets/Settings");Directory.CreateDirectory("Builds");
-            ConfigureRendering();ConfigureGltfShaders();ConfigureRuntimeMaterialTemplate();ConfigurePlayer();CreateScene();AssetDatabase.SaveAssets();AssetDatabase.Refresh();
+            ConfigureSurfaceTextures();ConfigureRendering();ConfigureGltfShaders();ConfigureRuntimeMaterialTemplate();ConfigurePlayer();CreateScene();AssetDatabase.SaveAssets();AssetDatabase.Refresh();
             Debug.Log("Mini Market Unity configurado para Web/PWA; Android/iOS quedan preparados.");
+        }
+
+        static void ConfigureSurfaceTextures()
+        {
+            foreach(var path in new[]{"Assets/Resources/Surfaces/Grass.png","Assets/Resources/Surfaces/Road.png","Assets/Resources/Surfaces/Crosswalk.png",
+                                      "Assets/Resources/Surfaces/FloorTileBeige.jpg","Assets/Resources/Surfaces/FloorTileWhite.jpg"})
+            {
+                if(AssetImporter.GetAtPath(path) is not TextureImporter importer)continue;
+                importer.textureType=TextureImporterType.Default;importer.sRGBTexture=true;importer.mipmapEnabled=true;
+                importer.streamingMipmaps=false;importer.wrapMode=TextureWrapMode.Repeat;importer.filterMode=FilterMode.Bilinear;
+                importer.anisoLevel=1;importer.npotScale=TextureImporterNPOTScale.None;importer.maxTextureSize=1024;
+                importer.textureCompression=TextureImporterCompression.CompressedHQ;
+                importer.SaveAndReimport();
+            }
         }
 
         static void ConfigureRendering()
@@ -100,7 +113,14 @@ namespace MiniMarket.Editor
 
         static void ConfigurePlayer()
         {
-            PlayerSettings.companyName="Olcas";PlayerSettings.productName="Mini Market";PlayerSettings.bundleVersion="1.0.0";PlayerSettings.colorSpace=ColorSpace.Linear;
+            PlayerSettings.companyName="Olcas";PlayerSettings.productName="Mini Market";
+            var configuredVersion=Environment.GetEnvironmentVariable("UNITY_APP_VERSION");
+            if(!string.IsNullOrWhiteSpace(configuredVersion))PlayerSettings.bundleVersion=configuredVersion;
+            else if(string.IsNullOrWhiteSpace(PlayerSettings.bundleVersion))PlayerSettings.bundleVersion="1.0.0";
+            var buildNumber=Environment.GetEnvironmentVariable("UNITY_BUILD_NUMBER");
+            if(int.TryParse(buildNumber,out var numericBuild)&&numericBuild>0)PlayerSettings.Android.bundleVersionCode=numericBuild;
+            if(!string.IsNullOrWhiteSpace(buildNumber))PlayerSettings.iOS.buildNumber=buildNumber;
+            PlayerSettings.colorSpace=ColorSpace.Linear;
             PlayerSettings.defaultScreenWidth=1280;PlayerSettings.defaultScreenHeight=720;PlayerSettings.runInBackground=false;PlayerSettings.resizableWindow=true;
             PlayerSettings.SetApplicationIdentifier(NamedBuildTarget.WebGL,"app.olcas.market.web");
             PlayerSettings.SetApplicationIdentifier(NamedBuildTarget.Android,"app.olcas.market");
@@ -108,7 +128,11 @@ namespace MiniMarket.Editor
             PlayerSettings.SetScriptingBackend(NamedBuildTarget.WebGL,ScriptingImplementation.IL2CPP);
             PlayerSettings.SetScriptingBackend(NamedBuildTarget.Android,ScriptingImplementation.IL2CPP);
             PlayerSettings.SetScriptingBackend(NamedBuildTarget.iOS,ScriptingImplementation.IL2CPP);
-            PlayerSettings.WebGL.compressionFormat=WebGLCompressionFormat.Brotli;PlayerSettings.WebGL.decompressionFallback=false;PlayerSettings.WebGL.nameFilesAsHashes=true;PlayerSettings.WebGL.initialMemorySize=768;PlayerSettings.WebGL.maximumMemorySize=2048;
+            PlayerSettings.WebGL.compressionFormat=WebGLCompressionFormat.Brotli;PlayerSettings.WebGL.decompressionFallback=false;PlayerSettings.WebGL.nameFilesAsHashes=true;// A phone will not hand over 768 MB in one block: the tab is killed the
+            // moment the world starts filling it, the page reloads and the owner is
+            // back at "construyendo supermercado". Start small and grow on demand.
+            PlayerSettings.WebGL.initialMemorySize=64;PlayerSettings.WebGL.maximumMemorySize=1024;
+            PlayerSettings.WebGL.memoryGrowthMode=WebGLMemoryGrowthMode.Geometric;
             PlayerSettings.WebGL.template="PROJECT:MiniMarketPWA";PlayerSettings.WebGL.powerPreference=WebGLPowerPreference.LowPower;
             PlayerSettings.Android.targetArchitectures=AndroidArchitecture.ARM64;PlayerSettings.Android.minSdkVersion=AndroidSdkVersions.AndroidApiLevel26;PlayerSettings.Android.targetSdkVersion=AndroidSdkVersions.AndroidApiLevelAuto;
             PlayerSettings.iOS.targetOSVersionString="15.0";PlayerSettings.iOS.sdkVersion=iOSSdkVersion.DeviceSDK;
@@ -137,14 +161,83 @@ namespace MiniMarket.Editor
 
         static void BuildWebPlayer()
         {
-            var report=BuildPipeline.BuildPlayer(new BuildPlayerOptions{scenes=new[]{ScenePath},locationPathName="Builds/WebGL",target=BuildTarget.WebGL,options=BuildOptions.None});
-            if(report.summary.result!=BuildResult.Succeeded)throw new BuildFailedException($"WebGL falló: {report.summary.result} ({report.summary.totalErrors} errores)");
-            PruneWebStreamingAssets();
-            var stamp=System.DateTime.UtcNow.ToString("yyyyMMdd-HHmmss");
-            StampBuildVersion(stamp);
-            var deploymentBytes=Directory.EnumerateFiles("Builds/WebGL","*",SearchOption.AllDirectories).Sum(path=>new FileInfo(path).Length);
-            File.WriteAllText("Builds/WebGL/BUILD_INFO.txt",$"Unity {Application.unityVersion}\nUTC {System.DateTime.UtcNow:O}\nStamp {stamp}\nSize {deploymentBytes}\nWarnings {report.summary.totalWarnings}\n");
-            Debug.Log($"Build Web/PWA completada: {deploymentBytes} bytes de despliegue");
+            ProductionReadinessValidator.ValidateForCi();
+            var identity=PrepareBuildIdentity();
+            try
+            {
+                var report=BuildPipeline.BuildPlayer(new BuildPlayerOptions{scenes=new[]{ScenePath},locationPathName="Builds/WebGL",target=BuildTarget.WebGL,options=BuildOptions.None});
+                if(report.summary.result!=BuildResult.Succeeded)throw new BuildFailedException($"WebGL falló: {report.summary.result} ({report.summary.totalErrors} errores)");
+                PruneWebStreamingAssets();
+                var stamp=System.DateTime.UtcNow.ToString("yyyyMMdd-HHmmss");
+                StampBuildVersion(stamp);
+                var deploymentBytes=Directory.EnumerateFiles("Builds/WebGL","*",SearchOption.AllDirectories).Sum(path=>new FileInfo(path).Length);
+                File.WriteAllText("Builds/WebGL/BUILD_INFO.txt",$"Unity {Application.unityVersion}\nUTC {System.DateTime.UtcNow:O}\nStamp {stamp}\nVersion {identity.Value<string>("version")}\nBuild {identity.Value<string>("buildNumber")}\nCommit {identity.Value<string>("gitCommit")}\nCatalog {identity.Value<string>("contentCatalogVersion")}\nSaveSchema {identity.Value<int>("saveSchemaVersion")}\nSize {deploymentBytes}\nWarnings {report.summary.totalWarnings}\n");
+                Debug.Log($"Build Web/PWA completada: {deploymentBytes} bytes de despliegue");
+            }
+            finally{CleanupBuildIdentity();}
+        }
+
+        [MenuItem("Mini Market/Build Android AAB")]
+        public static void BuildAndroidAab()
+        {
+            Configure();ProductionReadinessValidator.ValidateForCi();Directory.CreateDirectory("Builds/Android");
+            EditorUserBuildSettings.buildAppBundle=true;var identity=PrepareBuildIdentity();
+            try
+            {
+                var report=BuildPipeline.BuildPlayer(new BuildPlayerOptions{scenes=new[]{ScenePath},locationPathName="Builds/Android/MiniMarket.aab",target=BuildTarget.Android,options=BuildOptions.None});
+                if(report.summary.result!=BuildResult.Succeeded)throw new BuildFailedException($"Android falló: {report.summary.result} ({report.summary.totalErrors} errores)");
+                Debug.Log($"Android AAB completado: version={identity.Value<string>("version")} build={identity.Value<string>("buildNumber")}");
+            }
+            finally{CleanupBuildIdentity();}
+        }
+
+        [MenuItem("Mini Market/Export iOS Xcode")]
+        public static void ExportIos()
+        {
+            Configure();ProductionReadinessValidator.ValidateForCi();Directory.CreateDirectory("Builds/iOS");var identity=PrepareBuildIdentity();
+            try
+            {
+                var report=BuildPipeline.BuildPlayer(new BuildPlayerOptions{scenes=new[]{ScenePath},locationPathName="Builds/iOS",target=BuildTarget.iOS,options=BuildOptions.None});
+                if(report.summary.result!=BuildResult.Succeeded)throw new BuildFailedException($"iOS falló: {report.summary.result} ({report.summary.totalErrors} errores)");
+                Debug.Log($"Proyecto iOS completado: version={identity.Value<string>("version")} build={identity.Value<string>("buildNumber")}");
+            }
+            finally{CleanupBuildIdentity();}
+        }
+
+        const string BuildIdentityPath="Assets/Resources/MiniMarketBuildInfo.json";
+        static JObject PrepareBuildIdentity()
+        {
+            Directory.CreateDirectory("Assets/Resources");
+            var identity=new JObject
+            {
+                ["version"]=PlayerSettings.bundleVersion,
+                ["buildNumber"]=Environment.GetEnvironmentVariable("UNITY_BUILD_NUMBER")??DateTime.UtcNow.ToString("yyyyMMddHHmm"),
+                ["gitCommit"]=GitCommit(),
+                ["contentCatalogVersion"]=FileSha256("Assets/StreamingAssets/Data/runtime-asset-catalog.json"),
+                ["saveSchemaVersion"]=MiniMarket.Persistence.LocalSaveEnvelope.CurrentSchemaVersion,
+            };
+            File.WriteAllText(BuildIdentityPath,identity.ToString(Newtonsoft.Json.Formatting.Indented)+"\n");AssetDatabase.ImportAsset(BuildIdentityPath,ImportAssetOptions.ForceUpdate);
+            return identity;
+        }
+
+        static void CleanupBuildIdentity(){AssetDatabase.DeleteAsset(BuildIdentityPath);AssetDatabase.Refresh();}
+
+        static string FileSha256(string path)
+        {
+            using var sha=SHA256.Create();using var stream=File.OpenRead(path);
+            return string.Concat(sha.ComputeHash(stream).Select(value=>value.ToString("x2"))).Substring(0,16);
+        }
+
+        static string GitCommit()
+        {
+            var fromEnvironment=Environment.GetEnvironmentVariable("GITHUB_SHA");if(!string.IsNullOrWhiteSpace(fromEnvironment))return fromEnvironment;
+            try
+            {
+                var info=new System.Diagnostics.ProcessStartInfo("git",$"-C \"{Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(),"../.."))}\" rev-parse HEAD")
+                {UseShellExecute=false,RedirectStandardOutput=true,CreateNoWindow=true};
+                using var process=System.Diagnostics.Process.Start(info);var value=process.StandardOutput.ReadToEnd().Trim();process.WaitForExit();return process.ExitCode==0?value:"unknown";
+            }
+            catch{return "unknown";}
         }
 
         static void StampBuildVersion(string stamp)

@@ -127,3 +127,15 @@ model LedgerEntry {
   @@index([userId, eventId])
   @@unique([userId, idempotencyKey])
 }
+
+/// Shared fixed-window limiter for authenticated API operations. One row is
+/// reused per user/scope, so the table remains bounded by active callers.
+model ApiRateLimitBucket {
+  key       String   @id
+  count     Int
+  expiresAt DateTime
+  updatedAt DateTime @updatedAt
+
+  @@index([expiresAt])
+  @@map("api_rate_limit_bucket")
+}
