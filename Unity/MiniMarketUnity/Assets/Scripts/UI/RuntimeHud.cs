@@ -37,13 +37,13 @@ namespace MiniMarket.UI
         // Unused by the project; the main camera still draws it, so the world view
         // is unchanged while the preview camera can cull down to the player alone.
         const int AvatarLayer=8;
-        MiniMarketRuntime runtime;AudioManager audioService;Coroutine toastRoutine;VirtualJoystick joystick;
+        MiniMarketRuntime runtime;AudioManager audioService;Coroutine toastRoutine;VirtualJoystick joystick;CameraOverviewHud cameraOverview;
 
         void Awake()=>Build();
         public void Bind(MiniMarketRuntime value,AudioManager audioManager)
         {
             runtime=value;audioService=audioManager;runtime.Signals.StateChanged+=Refresh;runtime.Signals.Notification+=Notify;runtime.Interactions.NearestChanged+=NearestChanged;
-            BuildNavigation();BuildJoystick();Refresh();if(runtime.CompanySetup.Required)OpenPanel("setup");
+            BuildNavigation();cameraOverview=gameObject.AddComponent<CameraOverviewHud>();cameraOverview.Bind(runtime,canvas,font,roundedSprite,actions,drawer,responsiveLayout,audioService);BuildJoystick();Refresh();if(runtime.CompanySetup.Required)OpenPanel("setup");
         }
 
         public void ShowLoading(string message){if(!loading)Build();loading.gameObject.SetActive(true);loadingText.text=message;loadingSteps++;
@@ -256,8 +256,9 @@ namespace MiniMarket.UI
             QuickButton(row.transform,"build",()=>OpenPanel("upgrade"),"Construir");
             QuickButton(row.transform,"avatar",()=>OpenPanel("closet"),"Avatar");
             QuickButton(row.transform,"help",()=>OpenPanel("help"),"Cómo jugar");
+            QuickButton(row.transform,"camera",()=>cameraOverview?.Toggle(),"Cámara");
             // Both sit inside the sheet but outside its grid: without this the
-            // layout hands each of them a cell and they become a ninth and tenth
+            // layout hands each of them a cell and they become a tenth and eleventh
             // entry in the menu.
             var handle=Panel("Handle",actions,Muted);
             handle.gameObject.AddComponent<LayoutElement>().ignoreLayout=true;
@@ -291,6 +292,7 @@ namespace MiniMarket.UI
 
         public void OpenPanel(string id)
         {
+            cameraOverview?.Close();
             if(!runtime)return;Clear(drawerContent);drawerTitle.text=id switch{"supplier"=>"PROVEEDORES","hiring"=>"EQUIPO","upgrade"=>"CONSTRUIR","closet"=>"AVATAR","map"=>"FRANQUICIAS","finance"=>"FINANZAS","help"=>"CÓMO JUGAR","missions"=>"PROGRESO Y OBJETIVOS","setup"=>"CREA TU EMPRESA",_=>"INVENTARIO"};
             currentPanel=id;
             drawerIcon.sprite=Icon(id switch{"supplier"=>"suppliers","hiring"=>"team","upgrade"=>"build","closet"=>"avatar","map"=>"map","finance"=>"finance","help"=>"help","missions"=>"target","setup"=>"store",_=>"inventory"});

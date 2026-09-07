@@ -34,7 +34,10 @@ namespace MiniMarket.UI
         {
             if(!actions||!drawer||!grid)return;
             width=Screen.width;height=Screen.height;
-            var narrow=height>width&&width<=580;
+            // Unity reports render-buffer pixels here. The Web template caps a
+            // 390-412 CSS-pixel phone to DPR 1.5, so its actual width is
+            // 585-618 rather than the CSS width used by the browser layout.
+            var narrow=height>width&&width<=720;
             narrowNow=narrow;
             // A 1440x900 reference on a portrait phone scales the whole HUD to
             // about half size, which leaves 12pt captions at seven physical
@@ -47,19 +50,19 @@ namespace MiniMarket.UI
             actions.anchorMin=actions.anchorMax=new Vector2(1,1);actions.pivot=new Vector2(1,1);
             if(narrow)
             {
-                // the mobile sheet shows the eight entries as a 2x4 grid pinned
-                // to the bottom, not as a strip across the top
+                // The mobile sheet shows all nine entries as a two-column grid
+                // pinned to the bottom, not as a strip across the top.
                 actions.anchorMin=actions.anchorMax=new Vector2(.5f,0);actions.pivot=new Vector2(.5f,0);
                 // A bottom sheet: drag handle on top, two columns of stacked
                 // entries, and the close row under them, as the mobile sheet draws it.
-                actions.offsetMin=new Vector2(-186,14);actions.offsetMax=new Vector2(186,418);
+                actions.offsetMin=new Vector2(-186,14);actions.offsetMax=new Vector2(186,514);
                 grid.padding=new RectOffset(12,12,22,44);grid.spacing=new Vector2(10,10);
                 grid.constraintCount=2;grid.cellSize=new Vector2(169,76);
                 drawer.anchorMin=new Vector2(.035f,.09f);drawer.anchorMax=new Vector2(.965f,.91f);
             }
             else
             {
-                actions.offsetMin=new Vector2(-186,-452);actions.offsetMax=new Vector2(-14,-100);
+                actions.offsetMin=new Vector2(-186,-495);actions.offsetMax=new Vector2(-14,-100);
                 grid.padding=new RectOffset(7,7,7,7);grid.spacing=new Vector2(5,5);
                 grid.constraintCount=1;grid.cellSize=new Vector2(158,38);
                 drawer.anchorMin=new Vector2(.12f,.09f);drawer.anchorMax=new Vector2(.88f,.91f);
@@ -76,7 +79,7 @@ namespace MiniMarket.UI
             if(handle)handle.gameObject.SetActive(narrow);
             actions.gameObject.SetActive(!(narrow&&drawerOpen));
             if(sheetClose)sheetClose.gameObject.SetActive(narrow);
-            // every entry stays reachable on a phone: the sheet holds all eight
+            // Every entry stays reachable on a phone: the sheet holds all nine.
             if(buttons==null)return;
             foreach(var button in buttons)
             {

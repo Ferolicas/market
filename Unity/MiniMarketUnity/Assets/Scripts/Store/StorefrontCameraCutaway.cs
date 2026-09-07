@@ -1,4 +1,5 @@
 using UnityEngine;
+using MiniMarket.Player;
 
 namespace MiniMarket.Store
 {
@@ -13,6 +14,7 @@ namespace MiniMarket.Store
         [SerializeField] float exteriorThresholdZ=15.3f;
         Renderer[] renderers;
         Transform player;
+        IsometricCamera cameraRig;
         bool? visible;
 
         void Awake()=>renderers=GetComponentsInChildren<Renderer>(true);
@@ -24,7 +26,8 @@ namespace MiniMarket.Store
                 var candidate=GameObject.FindWithTag("Player");
                 if(candidate)player=candidate.transform;
             }
-            var shouldBeVisible=player&&player.position.z>=exteriorThresholdZ;
+            if(!cameraRig&&Camera.main)cameraRig=Camera.main.GetComponent<IsometricCamera>();
+            var shouldBeVisible=(cameraRig&&cameraRig.OverviewActive)||(player&&player.position.z>=exteriorThresholdZ);
             if(visible==shouldBeVisible)return;
             visible=shouldBeVisible;
             foreach(var renderer in renderers)if(renderer)renderer.enabled=shouldBeVisible;

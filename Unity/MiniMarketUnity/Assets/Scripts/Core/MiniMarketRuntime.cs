@@ -123,7 +123,7 @@ namespace MiniMarket.Core
             PlayerActor.gameObject.tag="Player";
             Player=PlayerActor.gameObject.AddComponent<PlayerController>();Player.Bind(State);Player.InputEnabled=false;Interactions.Bind(Player);lastPlayerPosition=Player.transform.position;
             var bridge=PlayerActor.gameObject.AddComponent<PlayerAnimationBridge>();bridge.Bind(Player,PlayerActor,Carry);
-            cameraRig=Camera.main.GetComponent<IsometricCamera>();cameraRig.target=Player.transform;CharacterLod.Focus=Player.transform;if(PlayerActor.GetComponent<CharacterLod>() is CharacterLod playerLod)playerLod.PinNear=!MiniMarket.Performance.PerformanceGovernor.Handheld;
+            cameraRig=Camera.main.GetComponent<IsometricCamera>();cameraRig.target=Player.transform;cameraRig.ConfigureOverview(World.OverviewBounds);CharacterLod.Focus=Player.transform;if(PlayerActor.GetComponent<CharacterLod>() is CharacterLod playerLod)playerLod.PinNear=!MiniMarket.Performance.PerformanceGovernor.Handheld;
             playerCarryVisual=gameObject.AddComponent<PlayerCarryVisual>();await playerCarryVisual.BindAsync(gltf,PlayerActor,Carry);
 
             productVisuals=new ProductVisualSystem(gltf,World,State,ProductPolicy,Signals);
@@ -174,7 +174,7 @@ namespace MiniMarket.Core
             if(simulationClock>=5f){simulationClock-=5f;Days.AdvanceMinutes(1);Orders.Tick();}
             workstation.Sync(WorkstationController.ZoneOf(Interactions.Nearest?Interactions.Nearest.interactionId:null),Player.InputMagnitude);
             workstation.UpdateInput(Player.InputMagnitude);
-            if(cameraRig)cameraRig.checkoutFocused=workstation.PerformingZoneId()=="checkout";
+            if(cameraRig){cameraRig.checkoutFocused=workstation.PerformingZoneId()=="checkout";cameraRig.SetInputMagnitude(Player.InputMagnitude);}
             RecoverIfFallen();
             var moved=Vector3.Distance(lastPlayerPosition,Player.transform.position);if(moved>.01f){lastPlayerPosition=Player.transform.position;RecordPlayerDistance(moved);}
         }
@@ -498,7 +498,7 @@ namespace MiniMarket.Core
             var previous=PlayerActor.gameObject;var next=await characterFactory.CreateAsync(asset,transform,position,true);next.transform.rotation=rotation;
             next.gameObject.tag="Player";
             var controller=next.gameObject.AddComponent<PlayerController>();controller.Bind(State);controller.InputEnabled=!CompanySetup.Required;var bridge=next.gameObject.AddComponent<PlayerAnimationBridge>();bridge.Bind(controller,next,Carry);
-            PlayerActor=next;Player=controller;playerCharacterId=asset;Interactions.Bind(Player);gameplayInteractions.SetPlayerActor(PlayerActor);cameraRig=Camera.main.GetComponent<IsometricCamera>();cameraRig.target=Player.transform;CharacterLod.Focus=Player.transform;if(next.GetComponent<CharacterLod>() is CharacterLod swappedLod)swappedLod.PinNear=!MiniMarket.Performance.PerformanceGovernor.Handheld;hud.BindPlayer(Player);await playerCarryVisual.BindAsync(gltf,PlayerActor,Carry);
+            PlayerActor=next;Player=controller;playerCharacterId=asset;Interactions.Bind(Player);gameplayInteractions.SetPlayerActor(PlayerActor);cameraRig=Camera.main.GetComponent<IsometricCamera>();cameraRig.target=Player.transform;cameraRig.ConfigureOverview(World.OverviewBounds);CharacterLod.Focus=Player.transform;if(next.GetComponent<CharacterLod>() is CharacterLod swappedLod)swappedLod.PinNear=!MiniMarket.Performance.PerformanceGovernor.Handheld;hud.BindPlayer(Player);await playerCarryVisual.BindAsync(gltf,PlayerActor,Carry);
             ((JObject)State.Root["avatar"])["body"]=bodyId;State.Changed();Destroy(previous);Signals.PublishNotification($"Personaje cambiado: {bodyId}");
         }
 
@@ -531,7 +531,7 @@ namespace MiniMarket.Core
             // mirrored like the rest of the world, otherwise every shadow
             // falls on the opposite side of its object from the Next scene.
             sun.transform.rotation=Quaternion.Euler(50.754f,131.185f,0f);
-            var cameraGo=new GameObject("Main Camera");cameraGo.tag="MainCamera";var camera=cameraGo.AddComponent<Camera>();camera.orthographic=true;camera.orthographicSize=5.4625f;camera.nearClipPlane=.1f;camera.farClipPlane=120;camera.clearFlags=CameraClearFlags.SolidColor;camera.backgroundColor=new Color(.72f,.875f,.81f);cameraGo.AddComponent<AudioListener>();cameraGo.AddComponent<IsometricCamera>();
+            var cameraGo=new GameObject("Main Camera");cameraGo.tag="MainCamera";var camera=cameraGo.AddComponent<Camera>();camera.orthographic=true;camera.orthographicSize=5.4625f;camera.nearClipPlane=.1f;camera.farClipPlane=120;camera.clearFlags=CameraClearFlags.SolidColor;camera.backgroundColor=new Color(.72f,.875f,.81f);cameraGo.AddComponent<AudioListener>();cameraGo.AddComponent<IsometricCamera>();cameraGo.AddComponent<CameraObstructionCutaway>();
         }
 
         void OnDestroy()

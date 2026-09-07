@@ -62,6 +62,19 @@ namespace MiniMarket.Customers
         readonly List<CheckoutFlowVisual> checkoutFlows=new();
         readonly List<Task> checkoutWarmups=new();
         public int ActiveCount => customers.Count;
+        public int CheckoutQueueCount
+        {
+            get { var count=0;foreach(var queue in queues)count+=queue.Count;return count; }
+        }
+
+        public int ActivityAt(string productId)
+        {
+            if(string.IsNullOrEmpty(productId))return 0;
+            var count=0;
+            foreach(var mind in customers)
+                if((mind.Phase is Phase.Shopping or Phase.Picking)&&string.Equals(mind.Product,productId,StringComparison.OrdinalIgnoreCase))count++;
+            return count;
+        }
 
         public void Bind(CharacterFactory characterFactory, RuntimeGltfLoader runtimeLoader, StoreWorld storeWorld, GameStateDocument document,
             GameSpecRepository repository, InventorySystem inventorySystem, EconomySystem economySystem,
