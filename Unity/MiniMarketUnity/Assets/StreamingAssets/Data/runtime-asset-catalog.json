@@ -1383,8 +1383,8 @@
       "kind": "environment",
       "path": "Art/Furniture/StorefrontWindow.glb",
       "source": "GameAssets/Environment/Runtime/Furniture/StorefrontWindow.glb",
-      "bytes": 869108,
-      "sha256": "af59eed6b497a95846a9f8d0e032131f45d085a70f7bb37f07f41a3f284c89f2"
+      "bytes": 207184,
+      "sha256": "22156308e5555d741dc15364f8c640bc3140d47024a76d00ac250f3839451c18"
     },
     {
       "id": "StreetLight",
@@ -1612,5 +1612,5 @@
     "metadata": 1,
     "character-motion": 9
   },
-  "totalBytes": 294230146
+  "totalBytes": 292020418
 }
