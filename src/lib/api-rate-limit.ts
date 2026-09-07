@@ -13,7 +13,7 @@ type RateLimitOptions = {
 
 type BucketRow = {
   count: number;
-  expiresAt: Date;
+  retryAfterSeconds: number;
 };
 
 /**
@@ -25,28 +25,31 @@ export async function consumeApiRateLimit(options: RateLimitOptions): Promise<Ra
   const key = createHash("sha256")
     .update(`${options.scope}\0${options.subject}`)
     .digest("hex");
-  const fallbackExpiresAt = new Date(Date.now() + options.windowSeconds * 1_000);
   const rows = await db.$queryRaw<BucketRow[]>(Prisma.sql`
-    INSERT INTO "api_rate_limit_bucket" ("key", "count", "expiresAt", "updatedAt")
-    VALUES (${key}, 1, CURRENT_TIMESTAMP + make_interval(secs => ${options.windowSeconds}), CURRENT_TIMESTAMP)
-    ON CONFLICT ("key") DO UPDATE SET
-      "count" = CASE
-        WHEN "api_rate_limit_bucket"."expiresAt" <= CURRENT_TIMESTAMP THEN 1
-        ELSE "api_rate_limit_bucket"."count" + 1
-      END,
-      "expiresAt" = CASE
-        WHEN "api_rate_limit_bucket"."expiresAt" <= CURRENT_TIMESTAMP THEN EXCLUDED."expiresAt"
-        ELSE "api_rate_limit_bucket"."expiresAt"
-      END,
-      "updatedAt" = CURRENT_TIMESTAMP
-    RETURNING "count", "expiresAt"
+    WITH consumed AS (
+      INSERT INTO "api_rate_limit_bucket" ("key", "count", "expiresAt", "updatedAt")
+      VALUES (${key}, 1, CURRENT_TIMESTAMP + make_interval(secs => ${options.windowSeconds}), CURRENT_TIMESTAMP)
+      ON CONFLICT ("key") DO UPDATE SET
+        "count" = CASE
+          WHEN "api_rate_limit_bucket"."expiresAt" <= CURRENT_TIMESTAMP THEN 1
+          ELSE "api_rate_limit_bucket"."count" + 1
+        END,
+        "expiresAt" = CASE
+          WHEN "api_rate_limit_bucket"."expiresAt" <= CURRENT_TIMESTAMP THEN EXCLUDED."expiresAt"
+          ELSE "api_rate_limit_bucket"."expiresAt"
+        END,
+        "updatedAt" = CURRENT_TIMESTAMP
+      RETURNING "count", "expiresAt"
+    )
+    SELECT
+      "count",
+      GREATEST(1, CEIL(EXTRACT(EPOCH FROM ("expiresAt" - CURRENT_TIMESTAMP))))::integer
+        AS "retryAfterSeconds"
+    FROM consumed
   `);
   const bucket = rows[0];
   const count = bucket?.count ?? options.limit + 1;
-  const retryAfterSeconds = Math.max(
-    1,
-    Math.ceil(((bucket?.expiresAt.getTime() ?? fallbackExpiresAt.getTime()) - Date.now()) / 1_000),
-  );
+  const retryAfterSeconds = bucket?.retryAfterSeconds ?? options.windowSeconds;
   return {
     allowed: count <= options.limit,
     limit: options.limit,
