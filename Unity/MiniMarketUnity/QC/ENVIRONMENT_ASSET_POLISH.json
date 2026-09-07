@@ -1,0 +1,1430 @@
+{
+  "schemaVersion": 1,
+  "units": "metres",
+  "pivot": "centre of footprint at floor",
+  "generated": 108,
+  "approvedPreserved": [
+    "CheckoutArea",
+    "DisplayProduceMixed",
+    "DisplayRefrigeratedDoors",
+    "DisplayTable",
+    "EggDisplay",
+    "FloorTileBeige",
+    "FloorTileWhite",
+    "HarvestBasket",
+    "SeasonalDisplay",
+    "ShelfEndcap",
+    "ShelfWallTall",
+    "ShelfWallWide",
+    "StoreEntrance",
+    "StoreEntranceAlt",
+    "StorefrontWindow",
+    "WallStraight"
+  ],
+  "assets": [
+    {
+      "id": "AutomaticDoor",
+      "file": "AutomaticDoor.glb",
+      "dimensionsMeters": [
+        2.26,
+        0.12,
+        2.365
+      ],
+      "triangles": 648,
+      "path": "Art/Furniture/AutomaticDoor.glb",
+      "bytes": 47552,
+      "sha256": "d7d296c9e693497a542439df73fcd490587573406a9f577b554acf21e19c6374"
+    },
+    {
+      "id": "BackroomStorage",
+      "file": "BackroomStorage.glb",
+      "dimensionsMeters": [
+        1.605,
+        0.675,
+        1.85
+      ],
+      "triangles": 3252,
+      "path": "Art/Utility/BackroomStorage.glb",
+      "bytes": 227112,
+      "sha256": "c656dd0eae4f6e4a777e921c540d9ee60a097907d89442adb542d0efd375f115"
+    },
+    {
+      "id": "BaggingArea",
+      "file": "BaggingArea.glb",
+      "dimensionsMeters": [
+        2.48,
+        0.94,
+        0.9925
+      ],
+      "triangles": 432,
+      "path": "Art/StoreEquipment/BaggingArea.glb",
+      "bytes": 32452,
+      "sha256": "ce7d5a3173e91c34269c8a4b10736c346811353ef15b44a7bdc3b85ddbaacb5e"
+    },
+    {
+      "id": "BaggingAreaAlt",
+      "file": "BaggingAreaAlt.glb",
+      "dimensionsMeters": [
+        2.48,
+        0.94,
+        0.9925
+      ],
+      "triangles": 432,
+      "path": "Art/StoreDisplays/BaggingAreaAlt.glb",
+      "bytes": 32456,
+      "sha256": "4451bd56d7caf4795eb9a6306471c7a7cac20de9f77210fc3c257707e7d3b6e1"
+    },
+    {
+      "id": "BakeryWorkArea",
+      "file": "BakeryWorkArea.glb",
+      "dimensionsMeters": [
+        2.32,
+        1.3,
+        2.075
+      ],
+      "triangles": 648,
+      "path": "Art/Utility/BakeryWorkArea.glb",
+      "bytes": 47696,
+      "sha256": "05d959c9b30060441807b54bebaaad05dd15d1b807d31040bf912685aded2f7b"
+    },
+    {
+      "id": "BasketStack",
+      "file": "BasketStack.glb",
+      "dimensionsMeters": [
+        0.555,
+        0.375,
+        0.865
+      ],
+      "triangles": 11400,
+      "path": "Art/StoreEquipment/BasketStack.glb",
+      "bytes": 780716,
+      "sha256": "60234700f04f4503577b7bd546db6dcc4fa7f23b580a890fff86fa8e15298821"
+    },
+    {
+      "id": "BasketStackAlt",
+      "file": "BasketStackAlt.glb",
+      "dimensionsMeters": [
+        0.555,
+        0.375,
+        0.865
+      ],
+      "triangles": 11400,
+      "path": "Art/StoreDisplays/BasketStackAlt.glb",
+      "bytes": 780720,
+      "sha256": "0742280e75ae817da2899e11b0b705f175de75ef1f68c006dac3a271d4206b50"
+    },
+    {
+      "id": "Bench",
+      "file": "Bench.glb",
+      "dimensionsMeters": [
+        2.05,
+        0.75309,
+        1.45262
+      ],
+      "triangles": 1340,
+      "path": "Art/Exterior/Bench.glb",
+      "bytes": 93624,
+      "sha256": "176e03d1e8941c2eee6b28f89527a547b2d0fbbeb485e997bc3dcbaf7de3ff00"
+    },
+    {
+      "id": "BreadOven",
+      "file": "BreadOven.glb",
+      "dimensionsMeters": [
+        1.43,
+        1.038,
+        1.85
+      ],
+      "triangles": 1200,
+      "path": "Art/Furniture/BreadOven.glb",
+      "bytes": 82516,
+      "sha256": "607b4bc797de23bdf479befcdf02175189f016f437d3b0ad3618e1bd55f56223"
+    },
+    {
+      "id": "BusStop",
+      "file": "BusStop.glb",
+      "dimensionsMeters": [
+        3.4,
+        1.58,
+        2.59778
+      ],
+      "triangles": 1168,
+      "path": "Art/Exterior/BusStop.glb",
+      "bytes": 78684,
+      "sha256": "5b252b322b187a1924ac78d8b14a37a3d2bc16ac77ebd8c65a88177788ecb8ad"
+    },
+    {
+      "id": "Car",
+      "file": "Car.glb",
+      "dimensionsMeters": [
+        3.95,
+        1.69,
+        1.78371
+      ],
+      "triangles": 3256,
+      "path": "Art/Exterior/Car.glb",
+      "bytes": 150572,
+      "sha256": "a8c20f0a716d171689a7114e53c38000b261e34c5b2332f0d462057227ac0ce5"
+    },
+    {
+      "id": "CardTerminal",
+      "file": "CardTerminal.glb",
+      "dimensionsMeters": [
+        0.3,
+        0.28,
+        0.5081
+      ],
+      "triangles": 1296,
+      "path": "Art/Furniture/CardTerminal.glb",
+      "bytes": 93784,
+      "sha256": "8a8978103f44c6b209807d6966023454d529c449827261a35d50c6e526a68b7f"
+    },
+    {
+      "id": "CarrotRipe",
+      "file": "CarrotRipe.glb",
+      "dimensionsMeters": [
+        1.45,
+        1.18,
+        1.12
+      ],
+      "triangles": 2540,
+      "path": "Art/Farm/CarrotRipe.glb",
+      "bytes": 89172,
+      "sha256": "b4b9d4a21e870af3e4a62aa3ad94a91e6195ae570e0810c331d8d2db0e12c629"
+    },
+    {
+      "id": "CartBay",
+      "file": "CartBay.glb",
+      "dimensionsMeters": [
+        2.2,
+        1.55,
+        2.055
+      ],
+      "triangles": 14500,
+      "path": "Art/Utility/CartBay.glb",
+      "bytes": 576152,
+      "sha256": "6f8c211978e1cc018ed830872fd0e5b467082fef317a00a0eb267df5ac43d22f"
+    },
+    {
+      "id": "CashDrawer",
+      "file": "CashDrawer.glb",
+      "dimensionsMeters": [
+        0.72,
+        0.54044,
+        0.72806
+      ],
+      "triangles": 540,
+      "path": "Art/StoreEquipment/CashDrawer.glb",
+      "bytes": 40368,
+      "sha256": "da5afd9c24ac70bfc4baf975641bc2c824af140395ca91e797e2706abcb47aef"
+    },
+    {
+      "id": "CashDrawerAlt",
+      "file": "CashDrawerAlt.glb",
+      "dimensionsMeters": [
+        0.72,
+        0.54044,
+        0.72806
+      ],
+      "triangles": 540,
+      "path": "Art/StoreDisplays/CashDrawerAlt.glb",
+      "bytes": 40368,
+      "sha256": "a9ebd3b1706b0a5a700ce825cdc61c6bc5da45ec9a6a3958e58ce749e35f5928"
+    },
+    {
+      "id": "CashRegister",
+      "file": "CashRegister.glb",
+      "dimensionsMeters": [
+        0.72,
+        0.54044,
+        0.72806
+      ],
+      "triangles": 540,
+      "path": "Art/Furniture/CashRegister.glb",
+      "bytes": 40368,
+      "sha256": "02f4f7e02212935d6cba3e8ec5b14b4bc40ee6b7a1355c3dc589627569b6e8ee"
+    },
+    {
+      "id": "CashierStool",
+      "file": "CashierStool.glb",
+      "dimensionsMeters": [
+        0.76,
+        0.68,
+        0.9
+      ],
+      "triangles": 920,
+      "path": "Art/Utility/CashierStool.glb",
+      "bytes": 30400,
+      "sha256": "51df2aa915aca8543ae760d735dad9fe84fac538d21660853c457dcbd4ca630c"
+    },
+    {
+      "id": "CeilingLight",
+      "file": "CeilingLight.glb",
+      "dimensionsMeters": [
+        1.75,
+        0.42,
+        0.119
+      ],
+      "triangles": 540,
+      "path": "Art/Furniture/CeilingLight.glb",
+      "bytes": 39888,
+      "sha256": "44a1a56a10b79f2daccfc5f978a5464e3e5ce3ed7222f48c3bb2f9c96d1dbb51"
+    },
+    {
+      "id": "CheckoutBag",
+      "file": "CheckoutBag.glb",
+      "dimensionsMeters": [
+        0.552,
+        0.18,
+        0.736
+      ],
+      "triangles": 876,
+      "path": "Art/Utility/CheckoutBag.glb",
+      "bytes": 27540,
+      "sha256": "d24e2c3539dba51fdae6bd8f800f9b6ed3825352ca9d1bb1dd6942edc127fb56"
+    },
+    {
+      "id": "CheckoutCounter",
+      "file": "CheckoutCounter.glb",
+      "dimensionsMeters": [
+        2.48,
+        0.94,
+        0.9925
+      ],
+      "triangles": 432,
+      "path": "Art/Furniture/CheckoutCounter.glb",
+      "bytes": 32456,
+      "sha256": "9ef8393df129347643df561f8b00fbe01bcd17f5130d69e9d9ddbb969d60a1ac"
+    },
+    {
+      "id": "CheckoutLaneSign",
+      "file": "CheckoutLaneSign.glb",
+      "dimensionsMeters": [
+        0.48,
+        0.13458,
+        1.72
+      ],
+      "triangles": 276,
+      "path": "Art/StoreDisplays/CheckoutLaneSign.glb",
+      "bytes": 16988,
+      "sha256": "cfe694f5857771c4875d3ab071149ea6aeba058bc54fe17b2fb52a736341073d"
+    },
+    {
+      "id": "CheckoutScanner",
+      "file": "CheckoutScanner.glb",
+      "dimensionsMeters": [
+        0.42,
+        0.34,
+        0.66966
+      ],
+      "triangles": 400,
+      "path": "Art/StoreEquipment/CheckoutScanner.glb",
+      "bytes": 28704,
+      "sha256": "3749ee9a9c8e0f536d22c9b12bf3499632a2386cf67f24f65cf28fcf8dd1dbf0"
+    },
+    {
+      "id": "CheckoutScannerAlt",
+      "file": "CheckoutScannerAlt.glb",
+      "dimensionsMeters": [
+        0.42,
+        0.34,
+        0.66966
+      ],
+      "triangles": 400,
+      "path": "Art/StoreDisplays/CheckoutScannerAlt.glb",
+      "bytes": 28708,
+      "sha256": "8eb9057c641883d4b0ea4be187397348380f0fff4aa88874dfe9cbda73e14b7e"
+    },
+    {
+      "id": "CheckoutShelf",
+      "file": "CheckoutShelf.glb",
+      "dimensionsMeters": [
+        2.48,
+        0.94,
+        0.9925
+      ],
+      "triangles": 432,
+      "path": "Art/Furniture2/CheckoutShelf.glb",
+      "bytes": 32452,
+      "sha256": "c14da75d844aa088ce87bba820defef3b7429e7c582825cc452f4604dcd144ed"
+    },
+    {
+      "id": "CheeseMachine",
+      "file": "CheeseMachine.glb",
+      "dimensionsMeters": [
+        1.15,
+        0.85,
+        1.49
+      ],
+      "triangles": 416,
+      "path": "Art/StoreEquipment/CheeseMachine.glb",
+      "bytes": 29428,
+      "sha256": "e54151671486c2534f93927bd91f46e0e11ca1df0972e480dcbf0cb988a71bf2"
+    },
+    {
+      "id": "ChestFreezer",
+      "file": "ChestFreezer.glb",
+      "dimensionsMeters": [
+        1.78,
+        0.98,
+        0.8725
+      ],
+      "triangles": 736,
+      "path": "Art/Furniture/ChestFreezer.glb",
+      "bytes": 46748,
+      "sha256": "37dcb66f5b0afe6809a81f3ab34aaa9e5da16ddcabc32a9ced4e570403593159"
+    },
+    {
+      "id": "Chicken",
+      "file": "Chicken.glb",
+      "dimensionsMeters": [
+        0.6,
+        0.69,
+        1.045
+      ],
+      "triangles": 1064,
+      "path": "Art/StoreDisplays/Chicken.glb",
+      "bytes": 38460,
+      "sha256": "90fde076812999164baa7cf43f95804d66685494f5ce187226ea148c304c9f9e"
+    },
+    {
+      "id": "ChickenPaddock",
+      "file": "ChickenPaddock.glb",
+      "dimensionsMeters": [
+        3.52,
+        3.52,
+        1.425
+      ],
+      "triangles": 2604,
+      "path": "Art/Utility/ChickenPaddock.glb",
+      "bytes": 119116,
+      "sha256": "e8766cd079e3312026d800597a8a581ec8bded7cb44e09879cf7ffaa91024731"
+    },
+    {
+      "id": "CityBuilding",
+      "file": "CityBuilding.glb",
+      "dimensionsMeters": [
+        4.5,
+        4.39449,
+        5.325
+      ],
+      "triangles": 2592,
+      "path": "Art/Exterior/CityBuilding.glb",
+      "bytes": 187268,
+      "sha256": "bcb0c5a59a663e6ba8d842022356c5275a3b3f4d6200798c196ee916de1e2926"
+    },
+    {
+      "id": "CompostBin",
+      "file": "CompostBin.glb",
+      "dimensionsMeters": [
+        1.135,
+        0.965,
+        0.91
+      ],
+      "triangles": 2340,
+      "path": "Art/Farm/CompostBin.glb",
+      "bytes": 148556,
+      "sha256": "0404f26bbd2ea603273ead5169545ef50139d24cfb287abd9f49d461cab699ae"
+    },
+    {
+      "id": "Conveyor",
+      "file": "Conveyor.glb",
+      "dimensionsMeters": [
+        2.15,
+        0.78,
+        0.63
+      ],
+      "triangles": 352,
+      "path": "Art/Furniture/Conveyor.glb",
+      "bytes": 23848,
+      "sha256": "6d8ded6ac4c4781c8b702f9c94aa00bcc1355f38385cf257a6d42fb2e4f652c7"
+    },
+    {
+      "id": "CornRipe",
+      "file": "CornRipe.glb",
+      "dimensionsMeters": [
+        1.45,
+        1.18,
+        1.12
+      ],
+      "triangles": 2604,
+      "path": "Art/Farm/CornRipe.glb",
+      "bytes": 96204,
+      "sha256": "55e4b1e221b3f072f3453991c190581ff8c21613629d5094369b6faca6589d87"
+    },
+    {
+      "id": "Cow",
+      "file": "Cow.glb",
+      "dimensionsMeters": [
+        1.86011,
+        0.74845,
+        1.27
+      ],
+      "triangles": 1516,
+      "path": "Art/StoreDisplays/Cow.glb",
+      "bytes": 52780,
+      "sha256": "1f1ff2cf31769ceeaa92299e4eb49c7aa283597f29c0e6e37e87fef3c91a2bbe"
+    },
+    {
+      "id": "CowPaddock",
+      "file": "CowPaddock.glb",
+      "dimensionsMeters": [
+        3.92,
+        3.92,
+        2.27
+      ],
+      "triangles": 3100,
+      "path": "Art/Utility/CowPaddock.glb",
+      "bytes": 132372,
+      "sha256": "0d694f55e517025b154a107ace57480cf74b399ced5bcd9012283eeed6c7d501"
+    },
+    {
+      "id": "CropGrowing",
+      "file": "CropGrowing.glb",
+      "dimensionsMeters": [
+        1.45,
+        1.18,
+        0.89
+      ],
+      "triangles": 2540,
+      "path": "Art/Farm/CropGrowing.glb",
+      "bytes": 88788,
+      "sha256": "8684b6c7a5be8fe0cbe1e784c885e81f2f5d8140e78ec01d6c69edaeb2443f4f"
+    },
+    {
+      "id": "CropSeed",
+      "file": "CropSeed.glb",
+      "dimensionsMeters": [
+        1.45,
+        1.18,
+        0.235
+      ],
+      "triangles": 248,
+      "path": "Art/Farm/CropSeed.glb",
+      "bytes": 13900,
+      "sha256": "b0cc9bee25a689cd7117b9392bd1b3cb72442d6c1fc637ad2b6d253d00bc28da"
+    },
+    {
+      "id": "CropSmall",
+      "file": "CropSmall.glb",
+      "dimensionsMeters": [
+        1.45,
+        1.18,
+        0.62
+      ],
+      "triangles": 1756,
+      "path": "Art/Farm/CropSmall.glb",
+      "bytes": 67072,
+      "sha256": "7a95577c5d11085b494782768a9628b8ead803526f498138df90f34d49ca4d0f"
+    },
+    {
+      "id": "CropSprout",
+      "file": "CropSprout.glb",
+      "dimensionsMeters": [
+        1.45,
+        1.18,
+        0.537
+      ],
+      "triangles": 1756,
+      "path": "Art/Farm/CropSprout.glb",
+      "bytes": 67068,
+      "sha256": "b4e4ff948b7c88be88302e56828550267c60f1d745f40c8a815f4dd21c681e49"
+    },
+    {
+      "id": "Crosswalk",
+      "file": "Crosswalk.glb",
+      "dimensionsMeters": [
+        7.0,
+        4.67,
+        0.054
+      ],
+      "triangles": 864,
+      "path": "Art/Exterior/Crosswalk.glb",
+      "bytes": 63448,
+      "sha256": "83711a90ab0bb573eca768ceccac50c153da5d278dcc70aed020a4bc8b2bbbc8"
+    },
+    {
+      "id": "DeliveryDock",
+      "file": "DeliveryDock.glb",
+      "dimensionsMeters": [
+        2.4,
+        1.72291,
+        1.645
+      ],
+      "triangles": 648,
+      "path": "Art/StoreEquipment/DeliveryDock.glb",
+      "bytes": 48896,
+      "sha256": "eedf272f1a97c64d0a085306b7bb74749a57b4da1a5b0418579467192a6dc668"
+    },
+    {
+      "id": "DeliveryDockAlt",
+      "file": "DeliveryDockAlt.glb",
+      "dimensionsMeters": [
+        2.4,
+        1.72291,
+        1.645
+      ],
+      "triangles": 648,
+      "path": "Art/StoreDisplays/DeliveryDockAlt.glb",
+      "bytes": 48900,
+      "sha256": "2ad4834b72ec37f1985169208cadaca57f4d2d4034cea08aeb8e1bc4ebfb6914"
+    },
+    {
+      "id": "DisplayBakery",
+      "file": "DisplayBakery.glb",
+      "dimensionsMeters": [
+        1.9,
+        0.83881,
+        1.14016
+      ],
+      "triangles": 540,
+      "path": "Art/Furniture2/DisplayBakery.glb",
+      "bytes": 40196,
+      "sha256": "cd7dcb348497a4c18fed638652070db8b77cbbc30d136864a286c33416c837b8"
+    },
+    {
+      "id": "DisplayProduceSloped",
+      "file": "DisplayProduceSloped.glb",
+      "dimensionsMeters": [
+        1.9,
+        1.255,
+        2.02
+      ],
+      "triangles": 1016,
+      "path": "Art/Furniture2/DisplayProduceSloped.glb",
+      "bytes": 70976,
+      "sha256": "c3822cf34b4966cf07fc43812f555674a817ae06e0b74e2836ec8a6e31fddece"
+    },
+    {
+      "id": "EggTray",
+      "file": "EggTray.glb",
+      "dimensionsMeters": [
+        0.72,
+        0.48,
+        0.225
+      ],
+      "triangles": 2460,
+      "path": "Art/StoreDisplays/EggTray.glb",
+      "bytes": 77092,
+      "sha256": "72b0707089401151a70991cf87b2274a09b988f7624d95f85eb655dd51925c59"
+    },
+    {
+      "id": "FarmFenceCorner",
+      "file": "FarmFenceCorner.glb",
+      "dimensionsMeters": [
+        1.58,
+        1.58,
+        1.05
+      ],
+      "triangles": 864,
+      "path": "Art/Farm/FarmFenceCorner.glb",
+      "bytes": 62748,
+      "sha256": "d8ba7a16dec8a8ffb02307c4f43a5172291396c001021fcbb615e19840dd4ff9"
+    },
+    {
+      "id": "FarmFenceLong",
+      "file": "FarmFenceLong.glb",
+      "dimensionsMeters": [
+        2.53,
+        0.13,
+        1.05
+      ],
+      "triangles": 432,
+      "path": "Art/Farm/FarmFenceLong.glb",
+      "bytes": 32040,
+      "sha256": "25fbc172edd901b3ef9d554ba70f62bd3bdbfdc3b92c33fc093734d5e3c6c1ad"
+    },
+    {
+      "id": "FarmFenceShort",
+      "file": "FarmFenceShort.glb",
+      "dimensionsMeters": [
+        1.53,
+        0.13,
+        1.05
+      ],
+      "triangles": 432,
+      "path": "Art/Farm/FarmFenceShort.glb",
+      "bytes": 32032,
+      "sha256": "8d0f5f3816225bac9814b0c818217e05dc05da1945b2b4cdc1a7ecc4fb831bf4"
+    },
+    {
+      "id": "FarmGate",
+      "file": "FarmGate.glb",
+      "dimensionsMeters": [
+        1.8,
+        0.19,
+        1.35
+      ],
+      "triangles": 400,
+      "path": "Art/Farm/FarmGate.glb",
+      "bytes": 28708,
+      "sha256": "7946f56c121c365b8036c9a578263461c56fcc9a962c5e1512f0adfc9fcfada8"
+    },
+    {
+      "id": "FarmPlotEmpty",
+      "file": "FarmPlotEmpty.glb",
+      "dimensionsMeters": [
+        1.45,
+        1.18,
+        0.16
+      ],
+      "triangles": 108,
+      "path": "Art/Farm/FarmPlotEmpty.glb",
+      "bytes": 8896,
+      "sha256": "04de4b45b3da72e586f04855c2e4ded250144bd4cd419fe57ab585a86f1e449d"
+    },
+    {
+      "id": "FarmPlotFurrows",
+      "file": "FarmPlotFurrows.glb",
+      "dimensionsMeters": [
+        1.45,
+        1.18,
+        0.23
+      ],
+      "triangles": 540,
+      "path": "Art/Farm/FarmPlotFurrows.glb",
+      "bytes": 39700,
+      "sha256": "109e5b2dbae70485db3b8c1783deb8ae967bdeb1283bd7199e48d74869a6f02b"
+    },
+    {
+      "id": "FarmPlotSeeded",
+      "file": "FarmPlotSeeded.glb",
+      "dimensionsMeters": [
+        1.45,
+        1.18,
+        0.215
+      ],
+      "triangles": 1368,
+      "path": "Art/Farm/FarmPlotSeeded.glb",
+      "bytes": 51488,
+      "sha256": "b598242d9ec4dcbdec7adaafa8a4381b7fb553e8fa02ee0d08732c764f13a92c"
+    },
+    {
+      "id": "FarmPlotWatered",
+      "file": "FarmPlotWatered.glb",
+      "dimensionsMeters": [
+        1.45,
+        1.18,
+        0.23
+      ],
+      "triangles": 540,
+      "path": "Art/Farm/FarmPlotWatered.glb",
+      "bytes": 39704,
+      "sha256": "b0ee46a6b37e3b67b8242175ac7d5987b8da8c7009ad9d1894dbcbb00116f46b"
+    },
+    {
+      "id": "FarmToolSet",
+      "file": "FarmToolSet.glb",
+      "dimensionsMeters": [
+        1.135,
+        1.1575,
+        1.24
+      ],
+      "triangles": 2860,
+      "path": "Art/StoreDisplays/FarmToolSet.glb",
+      "bytes": 188344,
+      "sha256": "1ccf39ff50a597cea41823dd1445545379620d4c1ce3ae2926261341fa0f2cc6"
+    },
+    {
+      "id": "FarmWaterTank",
+      "file": "FarmWaterTank.glb",
+      "dimensionsMeters": [
+        1.72,
+        1.78,
+        2.16
+      ],
+      "triangles": 1968,
+      "path": "Art/Utility/FarmWaterTank.glb",
+      "bytes": 55244,
+      "sha256": "75fd8e0adf00c7a87310be8c5c50952f8a587982879ceb74e05ec0e8a30e70bb"
+    },
+    {
+      "id": "FlourMill",
+      "file": "FlourMill.glb",
+      "dimensionsMeters": [
+        1.445,
+        1.095,
+        1.82
+      ],
+      "triangles": 476,
+      "path": "Art/StoreEquipment/FlourMill.glb",
+      "bytes": 32492,
+      "sha256": "e03f253c7361c5768256e7399041aabb6fbebacb85dab77cd7d45f081781349e"
+    },
+    {
+      "id": "FlourMillAlt",
+      "file": "FlourMillAlt.glb",
+      "dimensionsMeters": [
+        1.445,
+        1.095,
+        1.82
+      ],
+      "triangles": 476,
+      "path": "Art/StoreDisplays/FlourMillAlt.glb",
+      "bytes": 32496,
+      "sha256": "76ee95d4f5a5fd0679ea5aaba8b067e26d374c2dc4bdbb9276fe76fa00572569"
+    },
+    {
+      "id": "Furniture2:WoodCrate",
+      "file": "Furniture2__WoodCrate.glb",
+      "dimensionsMeters": [
+        0.805,
+        0.585,
+        0.3575
+      ],
+      "triangles": 1836,
+      "path": "Art/Furniture2/WoodCrate.glb",
+      "bytes": 131424,
+      "sha256": "303702e5c5a1c8c8e8a05fcbb8336c2e3c3101a4a6189b4cacd165122edadfc8"
+    },
+    {
+      "id": "GlassPartition",
+      "file": "GlassPartition.glb",
+      "dimensionsMeters": [
+        2.47,
+        0.07,
+        2.25
+      ],
+      "triangles": 336,
+      "path": "Art/Utility/GlassPartition.glb",
+      "bytes": 19968,
+      "sha256": "aa3d035ca8bebfc20129790c9f1238f7c38a76888c53700f10244e83bacb30dc"
+    },
+    {
+      "id": "HangingSign",
+      "file": "HangingSign.glb",
+      "dimensionsMeters": [
+        1.6,
+        0.112,
+        0.715
+      ],
+      "triangles": 444,
+      "path": "Art/Furniture/HangingSign.glb",
+      "bytes": 27776,
+      "sha256": "dd5b90f928b71f2be81def25c65c30dec7b87a7e0278b892d2e2d135341d0580"
+    },
+    {
+      "id": "HiringPoint",
+      "file": "HiringPoint.glb",
+      "dimensionsMeters": [
+        1.56,
+        1.56,
+        1.41
+      ],
+      "triangles": 432,
+      "path": "Art/StoreEquipment/HiringPoint.glb",
+      "bytes": 24192,
+      "sha256": "78091186331b12e4fec14bc67ac98115401fd5fa2bef25b25d1b23ce24a8daef"
+    },
+    {
+      "id": "IrrigationBed",
+      "file": "IrrigationBed.glb",
+      "dimensionsMeters": [
+        1.45,
+        1.18,
+        0.23
+      ],
+      "triangles": 540,
+      "path": "Art/Farm/IrrigationBed.glb",
+      "bytes": 39704,
+      "sha256": "d52e36c3bb32178d132737ef01fc9b711f3fec974be9c3402d2f955d2af6960e"
+    },
+    {
+      "id": "IrrigationChannel",
+      "file": "IrrigationChannel.glb",
+      "dimensionsMeters": [
+        1.45,
+        1.18,
+        0.23
+      ],
+      "triangles": 540,
+      "path": "Art/Farm/IrrigationChannel.glb",
+      "bytes": 39708,
+      "sha256": "a8b2ceb7166ea0c3393b48eb20418c72e0c7930bf14e85ba440844e0ed552093"
+    },
+    {
+      "id": "JuiceMachine",
+      "file": "JuiceMachine.glb",
+      "dimensionsMeters": [
+        1.15,
+        0.958,
+        1.61
+      ],
+      "triangles": 1912,
+      "path": "Art/StoreEquipment/JuiceMachine.glb",
+      "bytes": 74776,
+      "sha256": "22b00e820d820ea1e3c6ad90991b81cfc346e1db215e88cf4cc5772b3d644a9a"
+    },
+    {
+      "id": "JuiceMachineAlt",
+      "file": "JuiceMachineAlt.glb",
+      "dimensionsMeters": [
+        1.15,
+        0.958,
+        1.61
+      ],
+      "triangles": 1912,
+      "path": "Art/StoreDisplays/JuiceMachineAlt.glb",
+      "bytes": 77056,
+      "sha256": "8fab462b6c191e443b48dbd459b16ad5f9ad476e9db7c46af8b6ad4a7498ccd3"
+    },
+    {
+      "id": "LettuceRipe",
+      "file": "LettuceRipe.glb",
+      "dimensionsMeters": [
+        1.45,
+        1.18,
+        1.12
+      ],
+      "triangles": 7132,
+      "path": "Art/Farm/LettuceRipe.glb",
+      "bytes": 214016,
+      "sha256": "d7b4110c8b61d76c454dd47fae672d05f46ba90d09d969899e597e319e33c565"
+    },
+    {
+      "id": "MilkCan",
+      "file": "MilkCan.glb",
+      "dimensionsMeters": [
+        0.796,
+        0.48,
+        0.875
+      ],
+      "triangles": 1044,
+      "path": "Art/StoreDisplays/MilkCan.glb",
+      "bytes": 31376,
+      "sha256": "d91f3b4a2fcdfc4335ae249f2eec6ffdff1105b22b5cce77879e12941e411108"
+    },
+    {
+      "id": "MiniGreenhouse",
+      "file": "MiniGreenhouse.glb",
+      "dimensionsMeters": [
+        2.6,
+        1.85,
+        2.325
+      ],
+      "triangles": 1224,
+      "path": "Art/Farm/MiniGreenhouse.glb",
+      "bytes": 72288,
+      "sha256": "b71cd8651e071f486571ce28587a5f957c7604249deb1430e19fa91804fb2723"
+    },
+    {
+      "id": "OperationsWall",
+      "file": "OperationsWall.glb",
+      "dimensionsMeters": [
+        3.08,
+        0.695,
+        2.16
+      ],
+      "triangles": 15504,
+      "path": "Art/StoreDisplays/OperationsWall.glb",
+      "bytes": 432264,
+      "sha256": "a4e26b2f3dd234adf5d83c0001ec9c1cf47db02b9599abb16378fc616f427977"
+    },
+    {
+      "id": "Pallet",
+      "file": "Pallet.glb",
+      "dimensionsMeters": [
+        1.2,
+        1.02,
+        0.2575
+      ],
+      "triangles": 1836,
+      "path": "Art/Furniture/Pallet.glb",
+      "bytes": 132416,
+      "sha256": "655f03425c2c597bcca87532071c4e3858f84f58df4d3d98f93438fdc8e5d8b1"
+    },
+    {
+      "id": "Parcel",
+      "file": "Parcel.glb",
+      "dimensionsMeters": [
+        0.62,
+        0.55,
+        0.58
+      ],
+      "triangles": 108,
+      "path": "Art/Furniture/Parcel.glb",
+      "bytes": 8896,
+      "sha256": "353ce1b40a457c2b0cbc726ef16d75095375439e07f6a0916335f695febe384e"
+    },
+    {
+      "id": "ParkingSpace",
+      "file": "ParkingSpace.glb",
+      "dimensionsMeters": [
+        8.0,
+        2.4,
+        0.077
+      ],
+      "triangles": 540,
+      "path": "Art/Exterior/ParkingSpace.glb",
+      "bytes": 40468,
+      "sha256": "59844d85dc9da9fbfa2b64416766d73ed64be9459da1386e2b84a51bc51133d0"
+    },
+    {
+      "id": "PromotionalBasket",
+      "file": "PromotionalBasket.glb",
+      "dimensionsMeters": [
+        0.82,
+        0.3775,
+        1.49
+      ],
+      "triangles": 7996,
+      "path": "Art/StoreDisplays/PromotionalBasket.glb",
+      "bytes": 310108,
+      "sha256": "12d55f1a89f68638fd2beac4b74991ee858df7b6bc4df92de81b59581bf94688"
+    },
+    {
+      "id": "PumpkinRipe",
+      "file": "PumpkinRipe.glb",
+      "dimensionsMeters": [
+        1.45,
+        1.18,
+        1.12
+      ],
+      "triangles": 2540,
+      "path": "Art/Farm/PumpkinRipe.glb",
+      "bytes": 90312,
+      "sha256": "581a8f9351667fbb619b4e5e38ed5347d79055eb45f769cf0dc6804165ed9be1"
+    },
+    {
+      "id": "RaisedBed",
+      "file": "RaisedBed.glb",
+      "dimensionsMeters": [
+        1.64,
+        1.42,
+        0.46
+      ],
+      "triangles": 540,
+      "path": "Art/Farm/RaisedBed.glb",
+      "bytes": 39720,
+      "sha256": "2415ea5d03a424354ef67bdbc366e416f359814e5fd2add746e59a86f71ba720"
+    },
+    {
+      "id": "ReceiptPrinter",
+      "file": "ReceiptPrinter.glb",
+      "dimensionsMeters": [
+        0.34,
+        0.3475,
+        0.38959
+      ],
+      "triangles": 324,
+      "path": "Art/Furniture/ReceiptPrinter.glb",
+      "bytes": 24716,
+      "sha256": "7526fd83f98c63f07b06f9f0d8f65aa8e22b6dd42d003bd9dee7cb0ed3d1a785"
+    },
+    {
+      "id": "RefrigeratedDisplay",
+      "file": "RefrigeratedDisplay.glb",
+      "dimensionsMeters": [
+        1.78,
+        0.98,
+        0.8725
+      ],
+      "triangles": 736,
+      "path": "Art/Furniture/RefrigeratedDisplay.glb",
+      "bytes": 46756,
+      "sha256": "33de8186c83aabd36d1ddb652db22e873b095671144e8c8c4355a00ba3c923ea"
+    },
+    {
+      "id": "ReturnsStation",
+      "file": "ReturnsStation.glb",
+      "dimensionsMeters": [
+        1.75,
+        0.9225,
+        1.02
+      ],
+      "triangles": 324,
+      "path": "Art/Utility/ReturnsStation.glb",
+      "bytes": 24596,
+      "sha256": "9b211538b2ed27d5f1a0d61d8efd2027c9a4f636352737676d251734a15b5ea7"
+    },
+    {
+      "id": "ReusableShoppingBag",
+      "file": "ReusableShoppingBag.glb",
+      "dimensionsMeters": [
+        0.552,
+        0.18,
+        0.736
+      ],
+      "triangles": 876,
+      "path": "Art/StoreEquipment/ReusableShoppingBag.glb",
+      "bytes": 27548,
+      "sha256": "8bdbfef22b5b0ef37bc63ae8637e1f94c5df0ad3a2f8675d952c1a335c21e87b"
+    },
+    {
+      "id": "RoadSegment",
+      "file": "RoadSegment.glb",
+      "dimensionsMeters": [
+        7.6,
+        3.0,
+        0.0795
+      ],
+      "triangles": 648,
+      "path": "Art/Exterior/RoadSegment.glb",
+      "bytes": 47124,
+      "sha256": "40db658e63d1f6c89dabf517e865ad5c20c64052c32e3aa53c18199d00780cf9"
+    },
+    {
+      "id": "Scarecrow",
+      "file": "Scarecrow.glb",
+      "dimensionsMeters": [
+        1.56,
+        0.84,
+        2.45
+      ],
+      "triangles": 472,
+      "path": "Art/Farm/Scarecrow.glb",
+      "bytes": 21776,
+      "sha256": "39ba9f3fa275b9caed6c5cdf1cf61f9bf96f9e76f1a7caf7bea2776d409a62e2"
+    },
+    {
+      "id": "SecurityCamera",
+      "file": "SecurityCamera.glb",
+      "dimensionsMeters": [
+        0.52,
+        0.7085,
+        0.54327
+      ],
+      "triangles": 384,
+      "path": "Art/Furniture/SecurityCamera.glb",
+      "bytes": 25672,
+      "sha256": "ab663477b84e1e8b6cf9f7bdc55e3e36252d9241f46e0bd67af5d05fd76e42b7"
+    },
+    {
+      "id": "SeedSack",
+      "file": "SeedSack.glb",
+      "dimensionsMeters": [
+        0.6595,
+        0.55149,
+        0.94
+      ],
+      "triangles": 672,
+      "path": "Art/Farm/SeedSack.glb",
+      "bytes": 19656,
+      "sha256": "15e16cab511c2cd332d92871e28ecfd2d9ce91adc7fc9ce265f9f7a01ac262e2"
+    },
+    {
+      "id": "ShelfCorner",
+      "file": "ShelfCorner.glb",
+      "dimensionsMeters": [
+        2.16,
+        1.9196,
+        1.83
+      ],
+      "triangles": 3024,
+      "path": "Art/Furniture2/ShelfCorner.glb",
+      "bytes": 217052,
+      "sha256": "483030996b8f90fc58f5e957908d5a10346e4d3be0b7ee791074544ff161ce50"
+    },
+    {
+      "id": "ShelfDivider",
+      "file": "ShelfDivider.glb",
+      "dimensionsMeters": [
+        1.25,
+        0.08,
+        0.72
+      ],
+      "triangles": 108,
+      "path": "Art/Furniture2/ShelfDivider.glb",
+      "bytes": 8880,
+      "sha256": "3cc48105e3a33172369587a9f287202c95acd0c90c6e361c86aaca9f9c6d73d3"
+    },
+    {
+      "id": "ShelfGondolaDouble",
+      "file": "ShelfGondolaDouble.glb",
+      "dimensionsMeters": [
+        2.45,
+        1.018,
+        1.83
+      ],
+      "triangles": 2808,
+      "path": "Art/Furniture2/ShelfGondolaDouble.glb",
+      "bytes": 200692,
+      "sha256": "ce53f281a9c0690704585b2c8666f211dd50ef1f412221d28066a6404bc36ba4"
+    },
+    {
+      "id": "ShelfGondolaSingle",
+      "file": "ShelfGondolaSingle.glb",
+      "dimensionsMeters": [
+        2.25,
+        0.5663,
+        1.83
+      ],
+      "triangles": 1512,
+      "path": "Art/Furniture2/ShelfGondolaSingle.glb",
+      "bytes": 108780,
+      "sha256": "25bb40d717eeaf7fb873458837506f126c0f8d702810102dbcfd313adb1073e0"
+    },
+    {
+      "id": "ShelfPriceRail",
+      "file": "ShelfPriceRail.glb",
+      "dimensionsMeters": [
+        1.65,
+        0.08,
+        0.12
+      ],
+      "triangles": 108,
+      "path": "Art/Furniture2/ShelfPriceRail.glb",
+      "bytes": 8908,
+      "sha256": "aa24352c0108afda4987631a87970a55cd41d87e631f51ea078944e7988e8c76"
+    },
+    {
+      "id": "ShoppingBasket",
+      "file": "ShoppingBasket.glb",
+      "dimensionsMeters": [
+        0.555,
+        0.375,
+        0.545
+      ],
+      "triangles": 2280,
+      "path": "Art/Furniture/ShoppingBasket.glb",
+      "bytes": 157548,
+      "sha256": "ba88debc2fff6c9ec2047bb87773a304b1f1fab7961abf41bec356ba5486b6a5"
+    },
+    {
+      "id": "ShoppingBasketAlt",
+      "file": "ShoppingBasketAlt.glb",
+      "dimensionsMeters": [
+        0.555,
+        0.375,
+        0.545
+      ],
+      "triangles": 2280,
+      "path": "Art/Furniture2/ShoppingBasketAlt.glb",
+      "bytes": 157552,
+      "sha256": "7f20c381372e2a48a0b9f83fd8d1267f468a3949ac6e5d3bb3f0b48ca3f58d07"
+    },
+    {
+      "id": "ShoppingCart",
+      "file": "ShoppingCart.glb",
+      "dimensionsMeters": [
+        0.74,
+        1.10264,
+        1.01
+      ],
+      "triangles": 4588,
+      "path": "Art/Furniture/ShoppingCart.glb",
+      "bytes": 176272,
+      "sha256": "bc95870144b8560743dba925609b94f1ebcf9189b43f39458d520b93fbbf14c2"
+    },
+    {
+      "id": "SidewalkSegment",
+      "file": "SidewalkSegment.glb",
+      "dimensionsMeters": [
+        7.65,
+        2.2,
+        0.22
+      ],
+      "triangles": 252,
+      "path": "Art/Exterior/SidewalkSegment.glb",
+      "bytes": 22408,
+      "sha256": "ea03b0b81e4461120b54940de64c87f3f9b19f0531148fc465ab1bc430c933de"
+    },
+    {
+      "id": "Sprinkler",
+      "file": "Sprinkler.glb",
+      "dimensionsMeters": [
+        0.6,
+        0.6,
+        0.665
+      ],
+      "triangles": 388,
+      "path": "Art/Farm/Sprinkler.glb",
+      "bytes": 20028,
+      "sha256": "e67ad49a3b4e90ad0c850a5544d8666a8d111fe55fb352e59d3866323e0f45ef"
+    },
+    {
+      "id": "StockroomRack",
+      "file": "StockroomRack.glb",
+      "dimensionsMeters": [
+        1.555,
+        0.635,
+        1.8
+      ],
+      "triangles": 864,
+      "path": "Art/Furniture/StockroomRack.glb",
+      "bytes": 63316,
+      "sha256": "d668c21045b92182b3db8cfb78cd43351cecebae98ecdd7156edce58b395237a"
+    },
+    {
+      "id": "StreetLight",
+      "file": "StreetLight.glb",
+      "dimensionsMeters": [
+        1.06,
+        0.56,
+        5.22522
+      ],
+      "triangles": 628,
+      "path": "Art/Exterior/StreetLight.glb",
+      "bytes": 27172,
+      "sha256": "b08407c0010c2e0adf61744599c59cbe79446f67badb1f9fcf25286a2c0de691"
+    },
+    {
+      "id": "SupplierTerminal",
+      "file": "SupplierTerminal.glb",
+      "dimensionsMeters": [
+        0.86,
+        0.74917,
+        1.97401
+      ],
+      "triangles": 432,
+      "path": "Art/Utility/SupplierTerminal.glb",
+      "bytes": 32836,
+      "sha256": "1b933a1e2082751a32d9d3f072b7e203585f843def172d72005e2476a87eec7f"
+    },
+    {
+      "id": "TomatoRipe",
+      "file": "TomatoRipe.glb",
+      "dimensionsMeters": [
+        1.45,
+        1.18,
+        1.12
+      ],
+      "triangles": 2540,
+      "path": "Art/Farm/TomatoRipe.glb",
+      "bytes": 90312,
+      "sha256": "bdf42ab66e561a25850e522fa75ed76122a0ac260a8086628c8fa3bc0f390202"
+    },
+    {
+      "id": "Tree",
+      "file": "Tree.glb",
+      "dimensionsMeters": [
+        2.82,
+        2.3956,
+        4.4194
+      ],
+      "triangles": 1512,
+      "path": "Art/Exterior/Tree.glb",
+      "bytes": 50572,
+      "sha256": "9797550de6ed76e40c9f7da486bdba999b9ac41b5c436e5e1b9b8843eaef1c01"
+    },
+    {
+      "id": "UpgradePlatform",
+      "file": "UpgradePlatform.glb",
+      "dimensionsMeters": [
+        1.56,
+        1.56,
+        1.41
+      ],
+      "triangles": 432,
+      "path": "Art/StoreEquipment/UpgradePlatform.glb",
+      "bytes": 24196,
+      "sha256": "ca5eaa32b029eb3816e249f449d5866e365c47bca3ee6d791ac08dcd25ee7743"
+    },
+    {
+      "id": "UpgradePlatformAlt",
+      "file": "UpgradePlatformAlt.glb",
+      "dimensionsMeters": [
+        1.56,
+        1.56,
+        1.41
+      ],
+      "triangles": 432,
+      "path": "Art/StoreDisplays/UpgradePlatformAlt.glb",
+      "bytes": 24196,
+      "sha256": "05bd0d09c2f2672efc54165eb437f0ac30b59ee07efd945bcadbd52f1eecff2d"
+    },
+    {
+      "id": "UtilitySink",
+      "file": "UtilitySink.glb",
+      "dimensionsMeters": [
+        1.83,
+        0.76,
+        1.268
+      ],
+      "triangles": 476,
+      "path": "Art/Furniture/UtilitySink.glb",
+      "bytes": 32160,
+      "sha256": "abd38269a248c20544d7d5b9cd0240b7a6563d4ca796d89d636c17fc01c6f4a1"
+    },
+    {
+      "id": "WallClock",
+      "file": "WallClock.glb",
+      "dimensionsMeters": [
+        0.66,
+        0.127,
+        0.66
+      ],
+      "triangles": 1696,
+      "path": "Art/Furniture/WallClock.glb",
+      "bytes": 112944,
+      "sha256": "1e1cf7ca47f90fc0bd082b9c93beb4291c0578febeff85f80b5315363a090ef9"
+    },
+    {
+      "id": "WallCorner",
+      "file": "WallCorner.glb",
+      "dimensionsMeters": [
+        2.41,
+        1.2,
+        2.7
+      ],
+      "triangles": 216,
+      "path": "Art/Furniture/WallCorner.glb",
+      "bytes": 16564,
+      "sha256": "afdfbbd5f34f58c9e0562f4dff73814dea0d4a3980c19033f69c06586a8e2ab4"
+    },
+    {
+      "id": "WateringCan",
+      "file": "WateringCan.glb",
+      "dimensionsMeters": [
+        0.82022,
+        1.135,
+        0.725
+      ],
+      "triangles": 472,
+      "path": "Art/Farm/WateringCan.glb",
+      "bytes": 22952,
+      "sha256": "7ba512e749c3626b31ba0a59290e93d7d33e89206a83214eeb7dacbb6c1ff585"
+    },
+    {
+      "id": "WheatGrowing",
+      "file": "WheatGrowing.glb",
+      "dimensionsMeters": [
+        1.45,
+        1.18,
+        1.025
+      ],
+      "triangles": 2284,
+      "path": "Art/Farm/WheatGrowing.glb",
+      "bytes": 94468,
+      "sha256": "f9ae8fcff917e6d15dd8ba0400b8c756b7ebd14019c2dae1b80efdc652dd766a"
+    },
+    {
+      "id": "WheatRipe",
+      "file": "WheatRipe.glb",
+      "dimensionsMeters": [
+        1.45,
+        1.18,
+        1.255
+      ],
+      "triangles": 2284,
+      "path": "Art/Farm/WheatRipe.glb",
+      "bytes": 95596,
+      "sha256": "0df1d86c2850839498aa292d5865b460b491abb839550f2c286e97024663a338"
+    },
+    {
+      "id": "WoodCrate",
+      "file": "WoodCrate.glb",
+      "dimensionsMeters": [
+        0.805,
+        0.585,
+        0.3575
+      ],
+      "triangles": 1836,
+      "path": "Art/Farm/WoodCrate.glb",
+      "bytes": 131416,
+      "sha256": "e1ff256aabe1bcf8252c4752d390288bf1ce9bfa6b121d3866d08e97a1fbdfeb"
+    },
+    {
+      "id": "WorkCounter",
+      "file": "WorkCounter.glb",
+      "dimensionsMeters": [
+        1.98,
+        0.76,
+        0.885
+      ],
+      "triangles": 432,
+      "path": "Art/Furniture/WorkCounter.glb",
+      "bytes": 33076,
+      "sha256": "479427b03f6fa9d0f2132bc4d7c93a2943417f19d0c3664fd989aaba3728e5c7"
+    }
+  ]
+}

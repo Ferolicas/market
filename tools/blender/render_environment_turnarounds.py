@@ -34,7 +34,7 @@ def imported_bounds(objects: list[bpy.types.Object]) -> tuple[Vector, Vector]:
 
 
 def main() -> None:
-    source_root = PROJECT_ROOT / "public/models/market/environment"
+    source_root = Path(value("source", str(PROJECT_ROOT / "public/models/market/environment")))
     output = Path(value("output", "/tmp/market-environment-turnarounds"))
     output.mkdir(parents=True, exist_ok=True)
     requested = {item for item in value("only", "").split(",") if item}
@@ -70,10 +70,12 @@ def main() -> None:
     scene.camera = camera
     permanent = {key, fill, camera}
 
-    angles = [
+    all_angles = [
         ("front", -90), ("front-left", -135), ("left", 180), ("back-left", 135),
         ("back", 90), ("back-right", 45), ("right", 0), ("front-right", -45),
     ]
+    requested_views = {item for item in value("views", "").split(",") if item}
+    angles = [item for item in all_angles if not requested_views or item[0] in requested_views]
     for source in sources:
         before = set(scene.objects)
         bpy.ops.import_scene.gltf(filepath=str(source), import_pack_images=True)
@@ -93,7 +95,7 @@ def main() -> None:
             bpy.ops.render.render(write_still=True)
         for obj in imported:
             bpy.data.objects.remove(obj, do_unlink=True)
-        print(f"RENDERED {source.stem}: 8 views")
+        print(f"RENDERED {source.stem}: {len(angles)} views")
 
     print(f"COMPLETE {len(sources)} assets -> {output}")
 

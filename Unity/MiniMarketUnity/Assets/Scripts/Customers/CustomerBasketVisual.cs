@@ -29,7 +29,7 @@ namespace MiniMarket.Customers
                 // Keep the exact supplied GLB and only correct the isometric
                 // source yaw so its handle sits naturally beneath both hands.
                 basket=await loader.InstantiateAsync("ShoppingCart",actor.transform,Vector3.zero,Quaternion.identity,Vector3.one);
-                basket.name="CustomerShoppingCart";NormalizeWorldSize(basket,2.6f);   // a 1.1 m trolley beside a 1.7 m customer
+                basket.name="CustomerShoppingCart";NormalizeWorldSize(basket,6.82f);   // 1.10 m at the shared 6.2 world-units-per-metre scale
                 basket.transform.SetLocalPositionAndRotation(new Vector3(0,0,.44f),Quaternion.Euler(0,-56.4f,0));   // the trolley's centre 1.7 units ahead, its handle at the hands
                 foreach(var collider in basket.GetComponentsInChildren<Collider>(true))collider.enabled=false;
                 contents=new GameObject("CartContents").transform;contents.SetParent(actor.transform,false);contents.localPosition=new Vector3(0,.32f,.5f);

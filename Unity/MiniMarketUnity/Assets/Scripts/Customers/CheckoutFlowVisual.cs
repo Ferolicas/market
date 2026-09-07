@@ -25,7 +25,7 @@ namespace MiniMarket.Customers
             loader=runtimeLoader;if(lane<0||lane>=storeWorld.CheckoutBagPoints.Count)return;unloadPoint=storeWorld.CheckoutUnloadPoints[lane];scanPoint=storeWorld.CheckoutScanPoints[lane];bagPoint=storeWorld.CheckoutBagPoints[lane];
             if(!bagPoint||bag)return;
             bag=await loader.InstantiateAsync("CheckoutBag",bagPoint,Vector3.zero,Quaternion.identity,Vector3.one);
-            bag.name="CheckoutBag_Runtime";Normalize(bag,.9f);bag.transform.SetLocalPositionAndRotation(Vector3.zero,Quaternion.identity);
+            bag.name="CheckoutBag_Runtime";Normalize(bag,3.1f);bag.transform.SetLocalPositionAndRotation(Vector3.zero,Quaternion.identity);
             foreach(var collider in bag.GetComponentsInChildren<Collider>(true))collider.enabled=false;
             bag.SetActive(false);
         }

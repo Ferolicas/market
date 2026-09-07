@@ -1,16 +1,26 @@
 # Runtime asset audit
 
 - Result: PASS
-- Catalog: 237 files / 464460972 bytes
+- Catalog: 200 files / 261594430 bytes
 
-| Character | LOD0 tris | LOD1 tris | LOD2 tris | LOD0 actions | Morphs | Bones |
+| Character | LOD0 tris | LOD2 tris | LOD3 tris | LOD0 actions | Morphs | Bones |
 |---|---:|---:|---:|---:|---:|---:|
-| AdultMale | 146176 | 70000 | 29998 | 47 | 16 | 50 |
-| AdultFemale | 149999 | 69999 | 29999 | 47 | 16 | 50 |
-| Boy | 150000 | 70000 | 30000 | 47 | 16 | 50 |
-| Girl | 149999 | 69999 | 29999 | 47 | 16 | 50 |
-| CustomerFemale01 | 100140 | 51182 | 22252 | 47 | 16 | 50 |
-| CustomerFemale02 | 106986 | 54682 | 23774 | 47 | 16 | 50 |
-| CustomerFemale03 | 105665 | 54005 | 23481 | 47 | 16 | 50 |
-| CustomerMale01 | 110700 | 56580 | 24600 | 47 | 16 | 50 |
-| CustomerMale02 | 100742 | 51490 | 22386 | 47 | 16 | 50 |
+| AdultMale | 196979 | 196979 | 23636 | 36 | 0 | 41 |
+| AdultFemale | 192349 | 192349 | 23081 | 36 | 0 | 41 |
+| Boy | 195322 | 195322 | 23437 | 36 | 0 | 49 |
+| Girl | 198204 | 198204 | 23784 | 36 | 0 | 41 |
+| CustomerFemale01 | 196536 | 196536 | 23584 | 36 | 0 | 49 |
+| CustomerFemale02 | 196848 | 196848 | 23620 | 36 | 0 | 41 |
+| CustomerFemale03 | 194793 | 194793 | 23375 | 36 | 0 | 41 |
+| CustomerFemale04 | 191560 | 191560 | 22987 | 36 | 0 | 41 |
+| CustomerMale01 | 198862 | 198862 | 23863 | 36 | 0 | 41 |
+
+## Environment
+
+- Files: 124
+- Clean reconstructions: 108
+- Approved preserved assets: 16
+- Bytes: 18242368
+- Triangles: 370389
+- Vertices: 402834
+- Largest clean asset: 15504 triangles

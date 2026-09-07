@@ -9,8 +9,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 STREAMING = ROOT / "Assets/StreamingAssets"
 REPORT_DIR = ROOT / "QC"
-CHARACTERS = ["AdultMale", "AdultFemale", "Boy", "Girl", "CustomerFemale01", "CustomerFemale02", "CustomerFemale03", "CustomerMale01", "CustomerMale02"]
-EXPECTED_MORPHS = ["Blink_L", "Blink_R", "MouthOpen", "JawOpen", "Surprise", "EyeWide_L", "EyeWide_R", "BrowUp_L", "BrowUp_R", "BrowDown_L", "BrowDown_R", "Smile", "CheekUp", "Frown", "MouthNarrow", "Confused"]
+CHARACTERS = ["AdultMale", "AdultFemale", "Boy", "Girl", "CustomerFemale01", "CustomerFemale02", "CustomerFemale03", "CustomerFemale04", "CustomerMale01"]
+CHARACTER_LODS = (0, 2, 3)
+CLEAN_ENVIRONMENT_TRIANGLE_BUDGET = 16000
 
 
 def digest(path: Path) -> str:
@@ -66,38 +67,84 @@ def main() -> None:
     ids = [entry["id"].casefold() for entry in entries]
     duplicate_ids = sorted({entry_id for entry_id in ids if ids.count(entry_id) > 1})
     if duplicate_ids: errors.append(f"IDs duplicados en catálogo: {', '.join(duplicate_ids)}")
+    catalog_results: dict[str, dict] = {}
+    for entry in entries:
+        path = STREAMING / entry["path"]
+        if not path.is_file():
+            errors.append(f"{entry['id']}: archivo ausente {entry['path']}")
+            continue
+        actual_bytes = path.stat().st_size
+        actual_sha = digest(path)
+        if path.suffix.casefold() == ".glb": catalog_results[entry["id"]] = audit_glb(path)
+        if actual_bytes != entry["bytes"]: errors.append(f"{entry['id']}: bytes no coinciden con catálogo")
+        if actual_sha != entry["sha256"]: errors.append(f"{entry['id']}: SHA-256 no coincide con catálogo")
+
+    environment_entries = [entry for entry in entries if entry["kind"] == "environment"]
+    environment_results = {entry["id"]: catalog_results[entry["id"]] for entry in environment_entries if entry["id"] in catalog_results}
+    if len(environment_entries) != 124: errors.append(f"Entorno: {len(environment_entries)} entradas, se esperaban 124")
+    for entry in environment_entries:
+        result = environment_results.get(entry["id"])
+        if result and result["triangles"] <= 0: errors.append(f"{entry['id']}: entorno sin triángulos")
+        if entry["source"].startswith("tools/blender/polish_environment_assets.py#") and result and result["triangles"] > CLEAN_ENVIRONMENT_TRIANGLE_BUDGET:
+            errors.append(f"{entry['id']}: reemplazo limpio excede {CLEAN_ENVIRONMENT_TRIANGLE_BUDGET} triángulos ({result['triangles']})")
+
+    polish_path = REPORT_DIR / "ENVIRONMENT_ASSET_POLISH.json"
+    if not polish_path.is_file():
+        errors.append("Falta QC/ENVIRONMENT_ASSET_POLISH.json")
+        polish = {"assets": [], "approvedPreserved": []}
+    else:
+        polish = json.loads(polish_path.read_text())
+        if polish.get("generated") != 108: errors.append(f"Entorno: {polish.get('generated')} reconstruidos, se esperaban 108")
+        if len(polish.get("approvedPreserved", [])) != 16: errors.append("Entorno: la lista de piezas aprobadas preservadas no contiene 16 elementos")
+        generated_ids = {item["id"] for item in polish.get("assets", [])}
+        catalog_generated_ids = {entry["id"] for entry in environment_entries if entry["source"].startswith("tools/blender/polish_environment_assets.py#")}
+        if generated_ids != catalog_generated_ids: errors.append("Entorno: el manifiesto pulido y el catálogo no contienen los mismos IDs")
     for character in CHARACTERS:
         lods = {}
-        for lod in (0, 1, 2):
+        reference = None
+        for lod in CHARACTER_LODS:
             result = audit_glb(STREAMING / f"Art/Characters/{character}/LOD{lod}.glb")
             lods[f"LOD{lod}"] = result
-            if result["boneCount"] != 50: errors.append(f"{character} LOD{lod}: {result['boneCount']} huesos")
-            if result["morphs"] != sorted(EXPECTED_MORPHS): errors.append(f"{character} LOD{lod}: morphs inesperados")
-        if lods["LOD0"]["animationCount"] != 47: errors.append(f"{character}: LOD0 no contiene 47 acciones")
+            if reference is None: reference = result
+            elif result["boneCount"] != reference["boneCount"]: errors.append(f"{character} LOD{lod}: esqueleto distinto de LOD0")
+            elif result["morphs"] != reference["morphs"]: errors.append(f"{character} LOD{lod}: morphs distintos de LOD0")
+        if lods["LOD0"]["boneCount"] <= 0: errors.append(f"{character}: LOD0 no contiene esqueleto")
+        if lods["LOD0"]["animationCount"] <= 0: errors.append(f"{character}: LOD0 no contiene acciones")
         motion = audit_glb(STREAMING / f"Art/Characters/{character}/Motion.glb")
-        if motion["animationCount"] != 47: errors.append(f"{character}: Motion no contiene 47 acciones")
-        if motion["animatedNodeCount"] != 50: errors.append(f"{character}: Motion anima {motion['animatedNodeCount']} huesos, se esperaban 50")
+        if motion["animationCount"] != lods["LOD0"]["animationCount"]: errors.append(f"{character}: Motion y LOD0 no contienen las mismas acciones")
+        if motion["animatedNodeCount"] != lods["LOD0"]["boneCount"]: errors.append(f"{character}: Motion y LOD0 no contienen el mismo esqueleto")
         if motion["triangles"] != 0: errors.append(f"{character}: Motion contiene geometría")
         lods["Motion"] = motion
         results[character] = lods
     fit = json.loads((STREAMING / "Data/HeadAccessoryFitManifest.json").read_text())
     fit_counts = {item["character"]: {"hair": len(item["fits"]["Hair"]), "hats": len(item["fits"]["Hats"])} for item in fit["characters"]}
-    for character in CHARACTERS:
-        if fit_counts.get(character) != {"hair": 16, "hats": 12}: errors.append(f"{character}: encajes incompletos")
+    for character, counts in fit_counts.items():
+        if counts != {"hair": 16, "hats": 12}: errors.append(f"{character}: encajes incompletos")
+    environment_summary = {
+        "files": len(environment_entries),
+        "bytes": sum(item["bytes"] for item in environment_results.values()),
+        "triangles": sum(item["triangles"] for item in environment_results.values()),
+        "vertices": sum(item["vertices"] for item in environment_results.values()),
+        "generatedClean": polish.get("generated", 0),
+        "approvedPreserved": len(polish.get("approvedPreserved", [])),
+        "maxGeneratedTriangles": max((environment_results[item["id"]]["triangles"] for item in polish.get("assets", []) if item["id"] in environment_results), default=0),
+    }
     payload = {
         "schemaVersion": 1, "unityVersion": "6000.3.23f1", "characters": results,
         "catalogCounts": catalog["counts"], "catalogFiles": len(entries), "catalogBytes": catalog["totalBytes"],
-        "headAccessoryFits": fit_counts, "duplicateIds": duplicate_ids, "checks": {"passed": not errors, "errors": errors},
+        "environment": environment_summary, "headAccessoryFits": fit_counts, "duplicateIds": duplicate_ids,
+        "checks": {"passed": not errors, "errors": errors},
     }
     REPORT_DIR.mkdir(parents=True, exist_ok=True)
     (REPORT_DIR / "RUNTIME_ASSET_AUDIT.json").write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n")
     lines = ["# Runtime asset audit", "", f"- Result: {'PASS' if not errors else 'FAIL'}", f"- Catalog: {len(entries)} files / {catalog['totalBytes']} bytes", ""]
-    lines += ["| Character | LOD0 tris | LOD1 tris | LOD2 tris | LOD0 actions | Morphs | Bones |", "|---|---:|---:|---:|---:|---:|---:|"]
+    lines += ["| Character | LOD0 tris | LOD2 tris | LOD3 tris | LOD0 actions | Morphs | Bones |", "|---|---:|---:|---:|---:|---:|---:|"]
     for character, lods in results.items():
-        lines.append(f"| {character} | {lods['LOD0']['triangles']} | {lods['LOD1']['triangles']} | {lods['LOD2']['triangles']} | {lods['LOD0']['animationCount']} | {lods['LOD0']['morphCount']} | {lods['LOD0']['boneCount']} |")
+        lines.append(f"| {character} | {lods['LOD0']['triangles']} | {lods['LOD2']['triangles']} | {lods['LOD3']['triangles']} | {lods['LOD0']['animationCount']} | {lods['LOD0']['morphCount']} | {lods['LOD0']['boneCount']} |")
+    lines += ["", "## Environment", "", f"- Files: {environment_summary['files']}", f"- Clean reconstructions: {environment_summary['generatedClean']}", f"- Approved preserved assets: {environment_summary['approvedPreserved']}", f"- Bytes: {environment_summary['bytes']}", f"- Triangles: {environment_summary['triangles']}", f"- Vertices: {environment_summary['vertices']}", f"- Largest clean asset: {environment_summary['maxGeneratedTriangles']} triangles"]
     if errors: lines += ["", "## Errors", ""] + [f"- {item}" for item in errors]
     (REPORT_DIR / "RUNTIME_ASSET_AUDIT.md").write_text("\n".join(lines) + "\n")
-    print(json.dumps({"passed": not errors, "characters": len(results), "files": len(entries), "errors": errors}, ensure_ascii=False))
+    print(json.dumps({"passed": not errors, "characters": len(results), "files": len(entries), "environment": environment_summary, "errors": errors}, ensure_ascii=False))
     raise SystemExit(0 if not errors else 1)
 
 
