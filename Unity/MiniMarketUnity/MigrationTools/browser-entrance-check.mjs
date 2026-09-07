@@ -1,5 +1,5 @@
-// Walk through the automatic entrance and photograph both sides. The check
-// fails unless Unity reports that the rebuilt leaves opened near the player.
+// Photograph the automatic entrance closed and fully open. The check fails
+// unless both rebuilt leaves separate and finish concealed inside their walls.
 import { chromium } from '../../../node_modules/playwright/index.mjs';
 import { existsSync, mkdirSync } from 'node:fs';
 import { writeFile } from 'node:fs/promises';
@@ -44,6 +44,10 @@ const runtimeReady=instanceReady&&Boolean(await Promise.race([
   runtimeReadySignal,
   page.waitForTimeout(180_000).then(()=>null),
 ]));
+if(runtimeReady){
+  await page.waitForTimeout(800);
+  await page.screenshot({path:`${outDir}/entrada-cerrada.png`});
+}
 if(instanceReady&&['localhost','127.0.0.1','::1'].includes(new URL(baseUrl).hostname)){
   await page.evaluate(()=>window.miniMarketUnity.SendMessage('MiniMarketRuntime','PrepareLocalEntranceQaScenario'));
   await page.waitForTimeout(2500);
@@ -53,9 +57,10 @@ await page.screenshot({path:`${outDir}/entrada-abierta.png`});
 
 const doorOpened=events.some(event=>event.text?.includes('MINIMARKET_DOOR estado=abierta'));
 const doorFinished=events.some(event=>event.text?.includes('MINIMARKET_DOOR apertura_completa'));
+const doorConcealed=events.some(event=>event.text?.includes('MINIMARKET_DOOR apertura_completa oculta=True'));
 const pageErrors=events.filter(event=>event.type==='pageerror');
-const result={baseUrl,instanceReady,runtimeReady,doorOpened,doorFinished,pageErrors,events};
+const result={baseUrl,instanceReady,runtimeReady,doorOpened,doorFinished,doorConcealed,pageErrors,events};
 await writeFile(`${outDir}/entrada-qa.json`,JSON.stringify(result,null,2));
-console.log(JSON.stringify({baseUrl,instanceReady,runtimeReady,doorOpened,doorFinished,pageErrors},null,2));
+console.log(JSON.stringify({baseUrl,instanceReady,runtimeReady,doorOpened,doorFinished,doorConcealed,pageErrors},null,2));
 await browser.close();
-if(!instanceReady||!runtimeReady||!doorOpened||!doorFinished||pageErrors.length)process.exitCode=1;
+if(!instanceReady||!runtimeReady||!doorOpened||!doorFinished||!doorConcealed||pageErrors.length)process.exitCode=1;

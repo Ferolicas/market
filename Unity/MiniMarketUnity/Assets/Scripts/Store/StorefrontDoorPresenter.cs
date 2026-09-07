@@ -23,6 +23,7 @@ namespace MiniMarket.Store
         float closedLeftFrame; float closedRightFrame;
         float closedLeft; float closedRight; float travel = 5.4f;
         float leftDir = -1f; float rightDir = 1f;
+        float concealLeftEdge; float concealRightEdge;
         BoxCollider sensor; Vector3 doorway;
 
         /// <param name="slide">How far each leaf runs, in the leaves' own local
@@ -37,19 +38,23 @@ namespace MiniMarket.Store
             if (rightFrame) closedRightFrame = rightFrame.localPosition.x;
             closedLeft = left.localPosition.x; closedRight = right.localPosition.x;
             travel = Mathf.Abs(slide);
-            // Each leaf runs away from the middle of the doorway, decided by
-            // where its own geometry sits. Trusting the caller's left/right had
-            // them swapped, so opening slid the two leaves across each other and
-            // the opening never cleared -- and since the panes are near
-            // identical, the picture did not change at all.
-            leftDir = Direction(leftLeaf);
-            rightDir = Direction(rightLeaf);
             sensor = GetComponent<BoxCollider>();
             // The sensor's own position, not the leaf's parent: glTFast nests the
             // nodes under an intermediate transform that sits at the origin, so
             // measuring from there put the doorway 15 metres from where it is.
             doorway = transform.position;
-            Debug.Log($"MINIMARKET_DOOR ligada izquierda={left.name} derecha={right.name} recorrido={travel:F3}");
+            // glTFast mirrors the imported X axis. Renderer.localBounds has the
+            // same positive centre on both panes, so it sent both local
+            // transforms in the same direction. Convert a local X step to world
+            // space and choose the sign that carries each pane away from centre.
+            leftDir = LocalDirectionAwayFromDoor(leftLeaf);
+            rightDir = LocalDirectionAwayFromDoor(rightLeaf);
+            var leftVisual=(leftFrame?leftFrame:left).GetComponent<Renderer>();
+            var rightVisual=(rightFrame?rightFrame:right).GetComponent<Renderer>();
+            concealLeftEdge=leftVisual?leftVisual.bounds.min.x:doorway.x;
+            concealRightEdge=rightVisual?rightVisual.bounds.max.x:doorway.x;
+            Debug.Log($"MINIMARKET_DOOR ligada izquierda={left.name} derecha={right.name} recorrido={travel:F3} " +
+                      $"sentidos=({leftDir:F0},{rightDir:F0})");
         }
 
         void Slide(Transform piece, float target)
@@ -65,11 +70,13 @@ namespace MiniMarket.Store
         Transform player;
         float nextActorRefresh;
 
-        static float Direction(Transform leaf)
+        float LocalDirectionAwayFromDoor(Transform leaf)
         {
             var renderer = leaf.GetComponent<Renderer>();
-            var x = renderer ? renderer.localBounds.center.x : 0f;
-            return x < 0f ? -1f : 1f;
+            var side = renderer && renderer.bounds.center.x < doorway.x ? -1f : 1f;
+            var localXInWorld = leaf.parent ? leaf.parent.TransformVector(Vector3.right).x : 1f;
+            if(Mathf.Abs(localXInWorld)<.001f)localXInWorld=1f;
+            return side*Mathf.Sign(localXInWorld);
         }
 
         bool Occupied()
@@ -144,7 +151,14 @@ namespace MiniMarket.Store
             if(fullyOpen&&!reportedFullyOpen)
             {
                 reportedFullyOpen=true;
-                Debug.Log($"MINIMARKET_DOOR apertura_completa x_izq={left.localPosition.x:F3} x_der={right.localPosition.x:F3}");
+                var leftVisual=(leftFrame?leftFrame:left).GetComponent<Renderer>();
+                var rightVisual=(rightFrame?rightFrame:right).GetComponent<Renderer>();
+                var leftInner=leftVisual?leftVisual.bounds.max.x:float.PositiveInfinity;
+                var rightInner=rightVisual?rightVisual.bounds.min.x:float.NegativeInfinity;
+                var concealed=leftInner<=concealLeftEdge+.01f&&rightInner>=concealRightEdge-.01f;
+                Debug.Log($"MINIMARKET_DOOR apertura_completa oculta={concealed} " +
+                          $"x_izq={leftInner:F3}<={concealLeftEdge:F3} " +
+                          $"x_der={rightInner:F3}>={concealRightEdge:F3}");
             }
             else if(!open)reportedFullyOpen=false;
 

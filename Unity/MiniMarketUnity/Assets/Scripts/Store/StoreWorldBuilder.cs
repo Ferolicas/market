@@ -466,9 +466,11 @@ namespace MiniMarket.Store
                 var presenter=sensor.AddComponent<StorefrontDoorPresenter>();
                 var leafRenderer=doorLeaves.left.GetComponent<Renderer>();
                 var width=leafRenderer?leafRenderer.localBounds.size.x:1f;
+                var frameRenderer=doorFrames.left?doorFrames.left.GetComponent<Renderer>():null;
+                var frameWidth=frameRenderer?frameRenderer.localBounds.size.x:width;
                 // See LeafTravel: the run is bounded by the wall beside the
                 // opening, not by the facade's outer bounds.
-                presenter.Bind(doorLeaves.left,doorLeaves.right,LeafTravel(width),doorFrames.left,doorFrames.right);
+                presenter.Bind(doorLeaves.left,doorLeaves.right,LeafTravel(width,frameWidth),doorFrames.left,doorFrames.right);
                 foreach(var piece in new[]{doorLeaves.left,doorLeaves.right,doorFrames.left,doorFrames.right})
                 {
                     if(!piece)continue;
@@ -550,12 +552,10 @@ namespace MiniMarket.Store
 
         /// How far a leaf runs to clear the opening.
         ///
-        /// A pane closes with its inner edge on the middle and the pier's inner
-        /// edge sits 0.404 out, so 0.70 of a leaf's width carries it clear. Its
-        /// frame half then finishes at 1.093 against a thickened pier reaching
-        /// 1.124, which is why the pier had to grow: at the delivered 0.861 the
-        /// same run left the door hanging over the street.
-        static float LeafTravel(float width)=>width*.70f;
+        /// The whole frame half must pass its own closed outer edge before it can
+        /// disappear inside the wall. The extra authored 0.05 crosses the small
+        /// reveal between the frame and the clean masonry pier.
+        static float LeafTravel(float leafWidth,float frameWidth)=>Mathf.Max(leafWidth,frameWidth)+.05f;
 
         static (Transform left,Transform right) FindDoorLeaves(Transform root)
         {

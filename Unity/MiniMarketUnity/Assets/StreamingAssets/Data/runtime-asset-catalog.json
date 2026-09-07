@@ -1367,8 +1367,8 @@
       "kind": "environment",
       "path": "Art/StoreEquipment/StoreEntrance.glb",
       "source": "GameAssets/Environment/Runtime/StoreEquipment/StoreEntrance.glb",
-      "bytes": 412172,
-      "sha256": "8cde3b2fd9c8ae74fc495447c87c01c362ce9a820b3dab24539903341cb89d42"
+      "bytes": 412184,
+      "sha256": "b425d51594ad3afb85a8513b1d12a898d30c533318c8f2fda27bc61275fb18cc"
     },
     {
       "id": "StoreEntranceAlt",
@@ -1612,5 +1612,5 @@
     "metadata": 1,
     "character-motion": 9
   },
-  "totalBytes": 291416798
+  "totalBytes": 291416810
 }

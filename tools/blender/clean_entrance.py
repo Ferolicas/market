@@ -156,8 +156,11 @@ def frame_half(
     x_max: float,
     frame_surface: bpy.types.Material,
 ) -> bpy.types.Object:
-    front = -0.168
-    back = -0.112
+    # Recess the moving frames behind the masonry's front face (-0.105).
+    # They remain visible in the open doorway, while the solid pier naturally
+    # occludes them after they slide sideways into the wall pocket.
+    front = -0.070
+    back = -0.014
     bottom = -0.755
     top = 0.245
     rail = 0.045
@@ -240,8 +243,8 @@ def build_clean_entrance() -> None:
 
     frame_half("EntranceFrameLeft", -0.64, 0.0, trim)
     frame_half("EntranceFrameRight", 0.0, 0.64, trim)
-    box("EntranceGlassLeft", (-0.588, -0.151, -0.704), (-0.052, -0.139, 0.194), glass)
-    box("EntranceGlassRight", (0.052, -0.151, -0.704), (0.588, -0.139, 0.194), glass)
+    box("EntranceGlassLeft", (-0.588, -0.060, -0.704), (-0.052, -0.048, 0.194), glass)
+    box("EntranceGlassRight", (0.052, -0.060, -0.704), (0.588, -0.048, 0.194), glass)
 
     sign = [
         box("EntranceSignBorder", (-0.68, -0.174, 0.405), (0.68, -0.075, 0.825), sign_border, 0.035),
