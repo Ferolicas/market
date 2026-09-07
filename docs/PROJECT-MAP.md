@@ -77,7 +77,15 @@ Simulador empresarial 3D individual y privado para la familia, jugable en navega
 - La vista previa del avatar usa cámara propia a `RenderTexture` con `cullingMask` en la capa 8, a la que se traslada la jerarquía del jugador: encuadrada dentro de la tienda, cualquier ángulo tiene una pared o una estantería por delante. Se orienta desde `RenderSettings.sun` para que la cara iluminada mire al panel.
 - `SaveCoordinator` escribe recuperación local cada 10 segundos y sincroniza con el backend como máximo cada 30 minutos, además del cierre explícito de jornada. Conserva eventos pendientes y copia local ante conflicto.
 - Licencias y franquicias conservan inventario/empleados propios; viajar reinicia agentes visuales sin mezclar el estado de las sucursales.
-- La build WebGL vigente (`194.209.926` bytes, sello `20260907-045817`, cero advertencias de compilación) vive en `Unity/MiniMarketUnity/Builds/WebGL/`, puede servirse localmente en `http://127.0.0.1:4173` y está publicada desde el release inmutable `/var/www/market-unity/releases/20260907-production-hardening-v2`. El despliegue usa `MigrationTools/deploy-web.sh`: normaliza directorios a `755` y archivos a `644` durante la copia, valida 174 hashes y lectura como `caddy`, vuelve el release de solo lectura y cambia `current` únicamente después de esas comprobaciones.
+- La build WebGL vigente (`194.218.112` bytes, sello `20260907-085228`,
+  commit `246d850`) vive en `Unity/MiniMarketUnity/Builds/WebGL/`, puede
+  servirse localmente en `http://127.0.0.1:4173` y está publicada desde el
+  release inmutable
+  `/var/www/market-unity/releases/20260907-security-hardening-final`. El
+  despliegue usa `MigrationTools/deploy-web.sh`: normaliza directorios a `755`
+  y archivos a `644` durante la copia, valida 174 hashes y lectura como
+  `caddy`, vuelve el release de solo lectura y cambia `current` únicamente
+  después de esas comprobaciones.
 - La plantilla PWA sella `__MINIMARKET_BUILD_STAMP__` en el build: `MiniMarketProjectBuilder.StampBuildVersion` lo sustituye en `index.html`, `sw.js` y `service-worker.js`, de modo que el `?v=` y el nombre de caché cambian en cada build y `activate` borra las caches anteriores. Antes la versión estaba escrita a mano y el caché era `mini-market-unity-v6` fijo, así que una build nueva seguía leyendo el catálogo anterior fuera de incógnito. Los GLB y el catálogo revalidan con `cache: "no-cache"`, y en localhost la purga de workers se espera antes de arrancar y recarga una vez si aún había controlador.
 - La ampliación conserva la retícula visual completa con sólo dos renderers y cuatro triángulos de suelo. En la prueba móvil con CPU limitada, el primer movimiento sostuvo 30 fps, no produjo ningún fotograma de más de 100 ms y mantuvo 254,1 MB asignados; en GPU de escritorio sostuvo 60 fps con p95 de 16,67 ms.
 - Hueco conocido: `EntranceMat` reproduce la geometría y la posición de Next pero renderiza a una décima parte de la luz difusa esperada —`(27,35,37)` frente a `(46,84,71)`—. Descartados espacio de color (el material guarda el lineal exacto), soporte de shader (`isSupported=True`), proyección y recepción de sombras, batching estático y GPU instancing. El suelo glTF contiguo se ilumina bien, así que la diferencia está en la ruta `GameObject.CreatePrimitive` + material creado por script.
@@ -118,6 +126,7 @@ Simulador empresarial 3D individual y privado para la familia, jugable en navega
 | `GET /api/game/save` | `src/app/api/game/save/route.ts` | Recupera o crea la ranura 1 | `src/game/store.ts` | `GameSave`, `PlayerProfile` |
 | `PUT /api/game/save` | `src/app/api/game/save/route.ts` | Valida y guarda con revisión optimista | `src/game/store.ts` | `GameSave`, `PlayerProfile`, `LedgerEntry` |
 | `GET /api/game/ledger` | `src/app/api/game/ledger/route.ts` | Últimos 100 movimientos del jugador | Panel financiero | `LedgerEntry` |
+| `GET /api/game/config` | `src/app/api/game/config/route.ts` | Flags remotos apagados por defecto y cadencias seguras | Cliente Unity | Ninguna |
 | `GET /api/health` | `src/app/api/health/route.ts` | Salud de app y PostgreSQL | Caddy, CI y operación | Consulta `SELECT 1` |
 
 Todas las rutas de juego exigen sesión Better Auth. Salud es la única API pública ajena a auth.
@@ -133,6 +142,10 @@ El esquema vive en `prisma/schema.prisma`; las migraciones están en `prisma/mig
 - `PlayerProfile`: país, moneda y copia rápida de piel, camisa y sombrero seleccionados.
 - `GameSave`: estado JSONB, ranura única por usuario, revisión y checksum SHA-256. El snapshot v4 incluye economía, mundo, clientes, carros, cola y fases unitarias de caja, cubículo de devoluciones, estaciones, timers, empleados, progresión, avatar, cesta mult producto y eventos procesados; partidas anteriores —incluida la antigua carga `carry.item`— se normalizan al cargar. La normalización detecta cualquier posición, destino o tramo persistido de agricultores y operarios de ganado que aún use la antigua huerta de fachada: conserva íntegra su carga, lo rebasa al origen trasero equivalente cuando seguía dentro de esa huella y recalcula el trayecto por portón/carril hasta el almacén. También retira cualquier trabajador guardado en el antiguo carril exterior este antes de reconstruir su ruta: lo coloca en su cultivo o estación animal de origen, conserva la cesta y evita que intente atravesar la guía derecha del acceso directo. Las rutas persistidas de operarios que todavía terminen en la antigua ubicación del molino, horno, quesería o zumos se recalculan hacia los sockets transitables del nuevo obrador acristalado sin reiniciar carga, estado ni progreso. `doorPlayerPresent` se considera un sensor efímero y siempre vuelve a `false`, pues la posición del jugador no se persiste; así una partida guardada en el umbral no deja la puerta abierta para siempre al reaparecer. La migración retira el antiguo gorro panda rojo únicamente cuando el avatar heredado coincide completo con el preset por defecto v1–v3; una personalización o una elección v4 se conserva.
 - `LedgerEntry`: movimiento en unidades monetarias menores, día, franquicia, categoría y revisión. La migración `20260829181000_event_idempotency` define `eventId`, `sessionId`, secuencia, tipo, payload e idempotency key para que un reintento no duplique un asiento. Cada `GameEvent` lleva obligatoriamente su `franchiseId`: ventas, devoluciones y costes se atribuyen a la sucursal real; los eventos globales usan una franquicia propia determinista y `payload.scope="global"`. La API rechaza eventos asociados a franquicias no poseídas.
+- `ApiRateLimitBucket`: contador de ventana fija por hash de usuario y alcance.
+  El upsert PostgreSQL es atómico y compartido por todas las instancias: save
+  GET 120/min, save PUT 30/min y ledger GET 60/min. PostgreSQL calcula también
+  el `Retry-After`, evitando diferencias de zona horaria entre DB y Node.
 
 Las relaciones dependientes usan borrado en cascada. El dinero nunca usa decimales flotantes persistidos.
 
@@ -260,6 +273,12 @@ Los valores solo existen en `.env` local, secretos de Actions y `/var/www/market
 - Repositorio `Ferolicas/market`; producción en `/var/www/market`.
 - Push a `main` ejecuta typecheck, lint, tests y build; luego migra, recarga PM2 y comprueba salud.
 - Caddy termina HTTPS, sirve el cliente Unity estático desde `/var/www/market-unity/current` y dirige `/api/*`, recuperación de contraseña y chunks Next a `127.0.0.1:4010`.
+- Next escucha únicamente en `127.0.0.1:4010`. Caddy añade HSTS, CSP compatible
+  con WebAssembly, anti-frame, nosniff, referrer, permissions, COOP y COEP. El
+  release WebGL final es `20260907-security-hardening-final`, con 174 hashes y
+  la identidad del commit `246d850`.
+- El restore dedicado de `market_db` fue ensayado el 2026-09-07 en una base
+  aislada: ocho tablas comparadas sin diferencias y base temporal eliminada.
 - Comprobación previa al push: `pnpm typecheck && pnpm lint && pnpm test && pnpm build`.
 
 ## Lecciones y gotchas

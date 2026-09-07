@@ -11,16 +11,16 @@ del plan maestro.
 | Battery | RED | imposible validarla sin teléfonos físicos y sesiones de 15/30/60 min |
 | Memory | YELLOW | móvil 254,3 MB y escritorio 461,3 MB sin regresión; falta soak 60–120 min y PSS native |
 | Networking | YELLOW | timeout, cancelación, clasificación, GET backoff y PUT seguro; falta auth native/reconnect físico |
-| Security | RED | controles de autoridad correctos, pero `pnpm audit` tiene 3 high/1 moderate y faltan HSTS/CSP; informe separado |
+| Security | GREEN en el alcance revisado | auditoría local y productiva sin vulnerabilidades; HSTS/CSP/anti-frame activos; límites distribuidos de save/ledger verificados con 429 |
 | Backend | GREEN funcional | health/DB, auth por usuario, 600 KB, Zod, transacción, revisión optimista e idempotencia verificados |
 | Scalability | YELLOW | cliente local y backend stateless/horizontalizable; config local sostuvo 3.391,8 RPS con 0 errores, pero faltan save autenticado, DB y staging para dimensionar 10.000 sesiones |
 | Observability | YELLOW | logs categorizados, build identity, p95/p99/memoria y hook telemetry; falta proveedor de crash/ANR y dashboard |
-| Testing | YELLOW | 310 web + 37 EditMode + 2 PlayMode + navegador real; falta matriz física/soak/offline native |
+| Testing | YELLOW | 311 web + 37 EditMode + 2 PlayMode + navegador real; falta matriz física/soak/offline native |
 | CI/CD | YELLOW | workflow manual GameCI y builders preparados; requiere secrets/licencia y una ejecución remota |
 | Store readiness | RED | faltan firma, iconos, metadata, privacy manifest, data safety, dispositivos y SDK iOS 26 |
 | IAP readiness | YELLOW | no existe monetización solicitada; backend ya aporta patrones de ledger/idempotencia, pero no StoreKit/Play Billing |
 | Addressables | YELLOW | paquete instalado y estrategia decidida; catálogo actual validado; piloto remoto no justificado todavía |
-| Recovery | YELLOW | recuperación local probada, release WebGL inmutable con 174 hashes y dump diario contiene Market; restore DB/RTO no se ha ensayado |
+| Recovery | GREEN para restaurabilidad | recuperación local probada, release WebGL inmutable con 174 hashes y dump Market restaurado y comparado en una base aislada; falta medir el RTO en un simulacro completo |
 
 ## Listo
 
@@ -34,9 +34,11 @@ del plan maestro.
 - Builds trazables y validador que falla antes de empaquetar assets/settings rotos.
 - Remote config cache-first con defaults seguros y kill switches apagados.
 - WebGL, AAB e iOS exportables desde métodos de build y CI manual.
-- Release WebGL `20260907-production-hardening-v2` publicado y comprobado desde
+- Release WebGL `20260907-security-hardening-final` publicado y comprobado desde
   el dominio real; el arranque, el primer paso y el giro pasan en escritorio y
-  móvil emulado.
+  móvil emulado. Su identidad corresponde al commit limpio `246d850`.
+- Configuración remota publicada con defaults seguros; auditoría de dependencias
+  limpia, cabeceras de seguridad activas y límites de API compartidos probados.
 
 ## Falta antes de beta móvil
 
@@ -45,14 +47,13 @@ del plan maestro.
 - Dispositivos físicos, soak, batería, thermal, ANR/crash y page size 16 KB.
 - Firma y toolchains de tienda, privacidad, borrado de cuenta si se ofrece alta,
   iconos, splash, capturas, clasificación por edad y cuenta review.
-- Corregir o aceptar formalmente los hallazgos de seguridad tras aprobación.
-- Ejecutar Unity CI con licencia y un restore PostgreSQL aislado.
-- Desplegar `/api/game/config` desde un historial Git limpio; mientras tanto el
-  cliente publicado usa sus defaults y caché seguros después del 404.
+- Ejecutar Unity CI remota con licencia; el build local de Unity y el restore
+  PostgreSQL aislado ya pasaron.
 
 ## Solo con tráfico o necesidad real
 
-- Redis para rate limit distribuido/config cache si hay varias instancias.
+- Redis para config cache u otros datos efímeros si las métricas lo justifican;
+  el rate limit actual ya es distribuido mediante un upsert atómico PostgreSQL.
 - Cola para emails/analytics y tareas que bloqueen requests.
 - CDN/Addressables para contenido estacional descargable.
 - Read replicas, particionado o servicios separados después de medir DB/RPS.
