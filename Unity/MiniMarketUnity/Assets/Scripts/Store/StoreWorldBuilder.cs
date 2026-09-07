@@ -442,12 +442,12 @@ namespace MiniMarket.Store
             // material the cold-room door already uses, which does blend.
             GlazePanes(door.transform);
             // PlaceFitted marks every child static, and static batching bakes the
-            // geometry in place: the leaf transforms moved their full travel and
-            // not one pixel changed on screen. The leaves have to stay dynamic.
-            foreach(var leaf in new[]{doorLeaves.left,doorLeaves.right})
+            // geometry in place: moving a transform then changes no pixels. Each
+            // pane and the frame half that travels with it must stay dynamic.
+            foreach(var piece in new[]{doorLeaves.left,doorLeaves.right,doorFrames.left,doorFrames.right})
             {
-                if(!leaf)continue;
-                foreach(var child in leaf.GetComponentsInChildren<Transform>(true))
+                if(!piece)continue;
+                foreach(var child in piece.GetComponentsInChildren<Transform>(true))
                     child.gameObject.isStatic=false;
             }
 

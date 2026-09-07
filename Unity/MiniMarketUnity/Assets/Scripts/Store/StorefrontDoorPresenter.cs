@@ -114,7 +114,7 @@ namespace MiniMarket.Store
             actors.AddRange(FindObjectsByType<CharacterActor>(FindObjectsSortMode.None));
         }
 
-        bool? reported; float nextSample;
+        bool? reported; bool reportedFullyOpen; float nextSample;
 
         void Update()
         {
@@ -136,6 +136,17 @@ namespace MiniMarket.Store
             var speed = (open ? 11.9f : 10.2f) * Mathf.Max(travel / 5.4f, .2f);
             var l = left.localPosition; l.x = Mathf.MoveTowards(l.x, leftTarget, speed * Time.deltaTime); left.localPosition = l;
             var r = right.localPosition; r.x = Mathf.MoveTowards(r.x, rightTarget, speed * Time.deltaTime); right.localPosition = r;
+            var fullyOpen = open
+                         && Mathf.Abs(left.localPosition.x-leftTarget)<.001f
+                         && Mathf.Abs(right.localPosition.x-rightTarget)<.001f
+                         && (!leftFrame||Mathf.Abs(leftFrame.localPosition.x-(closedLeftFrame+leftDir*travel))<.001f)
+                         && (!rightFrame||Mathf.Abs(rightFrame.localPosition.x-(closedRightFrame+rightDir*travel))<.001f);
+            if(fullyOpen&&!reportedFullyOpen)
+            {
+                reportedFullyOpen=true;
+                Debug.Log($"MINIMARKET_DOOR apertura_completa x_izq={left.localPosition.x:F3} x_der={right.localPosition.x:F3}");
+            }
+            else if(!open)reportedFullyOpen=false;
 
             // Sample where the leaves actually end up. The state line fires the
             // instant the sensor flips, which is before anything has moved, so on

@@ -314,6 +314,23 @@ namespace MiniMarket.Core
             State.SetQuantity("shelves","eggs",Math.Max(24,State.Quantity("shelves","eggs")));
             Debug.Log($"MINIMARKET_QA seeded tomates={State.Quantity("shelves","tomatoes")} huevos={State.Quantity("shelves","eggs")}");
         }
+        public void PrepareLocalEntranceQaScenario()
+        {
+            if(!LocalQaAllowed()||!Player)return;
+            EnsureLocalQaSetup();
+            // Put the player at the real inside approach. Browser camera axes can
+            // change as it follows the character, so key presses are not a
+            // deterministic way to reach the doorway in an automated review.
+            var entrance=FindFirstObjectByType<StorefrontDoorPresenter>();
+            if(!entrance)return;
+            var target=entrance.transform.position;target.y=.08f;
+            var body=Player.GetComponent<CharacterController>();
+            if(body)body.enabled=false;
+            Player.transform.position=target;
+            Player.transform.rotation=Quaternion.LookRotation(Vector3.forward);
+            if(body)body.enabled=true;
+            Debug.Log($"MINIMARKET_ENTRANCE_QA jugador=({Player.transform.position.x:0.00},{Player.transform.position.z:0.00})");
+        }
         public void PrepareLocalDairyQaScenario()
         {
             if(!LocalQaAllowed())return;
