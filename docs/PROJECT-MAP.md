@@ -83,13 +83,13 @@ Simulador empresarial 3D individual y privado para la familia, jugable en navega
 - La vista previa del avatar usa cámara propia a `RenderTexture` con `cullingMask` en la capa 8, a la que se traslada la jerarquía del jugador: encuadrada dentro de la tienda, cualquier ángulo tiene una pared o una estantería por delante. Se orienta desde `RenderSettings.sun` para que la cara iluminada mire al panel.
 - `SaveCoordinator` escribe recuperación local cada 10 segundos y sincroniza con el backend como máximo cada 30 minutos, además del cierre explícito de jornada. Conserva eventos pendientes y copia local ante conflicto.
 - Licencias y franquicias conservan inventario/empleados propios; viajar reinicia agentes visuales sin mezclar el estado de las sucursales.
-- La build WebGL vigente (`171.563.047` bytes, sello `20260908-030235`,
-  commit `85e0f5c`, catálogo `55606b51c3fb5ecd`) vive en `Unity/MiniMarketUnity/Builds/WebGL/`, puede
+- La build WebGL vigente (`176.996.226` bytes, sello `20260908-211156`,
+  commit `90bc3c4`, catálogo `55606b51c3fb5ecd`) vive en `Unity/MiniMarketUnity/Builds/WebGL/`, puede
   servirse localmente en `http://127.0.0.1:4173` y está publicada desde el
   release inmutable
-  `/var/www/market-unity/releases/20260908-next-gameplay-parity-speed`. El
+  `/var/www/market-unity/releases/20260908-premium-loading`. El
   despliegue usa `MigrationTools/deploy-web.sh`: normaliza directorios a `755`
-  y archivos a `644` durante la copia, valida 175 hashes y lectura como
+  y archivos a `644` durante la copia, valida 177 hashes y lectura como
   `caddy`, vuelve el release de solo lectura y cambia `current` únicamente
   después de esas comprobaciones.
 - QA del entorno publicado (2026-09-07): carga real hasta `MINIMARKET_READY`, creación de empresa y locomoción por teclado sobre `market.olcas.app`; los primeros 200 fotogramas en movimiento y los 874 del recorrido sostenido quedaron en p95/p99 de `16,67 ms`, sin ningún frame de más de 50 ms, sin errores ni pérdida WebGL. El smoke test confirmó HTTP 200, PostgreSQL `ok`, manifiesto instalable y service worker activo. La compilación salió con cero advertencias y redujo el paquete WebGL en 23.024.430 bytes respecto al release anterior.
@@ -290,8 +290,8 @@ Los valores solo existen en `.env` local, secretos de Actions y `/var/www/market
 - Caddy termina HTTPS, sirve el cliente Unity estático desde `/var/www/market-unity/current` y dirige `/api/*`, recuperación de contraseña y chunks Next a `127.0.0.1:4010`.
 - Next escucha únicamente en `127.0.0.1:4010`. Caddy añade HSTS, CSP compatible
   con WebAssembly, anti-frame, nosniff, referrer, permissions, COOP y COEP. El
-  release WebGL final es `20260908-next-gameplay-parity-speed`, con
-  175 hashes y la identidad del commit `85e0f5c`.
+  release WebGL final es `20260908-premium-loading`, con
+  177 hashes y la identidad del commit `90bc3c4`.
 - El restore dedicado de `market_db` fue ensayado el 2026-09-07 en una base
   aislada: ocho tablas comparadas sin diferencias y base temporal eliminada.
 - Comprobación previa al push: `pnpm typecheck && pnpm lint && pnpm test && pnpm build`.
