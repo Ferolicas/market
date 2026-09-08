@@ -8,11 +8,16 @@ using UnityEngine.UI;
 using MiniMarket.Player;
 using MiniMarket.Networking;
 using System.Globalization;
+using System.Runtime.InteropServices;
 
 namespace MiniMarket.UI
 {
     public sealed class RuntimeHud : MonoBehaviour
     {
+#if UNITY_WEBGL && !UNITY_EDITOR
+        [DllImport("__Internal")] static extern void MiniMarketLoadingPhase(string message,float progress);
+        [DllImport("__Internal")] static extern void MiniMarketLoadingReady();
+#endif
         /// Canvas colours are taken as they are, so converting to linear here
         /// applies the sRGB decode a second time and everything renders dark:
         /// #4E5536 was reaching the screen as (22,22,13) instead of (78,85,54).
@@ -46,9 +51,22 @@ namespace MiniMarket.UI
             BuildNavigation();BuildJoystick();Refresh();if(runtime.CompanySetup.Required)OpenPanel("setup");
         }
 
-        public void ShowLoading(string message){if(!loading)Build();loading.gameObject.SetActive(true);loading.SetAsLastSibling();responsiveLayout?.SetReady(false);loadingText.text=message;loadingSteps++;
-            var progress=Mathf.Clamp01(loadingSteps/8f);SetMeter(loadingFill,progress);loadingPercent.text=$"{Mathf.RoundToInt(progress*100)}%";}
-        public void HideLoading(){if(loading)loading.gameObject.SetActive(false);responsiveLayout?.SetReady(true);}
+        public void ShowLoading(string message){if(!loading)Build();responsiveLayout?.SetReady(false);loadingText.text=message;loadingSteps++;
+            var progress=Mathf.Clamp01(loadingSteps/8f);SetMeter(loadingFill,progress);loadingPercent.text=$"{Mathf.RoundToInt(progress*100)}%";
+#if UNITY_WEBGL && !UNITY_EDITOR
+            // The DOM splash remains above the canvas until the complete runtime
+            // world is ready. Driving that same panel avoids a second Unity card
+            // jumping to a different scale midway through startup.
+            loading.gameObject.SetActive(false);MiniMarketLoadingPhase(message,progress);
+#else
+            loading.gameObject.SetActive(true);loading.SetAsLastSibling();
+#endif
+        }
+        public void HideLoading(){if(loading)loading.gameObject.SetActive(false);responsiveLayout?.SetReady(true);
+#if UNITY_WEBGL && !UNITY_EDITOR
+            MiniMarketLoadingReady();
+#endif
+        }
         public void ShowFatal(string message){ShowLoading(message);loadingText.color=new Color(1,.55f,.45f);}
 
         void Build()
@@ -56,7 +74,7 @@ namespace MiniMarket.UI
             font=Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             roundedSprite=CreateRoundedSprite();
             var root=new GameObject("GameUI",typeof(Canvas),typeof(CanvasScaler),typeof(GraphicRaycaster));root.transform.SetParent(transform,false);canvas=root.GetComponent<Canvas>();canvas.renderMode=RenderMode.ScreenSpaceOverlay;canvas.sortingOrder=30;
-            var scaler=root.GetComponent<CanvasScaler>();scaler.uiScaleMode=CanvasScaler.ScaleMode.ScaleWithScreenSize;scaler.referenceResolution=new Vector2(1440,900);scaler.matchWidthOrHeight=.5f;
+            var scaler=root.GetComponent<CanvasScaler>();scaler.uiScaleMode=CanvasScaler.ScaleMode.ScaleWithScreenSize;scaler.referenceResolution=Screen.height>Screen.width?new Vector2(430,932):new Vector2(1440,900);scaler.matchWidthOrHeight=.5f;
             var top=Panel("HudTop",root.transform,Glass);Anchor(top,new Vector2(.5f,1),new Vector2(.5f,1),new Vector2(-460,-82),new Vector2(460,-14));var layout=top.gameObject.AddComponent<HorizontalLayoutGroup>();layout.padding=new RectOffset(8,8,6,6);layout.spacing=0;layout.childForceExpandWidth=false;layout.childForceExpandHeight=true;
             var brandCell=Panel("Brand",top,new Color(0,0,0,0));SizeForLayout(brandCell,208);
             BrandMark(brandCell);
@@ -206,12 +224,12 @@ namespace MiniMarket.UI
             Anchor(loading,Vector2.zero,Vector2.one,Vector2.zero,Vector2.zero);
             // This is a purpose-built portrait artwork, not the former landscape
             // card enlarged or cropped into a phone. EnvelopeParent preserves its
-            // native 941:1672 composition while covering every screen edge.
+            // native 926:1698 composition while covering every screen edge.
             var artObject=new GameObject("LoadingPortraitArtwork",typeof(RectTransform),typeof(RawImage),typeof(AspectRatioFitter));
             artObject.transform.SetParent(loading,false);
             var art=artObject.GetComponent<RawImage>();art.texture=Resources.Load<Texture2D>("UI/LoadingStore");art.raycastTarget=false;
             Anchor(artObject.GetComponent<RectTransform>(),Vector2.zero,Vector2.one,Vector2.zero,Vector2.zero);
-            var artAspect=artObject.GetComponent<AspectRatioFitter>();artAspect.aspectMode=AspectRatioFitter.AspectMode.EnvelopeParent;artAspect.aspectRatio=941f/1672f;
+            var artAspect=artObject.GetComponent<AspectRatioFitter>();artAspect.aspectMode=AspectRatioFitter.AspectMode.EnvelopeParent;artAspect.aspectRatio=926f/1698f;
             var loadingStatus=Panel("LiveLoadingStatus",loading,Alpha(Forest,.88f));
             Anchor(loadingStatus,new Vector2(.07f,0),new Vector2(.93f,0),new Vector2(0,38),new Vector2(0,154));
             loadingText=Label(loadingStatus,"Preparando la tienda…",20,TextAnchor.MiddleLeft);
