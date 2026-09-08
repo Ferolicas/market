@@ -46,12 +46,10 @@ namespace MiniMarket.Player
         // viewing angle; it only puts the complete frustum above the ground.
         const float GroundCoverageMargin = 1f;
         const float MinimumFarClip = 512f;
-        const float AxisResponse = 8f;
 
         Camera view;
         float checkoutBlend;
         float inverseSize;
-        float axisDegrees;
         bool framed;
 
         void Awake()
@@ -64,10 +62,7 @@ namespace MiniMarket.Player
         {
             if (!target) return;
             if (!view) view = GetComponent<Camera>();
-            var north=new Vector3(16f,0,-25.75f).normalized;
-            var facesSouth=Vector3.Dot(target.forward,north)<-.35f;
-            axisDegrees=Mathf.LerpAngle(axisDegrees,facesSouth?180f:0f,Damp(AxisResponse,FrameDelta(Time.deltaTime)));
-            var cameraOffset=Quaternion.AngleAxis(axisDegrees,Vector3.up)*OverviewOffset;
+            var cameraOffset=OverviewOffset;
             var farmFocused=farmAnchor&&target.position.z<farmAnchor.position.z+26f;
             var focus=farmFocused?farmAnchor.position:target.position;
             var centre = new Vector3(focus.x, TargetHeight, focus.z);
