@@ -25,7 +25,7 @@ namespace MiniMarket.Editor
         {
             "SidewalkSegment","ParkingSpace","CityBuilding","Car","BusStop","Bench","Tree","StreetLight","StoreEntrance","StoreEntranceAlt","StorefrontWindow","AutomaticDoor","WallStraight","ShoppingCart",
             "ShelfWallTall","ShelfWallWide","EggDisplay","DisplayProduceMixed","DisplayRefrigeratedDoors","CheckoutArea",
-            "OperationsWall","BackroomStorage","StockroomRack","SeasonalDisplay","ShelfEndcap","ReturnsStation","CartBay","WallClock","SecurityCamera","HangingSign","CeilingLight",
+            "OperationsWall","BackroomStorage","StockroomRack","SeasonalDisplay","ShelfEndcap","ReturnsStation","CartBay","CashierStool","WallClock","SecurityCamera","HangingSign","CeilingLight",
             "FlourMillAlt","BreadOven","CheeseMachine","JuiceMachineAlt","FarmPlotEmpty","FarmPlotFurrows","FarmFenceLong","FarmFenceShort","FarmToolSet","CompostBin","MiniGreenhouse",
             "Scarecrow","FarmWaterTank","Chicken","Cow","SupplierTerminal","DeliveryDock","HiringPoint","UpgradePlatform",
             "CropSeed","CropSprout","CropSmall","CropGrowing","TomatoRipe","WheatRipe","CornRipe",
