@@ -5,13 +5,12 @@ using UnityEngine.UI;
 namespace MiniMarket.UI
 {
     /// <summary>
-    /// Keeps the quick menu where the stylesheet puts it: a column down the right
-    /// edge on a wide screen, and a four-up strip across the top on a narrow one,
-    /// where the sheet also hides everything past the fourth entry.
+    /// Keeps the management controls aligned with the delivered interface kit:
+    /// a compact column on desktop and a two-column mobile sheet in portrait.
     /// </summary>
     public sealed class ResponsiveHudLayout : MonoBehaviour
     {
-        RectTransform actions;RectTransform drawer;GridLayoutGroup grid;List<RectTransform> buttons;RectTransform handle;RectTransform sheetClose;RectTransform topBar;RectTransform guide;CanvasScaler scaler;bool drawerOpen;bool narrowNow;readonly List<(LayoutElement element,float width)> topCells=new();readonly List<(Text label,int size)> topLabels=new();LayoutElement statusCell;int width,height;
+        RectTransform actions;RectTransform drawer;GridLayoutGroup grid;List<RectTransform> buttons;RectTransform handle;RectTransform sheetClose;RectTransform topBar;RectTransform guide;RectTransform joystickVisual;CanvasScaler scaler;bool drawerOpen;bool narrowNow;readonly List<(LayoutElement element,float width)> topCells=new();readonly List<(Text label,int size)> topLabels=new();LayoutElement statusCell;int width,height;
 
         public void Bind(RectTransform actionBar,RectTransform drawerPanel,GridLayoutGroup actionGrid,List<RectTransform> quickButtons,RectTransform dragHandle=null,RectTransform closeRow=null,RectTransform top=null,RectTransform guideCard=null)
         {
@@ -28,13 +27,23 @@ namespace MiniMarket.UI
             Apply();
         }
 
+        public void BindJoystick(RectTransform visual)
+        {
+            joystickVisual=visual;
+            if(joystickVisual)joystickVisual.gameObject.SetActive(narrowNow);
+        }
+
         void Update(){if(Screen.width!=width||Screen.height!=height)Apply();}
 
         void Apply()
         {
             if(!actions||!drawer||!grid)return;
             width=Screen.width;height=Screen.height;
-            var narrow=height>width&&width<=580;
+            // Screen.width is the physical back-buffer width in WebGL. Modern
+            // phones commonly report 750-1290 pixels, so a desktop-style pixel
+            // cutoff misclassified portrait iPhones and rendered the tiny
+            // desktop HUD. Portrait itself is the reliable mobile layout signal.
+            var narrow=height>width;
             narrowNow=narrow;
             // A 1440x900 reference on a portrait phone scales the whole HUD to
             // about half size, which leaves 12pt captions at seven physical
@@ -74,6 +83,7 @@ namespace MiniMarket.UI
                 guide.offsetMax=narrow?new Vector2(-14,-176):new Vector2(-88,-84);
             }
             if(handle)handle.gameObject.SetActive(narrow);
+            if(joystickVisual)joystickVisual.gameObject.SetActive(narrow);
             actions.gameObject.SetActive(!(narrow&&drawerOpen));
             if(sheetClose)sheetClose.gameObject.SetActive(narrow);
             // every entry stays reachable on a phone: the sheet holds all eight

@@ -12,12 +12,18 @@ namespace MiniMarket.UI
     {
         public RectTransform Glyph;
         public Text Caption;
+        public Image Background;
+        public Outline Border;
+        public Shadow DropShadow;
 
         public void Arrange(bool stacked)
         {
             if(!Glyph||!Caption)return;
             if(stacked)
             {
+                if(Background)Background.color=new Color32(253,250,246,250);
+                if(Border)Border.enabled=true;
+                if(DropShadow)DropShadow.enabled=true;
                 Glyph.anchorMin=Glyph.anchorMax=new Vector2(.5f,1);Glyph.pivot=new Vector2(.5f,1);
                 Glyph.sizeDelta=new Vector2(24,24);Glyph.anchoredPosition=new Vector2(0,-14);
                 Caption.alignment=TextAnchor.LowerCenter;
@@ -27,6 +33,9 @@ namespace MiniMarket.UI
             }
             else
             {
+                if(Background)Background.color=new Color(0,0,0,0);
+                if(Border)Border.enabled=false;
+                if(DropShadow)DropShadow.enabled=false;
                 Glyph.anchorMin=Glyph.anchorMax=new Vector2(0,.5f);Glyph.pivot=new Vector2(0,.5f);
                 Glyph.sizeDelta=new Vector2(19,19);Glyph.anchoredPosition=new Vector2(11,0);
                 Caption.alignment=TextAnchor.MiddleLeft;

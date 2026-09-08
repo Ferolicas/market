@@ -272,12 +272,19 @@ namespace MiniMarket.UI
 
         void BuildJoystick()
         {
-            // Nothing is drawn: a dial in the corner still covered the floor and
-            // could not be reached from the other side of the screen. The whole
-            // canvas is the control, the press is its centre, and the drag away
-            // from it is the direction.
+            // The complete screen remains draggable, but portrait players also
+            // get the exact visual control supplied in the mobile interface kit.
+            // It is non-blocking, so dragging outside the drawing still works.
             var area=Panel("GameInputSurface",canvas.transform,new Color(0,0,0,0));Anchor(area,Vector2.zero,Vector2.one,Vector2.zero,Vector2.zero);area.SetAsFirstSibling();
             joystick=area.gameObject.AddComponent<VirtualJoystick>();joystick.Bind(area,runtime.Player,canvas);
+            var visualObject=new GameObject("JoystickVisual",typeof(RectTransform),typeof(RawImage));
+            visualObject.transform.SetParent(canvas.transform,false);
+            var visual=visualObject.GetComponent<RectTransform>();
+            visual.anchorMin=visual.anchorMax=new Vector2(0,0);visual.pivot=new Vector2(0,0);
+            visual.sizeDelta=new Vector2(126,115);visual.anchoredPosition=new Vector2(14,70);
+            var image=visualObject.GetComponent<RawImage>();image.texture=Resources.Load<Texture2D>("UI/Joystick");image.raycastTarget=false;
+            visual.SetSiblingIndex(Mathf.Min(1,canvas.transform.childCount-1));
+            responsiveLayout?.BindJoystick(visual);
         }
 
         bool Narrow=>responsiveLayout&&responsiveLayout.Narrow;
@@ -1226,6 +1233,8 @@ namespace MiniMarket.UI
             go.transform.SetParent(parent,false);
             var background=go.GetComponent<Image>();background.color=new Color(0,0,0,0);
             if(roundedSprite){background.sprite=roundedSprite;background.type=Image.Type.Sliced;}
+            var shadow=go.AddComponent<Shadow>();shadow.effectColor=Alpha(Ink,.10f);shadow.effectDistance=new Vector2(0,-2);shadow.useGraphicAlpha=true;shadow.enabled=false;
+            var outline=go.AddComponent<Outline>();outline.effectColor=Border;outline.effectDistance=new Vector2(1,-1);outline.useGraphicAlpha=true;outline.enabled=false;
             go.GetComponent<Button>().onClick.AddListener(action);
             var element=go.GetComponent<LayoutElement>();element.preferredHeight=38;element.minHeight=32;
             var glyph=new GameObject("Icon",typeof(RectTransform),typeof(Image));
@@ -1239,7 +1248,7 @@ namespace MiniMarket.UI
             caption.color=Ink;caption.fontStyle=FontStyle.Bold;
             caption.resizeTextForBestFit=false;caption.horizontalOverflow=HorizontalWrapMode.Overflow;
             Anchor(caption.rectTransform,new Vector2(0,0),new Vector2(1,1),new Vector2(38,0),new Vector2(-6,0));
-            var entry=go.AddComponent<QuickMenuEntry>();entry.Glyph=rect;entry.Caption=caption;
+            var entry=go.AddComponent<QuickMenuEntry>();entry.Glyph=rect;entry.Caption=caption;entry.Background=background;entry.Border=outline;entry.DropShadow=shadow;
             quickButtons.Add(go.GetComponent<RectTransform>());
         }
 
