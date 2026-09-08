@@ -168,9 +168,7 @@ namespace MiniMarket.Customers
                 case Phase.Queueing:
                     UpdateQueueTarget(mind);
                     if (mind.Agent.Arrived) FaceCheckout(mind);
-                    // Wait is a seated clip in the delivered customer rigs.
-                    // Checkout customers remain upright at the head of the line.
-                    if (mind.QueueSlot == 0 && mind.Agent.Arrived) { mind.Phase = Phase.Waiting; mind.Since = Time.time; mind.Agent.Play("Idle"); }
+                    if (mind.QueueSlot == 0 && mind.Agent.Arrived) { mind.Phase = Phase.Waiting; mind.Since = Time.time; mind.Agent.Play("Queue"); }
                     break;
                 case Phase.Waiting:
                     FaceCheckout(mind);
@@ -178,10 +176,10 @@ namespace MiniMarket.Customers
                     if (Time.time - mind.Since >= 1.2f && HasCashier(mind.CheckoutLane)) BeginCheckout(mind);
                     break;
                 case Phase.Unloading:
-                    if(Time.time-mind.Since>=.9f&&mind.CheckoutFlow.UnitReady){mind.CheckoutFlow.MoveToScanner();mind.Agent.Play("CheckoutScan");mind.Phase=Phase.Scanning;mind.Since=Time.time;}
+                    if(Time.time-mind.Since>=.9f&&mind.CheckoutFlow.UnitReady){mind.CheckoutFlow.MoveToScanner();mind.Agent.Play("Queue");mind.Phase=Phase.Scanning;mind.Since=Time.time;}
                     break;
                 case Phase.Scanning:
-                    if(Time.time-mind.Since>=ScanSeconds(mind.CheckoutLane)){mind.CheckoutFlow.BagUnit();mind.Agent.Play("CheckoutItem");mind.Phase=Phase.Bagging;mind.Since=Time.time;}
+                    if(Time.time-mind.Since>=ScanSeconds(mind.CheckoutLane)){mind.CheckoutFlow.BagUnit();mind.Agent.Play("Queue");mind.Phase=Phase.Bagging;mind.Since=Time.time;}
                     break;
                 case Phase.Bagging:
                     if(Time.time-mind.Since>=.65f)AdvanceCheckout(mind);
@@ -308,13 +306,17 @@ namespace MiniMarket.Customers
         void BeginCheckout(Mind mind)
         {
             FaceCheckout(mind);
+            // CheckoutItem, CheckoutScan and Pay belong to the seated cashier
+            // performance. The shopper stays upright while the independent belt
+            // visual moves every product through unload, scan and bagging.
+            mind.Agent.Play("Queue");
             mind.CheckoutUnits.Clear();foreach(var item in mind.Basket)for(var unit=0;unit<item.Value;unit++)mind.CheckoutUnits.Add(item.Key);
             mind.CheckoutIndex=0;mind.CheckoutFlow=checkoutFlows[mind.CheckoutLane];mind.CheckoutFlow.BeginSession();BeginCheckoutUnit(mind);
         }
         void BeginCheckoutUnit(Mind mind)
         {
-            if(mind.CheckoutIndex>=mind.CheckoutUnits.Count){mind.Phase=Phase.Paying;mind.Since=Time.time;mind.Agent.Play("Pay");return;}
-            var product=mind.CheckoutUnits[mind.CheckoutIndex];mind.BasketVisual?.RemoveProduct(product);mind.CheckoutFlow.BeginUnit(product);mind.Agent.Play("CheckoutItem");mind.Phase=Phase.Unloading;mind.Since=Time.time;
+            if(mind.CheckoutIndex>=mind.CheckoutUnits.Count){mind.Phase=Phase.Paying;mind.Since=Time.time;mind.Agent.Play("Queue");return;}
+            var product=mind.CheckoutUnits[mind.CheckoutIndex];mind.BasketVisual?.RemoveProduct(product);mind.CheckoutFlow.BeginUnit(product);mind.Agent.Play("Queue");mind.Phase=Phase.Unloading;mind.Since=Time.time;
         }
         void AdvanceCheckout(Mind mind){mind.CheckoutIndex++;BeginCheckoutUnit(mind);}
         float ScanSeconds(int lane)
