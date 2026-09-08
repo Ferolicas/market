@@ -190,9 +190,6 @@ namespace MiniMarket.Store
             await BuildFarm(world);
             await BuildServices(world);
             await BuildKitProps(world.Root);
-            world.OverviewBounds = new Bounds(
-                new Vector3(0f, 6f, -4f * StoreScale),
-                new Vector3(108f * StoreScale, 20f, 128f * StoreScale));
             BuildNavigationAnchors(world);
             BuildNavMesh(world.Root);
             BuildOuterGroundCollider(parent);

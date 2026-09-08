@@ -28,7 +28,6 @@ namespace MiniMarket.Store
         public Transform CheckoutBagPoint;
         public Transform ExitPoint;
         public Transform WarehousePoint;
-        public Bounds OverviewBounds;
 
         public Transform ServicePoint(string productId)
             => ProductServicePoints.TryGetValue(productId, out var point) ? point : EntranceInside;
