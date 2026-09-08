@@ -10,16 +10,12 @@ self.addEventListener("fetch",event=>{
   // Unity's .br payloads must go straight from Caddy to the browser. Passing
   // them through CacheStorage can retain Content-Encoding after the body was
   // decoded, causing a second Brotli decode and ERR_CONTENT_DECODING_FAILED.
-  if(url.origin!==self.location.origin||url.pathname.startsWith("/api/")||url.pathname.startsWith("/reset-password")||url.pathname.startsWith("/Build/"))return;
-  // Streamed catalog and GLBs must revalidate against the server; the HTTP
-  // cache is the one layer the per-build cache name cannot invalidate.
-  const streamed=url.pathname.includes("/StreamingAssets/");
-  event.respondWith(fetch(streamed?new Request(event.request,{cache:"no-cache"}):event.request).then(response=>{
-    // The shell is worth keeping; the art is not. Copying a hundred megabytes
-    // of GLB into CacheStorage carried on while the owner took his first steps
-    // and made them stutter on the phone -- and the browser's own http cache
-    // already spares the second visit.
-    if(response&&response.status===200&&!streamed){const copy=response.clone();caches.open(CACHE).then(cache=>cache.put(event.request,copy)).catch(()=>{});}
+  if(url.origin!==self.location.origin||url.pathname.startsWith("/api/")||url.pathname.startsWith("/reset-password")||url.pathname.startsWith("/Build/")||url.pathname.includes("/StreamingAssets/"))return;
+  event.respondWith(fetch(event.request).then(response=>{
+    // The shell is small and safe in CacheStorage. Hashed WebGL payloads and
+    // hash-versioned GLBs stay in the browser HTTP/IndexedDB caches, avoiding a
+    // second download without copying 170 MB while gameplay has already begun.
+    if(response&&response.status===200){const copy=response.clone();caches.open(CACHE).then(cache=>cache.put(event.request,copy)).catch(()=>{});}
     return response;
   }).catch(()=>caches.match(event.request)));
 });

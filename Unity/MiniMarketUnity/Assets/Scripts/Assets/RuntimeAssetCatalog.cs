@@ -68,6 +68,15 @@ namespace MiniMarket.Assets
         }
 
         public bool TryGet(string id, out Entry entry) => entries.TryGetValue(id, out entry);
-        public string Url(Entry entry) => System.IO.Path.Combine(Application.streamingAssetsPath, entry.Path).Replace("\\", "/");
+        public string Url(Entry entry)
+        {
+            // The asset path is stable while its contents may be replaced by a
+            // polished model. Key the browser's permanent HTTP cache by the
+            // catalog hash: repeat visits reuse the local bytes instantly and a
+            // changed model receives a new URL without clearing the old cache.
+            var url=System.IO.Path.Combine(Application.streamingAssetsPath,entry.Path).Replace("\\","/");
+            var version=string.IsNullOrWhiteSpace(entry.Sha256)?"asset":entry.Sha256.Substring(0,Math.Min(16,entry.Sha256.Length));
+            return $"{url}?v={version}";
+        }
     }
 }

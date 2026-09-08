@@ -47,7 +47,7 @@ namespace MiniMarket.UI
         }
 
         public void ShowLoading(string message){if(!loading)Build();loading.gameObject.SetActive(true);loadingText.text=message;loadingSteps++;
-            var progress=Mathf.Clamp01(loadingSteps/9f);SetMeter(loadingFill,progress);loadingPercent.text=$"{Mathf.RoundToInt(progress*100)}%";}
+            var progress=Mathf.Clamp01(loadingSteps/8f);SetMeter(loadingFill,progress);loadingPercent.text=$"{Mathf.RoundToInt(progress*100)}%";}
         public void HideLoading(){if(loading)loading.gameObject.SetActive(false);}
         public void ShowFatal(string message){ShowLoading(message);loadingText.color=new Color(1,.55f,.45f);}
 
@@ -208,26 +208,29 @@ namespace MiniMarket.UI
             loadingCard.parent.GetComponent<RectTransform>().anchorMin=new Vector2(.5f,.5f);
             loadingCard.parent.GetComponent<RectTransform>().anchorMax=new Vector2(.5f,.5f);
             (loadingCard.parent as RectTransform).pivot=new Vector2(.5f,.5f);
-            (loadingCard.parent as RectTransform).sizeDelta=new Vector2(420,180);
+            (loadingCard.parent as RectTransform).sizeDelta=new Vector2(422,208);
             (loadingCard.parent as RectTransform).anchoredPosition=Vector2.zero;
-            var loadingMark=Panel("Mark",loadingCard,Alpha(Green,.12f));
-            loadingMark.anchorMin=loadingMark.anchorMax=new Vector2(0,1);loadingMark.pivot=new Vector2(0,1);
-            loadingMark.sizeDelta=new Vector2(46,46);loadingMark.anchoredPosition=new Vector2(24,-24);
-            var loadingGlyph=new GameObject("Icon",typeof(RectTransform),typeof(Image));
-            loadingGlyph.transform.SetParent(loadingMark,false);
-            var loadingGlyphImage=loadingGlyph.GetComponent<Image>();loadingGlyphImage.sprite=Icon("store");
-            loadingGlyphImage.color=Green;loadingGlyphImage.preserveAspect=true;loadingGlyphImage.raycastTarget=false;
-            Anchor(loadingGlyph.GetComponent<RectTransform>(),Vector2.zero,Vector2.one,new Vector2(11,11),new Vector2(-11,-11));
-            loadingText=Label(loadingCard,"Preparando la tienda…",20,TextAnchor.UpperLeft);
-            loadingText.color=Ink;loadingText.fontStyle=FontStyle.Bold;loadingText.resizeTextForBestFit=false;
-            Anchor(loadingText.rectTransform,new Vector2(0,1),new Vector2(1,1),new Vector2(84,-60),new Vector2(-24,-24));
-            var loadingTrack=Panel("Track",loadingCard,Border);
-            Anchor(loadingTrack,new Vector2(0,0),new Vector2(1,0),new Vector2(24,42),new Vector2(-84,52));
+            var artObject=new GameObject("LoadingKitArtwork",typeof(RectTransform),typeof(RawImage));
+            artObject.transform.SetParent(loadingCard,false);
+            var art=artObject.GetComponent<RawImage>();art.texture=Resources.Load<Texture2D>("UI/LoadingStore");art.raycastTarget=false;
+            Anchor(artObject.GetComponent<RectTransform>(),Vector2.zero,Vector2.one,Vector2.zero,Vector2.zero);
+            // The supplied artwork already contains the approved shop scene.
+            // These two warm overlays replace its sample text and 70% meter
+            // with the real startup phase and actual runtime progress.
+            var loadingCopy=Panel("LiveLoadingCopy",loadingCard,Alpha(Linear("908071"),.97f));
+            Anchor(loadingCopy,new Vector2(0,1),new Vector2(0,1),new Vector2(18,-132),new Vector2(202,-48));
+            loadingText=Label(loadingCopy,"Preparando la tienda…",20,TextAnchor.MiddleLeft);
+            loadingText.color=Cream;loadingText.fontStyle=FontStyle.Bold;loadingText.resizeTextForBestFit=true;loadingText.resizeTextMinSize=13;loadingText.resizeTextMaxSize=20;
+            Anchor(loadingText.rectTransform,Vector2.zero,Vector2.one,new Vector2(12,5),new Vector2(-8,-5));
+            var progressCopy=Panel("LiveLoadingProgress",loadingCard,Alpha(Linear("968878"),.98f));
+            Anchor(progressCopy,new Vector2(0,0),new Vector2(0,0),new Vector2(18,22),new Vector2(220,67));
+            var loadingTrack=Panel("Track",progressCopy,Alpha(Cream,.82f));
+            Anchor(loadingTrack,new Vector2(0,0),new Vector2(0,0),new Vector2(12,17),new Vector2(146,27));
             loadingFill=Panel("Fill",loadingTrack,Green);
             Anchor(loadingFill,Vector2.zero,new Vector2(.08f,1),Vector2.zero,Vector2.zero);
-            loadingPercent=Label(loadingCard,"8%",13,TextAnchor.MiddleRight);
-            loadingPercent.color=Sage;loadingPercent.resizeTextForBestFit=false;
-            Anchor(loadingPercent.rectTransform,new Vector2(1,0),new Vector2(1,0),new Vector2(-74,36),new Vector2(-24,58));
+            loadingPercent=Label(progressCopy,"8%",15,TextAnchor.MiddleCenter);
+            loadingPercent.color=Cream;loadingPercent.fontStyle=FontStyle.Bold;loadingPercent.resizeTextForBestFit=false;
+            Anchor(loadingPercent.rectTransform,new Vector2(0,0),new Vector2(0,1),new Vector2(150,0),new Vector2(200,0));
 
             // QA readout: hidden unless the build asks for it, dark card top right.
             qaPanel=Panel("QaPanel",root.transform,Linear("2E3325"));
