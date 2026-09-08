@@ -35,13 +35,26 @@ namespace MiniMarket.Player
         const float FocusResponse = 4.8f;
         const float ReleaseResponse = 3.2f;
         const float ZoomResponse = 5f;
+        // In portrait the orthographic frustum is much taller. At the approved
+        // 20-degree angle its lower edge used to start below y=0 while its upper
+        // rays reached beyond the 120-unit far plane. The canvas was full-screen,
+        // but those rays could only draw the cyan clear colour, making the world
+        // look like a rounded iframe between two bands. Pulling an orthographic
+        // camera backwards along its own axis does not change object size or the
+        // viewing angle; it only puts the complete frustum above the ground.
+        const float GroundCoverageMargin = 1f;
+        const float MinimumFarClip = 512f;
 
         Camera view;
         float checkoutBlend;
         float inverseSize;
         bool framed;
 
-        void Awake() => view = GetComponent<Camera>();
+        void Awake()
+        {
+            view = GetComponent<Camera>();
+            if(view)view.farClipPlane=Mathf.Max(view.farClipPlane,MinimumFarClip);
+        }
 
         void LateUpdate()
         {
@@ -69,16 +82,39 @@ namespace MiniMarket.Player
             var desiredPosition=Vector3.Lerp(overviewPosition,checkoutPosition,checkoutBlend);
             var desiredInverse=Mathf.Lerp(1f/OverviewSize(),1f/CheckoutSize(),checkoutBlend);
 
-            // Following in LateUpdate with no positional damping keeps the
-            // character on the optical axis while standing, walking or turning.
-            transform.position = desiredPosition;
-            transform.rotation = Quaternion.LookRotation((desiredTarget - desiredPosition).normalized, Vector3.up);
+            var frameHalfHeight=1f/Mathf.Max(.0001f,desiredInverse);
             if (view && view.orthographic)
             {
                 if(!framed){inverseSize=desiredInverse;framed=true;}
                 else inverseSize=Mathf.Lerp(inverseSize,desiredInverse,Damp(ZoomResponse,FrameDelta(Time.deltaTime)));
-                view.orthographicSize=1f/Mathf.Max(.0001f,inverseSize);
+                frameHalfHeight=1f/Mathf.Max(.0001f,inverseSize);
+                view.orthographicSize=frameHalfHeight;
+                view.farClipPlane=Mathf.Max(view.farClipPlane,MinimumFarClip);
             }
+            desiredPosition=CoverGround(desiredTarget,desiredPosition,frameHalfHeight);
+
+            // Following in LateUpdate with no positional damping keeps the
+            // character on the optical axis while standing, walking or turning.
+            transform.position = desiredPosition;
+            transform.rotation = Quaternion.LookRotation((desiredTarget - desiredPosition).normalized, Vector3.up);
+        }
+
+        /// Keeps every portrait-screen ray in front of the y=0 world plane.
+        /// The returned point stays on the exact same camera axis, so the
+        /// projection, target position, character size and 20-degree view remain
+        /// unchanged. Wide screens already have enough height and return the
+        /// original position byte-for-byte.
+        internal static Vector3 CoverGround(Vector3 target,Vector3 position,float halfHeight)
+        {
+            var back=position-target;
+            if(back.sqrMagnitude<.0001f)return position;
+            back.Normalize();
+            if(back.y<=.0001f)return position;
+            var rotation=Quaternion.LookRotation(-back,Vector3.up);
+            var screenUp=rotation*Vector3.up;
+            var bottomY=position.y-Mathf.Abs(screenUp.y)*Mathf.Max(0,halfHeight);
+            if(bottomY>=GroundCoverageMargin)return position;
+            return position+back*((GroundCoverageMargin-bottomY)/back.y);
         }
 
         // Next sizes the frustum in canvas pixels beneath a WORLD_SCALE=3 group:

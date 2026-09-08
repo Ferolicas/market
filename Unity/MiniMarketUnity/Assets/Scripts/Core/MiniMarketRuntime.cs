@@ -655,7 +655,7 @@ namespace MiniMarket.Core
             // mirrored like the rest of the world, otherwise every shadow
             // falls on the opposite side of its object from the Next scene.
             sun.transform.rotation=Quaternion.Euler(50.754f,131.185f,0f);
-            var cameraGo=new GameObject("Main Camera");cameraGo.tag="MainCamera";var camera=cameraGo.AddComponent<Camera>();camera.orthographic=true;camera.orthographicSize=5.4625f;camera.nearClipPlane=.1f;camera.farClipPlane=120;camera.clearFlags=CameraClearFlags.SolidColor;camera.backgroundColor=new Color(.72f,.875f,.81f);cameraGo.AddComponent<AudioListener>();cameraGo.AddComponent<IsometricCamera>();
+            var cameraGo=new GameObject("Main Camera");cameraGo.tag="MainCamera";var camera=cameraGo.AddComponent<Camera>();camera.orthographic=true;camera.orthographicSize=5.4625f;camera.nearClipPlane=.1f;camera.farClipPlane=512;camera.clearFlags=CameraClearFlags.SolidColor;camera.backgroundColor=new Color(.22f,.36f,.12f);cameraGo.AddComponent<AudioListener>();cameraGo.AddComponent<IsometricCamera>();
         }
 
         void OnDestroy()
