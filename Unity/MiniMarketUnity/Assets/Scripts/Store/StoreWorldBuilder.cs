@@ -145,7 +145,6 @@ namespace MiniMarket.Store
             ("WoodCrate",2.8f,-7.4f,1.04f,0f),
             ("Furniture2:WoodCrate",2.4f,-6.9f,0f,25f),
             ("FlourMill",1.4f,-5.4f,0f,0f),
-            ("JuiceMachine",2.6f,-5.4f,0f,0f),
             ("DeliveryDockAlt",10.6f,-5.4f,0f,90f),   // segundo muelle
             ("UpgradePlatformAlt",10.6f,-3.8f,0f,90f),
             ("FarmGate",7.5f,-10.575f,0f,0f),   // porton de la granja
@@ -892,7 +891,10 @@ namespace MiniMarket.Store
             HideIfBare(await Place("OperationsWall",XZ(-1.6f,-8.05f),Quaternion.identity,Vector3.one,root,true));
             HideIfBare(await Place("BackroomStorage",XZ(5.25f,-8f),Quaternion.identity,Vector3.one,root,true));
             HideIfBare(await Place("StockroomRack",XZ(9.65f,-7.85f),Quaternion.identity,Vector3.one,root,true));
-            HideIfBare(await Place("SeasonalDisplay",XZ(-7f,3.15f),Quaternion.identity,Vector3.one,root,true));
+            // The seasonal produce rack touches the functional fruit display:
+            // their approved world widths are 12.35 and 12.54 respectively.
+            // Half their sum converts to 4.148 local units, leaving no seam.
+            HideIfBare(await Place("SeasonalDisplay",XZ(-2.074f,-2.2f),Quaternion.identity,Vector3.one,root,true));
             // Three's +90 degree turn becomes -90 after mirroring the plan on X.
             HideIfBare(await Place("ShelfEndcap",XZ(6.4f,-2.2f),Quaternion.Euler(0,-90,0),Vector3.one,root,true));
 
@@ -1209,18 +1211,20 @@ namespace MiniMarket.Store
                 var displayX=pos[0].Value<float>();var displayZ=pos[2].Value<float>();
                 var serviceX=service[0].Value<float>();var serviceZ=service[1].Value<float>();
                 var yaw=data.Value<float?>("yaw")??0f;
-                // Fruit replaces the individual coffee shelf. Drinks occupies
-                // the neighbouring bay, so the two requested fixtures form one
-                // straight row. Bread and coffee move into the two vacated bays
-                // and keep every retail product available and reachable.
+                // Fruit stays in the former individual-shelf bay, touching the
+                // seasonal rack placed above. Along the side wall, dairy is
+                // followed by drinks, the juice machine and eggs. Bread and
+                // coffee retain the two free central bays.
                 if(property.Name=="produce")
                 {displayX=0f;displayZ=-2.2f;serviceX=0f;serviceZ=-.88f;yaw=0f;}
                 else if(property.Name=="drinks")
-                {displayX=-4f;displayZ=-2.2f;serviceX=-4f;serviceZ=-.88f;yaw=0f;}
+                {displayX=-10.2f;displayZ=3.9f;serviceX=-9.1f;serviceZ=3.9f;yaw=-90f;}
                 else if(property.Name=="bakery")
                 {displayX=-4.1f;displayZ=2.45f;serviceX=-4.1f;serviceZ=1.08f;yaw=0f;}
                 else if(property.Name=="pantry")
-                {displayX=-10.5f;displayZ=2.25f;serviceX=-9.4f;serviceZ=2.25f;yaw=-90f;}
+                {displayX=-4f;displayZ=-2.2f;serviceX=-4f;serviceZ=-.88f;yaw=0f;}
+                else if(property.Name=="eggs")
+                {displayX=-10.81f;displayZ=1.47f;serviceX=-9.71f;serviceZ=1.47f;yaw=-90f;}
                 var position = new Vector3(-displayX * LayoutScale, 0, displayZ * LayoutScale);
                 // The GLB front already follows Unity's local forward axis. The
                 // position is mirrored, but mirroring this yaw a second time
@@ -1325,14 +1329,23 @@ namespace MiniMarket.Store
                 var data = (JObject)property.Value; var pos = (JArray)data["position"];
                 var fixtureX=pos[0].Value<float>();var fixtureZ=pos[2].Value<float>();
                 // The front row and its left column follow the smaller glass
-                // room instead of protruding through its new exposed sides.
-                if(property.Name=="breadOven"||property.Name=="juiceMachine")fixtureX=-7.75f;
-                if(property.Name=="cheeseMaker"||property.Name=="juiceMachine")fixtureZ=-4f;
-                var root = HideIfBare(await Place(ids[property.Name], new Vector3(-fixtureX * LayoutScale, 0, fixtureZ * LayoutScale), Quaternion.identity, Vector3.one * ElementScale, world.Root, true));
-                world.AvailabilityVisuals[$"machine:{data.Value<string>("machineId")}"]=root;
+                // room instead of protruding through its new exposed sides. The
+                // juice machine joins the wall line and faces the same aisle as
+                // dairy, drinks and eggs.
+                var rotation=Quaternion.identity;
+                if(property.Name=="breadOven")fixtureX=-7.75f;
+                if(property.Name=="cheeseMaker")fixtureZ=-4f;
+                if(property.Name=="juiceMachine")
+                {fixtureX=-10.34f;fixtureZ=2.74f;rotation=Quaternion.Euler(0,-90,0);}
+                var root = HideIfBare(await Place(ids[property.Name], new Vector3(-fixtureX * LayoutScale, 0, fixtureZ * LayoutScale), rotation, Vector3.one * ElementScale, world.Root, true));
+                // The requested juice-machine furniture remains visible in its
+                // final position before level 21; only its action stays locked.
+                if(property.Name!="juiceMachine")world.AvailabilityVisuals[$"machine:{data.Value<string>("machineId")}"]=root;
                 var work=(JArray)data["operatorWorkPoint"];
-                var workPoint=NearLayoutPoint($"MachineWork_{property.Name}",root.transform,
-                    pos[0].Value<float>(),pos[2].Value<float>(),work[0].Value<float>(),work[1].Value<float>(),world.Root);
+                var workPoint=property.Name=="juiceMachine"
+                    ?NearLayoutPoint($"MachineWork_{property.Name}",root.transform,fixtureX,fixtureZ,-9.24f,fixtureZ,world.Root)
+                    :NearLayoutPoint($"MachineWork_{property.Name}",root.transform,
+                        pos[0].Value<float>(),pos[2].Value<float>(),work[0].Value<float>(),work[1].Value<float>(),world.Root);
                 var interaction=AddAreaInteraction(world,root,$"machine:{data.Value<string>("machineId")}",data.Value<string>("label"),WorldUnitsPerMeter*.72f,true,.035f,.75f);
                 interaction.repeatAutomatically=false;
                 var machineId=data.Value<string>("machineId");world.MachinePoints[machineId]=workPoint;world.MachineActionAreas[machineId]=interaction;
