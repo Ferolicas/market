@@ -130,11 +130,11 @@ namespace MiniMarket.Store
         /// already there, so no customer or worker route changes.
         static readonly (string id,float x,float z,float y,float yaw)[] KitProps =
         {
-            ("ShelfGondolaDouble",-7.8f,0.9f,0f,90f),   // pasillo nuevo a la izquierda
-            ("ShelfGondolaSingle",-7.8f,-0.9f,0f,90f),
-            ("ShelfDivider",-7.8f,1.9f,0f,90f),
-            ("ShelfPriceRail",-7.8f,-1.9f,0f,90f),
-            ("ChestFreezer",10.4f,-2.2f,0f,90f),
+            ("ShelfGondolaDouble",-7.8f,-1.8f,0f,-90f),   // referencia verde de la fila
+            ("ShelfGondolaSingle",-5.704f,-1.8f,0f,-90f),
+            ("ShelfDivider",-7.8f,-.8f,0f,-90f),
+            ("ShelfPriceRail",-7.8f,-1.8f,0f,-90f),
+            ("ChestFreezer",10.4f,5.2f,0f,90f),
             // Keep the bakery centre clear: two pieces form one straight run
             // against the rear wall, while the counter rests on the side wall
             // and opens towards the room.
@@ -891,12 +891,12 @@ namespace MiniMarket.Store
             HideIfBare(await Place("OperationsWall",XZ(-1.6f,-8.05f),Quaternion.identity,Vector3.one,root,true));
             HideIfBare(await Place("BackroomStorage",XZ(5.25f,-8f),Quaternion.identity,Vector3.one,root,true));
             HideIfBare(await Place("StockroomRack",XZ(9.65f,-7.85f),Quaternion.identity,Vector3.one,root,true));
-            // The seasonal produce rack touches the functional fruit display:
-            // their approved world widths are 12.35 and 12.54 respectively.
-            // Half their sum converts to 4.148 local units, leaving no seam.
-            HideIfBare(await Place("SeasonalDisplay",XZ(-2.074f,-2.2f),Quaternion.identity,Vector3.one,root,true));
+            // Every shelf follows the green gondola at the same -90 degree
+            // orientation. Centres account for each real fitted width and leave
+            // exactly two individual floor tiles (7.667 world units) free.
+            HideIfBare(await Place("SeasonalDisplay",XZ(-1.274f,-1.8f),Quaternion.Euler(0,-90,0),Vector3.one,root,true));
             // Three's +90 degree turn becomes -90 after mirroring the plan on X.
-            HideIfBare(await Place("ShelfEndcap",XZ(6.4f,-2.2f),Quaternion.Euler(0,-90,0),Vector3.one,root,true));
+            HideIfBare(await Place("ShelfEndcap",XZ(7.144f,-1.8f),Quaternion.Euler(0,-90,0),Vector3.one,root,true));
 
             HideIfBare(await Place("WallClock",XZ(9.65f,-8.34f,2.2f),Quaternion.identity,Vector3.one,root));
             HideIfBare(await Place("SecurityCamera",XZ(-10.75f,-8.05f,2.55f),Quaternion.identity,Vector3.one,root));
@@ -1211,20 +1211,19 @@ namespace MiniMarket.Store
                 var displayX=pos[0].Value<float>();var displayZ=pos[2].Value<float>();
                 var serviceX=service[0].Value<float>();var serviceZ=service[1].Value<float>();
                 var yaw=data.Value<float?>("yaw")??0f;
-                // Fruit stays in the former individual-shelf bay, touching the
-                // seasonal rack placed above. Along the side wall, dairy is
-                // followed by drinks, the juice machine and eggs. Bread and
-                // coffee retain the two free central bays.
+                // All merchandise displays form one parallel aisle row based
+                // on the green gondola. Their centres include the true fitted
+                // widths plus two complete floor tiles of free passage.
                 if(property.Name=="produce")
-                {displayX=0f;displayZ=-2.2f;serviceX=0f;serviceZ=-.88f;yaw=0f;}
+                {displayX=-3.582f;displayZ=-1.8f;serviceX=-2.482f;serviceZ=-1.8f;yaw=-90f;}
                 else if(property.Name=="drinks")
-                {displayX=-10.2f;displayZ=3.9f;serviceX=-9.1f;serviceZ=3.9f;yaw=-90f;}
+                {displayX=.963f;displayZ=-1.8f;serviceX=2.063f;serviceZ=-1.8f;yaw=-90f;}
                 else if(property.Name=="bakery")
-                {displayX=-4.1f;displayZ=2.45f;serviceX=-4.1f;serviceZ=1.08f;yaw=0f;}
+                {displayX=9.519f;displayZ=-1.8f;serviceX=10.619f;serviceZ=-1.8f;yaw=-90f;}
                 else if(property.Name=="pantry")
-                {displayX=-4f;displayZ=-2.2f;serviceX=-4f;serviceZ=-.88f;yaw=0f;}
+                {displayX=5.028f;displayZ=-1.8f;serviceX=6.128f;serviceZ=-1.8f;yaw=-90f;}
                 else if(property.Name=="eggs")
-                {displayX=-10.81f;displayZ=1.47f;serviceX=-9.71f;serviceZ=1.47f;yaw=-90f;}
+                {displayX=3.082f;displayZ=-1.8f;serviceX=4.182f;serviceZ=-1.8f;yaw=-90f;}
                 var position = new Vector3(-displayX * LayoutScale, 0, displayZ * LayoutScale);
                 // The GLB front already follows Unity's local forward axis. The
                 // position is mirrored, but mirroring this yaw a second time
