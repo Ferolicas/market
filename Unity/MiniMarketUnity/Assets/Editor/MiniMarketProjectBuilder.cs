@@ -121,7 +121,12 @@ namespace MiniMarket.Editor
             if(int.TryParse(buildNumber,out var numericBuild)&&numericBuild>0)PlayerSettings.Android.bundleVersionCode=numericBuild;
             if(!string.IsNullOrWhiteSpace(buildNumber))PlayerSettings.iOS.buildNumber=buildNumber;
             PlayerSettings.colorSpace=ColorSpace.Linear;
-            PlayerSettings.defaultScreenWidth=1280;PlayerSettings.defaultScreenHeight=720;PlayerSettings.runInBackground=false;PlayerSettings.resizableWindow=true;
+            PlayerSettings.defaultScreenWidth=1280;PlayerSettings.defaultScreenHeight=720;PlayerSettings.runInBackground=true;PlayerSettings.resizableWindow=true;
+            // The web template owns the complete branded startup. Leaving the
+            // engine splash enabled placed "Made with Unity" between OLCAS DEV
+            // and the approved loading artwork.
+            PlayerSettings.SplashScreen.showUnityLogo=false;
+            PlayerSettings.SplashScreen.show=false;
             PlayerSettings.SetApplicationIdentifier(NamedBuildTarget.WebGL,"app.olcas.market.web");
             PlayerSettings.SetApplicationIdentifier(NamedBuildTarget.Android,"app.olcas.market");
             PlayerSettings.SetApplicationIdentifier(NamedBuildTarget.iOS,"app.olcas.market");

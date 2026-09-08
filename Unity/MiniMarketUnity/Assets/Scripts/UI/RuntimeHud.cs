@@ -33,7 +33,7 @@ namespace MiniMarket.UI
         static readonly Color Sage=Linear("676E4A");                       // verde medio
         static readonly Color Forest=Alpha(Linear("323524"),.96f);
         static readonly Color Positive=Linear("676E4A");static readonly Color Negative=Linear("C1705A");
-        Canvas canvas;Font font;Sprite roundedSprite;RectTransform loading;Text loadingText;Text money;Text clock;Text level;Text carry;Text save;Text prompt;Text toast;Text player;Text missionSummary;Text tutorialSummary;Text storeStatusText;Image storeStatusImage;RectTransform storeStatus;RectTransform carryChip;RectTransform saveChip;RectTransform promptPanel;RectTransform toastPanel;RectTransform tutorialCard;RectTransform drawer;RectTransform drawerContent;RectTransform drawerClose;RectTransform actions;readonly System.Collections.Generic.List<RectTransform> quickButtons=new();RectTransform levelBadge;Text levelBadgeText;RectTransform levelFill;RectTransform carrySlots;RectTransform toastRail;Image toastIconImage;Image saveIconImage;Image drawerIcon;Text drawerCountry;string currentPanel="inventory";int inventoryTab;int avatarTab;string setupCountry="ES";RectTransform loadingFill;Text loadingPercent;int loadingSteps;RectTransform qaPanel;Text qaText;float qaTimer;int qaFrames;int qaTriangles=-1;int qaRenderers;RenderTexture avatarTexture;Camera avatarCamera;ResponsiveHudLayout responsiveLayout;Text saveStamp;Text brandLabel;Image statusChevronImage;Image missionIconImage;readonly System.Collections.Generic.List<Image> tutorialSteps=new();readonly System.Collections.Generic.List<RectTransform> carryThumbs=new();Text drawerTitle;
+        Canvas canvas;Font font;Sprite roundedSprite;RectTransform loading;Text loadingText;Text money;Text clock;Text level;Text carry;Text save;Text prompt;Text toast;Text player;Text missionSummary;Text tutorialSummary;Text storeStatusText;Image storeStatusImage;RectTransform storeStatus;RectTransform carryChip;RectTransform saveChip;RectTransform promptPanel;RectTransform toastPanel;RectTransform tutorialCard;RectTransform drawer;RectTransform drawerContent;RectTransform drawerClose;RectTransform actions;RectTransform menuToggle;readonly System.Collections.Generic.List<RectTransform> quickButtons=new();RectTransform levelBadge;Text levelBadgeText;RectTransform levelFill;RectTransform carrySlots;RectTransform toastRail;Image toastIconImage;Image saveIconImage;Image drawerIcon;Text drawerCountry;string currentPanel="inventory";int inventoryTab;int avatarTab;string setupCountry="ES";RectTransform loadingFill;Text loadingPercent;int loadingSteps;RectTransform qaPanel;Text qaText;float qaTimer;int qaFrames;int qaTriangles=-1;int qaRenderers;RenderTexture avatarTexture;Camera avatarCamera;ResponsiveHudLayout responsiveLayout;Text saveStamp;Text brandLabel;Image statusChevronImage;Image missionIconImage;readonly System.Collections.Generic.List<Image> tutorialSteps=new();readonly System.Collections.Generic.List<RectTransform> carryThumbs=new();Text drawerTitle;
         // Unused by the project; the main camera still draws it, so the world view
         // is unchanged while the preview camera can cull down to the player alone.
         const int AvatarLayer=8;
@@ -46,9 +46,9 @@ namespace MiniMarket.UI
             BuildNavigation();BuildJoystick();Refresh();if(runtime.CompanySetup.Required)OpenPanel("setup");
         }
 
-        public void ShowLoading(string message){if(!loading)Build();loading.gameObject.SetActive(true);loadingText.text=message;loadingSteps++;
+        public void ShowLoading(string message){if(!loading)Build();loading.gameObject.SetActive(true);loading.SetAsLastSibling();responsiveLayout?.SetReady(false);loadingText.text=message;loadingSteps++;
             var progress=Mathf.Clamp01(loadingSteps/8f);SetMeter(loadingFill,progress);loadingPercent.text=$"{Mathf.RoundToInt(progress*100)}%";}
-        public void HideLoading(){if(loading)loading.gameObject.SetActive(false);}
+        public void HideLoading(){if(loading)loading.gameObject.SetActive(false);responsiveLayout?.SetReady(true);}
         public void ShowFatal(string message){ShowLoading(message);loadingText.color=new Color(1,.55f,.45f);}
 
         void Build()
@@ -204,33 +204,26 @@ namespace MiniMarket.UI
             scroll.content=drawerContent;scroll.viewport=viewport;drawer.gameObject.SetActive(false);
             loading=Panel("Loading",root.transform,Linear("F2ECE4"));
             Anchor(loading,Vector2.zero,Vector2.one,Vector2.zero,Vector2.zero);
-            var loadingCard=Card(loading,Cream);
-            loadingCard.parent.GetComponent<RectTransform>().anchorMin=new Vector2(.5f,.5f);
-            loadingCard.parent.GetComponent<RectTransform>().anchorMax=new Vector2(.5f,.5f);
-            (loadingCard.parent as RectTransform).pivot=new Vector2(.5f,.5f);
-            (loadingCard.parent as RectTransform).sizeDelta=new Vector2(422,208);
-            (loadingCard.parent as RectTransform).anchoredPosition=Vector2.zero;
-            var artObject=new GameObject("LoadingKitArtwork",typeof(RectTransform),typeof(RawImage));
-            artObject.transform.SetParent(loadingCard,false);
+            // This is a purpose-built portrait artwork, not the former landscape
+            // card enlarged or cropped into a phone. EnvelopeParent preserves its
+            // native 941:1672 composition while covering every screen edge.
+            var artObject=new GameObject("LoadingPortraitArtwork",typeof(RectTransform),typeof(RawImage),typeof(AspectRatioFitter));
+            artObject.transform.SetParent(loading,false);
             var art=artObject.GetComponent<RawImage>();art.texture=Resources.Load<Texture2D>("UI/LoadingStore");art.raycastTarget=false;
             Anchor(artObject.GetComponent<RectTransform>(),Vector2.zero,Vector2.one,Vector2.zero,Vector2.zero);
-            // The supplied artwork already contains the approved shop scene.
-            // These two warm overlays replace its sample text and 70% meter
-            // with the real startup phase and actual runtime progress.
-            var loadingCopy=Panel("LiveLoadingCopy",loadingCard,Alpha(Linear("908071"),.97f));
-            Anchor(loadingCopy,new Vector2(0,1),new Vector2(0,1),new Vector2(18,-132),new Vector2(202,-48));
-            loadingText=Label(loadingCopy,"Preparando la tienda…",20,TextAnchor.MiddleLeft);
+            var artAspect=artObject.GetComponent<AspectRatioFitter>();artAspect.aspectMode=AspectRatioFitter.AspectMode.EnvelopeParent;artAspect.aspectRatio=941f/1672f;
+            var loadingStatus=Panel("LiveLoadingStatus",loading,Alpha(Forest,.88f));
+            Anchor(loadingStatus,new Vector2(.07f,0),new Vector2(.93f,0),new Vector2(0,38),new Vector2(0,154));
+            loadingText=Label(loadingStatus,"Preparando la tienda…",20,TextAnchor.MiddleLeft);
             loadingText.color=Cream;loadingText.fontStyle=FontStyle.Bold;loadingText.resizeTextForBestFit=true;loadingText.resizeTextMinSize=13;loadingText.resizeTextMaxSize=20;
-            Anchor(loadingText.rectTransform,Vector2.zero,Vector2.one,new Vector2(12,5),new Vector2(-8,-5));
-            var progressCopy=Panel("LiveLoadingProgress",loadingCard,Alpha(Linear("968878"),.98f));
-            Anchor(progressCopy,new Vector2(0,0),new Vector2(0,0),new Vector2(18,22),new Vector2(220,67));
-            var loadingTrack=Panel("Track",progressCopy,Alpha(Cream,.82f));
-            Anchor(loadingTrack,new Vector2(0,0),new Vector2(0,0),new Vector2(12,17),new Vector2(146,27));
+            Anchor(loadingText.rectTransform,new Vector2(0,0),new Vector2(1,1),new Vector2(18,42),new Vector2(-18,-12));
+            var loadingTrack=Panel("Track",loadingStatus,Alpha(Cream,.32f));
+            Anchor(loadingTrack,new Vector2(0,0),new Vector2(1,0),new Vector2(18,18),new Vector2(-72,30));
             loadingFill=Panel("Fill",loadingTrack,Green);
             Anchor(loadingFill,Vector2.zero,new Vector2(.08f,1),Vector2.zero,Vector2.zero);
-            loadingPercent=Label(progressCopy,"8%",15,TextAnchor.MiddleCenter);
+            loadingPercent=Label(loadingStatus,"8%",15,TextAnchor.MiddleRight);
             loadingPercent.color=Cream;loadingPercent.fontStyle=FontStyle.Bold;loadingPercent.resizeTextForBestFit=false;
-            Anchor(loadingPercent.rectTransform,new Vector2(0,0),new Vector2(0,1),new Vector2(150,0),new Vector2(200,0));
+            Anchor(loadingPercent.rectTransform,new Vector2(1,0),new Vector2(1,0),new Vector2(-66,7),new Vector2(-18,41));
 
             // QA readout: hidden unless the build asks for it, dark card top right.
             qaPanel=Panel("QaPanel",root.transform,Linear("2E3325"));
@@ -266,28 +259,23 @@ namespace MiniMarket.UI
             handle.gameObject.AddComponent<LayoutElement>().ignoreLayout=true;
             handle.anchorMin=handle.anchorMax=new Vector2(.5f,1);handle.pivot=new Vector2(.5f,1);
             handle.sizeDelta=new Vector2(46,5);handle.anchoredPosition=new Vector2(0,-7);
-            var sheetClose=CloseGlyph(actions,Muted,()=>{actions.gameObject.SetActive(false);audioService?.UiConfirm();},34);
+            var sheetClose=CloseGlyph(actions,Muted,()=>{responsiveLayout?.SetMenuOpen(false);audioService?.UiConfirm();},34);
             sheetClose.gameObject.AddComponent<LayoutElement>().ignoreLayout=true;
             sheetClose.anchorMin=sheetClose.anchorMax=new Vector2(.5f,0);sheetClose.pivot=new Vector2(.5f,0);
             sheetClose.anchoredPosition=new Vector2(0,6);
-            responsiveLayout=gameObject.AddComponent<ResponsiveHudLayout>();responsiveLayout.Bind(actions,drawer,row,quickButtons,handle,sheetClose,canvas.transform.Find("HudTop") as RectTransform,tutorialCard);
+            menuToggle=Pill(canvas.transform,"MENÚ",()=>{responsiveLayout?.SetMenuOpen(true);audioService?.UiConfirm();},Green,Cream);
+            Anchor(menuToggle,new Vector2(1,1),new Vector2(1,1),new Vector2(-92,-166),new Vector2(-14,-128));
+            actions.gameObject.SetActive(false);menuToggle.gameObject.SetActive(false);
+            responsiveLayout=gameObject.AddComponent<ResponsiveHudLayout>();responsiveLayout.Bind(actions,drawer,row,quickButtons,handle,sheetClose,menuToggle,canvas.transform.Find("HudTop") as RectTransform,tutorialCard);
         }
 
         void BuildJoystick()
         {
-            // The complete screen remains draggable, but portrait players also
-            // get the exact visual control supplied in the mobile interface kit.
-            // It is non-blocking, so dragging outside the drawing still works.
+            // Movement remains an invisible drag surface over the complete game
+            // view. A fixed illustration suggested interaction but never followed
+            // the finger, so it is intentionally not drawn.
             var area=Panel("GameInputSurface",canvas.transform,new Color(0,0,0,0));Anchor(area,Vector2.zero,Vector2.one,Vector2.zero,Vector2.zero);area.SetAsFirstSibling();
             joystick=area.gameObject.AddComponent<VirtualJoystick>();joystick.Bind(area,runtime.Player,canvas);
-            var visualObject=new GameObject("JoystickVisual",typeof(RectTransform),typeof(RawImage));
-            visualObject.transform.SetParent(canvas.transform,false);
-            var visual=visualObject.GetComponent<RectTransform>();
-            visual.anchorMin=visual.anchorMax=new Vector2(0,0);visual.pivot=new Vector2(0,0);
-            visual.sizeDelta=new Vector2(126,115);visual.anchoredPosition=new Vector2(14,70);
-            var image=visualObject.GetComponent<RawImage>();image.texture=Resources.Load<Texture2D>("UI/Joystick");image.raycastTarget=false;
-            visual.SetSiblingIndex(Mathf.Min(1,canvas.transform.childCount-1));
-            responsiveLayout?.BindJoystick(visual);
         }
 
         bool Narrow=>responsiveLayout&&responsiveLayout.Narrow;
@@ -307,7 +295,7 @@ namespace MiniMarket.UI
             if(id=="supplier")BuildSuppliers();else if(id=="inventory")BuildInventory();else if(id=="hiring")BuildTeam();else if(id=="closet")BuildCloset();else if(id=="map")BuildFranchises();else if(id=="finance")BuildFinance();else if(id=="help")BuildHelp();else if(id=="missions")BuildMissions();else if(id=="setup")BuildSetup();else BuildUpgrades();
             var country=runtime.Spec.Root["catalog"]?["COUNTRIES"]?[runtime.State.CountryCode] as JObject;
             drawerCountry.text=$"{country?.Value<string>("name")??runtime.State.CountryCode}  ·  {country?.Value<string>("currency")??""}";
-            var setup=id=="setup";if(drawerClose)drawerClose.gameObject.SetActive(!setup);if(actions)actions.gameObject.SetActive(!setup);
+            var setup=id=="setup";if(drawerClose)drawerClose.gameObject.SetActive(!setup);
             if(avatarCamera)avatarCamera.enabled=id=="closet";
             responsiveLayout?.DrawerOpened(true);
             drawer.SetAsLastSibling();

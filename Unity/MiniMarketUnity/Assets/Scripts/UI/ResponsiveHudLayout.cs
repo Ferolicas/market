@@ -10,11 +10,11 @@ namespace MiniMarket.UI
     /// </summary>
     public sealed class ResponsiveHudLayout : MonoBehaviour
     {
-        RectTransform actions;RectTransform drawer;GridLayoutGroup grid;List<RectTransform> buttons;RectTransform handle;RectTransform sheetClose;RectTransform topBar;RectTransform guide;RectTransform joystickVisual;CanvasScaler scaler;bool drawerOpen;bool narrowNow;readonly List<(LayoutElement element,float width)> topCells=new();readonly List<(Text label,int size)> topLabels=new();LayoutElement statusCell;int width,height;
+        RectTransform actions;RectTransform drawer;GridLayoutGroup grid;List<RectTransform> buttons;RectTransform handle;RectTransform sheetClose;RectTransform launcher;RectTransform topBar;RectTransform guide;CanvasScaler scaler;bool drawerOpen;bool menuOpen;bool ready;bool narrowNow;readonly List<(LayoutElement element,float width)> topCells=new();readonly List<(Text label,int size)> topLabels=new();LayoutElement statusCell;int width,height;
 
-        public void Bind(RectTransform actionBar,RectTransform drawerPanel,GridLayoutGroup actionGrid,List<RectTransform> quickButtons,RectTransform dragHandle=null,RectTransform closeRow=null,RectTransform top=null,RectTransform guideCard=null)
+        public void Bind(RectTransform actionBar,RectTransform drawerPanel,GridLayoutGroup actionGrid,List<RectTransform> quickButtons,RectTransform dragHandle=null,RectTransform closeRow=null,RectTransform launcherButton=null,RectTransform top=null,RectTransform guideCard=null)
         {
-            actions=actionBar;drawer=drawerPanel;grid=actionGrid;buttons=quickButtons;handle=dragHandle;sheetClose=closeRow;topBar=top;guide=guideCard;scaler=GetComponentInChildren<CanvasScaler>();
+            actions=actionBar;drawer=drawerPanel;grid=actionGrid;buttons=quickButtons;handle=dragHandle;sheetClose=closeRow;launcher=launcherButton;topBar=top;guide=guideCard;scaler=GetComponentInChildren<CanvasScaler>();
             if(topBar)
             {
                 foreach(var element in topBar.GetComponentsInChildren<LayoutElement>())
@@ -25,12 +25,6 @@ namespace MiniMarket.UI
                 if(status)statusCell=status.GetComponent<LayoutElement>();
             }
             Apply();
-        }
-
-        public void BindJoystick(RectTransform visual)
-        {
-            joystickVisual=visual;
-            if(joystickVisual)joystickVisual.gameObject.SetActive(narrowNow);
         }
 
         void Update(){if(Screen.width!=width||Screen.height!=height)Apply();}
@@ -83,9 +77,8 @@ namespace MiniMarket.UI
                 guide.offsetMax=narrow?new Vector2(-14,-176):new Vector2(-88,-84);
             }
             if(handle)handle.gameObject.SetActive(narrow);
-            if(joystickVisual)joystickVisual.gameObject.SetActive(narrow);
-            actions.gameObject.SetActive(!(narrow&&drawerOpen));
             if(sheetClose)sheetClose.gameObject.SetActive(narrow);
+            RefreshVisibility();
             // every entry stays reachable on a phone: the sheet holds all eight
             if(buttons==null)return;
             foreach(var button in buttons)
@@ -102,8 +95,16 @@ namespace MiniMarket.UI
 
         public void DrawerOpened(bool open)
         {
-            drawerOpen=open;
-            if(actions)actions.gameObject.SetActive(!(narrowNow&&open));
+            drawerOpen=open;if(open)menuOpen=false;RefreshVisibility();
+        }
+
+        public void SetReady(bool value){ready=value;if(!ready)menuOpen=false;RefreshVisibility();}
+        public void SetMenuOpen(bool value){menuOpen=value&&ready&&!drawerOpen;RefreshVisibility();}
+
+        void RefreshVisibility()
+        {
+            if(actions)actions.gameObject.SetActive(ready&&menuOpen&&!drawerOpen);
+            if(launcher)launcher.gameObject.SetActive(ready&&!menuOpen&&!drawerOpen);
         }
 
         /// The top bar carries fixed cell widths tuned for the desktop sheet. On a

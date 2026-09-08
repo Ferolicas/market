@@ -168,7 +168,9 @@ namespace MiniMarket.Customers
                 case Phase.Queueing:
                     UpdateQueueTarget(mind);
                     if (mind.Agent.Arrived) FaceCheckout(mind);
-                    if (mind.QueueSlot == 0 && mind.Agent.Arrived) { mind.Phase = Phase.Waiting; mind.Since = Time.time; mind.Agent.Play("Wait"); }
+                    // Wait is a seated clip in the delivered customer rigs.
+                    // Checkout customers remain upright at the head of the line.
+                    if (mind.QueueSlot == 0 && mind.Agent.Arrived) { mind.Phase = Phase.Waiting; mind.Since = Time.time; mind.Agent.Play("Idle"); }
                     break;
                 case Phase.Waiting:
                     FaceCheckout(mind);

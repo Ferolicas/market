@@ -67,6 +67,7 @@ namespace MiniMarket.Core
         AvatarAppearanceSystem avatarAppearance;CharacterFactory characterFactory;string playerCharacterId;
         PlayerCarryVisual playerCarryVisual;
         float simulationClock;float worldClock;float simulationDeltaMs;Vector3 lastPlayerPosition;
+        bool backgrounded;long backgroundStartedAtMs;long backgroundSimulationAtMs;
         readonly IGameTelemetry telemetry=new UnityGameTelemetry();
         IRuntimeConfigProvider runtimeConfig;
         string proximityQaId;
@@ -87,6 +88,7 @@ namespace MiniMarket.Core
 
         async Task BootAsync()
         {
+            Application.runInBackground=true;
             Application.backgroundLoadingPriority=ThreadPriority.Low;
             BuildEventSystem();BuildPresentation();
             var audio=gameObject.AddComponent<AudioManager>();audio.Build();
@@ -665,12 +667,12 @@ namespace MiniMarket.Core
 
         void OnApplicationPause(bool paused)
         {
-            if(paused)FlushForLifecycle("pause");
+            if(paused)EnterBackground("pause");else ResumeFromBackground("pause");
         }
 
         void OnApplicationFocus(bool hasFocus)
         {
-            if(!hasFocus)FlushForLifecycle("focus-lost");
+            if(!hasFocus)EnterBackground("focus-lost");else ResumeFromBackground("focus");
         }
 
         void OnApplicationQuit()
@@ -683,6 +685,37 @@ namespace MiniMarket.Core
             if(Saves==null)return;
             _=Saves.FlushLocalAsync();
             Debug.Log($"SAVE flush solicitado por lifecycle={reason}");
+        }
+
+        void EnterBackground(string reason)
+        {
+            if(Ready&&!backgrounded)
+            {
+                backgrounded=true;
+                backgroundStartedAtMs=DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                backgroundSimulationAtMs=State.SimulationTimeMs;
+            }
+            FlushForLifecycle(reason);
+        }
+
+        void ResumeFromBackground(string reason)
+        {
+            if(!Ready||!backgrounded)return;
+            backgrounded=false;
+            var elapsed=Math.Max(0,DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()-backgroundStartedAtMs);
+            // runInBackground may have advanced part or all of this interval.
+            // Apply only the time the OS actually suspended so crops, machines,
+            // deliveries and the store clock neither stop nor advance twice.
+            var alreadyAdvanced=Math.Max(0,State.SimulationTimeMs-backgroundSimulationAtMs);
+            var missing=Math.Max(0,elapsed-alreadyAdvanced);
+            if(missing<250)return;
+            State.SimulationTimeMs+=missing;
+            Farm.Tick(State.SimulationTimeMs);Production.Tick(State.SimulationTimeMs);farmVisuals?.Tick(State.SimulationTimeMs);
+            var minutes=(int)Math.Min(int.MaxValue,missing/5000L);
+            if(minutes>0)Days.AdvanceMinutes(minutes);
+            Orders.Tick();simulationClock=0;worldClock=0;simulationDeltaMs=0;
+            _=Saves.FlushLocalAsync();
+            Debug.Log($"MINIMARKET_BACKGROUND reason={reason} elapsedMs={elapsed} simulatedMs={missing} minutes={minutes}");
         }
     }
 }

@@ -1245,16 +1245,18 @@ namespace MiniMarket.Store
 
         async Task BuildCheckout(StoreWorld world)
         {
-            // Keep both checkout lanes beside the entrance. Every service,
-            // queue, camera and product socket below is derived from this
-            // transform, so the complete checkout flow moves as one unit.
-            const float checkoutEntranceOffsetZ=4f;
+            // Bring the lanes four world units closer to the door laterally,
+            // while increasing their facade clearance from four to sixteen
+            // world units. Every service, queue, camera and product socket is
+            // derived from this transform and therefore moves with its lane.
+            const float checkoutDoorOffsetX=4f;
+            const float checkoutEntranceOffsetZ=-8f;
             var lanes = (JObject)spec.Layouts["checkout"]["CHECKOUT_LANES"];
             foreach (var lane in lanes.Properties())
             {
                 var data = (JObject)lane.Value;
                 var counter = (JArray)data["counter"];
-                var position = new Vector3(-counter[0].Value<float>() * LayoutScale, 0,
+                var position = new Vector3(-counter[0].Value<float>() * LayoutScale+checkoutDoorOffsetX, 0,
                     counter[2].Value<float>() * LayoutScale+checkoutEntranceOffsetZ);
                 var checkout = HideIfBare(await Place("CheckoutArea", position, Quaternion.identity, Vector3.one * ElementScale, world.Root, true));
                 world.CheckoutCounters.Add(checkout.transform);
