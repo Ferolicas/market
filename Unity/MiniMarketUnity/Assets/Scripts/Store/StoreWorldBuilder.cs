@@ -1077,12 +1077,15 @@ namespace MiniMarket.Store
                 // physical compartment per row instead of forming generic rows
                 // across the front of the furniture.
                 if (!TryGetLocalRendererBounds(display, out var localBounds)) return;
-                var localSize = localBounds.size;var puntos = new List<Vector3>(30);
-                for(var item=0;item<10;item++)
+                var localSize = localBounds.size;var puntos = new List<Vector3>(36);
+                for(var item=0;item<12;item++)
                 {
-                    var row=item/5;var within=item%5;
+                    // Alternate rows from the first units, then fill all six
+                    // places in each wooden bin. This prevents a partially
+                    // stocked crate from leaving an entire row visually empty.
+                    var row=item%2;var within=item/2;
                     for(var product=0;product<3;product++)
-                        puntos.Add(new Vector3(localBounds.center.x+(product-1)*localSize.x*.31f+(within-2)*localSize.x*.047f,
+                        puntos.Add(new Vector3(localBounds.center.x+(product-1)*localSize.x*.31f+(within-2.5f)*localSize.x*.046f,
                                                localBounds.min.y+(row==0 ? .43f : .75f)*localSize.y,
                                                localBounds.center.z+localSize.z*.14f));
                 }
@@ -1272,12 +1275,16 @@ namespace MiniMarket.Store
                 var bagPickup=(JArray)data["bagPickup"];
                 world.CheckoutBagPickupPoints.Add(NearLayoutPoint($"CheckoutBagPickupPoint_{laneIndex}",checkout.transform,
                     counterX,counterZ,bagPickup[0].Value<float>(),bagPickup[1].Value<float>(),world.Root));
-                var queue = (JArray)data["queueStart"];
                 var laneQueue=new List<Transform>();world.CheckoutQueuePoints.Add(laneQueue);
                 for (var i = 0; i < 8; i++)
                 {
+                    // A checkout owns one straight queue across the aisle. The
+                    // old points turned down Z and crossed the next lane; carts
+                    // then occupied the same places and NavMesh avoidance could
+                    // deadlock both lines. Six world units leave a small gap
+                    // between the new 5.16-unit trolleys.
                     var point = NearLayoutPoint($"Queue{laneIndex+1}_Point{i + 1:00}",checkout.transform,
-                        counterX,counterZ,queue[0].Value<float>(),queue[1].Value<float>()-i*.78f,world.Root);
+                        counterX,counterZ,customer[0].Value<float>()-(i+1),customer[1].Value<float>(),world.Root);
                     laneQueue.Add(point);if(laneIndex==0)world.QueuePoints.Add(point);
                 }
                 if(laneIndex==0){world.CheckoutPoint=cashierPoint;world.CheckoutCameraAnchor=checkout.transform;world.CheckoutUnloadPoint=unload;world.CheckoutScanPoint=scan;world.CheckoutBagPoint=bag;}

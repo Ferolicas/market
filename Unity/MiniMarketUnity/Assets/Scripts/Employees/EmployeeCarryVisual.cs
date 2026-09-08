@@ -36,14 +36,15 @@ namespace MiniMarket.Employees
             {
                 var bounds=Bounds(shown);var contents=new GameObject("BasketContents").transform;contents.SetParent(shown.transform,false);
                 contents.position=new Vector3(bounds.center.x,bounds.min.y+bounds.size.y*.55f,bounds.center.z);
-                var count=Mathf.Clamp(amount,1,6);
+                var tomato=string.Equals(productId,"tomatoes",StringComparison.OrdinalIgnoreCase);
+                var count=Mathf.Clamp(amount*(tomato?2:1),1,6);
                 for(var index=0;index<count;index++)
                 {
                     var unit=await loader.InstantiateAsync(produce,contents,Vector3.zero,Quaternion.identity,Vector3.one);
                     if(expected!=generation){if(unit)Destroy(unit);return;}
-                    unit.transform.SetParent(contents,false);NormalizeWorldSize(unit,.8f);
+                    unit.transform.SetParent(contents,false);NormalizeWorldSize(unit,tomato?1.6f:.8f);
                     var column=index%3;var row=index/3;
-                    unit.transform.position=contents.position+contents.right*((column-1)*.68f)+contents.up*(row*.4f)+contents.forward*(index%2==0?-.32f:.32f);
+                    unit.transform.position=contents.position+contents.right*((column-1)*.74f)+contents.forward*((row-.5f)*.64f);
                     unit.transform.localRotation=Quaternion.Euler(0,index*53f,0);
                     foreach(var collider in unit.GetComponentsInChildren<Collider>(true))collider.enabled=false;
                 }

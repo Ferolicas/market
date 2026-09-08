@@ -70,7 +70,6 @@ namespace MiniMarket.Core
         readonly IGameTelemetry telemetry=new UnityGameTelemetry();
         IRuntimeConfigProvider runtimeConfig;
         string proximityQaId;
-        bool playerHiddenAtCheckout;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void EnsureRuntime()
@@ -177,13 +176,13 @@ namespace MiniMarket.Core
             workstation.Sync(WorkstationController.ZoneOf(Interactions.Nearest?Interactions.Nearest.interactionId:null),Player.InputMagnitude);
             Player.MovementLocked=workstation.UpdateInput(Player.InputMagnitude);
             var checkoutFocused=workstation.PerformingZoneId()=="checkout";
-            if(cameraRig)cameraRig.checkoutFocused=checkoutFocused;
-            if(checkoutFocused!=playerHiddenAtCheckout)
+            if(cameraRig)
             {
-                playerHiddenAtCheckout=checkoutFocused;
-                // Keep LOD state intact while hiding the owner from the checkout
-                // shot. Toggling enabled restored every LOD at once afterwards.
-                foreach(var renderer in PlayerActor.GetComponentsInChildren<Renderer>(true))renderer.forceRenderingOff=checkoutFocused;
+                cameraRig.checkoutFocused=checkoutFocused;
+                if(checkoutFocused&&Interactions.Nearest&&Interactions.Nearest.interactionId.StartsWith("checkout:",StringComparison.Ordinal)
+                    &&int.TryParse(Interactions.Nearest.interactionId[9..],out var lane)
+                    &&lane>=0&&lane<World.CheckoutCounters.Count)
+                    cameraRig.checkoutAnchor=World.CheckoutCounters[lane];
             }
             RecoverIfFallen();
             var moved=Vector3.Distance(lastPlayerPosition,Player.transform.position);if(moved>.01f){lastPlayerPosition=Player.transform.position;RecordPlayerDistance(moved);}

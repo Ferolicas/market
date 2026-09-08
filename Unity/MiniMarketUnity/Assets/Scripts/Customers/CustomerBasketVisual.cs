@@ -31,10 +31,9 @@ namespace MiniMarket.Customers
                 // Keep the exact supplied GLB and only correct the isometric
                 // source yaw so its handle sits naturally beneath both hands.
                 basket=await loader.InstantiateAsync("ShoppingCart",actor.transform,Vector3.zero,Quaternion.identity,Vector3.one);
-                // The source cart is 1.04 m on its longest side, exactly like
-                // Next's procedural cart. Use that physical dimension instead
-                // of the former 1.10 m guess.
-                basket.name="CustomerShoppingCart";NormalizeWorldSize(basket,6.45f);
+                // Twenty percent smaller than the former 1.04 m presentation,
+                // so it fits the customer and the ordered checkout line.
+                basket.name="CustomerShoppingCart";NormalizeWorldSize(basket,5.16f);
                 // Its source handle is on +Z. A 180 degree turn puts that handle
                 // at the shopper and the basket in front; -56.4 made it cross the
                 // doorway almost backwards.

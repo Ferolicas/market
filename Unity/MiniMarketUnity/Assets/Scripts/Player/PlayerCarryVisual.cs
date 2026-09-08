@@ -81,7 +81,14 @@ namespace MiniMarket.Player
                 foreach(var unit in units)Pool(unit);units.Clear();
                 if(!active||!contents||loader==null)return;
                 var wanted=new List<string>(VisibleUnits);
-                foreach(var entry in carry.Contents())for(var i=0;i<entry.Value&&wanted.Count<VisibleUnits;i++)wanted.Add(entry.Key);
+                foreach(var entry in carry.Contents())
+                {
+                    // One harvested inventory unit represents a small produce
+                    // batch. Two visible tomatoes per unit fill both crate rows
+                    // when the initial three-unit harvest is collected.
+                    var visualPerUnit=entry.Key=="tomatoes"?2:1;
+                    for(var i=0;i<entry.Value*visualPerUnit&&wanted.Count<VisibleUnits;i++)wanted.Add(entry.Key);
+                }
                 for(var index=0;index<wanted.Count;index++)
                 {
                     if(!ProductAssets.TryGetValue(wanted[index],out var asset))continue;
@@ -89,9 +96,9 @@ namespace MiniMarket.Player
                     if(pools.TryGetValue(asset,out var pool)&&pool.Count>0){unit=pool.Pop();unit.SetActive(true);}
                     else unit=await loader.InstantiateAsync(asset,contents,Vector3.zero,Quaternion.identity,Vector3.one);
                     if(expected!=generation||!contents){if(unit)Destroy(unit);return;}
-                    unit.name="Carried_"+asset;unit.transform.SetParent(contents,false);NormalizeWorldSize(unit,.85f);
+                    unit.name="Carried_"+asset;unit.transform.SetParent(contents,false);NormalizeWorldSize(unit,wanted[index]=="tomatoes"?1.7f:.85f);
                     var column=index%3;var row=index/3;
-                    unit.transform.position=contents.position+contents.right*((column-1)*.72f)+contents.up*(row*.42f)+contents.forward*(index%2==0?-.34f:.34f);
+                    unit.transform.position=contents.position+contents.right*((column-1)*.78f)+contents.forward*((row-.5f)*.68f);
                     unit.transform.localRotation=Quaternion.Euler(0,index*53f,0);
                     foreach(var collider in unit.GetComponentsInChildren<Collider>(true))collider.enabled=false;
                     units.Add(unit);

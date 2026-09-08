@@ -24,7 +24,7 @@ namespace MiniMarket.Customers
             controller = GetComponent<CharacterController>();
             if(controller)controller.enabled=false;
             nav=GetComponent<NavMeshAgent>();if(!nav)nav=gameObject.AddComponent<NavMeshAgent>();
-            nav.enabled=true;nav.radius=.3f;nav.height=1.72f;nav.baseOffset=0;nav.angularSpeed=540;nav.acceleration=64;nav.stoppingDistance=.18f;nav.avoidancePriority=UnityEngine.Random.Range(25,75);
+            nav.enabled=true;nav.radius=1.1f;nav.height=10.85f;nav.baseOffset=0;nav.angularSpeed=540;nav.acceleration=64;nav.stoppingDistance=.28f;nav.avoidancePriority=UnityEngine.Random.Range(35,75);nav.obstacleAvoidanceType=ObstacleAvoidanceType.GoodQualityObstacleAvoidance;
             if(NavMesh.SamplePosition(transform.position,out var hit,4f,NavMesh.AllAreas))nav.Warp(hit.position);
             target = transform.position;moving=false;speed=0;
         }
@@ -53,6 +53,12 @@ namespace MiniMarket.Customers
         }
 
         public void Play(string animation, float fade = .18f) => actor.Play(animation, fade);
+        public void SetQueueOrder(int slot)
+        {
+            // Lower values have priority. The customer closest to the register
+            // advances first, so followers yield instead of walking through it.
+            if(nav)nav.avoidancePriority=Mathf.Clamp(12+Mathf.Max(0,slot)*8,0,99);
+        }
         public void Expression(string shape, float weight) => actor.SetExpression(shape, weight);
         public void Face(Vector3 worldTarget)
         {

@@ -79,7 +79,7 @@ namespace MiniMarket.Store
                     if (pool.Count > 0) { item=pool.Pop(); item.SetActive(true); }
                     else item=await loader.InstantiateAsync(AssetIds[product], shelf.transform, Vector3.zero, Quaternion.identity, Vector3.one);
                     var slot=shelf.ProductSlots[slotIndex]; item.transform.SetParent(slot, false); item.transform.localPosition=Vector3.zero; item.transform.localRotation=Quaternion.identity; item.transform.localScale=Vector3.one;
-                    NormalizeWorldSize(item,shelf.slotSize,shelf.fitFootprint);
+                    NormalizeWorldSize(item,product=="tomatoes"?shelf.slotSize*2f:shelf.slotSize,shelf.fitFootprint);
                     shown.Add(item);
                 }
             }

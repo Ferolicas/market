@@ -251,6 +251,7 @@ namespace MiniMarket.Customers
         {
             var queue=QueueFor(mind);mind.QueueSlot = queue.PositionOf(mind.Agent.CustomerId);
             if (mind.QueueSlot < 0) return;
+            mind.Agent.SetQueueOrder(mind.QueueSlot);
             var lanePoints=world.CheckoutQueuePoints[mind.CheckoutLane];var point = mind.QueueSlot == 0 ? world.CheckoutPoints[mind.CheckoutLane] : lanePoints[Mathf.Min(mind.QueueSlot - 1, lanePoints.Count - 1)];
             if (Vector3.SqrMagnitude(mind.Agent.transform.position - point.position) > .12f) mind.Agent.GoTo(point.position);
         }

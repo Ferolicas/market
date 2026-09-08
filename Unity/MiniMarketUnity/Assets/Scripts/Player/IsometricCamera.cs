@@ -78,15 +78,14 @@ namespace MiniMarket.Player
 
             var blendTarget=checkoutFocused&&checkoutAnchor?1f:0f;
             checkoutBlend=Mathf.Lerp(checkoutBlend,blendTarget,Damp(blendTarget>0?FocusResponse:ReleaseResponse,FrameDelta(Time.deltaTime)));
-            // Camera coordinates in checkout-layout.ts are relative to lane 1's
-            // counter. X/Z use the original physical plan scale (2*3) so the
-            // shop's later spatial expansion does not pull the register out of
-            // its own shot. Heights retain Next's WORLD_SCALE=3 conversion.
+            // Close, frontal checkout shot from just behind the owner. The
+            // counter hides the lower body naturally while the owner, the full
+            // register and the customer opposite remain in the same frame.
             var checkoutTarget=checkoutAnchor
-                ?checkoutAnchor.position+new Vector3(-4.5f,4.05f,-.9f)
+                ?checkoutAnchor.position+new Vector3(0f,4.6f,-.9f)
                 :centre;
             var checkoutPosition=checkoutAnchor
-                ?checkoutAnchor.position+new Vector3(-4.5f,21.6f,29.1f)
+                ?checkoutAnchor.position+new Vector3(-1.5f,10.2f,15.6f)
                 :overviewPosition;
             var desiredTarget=Vector3.Lerp(centre,checkoutTarget,checkoutBlend);
             var desiredPosition=Vector3.Lerp(overviewPosition,checkoutPosition,checkoutBlend);
@@ -143,9 +142,9 @@ namespace MiniMarket.Player
         float FrontalProjectionCompensation => Mathf.Cos(ElevationDegrees * Mathf.Deg2Rad) / Mathf.Cos(ReferenceElevationDegrees * Mathf.Deg2Rad);
         float OverviewSize() => PullBack * FrontalProjectionCompensation * Mathf.Max(28.5f * 1.15f / 6f, 32f * 1.15f / (6f * Aspect));
         float FarmSize()=>Mathf.Max(OverviewSize(),(StoreWorldBuilder.FarmWorldRadius+10f)/Aspect);
-        // CHECKOUT_CAMERA_FRAME = { width: 39, height: 27 }. The close view is
-        // intentionally independent of the requested 40% overview pullback.
-        float CheckoutSize()=>Mathf.Max(27f*.5f,39f/(2f*Aspect));
+        // Keep the complete 7.2-unit checkout inside portrait width while
+        // remaining close enough to read the client and the cashier gesture.
+        float CheckoutSize()=>Mathf.Max(9.25f,8.1f/(2f*Aspect));
         float Aspect => view ? Mathf.Max(.1f, view.aspect) : 1f;
         static float FrameDelta(float delta)=>Mathf.Clamp(delta,0,.05f);
         static float Damp(float response,float delta)=>1f-Mathf.Exp(-response*delta);
