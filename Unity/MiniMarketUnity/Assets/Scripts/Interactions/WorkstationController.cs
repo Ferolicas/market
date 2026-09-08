@@ -1,11 +1,8 @@
 namespace MiniMarket.Interactions
 {
-    /// Port of Next's WorkstationController. Entering a workstation consumes
-    /// the movement that brought the player there; once the input returns to
-    /// neutral, a new deliberate movement cancels the activity and lets them
-    /// leave. Zone ids are Unity's own interaction prefixes; only "checkout"
-    /// is guaranteed to read the same as Next's WorkstationId vocabulary so
-    /// far, which is all the camera rig consumes today.
+    /// Port of Next's WorkstationController. Only genuinely stationary jobs
+    /// consume movement. Shelves, crops and production machines are automatic
+    /// magnets: crossing their sensor must never stop or slow the player.
     public sealed class WorkstationController
     {
         string zoneId;
@@ -36,13 +33,15 @@ namespace MiniMarket.Interactions
         public string PerformingZoneId() => zoneId != null && !cancelledUntilExit ? zoneId : null;
         public void Cancel(){zoneId=null;waitingForNeutral=false;cancelledUntilExit=false;}
 
-        /// "checkout:1" and "stock:tomatoes" collapse to the station they act
-        /// on, matching how Next keys zones by workstation rather than target.
+        /// Mirrors Next's highestPriorityWorkstation: checkout and animal work
+        /// are stationary; shelf and production/farm sensors remain pass-through.
         public static string ZoneOf(string interactionId)
         {
             if (string.IsNullOrEmpty(interactionId)) return null;
-            var separator = interactionId.IndexOf(':');
-            return separator < 0 ? interactionId : interactionId[..separator];
+            if(interactionId.StartsWith("checkout:",System.StringComparison.Ordinal))return "checkout";
+            if(interactionId=="animal:chicken")return "chicken";
+            if(interactionId=="animal:cow")return "cow";
+            return null;
         }
     }
 }

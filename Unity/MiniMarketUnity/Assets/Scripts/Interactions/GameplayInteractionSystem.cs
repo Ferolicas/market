@@ -45,7 +45,7 @@ namespace MiniMarket.Interactions
         void Stock(string department)
         {
             if(!world.Shelves.TryGetValue(department,out var shelf))return;
-            var movedTotal=0;var movedProducts=new List<string>();var useMidAnimation=false;
+            var movedTotal=0;var movedProducts=new List<string>();
             foreach(var product in shelf.allowedProducts)
             {
                 if(!availability.CanCustomerRequest(product,state.Level))continue;
@@ -54,9 +54,12 @@ namespace MiniMarket.Interactions
                 if(quantity<=0)continue;
                 carry.TransferToShelf(product,baseCapacity,quantity);
                 progression.Record($"stock:{product}",quantity);progression.Record("stock:all",quantity);progression.Record("transport:all",quantity);
-                movedTotal+=quantity;movedProducts.Add($"{quantity} × {product}");useMidAnimation|=baseCapacity>=10;
+                movedTotal+=quantity;movedProducts.Add($"{quantity} × {product}");
             }
-            if(movedTotal>0){player.Play(useMidAnimation?"StockMid":"StockLow");signals.PublishNotification($"Colocaste {string.Join(", ",movedProducts)} · carga {carry.Total}/{carry.Capacity}");return;}
+            // Stocking is a pass-through magnet. The carry/run bridge keeps
+            // owning the actor while the compatible products leave the crate;
+            // forcing StockMid/StockLow here made the player appear to brake.
+            if(movedTotal>0){signals.PublishNotification($"Colocaste {string.Join(", ",movedProducts)} · carga {carry.Total}/{carry.Capacity}");return;}
             signals.PublishNotification(carry.Total>0?"Esta carga no corresponde a este expositor o está lleno":"La cesta está vacía: recoge mercancía en el almacén");
         }
 
