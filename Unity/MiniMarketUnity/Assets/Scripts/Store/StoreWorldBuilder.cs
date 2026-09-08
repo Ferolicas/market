@@ -1245,12 +1245,17 @@ namespace MiniMarket.Store
 
         async Task BuildCheckout(StoreWorld world)
         {
+            // Keep both checkout lanes beside the entrance. Every service,
+            // queue, camera and product socket below is derived from this
+            // transform, so the complete checkout flow moves as one unit.
+            const float checkoutEntranceOffsetZ=4f;
             var lanes = (JObject)spec.Layouts["checkout"]["CHECKOUT_LANES"];
             foreach (var lane in lanes.Properties())
             {
                 var data = (JObject)lane.Value;
                 var counter = (JArray)data["counter"];
-                var position = new Vector3(-counter[0].Value<float>() * LayoutScale, 0, counter[2].Value<float>() * LayoutScale);
+                var position = new Vector3(-counter[0].Value<float>() * LayoutScale, 0,
+                    counter[2].Value<float>() * LayoutScale+checkoutEntranceOffsetZ);
                 var checkout = HideIfBare(await Place("CheckoutArea", position, Quaternion.identity, Vector3.one * ElementScale, world.Root, true));
                 world.CheckoutCounters.Add(checkout.transform);
                 // The delivered checkout is the complete approved set: belt,
@@ -1361,8 +1366,12 @@ namespace MiniMarket.Store
             var deliveryDock=HideIfBare(await Place("DeliveryDock",XZ(8.8f,-3.23f),Quaternion.identity,Vector3.one,world.Root,true));
             HideIfBare(await Place("SupplierTerminal",XZ(8.8f,-5.35f),Quaternion.identity,Vector3.one,world.Root,true));
             var returns=HideIfBare(await Place("ReturnsStation",XZ(9.85f,5.45f),Quaternion.Euler(0,180,0),Vector3.one,world.Root,true));
-            var cartBay=HideIfBare(await Place("CartBay",XZ(3.05f,6.55f),Quaternion.identity,Vector3.one,world.Root,true));
-            world.CartReturnPoint=NearLayoutPoint("CartReturnPoint",cartBay.transform,3.05f,6.55f,3.05f,5.25f,world.Root);
+            // Preserve the cart bay's lateral position and move its complete
+            // footprint beyond the facade. The return point stays on the
+            // entrance-facing side so customers never cross the wall.
+            const float cartBayZ=8.2f;
+            var cartBay=HideIfBare(await Place("CartBay",XZ(3.05f,cartBayZ),Quaternion.identity,Vector3.one,world.Root,true));
+            world.CartReturnPoint=NearLayoutPoint("CartReturnPoint",cartBay.transform,3.05f,cartBayZ,3.05f,7.25f,world.Root);
             var supplierPoint=NearLayoutPoint("SupplierServicePoint",supplier.transform,8.8f,-2.15f,8.8f,-.95f,world.Root);
             AddInteraction(world,supplierPoint,"supplier","Abrir proveedores",ServiceReach,false);
             var returnsInteraction=AddAreaInteraction(world,returns,"returns","Devolver mercancía",ServiceReach,true,.08f,.75f);
