@@ -224,12 +224,12 @@ namespace MiniMarket.UI
             Anchor(loading,Vector2.zero,Vector2.one,Vector2.zero,Vector2.zero);
             // This is a purpose-built portrait artwork, not the former landscape
             // card enlarged or cropped into a phone. EnvelopeParent preserves its
-            // native 926:1698 composition while covering every screen edge.
+            // native 941:1672 composition while covering every screen edge.
             var artObject=new GameObject("LoadingPortraitArtwork",typeof(RectTransform),typeof(RawImage),typeof(AspectRatioFitter));
             artObject.transform.SetParent(loading,false);
             var art=artObject.GetComponent<RawImage>();art.texture=Resources.Load<Texture2D>("UI/LoadingStore");art.raycastTarget=false;
             Anchor(artObject.GetComponent<RectTransform>(),Vector2.zero,Vector2.one,Vector2.zero,Vector2.zero);
-            var artAspect=artObject.GetComponent<AspectRatioFitter>();artAspect.aspectMode=AspectRatioFitter.AspectMode.EnvelopeParent;artAspect.aspectRatio=926f/1698f;
+            var artAspect=artObject.GetComponent<AspectRatioFitter>();artAspect.aspectMode=AspectRatioFitter.AspectMode.EnvelopeParent;artAspect.aspectRatio=941f/1672f;
             var loadingStatus=Panel("LiveLoadingStatus",loading,Alpha(Forest,.88f));
             Anchor(loadingStatus,new Vector2(.07f,0),new Vector2(.93f,0),new Vector2(0,38),new Vector2(0,154));
             loadingText=Label(loadingStatus,"Preparando la tienda…",20,TextAnchor.MiddleLeft);
