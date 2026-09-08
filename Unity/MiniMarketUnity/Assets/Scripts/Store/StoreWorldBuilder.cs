@@ -139,8 +139,8 @@ namespace MiniMarket.Store
             // against the rear wall, while the counter rests on the side wall
             // and opens towards the room.
             ("WorkCounter",-10.6f,-5.25f,0f,-90f),
-            ("UtilitySink",-9.8f,-7.55f,0f,0f),
-            ("BakeryWorkArea",-7.3f,-7.55f,0f,0f),
+            ("UtilitySink",-10.25f,-7.55f,0f,0f),
+            ("BakeryWorkArea",-8f,-7.55f,0f,0f),
             ("Pallet",2.8f,-7.4f,0f,0f),   // trastienda
             ("WoodCrate",2.8f,-7.4f,1.04f,0f),
             ("Furniture2:WoodCrate",2.4f,-6.9f,0f,25f),
@@ -1201,24 +1201,31 @@ namespace MiniMarket.Store
         async Task BuildRetail(StoreWorld world)
         {
             var departments = (JObject)spec.Layouts["retail"]["RETAIL_DEPARTMENTS"];
-            var dairyData=(JObject)departments["dairy"];
-            var dairyDisplay=(JArray)dairyData["display"];
-            var dairyService=(JArray)dairyData["service"];
             foreach (var property in departments.Properties())
             {
                 var data = (JObject)property.Value;
                 var pos = (JArray)data["display"];
-                var displayZ=pos[2].Value<float>();
-                // The drinks shelf was approved beside dairy. Doubling the plan
-                // would otherwise double their gap as well; retain that one
-                // deliberate adjacency while the rest of the shop spreads out.
-                if(property.Name=="drinks")
-                    displayZ=dairyDisplay[2].Value<float>()+(displayZ-dairyDisplay[2].Value<float>())*FixedPlanFactor;
-                var position = new Vector3(-pos[0].Value<float>() * LayoutScale, 0, displayZ * LayoutScale);
+                var service = (JArray)data["service"];
+                var displayX=pos[0].Value<float>();var displayZ=pos[2].Value<float>();
+                var serviceX=service[0].Value<float>();var serviceZ=service[1].Value<float>();
+                var yaw=data.Value<float?>("yaw")??0f;
+                // Fruit replaces the individual coffee shelf. Drinks occupies
+                // the neighbouring bay, so the two requested fixtures form one
+                // straight row. Bread and coffee move into the two vacated bays
+                // and keep every retail product available and reachable.
+                if(property.Name=="produce")
+                {displayX=0f;displayZ=-2.2f;serviceX=0f;serviceZ=-.88f;yaw=0f;}
+                else if(property.Name=="drinks")
+                {displayX=-4f;displayZ=-2.2f;serviceX=-4f;serviceZ=-.88f;yaw=0f;}
+                else if(property.Name=="bakery")
+                {displayX=-4.1f;displayZ=2.45f;serviceX=-4.1f;serviceZ=1.08f;yaw=0f;}
+                else if(property.Name=="pantry")
+                {displayX=-10.5f;displayZ=2.25f;serviceX=-9.4f;serviceZ=2.25f;yaw=-90f;}
+                var position = new Vector3(-displayX * LayoutScale, 0, displayZ * LayoutScale);
                 // The GLB front already follows Unity's local forward axis. The
                 // position is mirrored, but mirroring this yaw a second time
-                // turns dairy and drinks into the wall instead of the aisle.
-                var rotation = Quaternion.Euler(0, data.Value<float?>("yaw") ?? 0, 0);
+                // turns wall fixtures into the wall instead of the aisle.
+                var rotation = Quaternion.Euler(0, yaw, 0);
                 var display = HideIfBare(await Place(DisplayAssets[property.Name],position,rotation,Vector3.one*ElementScale,world.Root,true));
                 var shelf = display.AddComponent<ProductShelf>();
                 shelf.departmentId = property.Name;
@@ -1231,16 +1238,12 @@ namespace MiniMarket.Store
                 BuildShelfSlots(shelf, display, DisplayAssets[property.Name]);
                 if (property.Name == "dairy") BuildDairyDoors(display);
                 world.Shelves[property.Name] = shelf;
-                var service = (JArray)data["service"];
-                var serviceZ=service[1].Value<float>();
-                if(property.Name=="drinks")
-                    serviceZ=dairyService[1].Value<float>()+(serviceZ-dairyService[1].Value<float>())*FixedPlanFactor;
                 // The shop floor was expanded x2, while furniture and the short
                 // distance from a display to its usable side were deliberately
                 // kept at their previous physical size. Scaling this offset with
                 // the expanded floor put customer destinations behind the unit.
                 var servicePoint = NearLayoutPoint($"Service_{property.Name}",display.transform,
-                    pos[0].Value<float>(),displayZ,service[0].Value<float>(),serviceZ,world.Root);
+                    displayX,displayZ,serviceX,serviceZ,world.Root);
                 var interaction=AddAreaInteraction(world,display,$"stock:{property.Name}",$"Reponer {data.Value<string>("label")}",RetailReach,true,.035f,.22f);
                 interaction.repeatAutomatically=false;
                 foreach (var product in shelf.allowedProducts)
@@ -1253,11 +1256,12 @@ namespace MiniMarket.Store
 
         async Task BuildCheckout(StoreWorld world)
         {
-            // Shift the current placement 40% farther left and recover 40% of
-            // its distance from the facade. Every service, queue, camera and
-            // product socket is derived from this transform and moves with it.
+            // Four individual floor tiles closer to the facade. The approved
+            // floor sheet contains three tiles per repeat, so four visible
+            // tiles move the fixture 5.11 local units from its last position.
+            // Every service, queue, camera and product socket moves with it.
             const float checkoutDoorOffsetX=5.6f;
-            const float checkoutEntranceOffsetZ=-4.8f;
+            const float checkoutEntranceOffsetZ=.31f;
             var lanes = (JObject)spec.Layouts["checkout"]["CHECKOUT_LANES"];
             foreach (var lane in lanes.Properties())
             {
@@ -1322,7 +1326,7 @@ namespace MiniMarket.Store
                 var fixtureX=pos[0].Value<float>();var fixtureZ=pos[2].Value<float>();
                 // The front row and its left column follow the smaller glass
                 // room instead of protruding through its new exposed sides.
-                if(property.Name=="breadOven"||property.Name=="juiceMachine")fixtureX=-7.25f;
+                if(property.Name=="breadOven"||property.Name=="juiceMachine")fixtureX=-7.75f;
                 if(property.Name=="cheeseMaker"||property.Name=="juiceMachine")fixtureZ=-4f;
                 var root = HideIfBare(await Place(ids[property.Name], new Vector3(-fixtureX * LayoutScale, 0, fixtureZ * LayoutScale), Quaternion.identity, Vector3.one * ElementScale, world.Root, true));
                 world.AvailabilityVisuals[$"machine:{data.Value<string>("machineId")}"]=root;
