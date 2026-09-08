@@ -80,7 +80,7 @@ namespace MiniMarket.Player
                 ?checkoutAnchor.position+new Vector3(0f,4.6f,-.9f)
                 :centre;
             var checkoutPosition=checkoutAnchor
-                ?checkoutAnchor.position+new Vector3(-1.5f,10.2f,15.6f)
+                ?checkoutAnchor.position+new Vector3(-1.8f,11.32f,18.9f)
                 :overviewPosition;
             var desiredTarget=Vector3.Lerp(centre,checkoutTarget,checkoutBlend);
             var desiredPosition=Vector3.Lerp(overviewPosition,checkoutPosition,checkoutBlend);
@@ -139,7 +139,7 @@ namespace MiniMarket.Player
         float FarmSize()=>Mathf.Max(OverviewSize(),(StoreWorldBuilder.FarmWorldRadius+10f)/Aspect);
         // Keep the complete 7.2-unit checkout inside portrait width while
         // remaining close enough to read the client and the cashier gesture.
-        float CheckoutSize()=>Mathf.Max(9.25f,8.1f/(2f*Aspect));
+        float CheckoutSize()=>Mathf.Max(11.1f,9.72f/(2f*Aspect));
         float Aspect => view ? Mathf.Max(.1f, view.aspect) : 1f;
         static float FrameDelta(float delta)=>Mathf.Clamp(delta,0,.05f);
         static float Damp(float response,float delta)=>1f-Mathf.Exp(-response*delta);

@@ -30,6 +30,7 @@ namespace MiniMarket.Employees
             public string Product;
             public string Station;
             public int Amount;
+            public int CheckoutLane=-1;
             public float Since;
             public EmployeeCarryVisual CarryVisual;
         }
@@ -77,7 +78,7 @@ namespace MiniMarket.Employees
             reconciling=true;var expectedGeneration=generation;
             try
             {
-                var index=0;
+                var index=0;var cashierIndex=0;
                 foreach(var token in state.Array("employees"))
                 {
                     if(token is not JObject employee)continue;
@@ -88,7 +89,7 @@ namespace MiniMarket.Employees
                     actor.gameObject.name=$"Employee_{employee.Value<string>("name")}_{role}";
                     var agent=actor.gameObject.AddComponent<EmployeeAgent>();agent.Bind(actor);actor.Play("Idle");
                     var carryVisual=actor.gameObject.AddComponent<EmployeeCarryVisual>();carryVisual.Bind(loader,actor);
-                    minds[id]=new Mind{Data=employee,Agent=agent,CarryVisual=carryVisual,Phase=WorkPhase.Idle,Since=Time.time};index++;
+                    minds[id]=new Mind{Data=employee,Agent=agent,CarryVisual=carryVisual,CheckoutLane=role=="cashier"?cashierIndex++:-1,Phase=WorkPhase.Idle,Since=Time.time};index++;
                 }
             }
             catch(Exception exception){Debug.LogWarning($"Empleados: {exception.Message}");}
@@ -129,8 +130,17 @@ namespace MiniMarket.Employees
             if((mind.Data.Value<double?>("energy")??100)<=0){Rest(mind);return;}
             if(role=="cashier")
             {
-                if(world.CheckoutPoint&&Vector3.SqrMagnitude(mind.Agent.transform.position-world.CheckoutPoint.position)>.25f)mind.Agent.GoTo(world.CheckoutPoint.position,EmployeeSpeed(mind));
-                else mind.Agent.Play("ScanItem");
+                var lane=Mathf.Clamp(mind.CheckoutLane,0,Mathf.Max(0,world.CheckoutCashierPoints.Count-1));
+                var seat=world.CheckoutCashierPoints.Count>lane?world.CheckoutCashierPoints[lane]:world.CheckoutPoint;
+                if(seat&&Vector3.SqrMagnitude(mind.Agent.transform.position-seat.position)>.5f)
+                {
+                    mind.Agent.SetCashierPose(false);mind.Agent.GoTo(seat.position,EmployeeSpeed(mind));
+                }
+                else if(seat)
+                {
+                    var counter=world.CheckoutCounters.Count>lane?world.CheckoutCounters[lane]:seat;
+                    mind.Agent.Face(counter.position);mind.Agent.Play("ScanItem");mind.Agent.SetCashierPose(true);
+                }
                 mind.Since=Time.time;return;
             }
             if(role=="farmer")AssignFarmer(mind);

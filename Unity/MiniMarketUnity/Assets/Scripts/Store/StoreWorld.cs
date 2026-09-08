@@ -16,6 +16,7 @@ namespace MiniMarket.Store
         public readonly Dictionary<string, GameObject> AvailabilityVisuals = new();
         public readonly List<Transform> QueuePoints = new();
         public readonly List<Transform> CheckoutPoints = new();
+        public readonly List<Transform> CheckoutCashierPoints = new();
         public readonly List<Transform> CheckoutCounters = new();
         public readonly List<List<Transform>> CheckoutQueuePoints = new();
         public readonly List<Transform> CheckoutUnloadPoints = new();

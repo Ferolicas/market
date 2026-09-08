@@ -18,7 +18,7 @@ namespace MiniMarket.Customers
 {
     public sealed class CustomerManager : MonoBehaviour
     {
-        enum Phase { Entering, GettingCart, Shopping, Picking, Queueing, Waiting, Unloading, Scanning, Bagging, Paying, GettingBag, TakingBag, ReturningCart, Leaving }
+        enum Phase { Entering, GettingCart, Shopping, Picking, Queueing, Waiting, Unloading, Scanning, Bagging, Paying, Farewell, GettingBag, TakingBag, ReturningCart, Leaving }
         sealed class Mind
         {
             public CustomerAgent Agent;
@@ -168,7 +168,7 @@ namespace MiniMarket.Customers
                 case Phase.Queueing:
                     UpdateQueueTarget(mind);
                     if (mind.Agent.Arrived) FaceCheckout(mind);
-                    if (mind.QueueSlot == 0 && mind.Agent.Arrived) { mind.Phase = Phase.Waiting; mind.Since = Time.time; mind.Agent.Play("Queue"); }
+                    if (mind.QueueSlot == 0 && mind.Agent.Arrived) { mind.Phase = Phase.Waiting; mind.Since = Time.time; mind.Agent.Play("Wait"); }
                     break;
                 case Phase.Waiting:
                     FaceCheckout(mind);
@@ -186,6 +186,10 @@ namespace MiniMarket.Customers
                     break;
                 case Phase.Paying:
                     if (Time.time - mind.Since >= 1.8f) PayAndLeave(mind);
+                    break;
+                case Phase.Farewell:
+                    FaceCheckout(mind);
+                    if(Time.time-mind.Since>=.8f){mind.Phase=Phase.GettingBag;mind.Agent.GoTo(world.CheckoutBagPickupPoints[mind.CheckoutLane].position);}
                     break;
                 case Phase.GettingBag:
                     if(mind.Agent.Arrived){mind.Agent.Play("ReceiveBag");mind.Phase=Phase.TakingBag;mind.Since=Time.time;}
@@ -276,9 +280,8 @@ namespace MiniMarket.Customers
             state.Changed();
             signals.PublishNotification($"Cliente atendido · +{total}");
             Debug.Log($"MINIMARKET_CHECKOUT customer={mind.Agent.CustomerId} totalMinor={total} balanceMinor={state.BalanceMinor}");
-            mind.Agent.Expression("Smile", 62); mind.Agent.Play("Wave");
-            mind.Phase=Phase.GettingBag;
-            mind.Agent.GoTo(world.CheckoutBagPickupPoints[mind.CheckoutLane].position);
+            FaceCheckout(mind);mind.Agent.Expression("Smile", 62);mind.Agent.Play("Wave");
+            mind.Phase=Phase.Farewell;mind.Since=Time.time;
         }
 
         public bool ServeNext()

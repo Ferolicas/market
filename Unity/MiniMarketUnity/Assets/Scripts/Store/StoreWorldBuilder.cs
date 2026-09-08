@@ -1260,11 +1260,17 @@ namespace MiniMarket.Store
                 if(lane.Name!="0")world.AvailabilityVisuals[$"checkout:{lane.Name}"]=checkout;
                 var counterX=counter[0].Value<float>();var counterZ=counter[2].Value<float>();
                 var customer = (JArray)data["customerFront"];
+                // The trolley sits in front of the shopper. Keep its complete
+                // 5.16-unit footprint on the customer side of the counter.
+                var customerZ=customer[1].Value<float>()-.45f;
                 var laneIndex=int.Parse(lane.Name);var checkoutPoint=NearLayoutPoint($"CheckoutCustomerPoint_{laneIndex}",checkout.transform,
-                    counterX,counterZ,customer[0].Value<float>(),customer[1].Value<float>(),world.Root);world.CheckoutPoints.Add(checkoutPoint);
+                    counterX,counterZ,customer[0].Value<float>(),customerZ,world.Root);world.CheckoutPoints.Add(checkoutPoint);
                 var cashier=(JArray)data["cashierWork"];
                 var cashierPoint=NearLayoutPoint($"CheckoutInteractionPoint_{laneIndex}",checkout.transform,
                     counterX,counterZ,cashier[0].Value<float>(),cashier[2].Value<float>(),world.Root);
+                world.CheckoutCashierPoints.Add(cashierPoint);
+                var stool=await Place("CashierStool",cashierPoint.position,Quaternion.identity,Vector3.one,world.Root);
+                stool.name=$"CashierStool_{laneIndex+1}";
                 AddInteraction(world,cashierPoint,$"checkout:{lane.Name}","Atender caja",ServiceReach,true,.08f,.75f);
                 // CheckoutKit's physical sockets, converted from StoreElement
                 // units (1.6) through Next's WORLD_SCALE (3), with X mirrored.
@@ -1284,7 +1290,7 @@ namespace MiniMarket.Store
                     // deadlock both lines. Six world units leave a small gap
                     // between the new 5.16-unit trolleys.
                     var point = NearLayoutPoint($"Queue{laneIndex+1}_Point{i + 1:00}",checkout.transform,
-                        counterX,counterZ,customer[0].Value<float>()-(i+1),customer[1].Value<float>(),world.Root);
+                        counterX,counterZ,customer[0].Value<float>()-(i+1),customerZ,world.Root);
                     laneQueue.Add(point);if(laneIndex==0)world.QueuePoints.Add(point);
                 }
                 if(laneIndex==0){world.CheckoutPoint=cashierPoint;world.CheckoutCameraAnchor=checkout.transform;world.CheckoutUnloadPoint=unload;world.CheckoutScanPoint=scan;world.CheckoutBagPoint=bag;}
