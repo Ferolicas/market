@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using System.Collections;
 using MiniMarket.Assets;
 using MiniMarket.Store;
 using UnityEngine;
@@ -42,11 +43,11 @@ namespace MiniMarket.Customers
             active=item;activeId=productId;Normalize(item,.4f);Move(unloadPoint,Vector3.zero);
         }
 
-        public void MoveToScanner()=>Move(scanPoint,Vector3.zero);
+        public void MoveToScanner()=>Slide(active,scanPoint,Vector3.zero,.34f);
         public void BagUnit()
         {
             if(!active||!bagPoint)return;
-            var index=bagged.Count;Move(bagPoint,new Vector3((index%3-1)*.09f,.05f+(index/3)*.07f,(index%2==0?-.05f:.05f)));
+            var index=bagged.Count;Slide(active,bagPoint,new Vector3((index%3-1)*.09f,.05f+(index/3)*.07f,(index%2==0?-.05f:.05f)),.30f);
             bagged.Add((activeId,active));active=null;activeId=null;
         }
         public void EndSession(){generation++;Clear();if(bag)bag.SetActive(false);}
@@ -54,6 +55,22 @@ namespace MiniMarket.Customers
         void Move(Transform socket,Vector3 offset)
         {
             if(!active||!socket)return;active.transform.SetParent(socket,false);active.transform.localPosition=offset;active.transform.localRotation=Quaternion.identity;
+        }
+        void Slide(GameObject item,Transform socket,Vector3 offset,float seconds)
+        {
+            if(!item||!socket)return;StartCoroutine(SlideRoutine(item,socket,offset,seconds,generation));
+        }
+        IEnumerator SlideRoutine(GameObject item,Transform socket,Vector3 offset,float seconds,int expectedGeneration)
+        {
+            var start=item.transform.position;var target=socket.TransformPoint(offset);var elapsed=0f;
+            item.transform.SetParent(socket,true);
+            while(item&&item.activeInHierarchy&&expectedGeneration==generation&&elapsed<seconds)
+            {
+                elapsed+=Time.deltaTime;var progress=Mathf.Clamp01(elapsed/Mathf.Max(.01f,seconds));var eased=progress*progress*(3f-2f*progress);
+                item.transform.position=Vector3.Lerp(start,target,eased)+Vector3.up*Mathf.Sin(progress*Mathf.PI)*.14f;
+                yield return null;
+            }
+            if(item&&item.activeInHierarchy&&expectedGeneration==generation)item.transform.SetLocalPositionAndRotation(offset,Quaternion.identity);
         }
         void Clear()
         {

@@ -29,6 +29,8 @@ namespace MiniMarket.Store
         /// every clean metric prop, so cars, furniture and farm equipment all
         /// share the same human scale.
         public const float WorldUnitsPerMeter = 6.2f;
+        const float ServiceReach = WorldUnitsPerMeter * .75f;
+        const float RetailReach = WorldUnitsPerMeter * 1.1f;
         public const float RoadWidthMeters = 7.6f;
         public const float CrosswalkWidthMeters = 7f;
         static float FixedPlanFactor => PreviousStoreScale / StoreScale;
@@ -886,7 +888,8 @@ namespace MiniMarket.Store
             HideIfBare(await Place("BackroomStorage",XZ(5.25f,-8f),Quaternion.identity,Vector3.one,root,true));
             HideIfBare(await Place("StockroomRack",XZ(9.65f,-7.85f),Quaternion.identity,Vector3.one,root,true));
             HideIfBare(await Place("SeasonalDisplay",XZ(-7f,3.15f),Quaternion.identity,Vector3.one,root,true));
-            HideIfBare(await Place("ShelfEndcap",XZ(6.4f,-2.2f),Quaternion.Euler(0,90,0),Vector3.one,root,true));
+            // Three's +90 degree turn becomes -90 after mirroring the plan on X.
+            HideIfBare(await Place("ShelfEndcap",XZ(6.4f,-2.2f),Quaternion.Euler(0,-90,0),Vector3.one,root,true));
 
             HideIfBare(await Place("WallClock",XZ(9.65f,-8.34f,2.2f),Quaternion.identity,Vector3.one,root));
             HideIfBare(await Place("SecurityCamera",XZ(-10.75f,-8.05f,2.55f),Quaternion.identity,Vector3.one,root));
@@ -1200,7 +1203,10 @@ namespace MiniMarket.Store
                 if(property.Name=="drinks")
                     displayZ=dairyDisplay[2].Value<float>()+(displayZ-dairyDisplay[2].Value<float>())*FixedPlanFactor;
                 var position = new Vector3(-pos[0].Value<float>() * LayoutScale, 0, displayZ * LayoutScale);
-                var rotation = Quaternion.Euler(0, data.Value<float?>("yaw") ?? 0, 0);
+                // X is mirrored at the Three -> Unity boundary, therefore yaw
+                // must be mirrored too. Keeping -90 made the open face of both
+                // wall displays point through the wall instead of at the aisle.
+                var rotation = Quaternion.Euler(0, -(data.Value<float?>("yaw") ?? 0), 0);
                 var display = HideIfBare(await Place(DisplayAssets[property.Name],position,rotation,Vector3.one*ElementScale,world.Root,true));
                 var shelf = display.AddComponent<ProductShelf>();
                 shelf.departmentId = property.Name;
@@ -1217,13 +1223,18 @@ namespace MiniMarket.Store
                 var serviceZ=service[1].Value<float>();
                 if(property.Name=="drinks")
                     serviceZ=dairyService[1].Value<float>()+(serviceZ-dairyService[1].Value<float>())*FixedPlanFactor;
-                var servicePoint = New($"Service_{property.Name}", new Vector3(-service[0].Value<float>() * LayoutScale, 0, serviceZ * LayoutScale));
-                servicePoint.SetParent(world.Root, true);
+                // The shop floor was expanded x2, while furniture and the short
+                // distance from a display to its usable side were deliberately
+                // kept at their previous physical size. Scaling this offset with
+                // the expanded floor put customer destinations behind the unit.
+                var servicePoint = NearLayoutPoint($"Service_{property.Name}",display.transform,
+                    pos[0].Value<float>(),displayZ,service[0].Value<float>(),serviceZ,world.Root);
                 foreach (var product in shelf.allowedProducts)
                 {
                     world.ProductServicePoints[product] = servicePoint;
                 }
-                AddInteraction(world,servicePoint,$"stock:{property.Name}",$"Reponer {data.Value<string>("label")}",1.5f,true,.035f,.22f);
+                var interaction=AddAreaInteraction(world,display,$"stock:{property.Name}",$"Reponer {data.Value<string>("label")}",RetailReach,true,.035f,.22f);
+                interaction.repeatAutomatically=false;
             }
         }
 
@@ -1236,25 +1247,38 @@ namespace MiniMarket.Store
                 var counter = (JArray)data["counter"];
                 var position = new Vector3(-counter[0].Value<float>() * LayoutScale, 0, counter[2].Value<float>() * LayoutScale);
                 var checkout = HideIfBare(await Place("CheckoutArea", position, Quaternion.identity, Vector3.one * ElementScale, world.Root, true));
+                world.CheckoutCounters.Add(checkout.transform);
                 // The delivered checkout is the complete approved set: belt,
                 // monitor, payment terminal and lane post are one coherent
                 // piece. Do not layer the older split sign or loose checkout
                 // props over it.
                 if(lane.Name!="0")world.AvailabilityVisuals[$"checkout:{lane.Name}"]=checkout;
+                var counterX=counter[0].Value<float>();var counterZ=counter[2].Value<float>();
                 var customer = (JArray)data["customerFront"];
-                var laneIndex=int.Parse(lane.Name);var checkoutPoint=New($"CheckoutInteractionPoint_{laneIndex}", new Vector3(-customer[0].Value<float>() * LayoutScale, 0, customer[1].Value<float>() * LayoutScale));checkoutPoint.SetParent(world.Root,true);world.CheckoutPoints.Add(checkoutPoint);
-                AddInteraction(world,checkoutPoint,$"checkout:{lane.Name}","Atender caja",1.55f,true,.08f,.75f);
-                var unload=New($"CheckoutUnloadSocket_{laneIndex}",position+new Vector3(-.72f,1.08f,-.12f));unload.SetParent(world.Root,true);world.CheckoutUnloadPoints.Add(unload);
-                var scan=New($"CheckoutScanSocket_{laneIndex}",position+new Vector3(0,1.08f,-.12f));scan.SetParent(world.Root,true);world.CheckoutScanPoints.Add(scan);
-                var bag=New($"CheckoutBagSocket_{laneIndex}",position+new Vector3(.78f,1.08f,-.12f));bag.SetParent(world.Root,true);world.CheckoutBagPoints.Add(bag);
+                var laneIndex=int.Parse(lane.Name);var checkoutPoint=NearLayoutPoint($"CheckoutCustomerPoint_{laneIndex}",checkout.transform,
+                    counterX,counterZ,customer[0].Value<float>(),customer[1].Value<float>(),world.Root);world.CheckoutPoints.Add(checkoutPoint);
+                var cashier=(JArray)data["cashierWork"];
+                var cashierPoint=NearLayoutPoint($"CheckoutInteractionPoint_{laneIndex}",checkout.transform,
+                    counterX,counterZ,cashier[0].Value<float>(),cashier[2].Value<float>(),world.Root);
+                AddInteraction(world,cashierPoint,$"checkout:{lane.Name}","Atender caja",ServiceReach,true,.08f,.75f);
+                // CheckoutKit's physical sockets, converted from StoreElement
+                // units (1.6) through Next's WORLD_SCALE (3), with X mirrored.
+                // The three points now sit on the real belt, scanner and bagger.
+                var unload=WorldAnchor($"CheckoutUnloadSocket_{laneIndex}",checkout.transform.position+new Vector3(7.968f,6f,0),world.Root);world.CheckoutUnloadPoints.Add(unload);
+                var scan=WorldAnchor($"CheckoutScanSocket_{laneIndex}",checkout.transform.position+new Vector3(-3.072f,5.592f,0),world.Root);world.CheckoutScanPoints.Add(scan);
+                var bag=WorldAnchor($"CheckoutBagSocket_{laneIndex}",checkout.transform.position+new Vector3(-8.016f,4.896f,0),world.Root);world.CheckoutBagPoints.Add(bag);
+                var bagPickup=(JArray)data["bagPickup"];
+                world.CheckoutBagPickupPoints.Add(NearLayoutPoint($"CheckoutBagPickupPoint_{laneIndex}",checkout.transform,
+                    counterX,counterZ,bagPickup[0].Value<float>(),bagPickup[1].Value<float>(),world.Root));
                 var queue = (JArray)data["queueStart"];
                 var laneQueue=new List<Transform>();world.CheckoutQueuePoints.Add(laneQueue);
                 for (var i = 0; i < 8; i++)
                 {
-                    var point = New($"Queue{laneIndex+1}_Point{i + 1:00}", new Vector3(-queue[0].Value<float>() * LayoutScale, 0, (queue[1].Value<float>() - i * .78f) * LayoutScale));
-                    point.SetParent(world.Root, true);laneQueue.Add(point);if(laneIndex==0)world.QueuePoints.Add(point);
+                    var point = NearLayoutPoint($"Queue{laneIndex+1}_Point{i + 1:00}",checkout.transform,
+                        counterX,counterZ,queue[0].Value<float>(),queue[1].Value<float>()-i*.78f,world.Root);
+                    laneQueue.Add(point);if(laneIndex==0)world.QueuePoints.Add(point);
                 }
-                if(laneIndex==0){world.CheckoutPoint=checkoutPoint;world.CheckoutUnloadPoint=unload;world.CheckoutScanPoint=scan;world.CheckoutBagPoint=bag;}
+                if(laneIndex==0){world.CheckoutPoint=cashierPoint;world.CheckoutCameraAnchor=checkout.transform;world.CheckoutUnloadPoint=unload;world.CheckoutScanPoint=scan;world.CheckoutBagPoint=bag;}
             }
         }
 
@@ -1268,7 +1292,8 @@ namespace MiniMarket.Store
                 var root = HideIfBare(await Place(ids[property.Name], new Vector3(-pos[0].Value<float>() * LayoutScale, 0, pos[2].Value<float>() * LayoutScale), Quaternion.identity, Vector3.one * ElementScale, world.Root, true));
                 world.AvailabilityVisuals[$"machine:{data.Value<string>("machineId")}"]=root;
                 var work=(JArray)data["operatorWorkPoint"];
-                var workPoint=New($"MachineWork_{property.Name}",new Vector3(-work[0].Value<float>()*LayoutScale,0,work[1].Value<float>()*LayoutScale));workPoint.SetParent(world.Root,true);
+                var workPoint=NearLayoutPoint($"MachineWork_{property.Name}",root.transform,
+                    pos[0].Value<float>(),pos[2].Value<float>(),work[0].Value<float>(),work[1].Value<float>(),world.Root);
                 var interaction=AddAreaInteraction(world,root,$"machine:{data.Value<string>("machineId")}",data.Value<string>("label"),WorldUnitsPerMeter*.72f,true,.035f,.75f);
                 interaction.repeatAutomatically=false;
                 world.MachinePoints[data.Value<string>("machineId")] = workPoint;
@@ -1308,25 +1333,32 @@ namespace MiniMarket.Store
                 var animal = await Place(id, new Vector3(-pos[0].Value<float>() * LayoutScale, 0, pos[2].Value<float>() * LayoutScale), Quaternion.Euler(0, 180, 0), Vector3.one * ElementScale, world.Root, true);
                 world.AvailabilityVisuals[$"machine:{(property.Name=="chicken"?"chicken-coop-1":"cow-station-1")}"]=animal;
                 var work=(JArray)property.Value["workPosition"];
-                var workPoint=New($"AnimalWork_{property.Name}",new Vector3(-work[0].Value<float>()*LayoutScale,0,work[2].Value<float>()*LayoutScale));workPoint.SetParent(world.Root,true);
-                AddInteraction(world,workPoint,$"animal:{property.Name}",property.Name == "chicken" ? "Recoger huevos" : "Recoger leche",1.55f,true,.08f,.75f);
+                var workPoint=NearLayoutPoint($"AnimalWork_{property.Name}",animal.transform,
+                    pos[0].Value<float>(),pos[2].Value<float>(),work[0].Value<float>(),work[2].Value<float>(),world.Root);
+                var interaction=AddInteraction(world,workPoint,$"animal:{property.Name}",property.Name == "chicken" ? "Recoger huevos" : "Recoger leche",ServiceReach,true,.08f,.75f);
+                interaction.repeatAutomatically=false;
             }
         }
 
         async Task BuildServices(StoreWorld world)
         {
             var supplier = HideIfBare(await Place("SupplierTerminal",XZ(8.8f,-2.15f),Quaternion.identity,Vector3.one,world.Root,true));
-            HideIfBare(await Place("DeliveryDock",XZ(8.8f,-3.23f),Quaternion.identity,Vector3.one,world.Root,true));
+            var deliveryDock=HideIfBare(await Place("DeliveryDock",XZ(8.8f,-3.23f),Quaternion.identity,Vector3.one,world.Root,true));
             HideIfBare(await Place("SupplierTerminal",XZ(8.8f,-5.35f),Quaternion.identity,Vector3.one,world.Root,true));
-            HideIfBare(await Place("ReturnsStation",XZ(9.85f,5.45f),Quaternion.Euler(0,180,0),Vector3.one,world.Root,true));
-            HideIfBare(await Place("CartBay",XZ(3.05f,6.55f),Quaternion.identity,Vector3.one,world.Root,true));
-            AddInteraction(world,supplier.transform,"supplier","Abrir proveedores",2.1f,false);
-            var returnsPoint=New("ReturnsServicePoint",new Vector3(-20.1f,0,8.6f));returnsPoint.SetParent(world.Root,true);
-            AddInteraction(world,returnsPoint,"returns","Devolver mercancía",1.5f,true,.08f,.75f);
+            var returns=HideIfBare(await Place("ReturnsStation",XZ(9.85f,5.45f),Quaternion.Euler(0,180,0),Vector3.one,world.Root,true));
+            var cartBay=HideIfBare(await Place("CartBay",XZ(3.05f,6.55f),Quaternion.identity,Vector3.one,world.Root,true));
+            world.CartReturnPoint=NearLayoutPoint("CartReturnPoint",cartBay.transform,3.05f,6.55f,3.05f,5.25f,world.Root);
+            var supplierPoint=NearLayoutPoint("SupplierServicePoint",supplier.transform,8.8f,-2.15f,8.8f,-.95f,world.Root);
+            AddInteraction(world,supplierPoint,"supplier","Abrir proveedores",ServiceReach,false);
+            var returnsInteraction=AddAreaInteraction(world,returns,"returns","Devolver mercancía",ServiceReach,true,.08f,.75f);
+            returnsInteraction.repeatAutomatically=false;
             var pickup = (JArray)spec.Layouts["warehouse"]?["WAREHOUSE_PICKUP_STATION"]?["position"];
-            var pickupPosition = pickup == null ? new Vector3(-14.8f, 0, -6.8f) : new Vector3(-pickup[0].Value<float>() * LayoutScale, 0, pickup[2].Value<float>() * LayoutScale);
-            world.WarehousePoint = New("WarehousePickupPoint", pickupPosition); world.WarehousePoint.SetParent(world.Root, true);
-            AddInteraction(world,world.WarehousePoint,"warehouse","Recoger mercancía",1.5f,true,.08f,1.1f);
+            world.WarehousePoint = pickup == null
+                ? WorldAnchor("WarehousePickupPoint",deliveryDock.transform.position+new Vector3(8.4f,.08f,-1.02f),world.Root)
+                : NearLayoutPoint("WarehousePickupPoint",deliveryDock.transform,8.8f,-3.23f,
+                    pickup[0].Value<float>(),pickup[2].Value<float>(),world.Root);
+            var warehouseInteraction=AddInteraction(world,world.WarehousePoint,"warehouse","Recoger mercancía",ServiceReach,true,.08f,1.1f);
+            warehouseInteraction.repeatAutomatically=false;
         }
 
         void BuildNavigationAnchors(StoreWorld world)
@@ -1335,7 +1367,8 @@ namespace MiniMarket.Store
             world.EntranceInside = New("EntranceInside", new Vector3(0, 0, 11.2f));
             world.ExitPoint = New("ExitPoint", new Vector3(0, 0, 30.8f));
             world.EntranceOutside.SetParent(world.Root, true); world.EntranceInside.SetParent(world.Root, true); world.ExitPoint.SetParent(world.Root, true);
-            var sensorPoint=New("EntranceSensorPoint",new Vector3(0,0,17f));sensorPoint.SetParent(world.Root,true);AddInteraction(world,sensorPoint,"door","Sensor de entrada",4.8f,false);
+            // StorefrontDoorPresenter owns the entrance proximity directly. An
+            // extra no-op InteractionPoint only displayed a misleading prompt.
         }
 
         static void BuildOuterGroundCollider(Transform parent)
@@ -1492,6 +1525,21 @@ namespace MiniMarket.Store
             value.position=worldPosition;
             value.SetParent(root,true);
             return value;
+        }
+
+        /// Converts a short authored offset around a fixture using the physical
+        /// pre-expansion scale. Main furniture remains on the expanded x2 plan;
+        /// service points, queue spacing and operator positions stay beside it.
+        static Transform NearLayoutPoint(string name,Transform fixture,float fixtureX,float fixtureZ,
+            float pointX,float pointZ,Transform root,float y=.08f)
+        {
+            var physicalPlanScale=LayoutScale*PreviousStoreScale;
+            var worldPosition=fixture.position+new Vector3(
+                -(pointX-fixtureX)*physicalPlanScale,
+                0,
+                (pointZ-fixtureZ)*physicalPlanScale);
+            worldPosition.y=y;
+            return WorldAnchor(name,worldPosition,root);
         }
 
         Transform New(string name, Vector3 position)

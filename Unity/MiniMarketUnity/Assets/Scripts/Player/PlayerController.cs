@@ -25,7 +25,6 @@ namespace MiniMarket.Player
         // where the pace was judged right on screen. Acceleration and braking
         // keep their proportion to it, and the stride rate follows on its own
         // because CharacterActor.Locomotion reads the speed itself.
-        [SerializeField] float walkSpeed = Core.Pace.Walk;
         [SerializeField] float runSpeed = Core.Pace.Run;
         [SerializeField] float acceleration = 77.76f;
         [SerializeField] float braking = 103.68f;
@@ -33,26 +32,33 @@ namespace MiniMarket.Player
         Vector3 velocity;
         /// Ground speed in world units, which is what a stride has to match.
         public float WorldSpeed => new Vector2(velocity.x, velocity.z).magnitude;
+        /// Intended speed before acceleration. The animation bridge uses this
+        /// to choose the gait immediately instead of forcing two seconds of
+        /// walking before a full-stick run.
+        public float TargetWorldSpeed { get; private set; }
         GameStateDocument state;
         public Vector2 VirtualInput { get; set; }
         public bool InputEnabled { get; set; } = true;
+        /// Stationary checkout work consumes movement until the stick/key is
+        /// released; a new deliberate direction cancels work on the next frame.
+        public bool MovementLocked { get; set; }
         public float Speed01 { get; private set; }
-        /// True while the owner holds the run key. The rest of the cast walks.
-        public bool Running { get; private set; }
         /// Feeds the WorkstationController port, which mirrors Next's rule that a
         /// deliberate new move cancels stationary work.
         public float InputMagnitude { get; private set; }
-        /// Hold a direction this long and the owner breaks into a run; let go
-        /// and he drops back to walking. A key would be no use on a touch
-        /// screen, where the joystick is the only control there is.
-        const float HoldToRun = 2f;
-        float held;
-
         void Awake() => controller = GetComponent<CharacterController>();
         public void Bind(GameStateDocument document)=>state=document;
+        /// Speed upgrades are ten real tiers. Tier one starts at 60% of the
+        /// previously approved running speed and tier ten reaches exactly that
+        /// speed; no upgrade can make the owner faster than today's 100%.
+        public static float SpeedMultiplierForTier(int tier)
+        {
+            var safeTier=Mathf.Clamp(tier,1,10);
+            return Mathf.Lerp(.6f,1f,(safeTier-1)/9f);
+        }
         void Update()
         {
-            if (!InputEnabled) { InputMagnitude = 0f; return; }
+            if (!InputEnabled) { InputMagnitude = 0f;TargetWorldSpeed=0f; return; }
             var input = VirtualInput;
             if (Keyboard.current != null)
             {
@@ -63,6 +69,12 @@ namespace MiniMarket.Player
             }
             input = Vector2.ClampMagnitude(input, 1);
             InputMagnitude = input.magnitude;
+            if(MovementLocked)
+            {
+                velocity=Vector3.zero;TargetWorldSpeed=0;Speed01=0;
+                controller.Move(Physics.gravity*.12f*Time.deltaTime);
+                return;
+            }
             // Next deliberately uses the fixed overview-camera basis instead
             // of the damped camera transform, keeping arrows straight on screen.
             // OVERVIEW_CAMERA_GROUND_FORWARD is (-16, -25.75) in the authored
@@ -73,30 +85,26 @@ namespace MiniMarket.Player
             var forward = new Vector3(16f, 0, -25.75f).normalized;
             var right = Vector3.Cross(Vector3.up, forward);
             var direction = Vector3.ClampMagnitude(right * input.x + forward * -input.y, 1f);
-            var tier=Mathf.Max(1,state?.CurrentFranchise.Value<int?>("playerSpeedTier")??1);
-            var tierMultiplier=1f+Mathf.Min(.32f,(tier-1)*.08f);
-            // Two seconds of a held direction breaks into a run, and letting
-            // go drops back to a walk. Turning does not interrupt it: only
-            // releasing does. Shift still works for anyone on a keyboard.
+            var tier=state?.CurrentFranchise.Value<int?>("playerSpeedTier")??1;
+            var tierMultiplier=SpeedMultiplierForTier(tier);
             var pushing=direction.sqrMagnitude>.01f;
-            held=pushing?held+Time.deltaTime:0f;
-            var running=pushing&&(held>=HoldToRun||(Keyboard.current!=null&&(Keyboard.current.leftShiftKey.isPressed||Keyboard.current.rightShiftKey.isPressed)));
-            Running=running;
-            var pace=(running?runSpeed:walkSpeed)*tierMultiplier;
-            var targetSpeed = direction.sqrMagnitude > .01f ? pace : 0f;
+            var inputStrength=direction.magnitude;
+            var pace=runSpeed*tierMultiplier;
+            var targetSpeed=pushing?pace*inputStrength:0f;
+            TargetWorldSpeed=targetSpeed;
             if (pushing)
             {
                 // Direction is input, not inertia. Redirect the current speed and
                 // the body in the same frame; smoothing the velocity vector and
                 // yaw separately made the owner skate sideways before turning.
                 var speed=Mathf.MoveTowards(WorldSpeed,targetSpeed,acceleration*Time.deltaTime);
-                velocity=direction*speed;
+                velocity=direction.normalized*speed;
                 var targetYaw = Mathf.Atan2(direction.x, direction.z) * Mathf.Rad2Deg;
                 transform.rotation = Quaternion.Euler(0,targetYaw,0);
             }
             else velocity=Vector3.MoveTowards(velocity,Vector3.zero,braking*Time.deltaTime);
             controller.Move((velocity + Physics.gravity * .12f) * Time.deltaTime);
-            Speed01 = Mathf.InverseLerp(0, runSpeed*tierMultiplier, velocity.magnitude);
+            Speed01 = Mathf.InverseLerp(0, pace, velocity.magnitude);
         }
     }
 }

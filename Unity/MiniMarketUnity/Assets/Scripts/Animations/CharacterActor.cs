@@ -74,16 +74,20 @@ namespace MiniMarket.Animations
         public const float MaxRate = 4f;
 
         /// The clip to play and the rate that makes its stride cover exactly
-        /// the ground travelled. Running is told, not guessed from the speed:
-        /// only the owner runs, and a shopper crossing the floor quickly is
-        /// still walking.
+        /// the ground travelled. The owner can request Run immediately when
+        /// full input exceeds the walk limit; partial analogue input and the
+        /// rest of the cast still select their gait from physical speed.
         public static (string clip, float rate) Locomotion(float worldSpeed, bool carrying, float strideScale = 1f, bool running = false)
         {
             var walkPace = WalkGroundSpeed * strideScale;
             var runPace = RunGroundSpeed * strideScale;
             var carryPace = CarryWalkGroundSpeed * strideScale;
-            if (carrying && worldSpeed <= carryPace * MaxRate)
+            if (carrying)
+            {
+                if(running||worldSpeed>carryPace*MaxRate)
+                    return ("CarryRun",Mathf.Clamp(worldSpeed/runPace,.6f,MaxRate));
                 return ("CarryWalk", Mathf.Clamp(worldSpeed / carryPace, .55f, MaxRate));
+            }
             if (running || worldSpeed > walkPace * MaxRate)
                 return ("Run", Mathf.Clamp(worldSpeed / runPace, .6f, MaxRate));
             return ("Walk", Mathf.Clamp(worldSpeed / walkPace, .55f, MaxRate));
@@ -94,11 +98,11 @@ namespace MiniMarket.Animations
             if (legacyAnimations.Length == 0) return false;
             if (current == requested && Mathf.Approximately(currentRate, rate)) return false;
             var resolved = Resolve(requested);
-            if (resolved == null && requested == "Run")
+            if (resolved == null && (requested == "Run"||requested=="CarryRun"))
             {
                 // Every character carries a Run; this stands in only for one
                 // that somehow does not, so a sprint never freezes mid-stride.
-                resolved = Resolve("Walk");
+                resolved = Resolve(requested=="CarryRun"?"CarryWalk":"Walk");
                 rate *= RunGroundSpeed / WalkGroundSpeed;
             }
             if (resolved == null) return false;

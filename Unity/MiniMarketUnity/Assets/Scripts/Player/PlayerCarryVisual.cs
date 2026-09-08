@@ -24,6 +24,7 @@ namespace MiniMarket.Player
         PlayerCarrySystem carry;
         GameObject basket;
         Transform contents;
+        Transform carrySocket,leftHand,rightHand,actorRoot;
         HandPoseDriver hands;
         readonly List<GameObject> units=new();
         readonly Dictionary<string,Stack<GameObject>> pools=new(StringComparer.OrdinalIgnoreCase);
@@ -36,10 +37,10 @@ namespace MiniMarket.Player
             loader=runtimeLoader;carry=playerCarry;generation++;
             if(basket)Destroy(basket);units.Clear();pools.Clear();
             var sockets=actor.GetComponent<CharacterSockets>();hands=actor.GetComponent<HandPoseDriver>();
-            var socket=sockets?.Get("Box");
-            if(socket)
+            carrySocket=sockets?.Get("Box");leftHand=sockets?.Get("HandLeft");rightHand=sockets?.Get("HandRight");actorRoot=actor.transform;
+            if(carrySocket)
             {
-                basket=await loader.InstantiateAsync("HarvestBasket",socket,Vector3.zero,Quaternion.identity,Vector3.one);
+                basket=await loader.InstantiateAsync("HarvestBasket",carrySocket,Vector3.zero,Quaternion.identity,Vector3.one);
                 basket.name="PlayerTransportCrate";NormalizeWorldSize(basket,3.6f);
                 basket.transform.localPosition=Vector3.zero;basket.transform.localRotation=Quaternion.identity;
                 foreach(var collider in basket.GetComponentsInChildren<Collider>(true))collider.enabled=false;
@@ -54,6 +55,20 @@ namespace MiniMarket.Player
         {
             if(carry==null||refreshing||carry.Version==lastVersion)return;
             _=RefreshAsync();
+        }
+
+        void LateUpdate()
+        {
+            if(!basket||!basket.activeInHierarchy||!carrySocket||!leftHand||!rightHand||!actorRoot)return;
+            // The box is rigid, while its socket follows the two animated palms.
+            // This is the Unity equivalent of Next's CarrySocket: a CarryRun
+            // stride can move the torso and legs without ever leaving the box
+            // behind in the chest.
+            carrySocket.rotation=actorRoot.rotation;
+            var bounds=Bounds(basket);
+            var palms=(leftHand.position+rightHand.position)*.5f;
+            var desiredCentre=palms+actorRoot.forward*.22f-Vector3.up*bounds.size.y*.34f;
+            carrySocket.position+=desiredCentre-bounds.center;
         }
 
         async Task RefreshAsync()

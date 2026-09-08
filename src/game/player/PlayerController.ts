@@ -26,16 +26,21 @@ export const DEFAULT_PLAYER_MOTION: PlayerMotionConfig = {
  * braking scale with the same multiplier so touch and keyboard preserve the
  * same response-to-speed ratio.
  */
-export const PLAYER_TIER_ONE_SPEED_MULTIPLIER = 2.7;
+export const PLAYER_MAX_SPEED_MULTIPLIER = 2.7;
+export const PLAYER_TIER_ONE_SPEED_MULTIPLIER = PLAYER_MAX_SPEED_MULTIPLIER * 0.6;
+
+export function playerSpeedProgressForTier(tier: number) {
+  const safeTier = Math.max(1, Math.min(10, Math.floor(Number.isFinite(tier) ? tier : 1)));
+  return 0.6 + (safeTier - 1) / 9 * 0.4;
+}
 
 export function playerMotionForTier(tier: number): PlayerMotionConfig {
-  const safeTier = Math.max(1, Math.floor(Number.isFinite(tier) ? tier : 1));
-  const tierMultiplier = 1 + Math.min(0.32, (safeTier - 1) * 0.08);
+  const tierMultiplier = playerSpeedProgressForTier(tier);
   return {
     ...DEFAULT_PLAYER_MOTION,
-    walkSpeed: DEFAULT_PLAYER_MOTION.walkSpeed * PLAYER_TIER_ONE_SPEED_MULTIPLIER * tierMultiplier,
-    acceleration: DEFAULT_PLAYER_MOTION.acceleration * PLAYER_TIER_ONE_SPEED_MULTIPLIER,
-    braking: DEFAULT_PLAYER_MOTION.braking * PLAYER_TIER_ONE_SPEED_MULTIPLIER,
+    walkSpeed: DEFAULT_PLAYER_MOTION.walkSpeed * PLAYER_MAX_SPEED_MULTIPLIER * tierMultiplier,
+    acceleration: DEFAULT_PLAYER_MOTION.acceleration * PLAYER_MAX_SPEED_MULTIPLIER,
+    braking: DEFAULT_PLAYER_MOTION.braking * PLAYER_MAX_SPEED_MULTIPLIER,
   };
 }
 

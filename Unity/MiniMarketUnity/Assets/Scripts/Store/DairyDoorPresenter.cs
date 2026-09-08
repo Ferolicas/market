@@ -47,7 +47,7 @@ namespace MiniMarket.Store
                     var delta = player.position - (hinge.position + transform.right * bayWidth * .5f);
                     var across = Mathf.Abs(Vector3.Dot(delta, transform.right));
                     var front = Mathf.Abs(Vector3.Dot(delta, transform.forward));
-                    open = across < bayWidth * .72f && front < 3.4f;
+                    open = across < bayWidth * .72f && front < StoreWorldBuilder.WorldUnitsPerMeter * .85f;
                 }
                 var target = open ? closed[i] * Quaternion.Euler(0, -96f, 0) : closed[i];
                 hinge.localRotation = Quaternion.RotateTowards(hinge.localRotation, target,

@@ -34,6 +34,7 @@ namespace MiniMarket.Interactions
 
         public bool CanPerform(string zone) => zoneId == zone && !cancelledUntilExit;
         public string PerformingZoneId() => zoneId != null && !cancelledUntilExit ? zoneId : null;
+        public void Cancel(){zoneId=null;waitingForNeutral=false;cancelledUntilExit=false;}
 
         /// "checkout:1" and "stock:tomatoes" collapse to the station they act
         /// on, matching how Next keys zones by workstation rather than target.

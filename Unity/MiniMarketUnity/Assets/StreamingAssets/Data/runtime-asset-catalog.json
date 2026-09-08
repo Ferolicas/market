@@ -1527,72 +1527,72 @@
       "kind": "character-motion",
       "path": "Art/Characters/AdultMale/Motion.glb",
       "source": "derived-from:AdultMale:LOD0",
-      "bytes": 2564132,
-      "sha256": "51c6bafd699ed78485ed4bf7eb8faf7ad91056b2fc534c73e1df2d6f0835049f"
+      "bytes": 2598112,
+      "sha256": "6944933312a2a07dfee8a5ac19b51daf91c6658fe7fabb699d21c18694df7483"
     },
     {
       "id": "AdultFemale:Motion",
       "kind": "character-motion",
       "path": "Art/Characters/AdultFemale/Motion.glb",
       "source": "derived-from:AdultFemale:LOD0",
-      "bytes": 2568564,
-      "sha256": "7e30b4ae24664956d858ce0874812d82ac06219600b92ccab78ccf4b782df7f9"
+      "bytes": 2602532,
+      "sha256": "38929e413a3659026e2f3858b87805d8656fdde75435489a595f5e85ef5b025f"
     },
     {
       "id": "Boy:Motion",
       "kind": "character-motion",
       "path": "Art/Characters/Boy/Motion.glb",
       "source": "derived-from:Boy:LOD0",
-      "bytes": 3017248,
-      "sha256": "63274af7bd7697be01f2cd98bbc6a68ee2269d3a29d2c2e1373db059f3c50377"
+      "bytes": 3055744,
+      "sha256": "8e6c20dd77dd31ff55635e4e5334a7a1698a123ac997ada088221fd65057efb0"
     },
     {
       "id": "Girl:Motion",
       "kind": "character-motion",
       "path": "Art/Characters/Girl/Motion.glb",
       "source": "derived-from:Girl:LOD0",
-      "bytes": 2567752,
-      "sha256": "28a52d6285e0677430a3fecf7ad089c4afe7394fac5f214d0839a3542845b00e"
+      "bytes": 2601728,
+      "sha256": "fe2a4323fd267ecbb19c96fd83714f3ed78257eda46483623ab08ea66a7879f7"
     },
     {
       "id": "CustomerFemale01:Motion",
       "kind": "character-motion",
       "path": "Art/Characters/CustomerFemale01/Motion.glb",
       "source": "derived-from:CustomerFemale01:LOD0",
-      "bytes": 3023412,
-      "sha256": "319830f91288bbeec95dc8b55d6fc8d9c95f87cd33d4f9621e88905f44a7a1d7"
+      "bytes": 3062012,
+      "sha256": "81d4db4860e6bdf5e41e9f91983cc4868708b28c200b8d2cfcca2dd4bfb386f0"
     },
     {
       "id": "CustomerFemale02:Motion",
       "kind": "character-motion",
       "path": "Art/Characters/CustomerFemale02/Motion.glb",
       "source": "derived-from:CustomerFemale02:LOD0",
-      "bytes": 2567260,
-      "sha256": "9c80424f299c46da7bbbd274fdd9d3cba3bce75a02c35a85f268213c3c86f9cc"
+      "bytes": 2601448,
+      "sha256": "f4592fa6b49e1d702dc28c72a302844a71c371a0412970f8bdc2e88be4e67b00"
     },
     {
       "id": "CustomerFemale03:Motion",
       "kind": "character-motion",
       "path": "Art/Characters/CustomerFemale03/Motion.glb",
       "source": "derived-from:CustomerFemale03:LOD0",
-      "bytes": 2568832,
-      "sha256": "ef2cde9f845080208b8dfc74ce3f7f69c772056c36c55efe88c44db499be87a1"
+      "bytes": 2602920,
+      "sha256": "57df1478f4841d458879082d3f09aafb7bc909ac77e8151c09c5984290340cd6"
     },
     {
       "id": "CustomerFemale04:Motion",
       "kind": "character-motion",
       "path": "Art/Characters/CustomerFemale04/Motion.glb",
       "source": "derived-from:CustomerFemale04:LOD0",
-      "bytes": 2567544,
-      "sha256": "28dab44b5e8d5c0f73e16e868a389bd41eb8ca69e68be37ab3769f21b908a2c6"
+      "bytes": 2601620,
+      "sha256": "a73bb6bddf48eb26cc589c67ba3b0d7b29cfc06ba322c5a8080fd1f7d5eb819a"
     },
     {
       "id": "CustomerMale01:Motion",
       "kind": "character-motion",
       "path": "Art/Characters/CustomerMale01/Motion.glb",
       "source": "derived-from:CustomerMale01:LOD0",
-      "bytes": 2564400,
-      "sha256": "2bcdfe9f5130c17ed401e11cac916d6aee2a91307e04d66d17c992e1a6549c8a"
+      "bytes": 2598596,
+      "sha256": "6b3e4ac7c83b2998c57bbca959f4cb03b3272f2f8a2e07f677bfa114878b99a7"
     },
     {
       "id": "CheckoutLaneSign",
@@ -1604,13 +1604,13 @@
     }
   ],
   "counts": {
-    "character": 18,
+    "character": 27,
     "product": 11,
-    "environment": 123,
+    "environment": 124,
     "hair": 16,
     "hat": 12,
     "metadata": 1,
     "character-motion": 9
   },
-  "totalBytes": 261594430
+  "totalBytes": 261909998
 }

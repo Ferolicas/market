@@ -18,7 +18,7 @@ namespace MiniMarket.Customers
 {
     public sealed class CustomerManager : MonoBehaviour
     {
-        enum Phase { Entering, Shopping, Picking, Queueing, Waiting, Unloading, Scanning, Bagging, Paying, Leaving }
+        enum Phase { Entering, GettingCart, Shopping, Picking, Queueing, Waiting, Unloading, Scanning, Bagging, Paying, GettingBag, TakingBag, ReturningCart, Leaving }
         sealed class Mind
         {
             public CustomerAgent Agent;
@@ -62,6 +62,7 @@ namespace MiniMarket.Customers
         readonly List<CheckoutFlowVisual> checkoutFlows=new();
         readonly List<Task> checkoutWarmups=new();
         public int ActiveCount => customers.Count;
+        public Transform FirstActiveTransform => customers.Count>0&&customers[0].Agent?customers[0].Agent.transform:null;
 
         public void Bind(CharacterFactory characterFactory, RuntimeGltfLoader runtimeLoader, StoreWorld storeWorld, GameStateDocument document,
             GameSpecRepository repository, InventorySystem inventorySystem, EconomySystem economySystem,
@@ -153,7 +154,10 @@ namespace MiniMarket.Customers
             switch (mind.Phase)
             {
                 case Phase.Entering:
-                    if (mind.Agent.Arrived) BuildShoppingList(mind);
+                    if (mind.Agent.Arrived) { mind.Phase=Phase.GettingCart;mind.Agent.GoTo(world.CartReturnPoint.position); }
+                    break;
+                case Phase.GettingCart:
+                    if(mind.Agent.Arrived){mind.BasketVisual?.TakeCart();mind.Agent.PushingCart=true;BuildShoppingList(mind);}
                     break;
                 case Phase.Shopping:
                     if (mind.Agent.Arrived) { mind.Phase = Phase.Picking; mind.Since = Time.time; mind.Agent.Play("PickupLow"); }
@@ -163,9 +167,11 @@ namespace MiniMarket.Customers
                     break;
                 case Phase.Queueing:
                     UpdateQueueTarget(mind);
+                    if (mind.Agent.Arrived) FaceCheckout(mind);
                     if (mind.QueueSlot == 0 && mind.Agent.Arrived) { mind.Phase = Phase.Waiting; mind.Since = Time.time; mind.Agent.Play("Queue"); }
                     break;
                 case Phase.Waiting:
+                    FaceCheckout(mind);
                     if (QueueFor(mind).PositionOf(mind.Agent.CustomerId) != 0) { mind.Phase = Phase.Queueing; break; }
                     if (Time.time - mind.Since >= 1.2f && HasCashier(mind.CheckoutLane)) BeginCheckout(mind);
                     break;
@@ -181,6 +187,19 @@ namespace MiniMarket.Customers
                 case Phase.Paying:
                     if (Time.time - mind.Since >= 1.8f) PayAndLeave(mind);
                     break;
+                case Phase.GettingBag:
+                    if(mind.Agent.Arrived){mind.Agent.Play("ReceiveBag");mind.Phase=Phase.TakingBag;mind.Since=Time.time;}
+                    break;
+                case Phase.TakingBag:
+                    if(Time.time-mind.Since>=.7f)
+                    {
+                        mind.BasketVisual?.TakeBag();mind.CheckoutFlow?.EndSession();mind.Phase=Phase.ReturningCart;
+                        mind.Agent.GoTo(world.CartReturnPoint.position);
+                    }
+                    break;
+                case Phase.ReturningCart:
+                    if(mind.Agent.Arrived){mind.BasketVisual?.ReturnCart();mind.Agent.PushingCart=false;mind.Phase=Phase.Leaving;mind.Agent.GoTo(world.ExitPoint.position);}
+                    break;
                 case Phase.Leaving:
                     if (mind.Agent.Arrived) Release(mind);
                     break;
@@ -195,7 +214,7 @@ namespace MiniMarket.Customers
             if (choices.Count == 0)
             {
                 mind.Agent.Play("Impatient"); mind.Agent.Expression("Frown", 55);
-                mind.Phase = Phase.Leaving; mind.Agent.GoTo(world.ExitPoint.position); return;
+                ReturnCartAndLeave(mind); return;
             }
             for(var i=choices.Count-1;i>0;i--){var j=UnityEngine.Random.Range(0,i+1);(choices[i],choices[j])=(choices[j],choices[i]);}
             var desired=Mathf.Clamp(1+state.Level/8,1,5);
@@ -220,9 +239,9 @@ namespace MiniMarket.Customers
             {
                 mind.Product=mind.ShoppingList[mind.ShoppingIndex];mind.Phase=Phase.Shopping;mind.Agent.Play("Browse");mind.Agent.GoTo(world.ServicePoint(mind.Product).position);return;
             }
-            if(mind.Basket.Count==0){mind.Phase=Phase.Leaving;mind.Agent.Play("LookAround");mind.Agent.GoTo(world.ExitPoint.position);return;}
+            if(mind.Basket.Count==0){mind.Agent.Play("LookAround");ReturnCartAndLeave(mind);return;}
             mind.CheckoutLane=ChooseLane();mind.QueueSlot = queues[mind.CheckoutLane].Reserve(mind.Agent.CustomerId);
-            if (mind.QueueSlot < 0) { PenalizeRating(); ReturnBasket(mind); mind.Agent.Play("Impatient"); mind.Phase = Phase.Leaving; mind.Agent.GoTo(world.ExitPoint.position); return; }
+            if (mind.QueueSlot < 0) { PenalizeRating(); ReturnBasket(mind); mind.Agent.Play("Impatient"); ReturnCartAndLeave(mind); return; }
             mind.QueueJoinedAt=state.SimulationTimeMs;
             mind.Phase = Phase.Queueing;
             UpdateQueueTarget(mind);
@@ -234,6 +253,12 @@ namespace MiniMarket.Customers
             if (mind.QueueSlot < 0) return;
             var lanePoints=world.CheckoutQueuePoints[mind.CheckoutLane];var point = mind.QueueSlot == 0 ? world.CheckoutPoints[mind.CheckoutLane] : lanePoints[Mathf.Min(mind.QueueSlot - 1, lanePoints.Count - 1)];
             if (Vector3.SqrMagnitude(mind.Agent.transform.position - point.position) > .12f) mind.Agent.GoTo(point.position);
+        }
+
+        void FaceCheckout(Mind mind)
+        {
+            if(mind.CheckoutLane>=0&&mind.CheckoutLane<world.CheckoutCounters.Count)
+                mind.Agent.Face(world.CheckoutCounters[mind.CheckoutLane].position);
         }
 
         void PayAndLeave(Mind mind)
@@ -250,9 +275,9 @@ namespace MiniMarket.Customers
             state.Changed();
             signals.PublishNotification($"Cliente atendido · +{total}");
             Debug.Log($"MINIMARKET_CHECKOUT customer={mind.Agent.CustomerId} totalMinor={total} balanceMinor={state.BalanceMinor}");
-            mind.CheckoutFlow?.EndSession();
             mind.Agent.Expression("Smile", 62); mind.Agent.Play("Wave");
-            mind.Phase = Phase.Leaving; mind.Agent.GoTo(world.ExitPoint.position);
+            mind.Phase=Phase.GettingBag;
+            mind.Agent.GoTo(world.CheckoutBagPickupPoints[mind.CheckoutLane].position);
         }
 
         public bool ServeNext()
@@ -276,6 +301,7 @@ namespace MiniMarket.Customers
 
         void BeginCheckout(Mind mind)
         {
+            FaceCheckout(mind);
             mind.CheckoutUnits.Clear();foreach(var item in mind.Basket)for(var unit=0;unit<item.Value;unit++)mind.CheckoutUnits.Add(item.Key);
             mind.CheckoutIndex=0;mind.CheckoutFlow=checkoutFlows[mind.CheckoutLane];mind.CheckoutFlow.BeginSession();BeginCheckoutUnit(mind);
         }
@@ -294,17 +320,27 @@ namespace MiniMarket.Customers
         void AbandonQueue(Mind mind)
         {
             QueueFor(mind).Release(mind.Agent.CustomerId);mind.QueueSlot=-1;mind.QueueJoinedAt=-1;ReturnBasket(mind);PenalizeRating();
-            mind.Agent.Expression("Frown",65);mind.Agent.Play("Impatient");mind.Phase=Phase.Leaving;mind.Agent.GoTo(world.ExitPoint.position);
+            mind.Agent.Expression("Frown",65);mind.Agent.Play("Impatient");ReturnCartAndLeave(mind);
             signals.PublishNotification("Un cliente abandonó la cola tras esperar demasiado");
         }
         void PenalizeRating(){var franchise=state.CurrentFranchise;franchise["rating"]=Math.Round(Math.Max(1,(franchise.Value<double?>("rating")??3.5)-.15),2);state.Changed();}
+        void ReturnCartAndLeave(Mind mind)
+        {
+            if(world.CartReturnPoint&&mind.Agent.PushingCart){mind.Phase=Phase.ReturningCart;mind.Agent.GoTo(world.CartReturnPoint.position);}
+            else{mind.Phase=Phase.Leaving;mind.Agent.GoTo(world.ExitPoint.position);}
+        }
         bool HasCashier(int lane){var count=0;foreach(var employee in state.Array("employees"))if(employee.Value<string>("role")=="cashier")count++;return count>lane;}
         QueueSystem QueueFor(Mind mind)=>queues[Mathf.Clamp(mind.CheckoutLane,0,queues.Count-1)];
         int ChooseLane()
         {
             var available=SecondCheckoutUnlocked()?Math.Min(2,queues.Count):1;var selected=0;for(var lane=1;lane<available;lane++)if(queues[lane].Count<queues[selected].Count)selected=lane;return selected;
         }
-        bool SecondCheckoutUnlocked(){if(state.CurrentFranchise["unlockedAreas"] is not JArray areas)return false;return areas.Contains("checkout-2");}
+        bool SecondCheckoutUnlocked()
+        {
+            if(state.CurrentFranchise["unlockedAreas"] is not JArray areas)return false;
+            foreach(var area in areas)if(string.Equals(area.Value<string>(),"checkout-2",StringComparison.Ordinal))return true;
+            return false;
+        }
 
         void Release(Mind mind)
         {

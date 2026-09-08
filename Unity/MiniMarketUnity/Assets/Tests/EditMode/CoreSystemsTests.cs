@@ -1,6 +1,7 @@
 using System;
 using System.Threading.Tasks;
 using MiniMarket.Core;
+using MiniMarket.Animations;
 using MiniMarket.Customers;
 using MiniMarket.Data;
 using MiniMarket.Economy;
@@ -41,6 +42,24 @@ namespace MiniMarket.Tests
         {
             var queue=new QueueSystem(3);Assert.That(queue.Reserve("a"),Is.EqualTo(0));Assert.That(queue.Reserve("b"),Is.EqualTo(1));Assert.That(queue.Reserve("a"),Is.EqualTo(0));
             Assert.That(queue.Release("a"),Is.True);Assert.That(queue.PositionOf("b"),Is.EqualTo(0));
+        }
+
+        [Test]
+        public void CarryingAtRunningSpeedKeepsTheTwoHandedCarryRunPose()
+        {
+            var locomotion=CharacterActor.Locomotion(Pace.Cast,true,9.39f);
+            Assert.That(locomotion.clip,Is.EqualTo("CarryRun"));
+            var owner=CharacterActor.Locomotion(Pace.Run,true,9.39f,true);
+            Assert.That(owner.clip,Is.EqualTo("CarryRun"));
+        }
+
+        [Test]
+        public void PlayerSpeedUpgradesReachTheFormerRunSpeedWithoutExceedingIt()
+        {
+            Assert.That(Player.PlayerController.SpeedMultiplierForTier(1),Is.EqualTo(.6f).Within(.0001f));
+            Assert.That(Player.PlayerController.SpeedMultiplierForTier(2),Is.GreaterThan(.6f));
+            Assert.That(Player.PlayerController.SpeedMultiplierForTier(10),Is.EqualTo(1f).Within(.0001f));
+            Assert.That(Player.PlayerController.SpeedMultiplierForTier(99),Is.EqualTo(1f).Within(.0001f));
         }
 
         [Test]

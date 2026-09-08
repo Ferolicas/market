@@ -93,7 +93,7 @@ namespace MiniMarket.Progression
             if (state.Root["progression"] is JObject progression)
             {
                 if (progression["completedLevels"] is not JArray completed) progression["completedLevels"] = completed = new JArray();
-                if (!completed.Contains(completedLevel)) completed.Add(completedLevel);
+                if (!HasInt(completed,completedLevel)) completed.Add(completedLevel);
                 progression["objectiveComplete"] = false;
                 progression["lastUnlockAt"] = state.SimulationTimeMs;
             }
@@ -144,7 +144,7 @@ namespace MiniMarket.Progression
             if (f["stationTiers"] is not JObject tiers) f["stationTiers"] = tiers = new JObject();
             if (f["crops"] is not JArray crops) f["crops"] = crops = new JArray();
             if (f["productionMachines"] is not JArray machines) f["productionMachines"] = machines = new JArray();
-            void Unlock(string id) { if (!unlocked.Contains(id)) unlocked.Add(id); }
+            void Unlock(string id) { if (!HasString(unlocked,id)) unlocked.Add(id); }
             void Tier(string id, int value = 1) { tiers[id] = Math.Max(value, tiers.Value<int?>(id) ?? 0); }
             void UnlockMachine(string id) { foreach (var t in machines) if (t.Value<string>("id")==id && t.Value<string>("status")=="LOCKED") t["status"]="WAITING_INPUT"; }
             void UnlockCrop(string id) { foreach (var t in crops) if (t.Value<string>("id")==id && t.Value<string>("status")=="LOCKED") { t["status"]="GROWING"; t["plantedAt"]=state.SimulationTimeMs; t["readyAt"]=state.SimulationTimeMs+GrowMs(t.Value<string>("productId"),tiers.Value<int?>(id)??t.Value<int?>("tier")??1); } }
@@ -193,8 +193,20 @@ namespace MiniMarket.Progression
 
         static void BumpStructureForNewArea(JObject franchise,string area)
         {
-            if(franchise["unlockedAreas"] is JArray unlocked&&unlocked.Contains(area))return;
+            if(franchise["unlockedAreas"] is JArray unlocked&&HasString(unlocked,area))return;
             franchise["structureRevision"]=(franchise.Value<int?>("structureRevision")??1)+1;
+        }
+
+        static bool HasString(JArray values,string expected)
+        {
+            foreach(var value in values)if(string.Equals(value.Value<string>(),expected,StringComparison.Ordinal))return true;
+            return false;
+        }
+
+        static bool HasInt(JArray values,int expected)
+        {
+            foreach(var value in values)if(value.Value<int?>()==expected)return true;
+            return false;
         }
 
         void HireUnlockedEmployee(JObject franchise,string role)

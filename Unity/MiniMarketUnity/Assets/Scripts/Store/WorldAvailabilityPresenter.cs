@@ -1,6 +1,7 @@
 using System;
 using MiniMarket.Core;
 using MiniMarket.Data;
+using Newtonsoft.Json.Linq;
 
 namespace MiniMarket.Store
 {
@@ -34,7 +35,12 @@ namespace MiniMarket.Store
                 if(pair.Value)pair.Value.gameObject.SetActive(enabled);
             }
         }
-        bool HasArea(string id)=>state.CurrentFranchise["unlockedAreas"] is Newtonsoft.Json.Linq.JArray areas&&areas.Contains(id);
+        bool HasArea(string id)
+        {
+            if(state.CurrentFranchise["unlockedAreas"] is not JArray areas)return false;
+            foreach(var area in areas)if(string.Equals(area.Value<string>(),id,StringComparison.Ordinal))return true;
+            return false;
+        }
         public void Dispose()=>signals.StateChanged-=Refresh;
     }
 }

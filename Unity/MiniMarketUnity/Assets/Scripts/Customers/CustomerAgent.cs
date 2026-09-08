@@ -13,6 +13,7 @@ namespace MiniMarket.Customers
         float speed;
         bool moving;
         float lastRate=-1f;
+        public bool PushingCart { get; set; }
         public string CustomerId { get; private set; }
         public bool Arrived => !moving || (nav && nav.isOnNavMesh && !nav.pathPending && nav.remainingDistance <= nav.stoppingDistance + .08f);
 
@@ -28,7 +29,7 @@ namespace MiniMarket.Customers
             target = transform.position;moving=false;speed=0;
         }
 
-        public void PrepareForPool(){moving=false;if(nav&&nav.isOnNavMesh)nav.ResetPath();if(nav)nav.enabled=false;}
+        public void PrepareForPool(){moving=false;PushingCart=false;if(nav&&nav.isOnNavMesh)nav.ResetPath();if(nav)nav.enabled=false;}
 
         public void GoTo(Vector3 destination, float movementSpeed = Core.Pace.Cast)
         {
@@ -43,13 +44,21 @@ namespace MiniMarket.Customers
         void Stride(float worldSpeed)
         {
             if (worldSpeed <= .12f) return;
-            var (clip, rate) = CharacterActor.Locomotion(worldSpeed, false, actor.StrideScale);
+            // Shoppers push the cart during every walking leg. CarryRun uses
+            // the real running legs with the stable two-hand CarryBox pose, so
+            // neither arm swings through the rigid handle at higher speeds.
+            var (clip, rate) = CharacterActor.Locomotion(worldSpeed, PushingCart, actor.StrideScale);
             if (Mathf.Abs(rate - lastRate) < .05f && actor.Playing == clip) return;
             lastRate = rate; actor.Play(clip, .18f, rate);
         }
 
         public void Play(string animation, float fade = .18f) => actor.Play(animation, fade);
         public void Expression(string shape, float weight) => actor.SetExpression(shape, weight);
+        public void Face(Vector3 worldTarget)
+        {
+            var direction=worldTarget-transform.position;direction.y=0;
+            if(direction.sqrMagnitude>.001f)transform.rotation=Quaternion.LookRotation(direction.normalized);
+        }
 
         void Update()
         {

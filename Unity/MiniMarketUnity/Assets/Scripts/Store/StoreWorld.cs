@@ -16,18 +16,22 @@ namespace MiniMarket.Store
         public readonly Dictionary<string, GameObject> AvailabilityVisuals = new();
         public readonly List<Transform> QueuePoints = new();
         public readonly List<Transform> CheckoutPoints = new();
+        public readonly List<Transform> CheckoutCounters = new();
         public readonly List<List<Transform>> CheckoutQueuePoints = new();
         public readonly List<Transform> CheckoutUnloadPoints = new();
         public readonly List<Transform> CheckoutScanPoints = new();
         public readonly List<Transform> CheckoutBagPoints = new();
+        public readonly List<Transform> CheckoutBagPickupPoints = new();
         public Transform EntranceOutside;
         public Transform EntranceInside;
         public Transform CheckoutPoint;
+        public Transform CheckoutCameraAnchor;
         public Transform CheckoutUnloadPoint;
         public Transform CheckoutScanPoint;
         public Transform CheckoutBagPoint;
         public Transform ExitPoint;
         public Transform WarehousePoint;
+        public Transform CartReturnPoint;
 
         public Transform ServicePoint(string productId)
             => ProductServicePoints.TryGetValue(productId, out var point) ? point : EntranceInside;

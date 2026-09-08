@@ -45,16 +45,18 @@ namespace MiniMarket.Interactions
         void Stock(string department)
         {
             if(!world.Shelves.TryGetValue(department,out var shelf))return;
+            var movedTotal=0;var movedProducts=new List<string>();var useMidAnimation=false;
             foreach(var product in shelf.allowedProducts)
             {
                 if(!availability.CanCustomerRequest(product,state.Level))continue;
                 var baseCapacity=availability.ShelfCapacity(state,product);
-                var missing=Math.Max(0,baseCapacity-inventory.Quantity("shelves",product));var quantity=Math.Min(3,Math.Min(carry.Quantity(product),missing));
+                var missing=Math.Max(0,baseCapacity-inventory.Quantity("shelves",product));var quantity=Math.Min(carry.Quantity(product),missing);
                 if(quantity<=0)continue;
                 carry.TransferToShelf(product,baseCapacity,quantity);
                 progression.Record($"stock:{product}",quantity);progression.Record("stock:all",quantity);progression.Record("transport:all",quantity);
-                player.Play(baseCapacity>=10?"StockMid":"StockLow");signals.PublishNotification($"Colocaste {quantity} × {product} · carga {carry.Total}/{carry.Capacity}");return;
+                movedTotal+=quantity;movedProducts.Add($"{quantity} × {product}");useMidAnimation|=baseCapacity>=10;
             }
+            if(movedTotal>0){player.Play(useMidAnimation?"StockMid":"StockLow");signals.PublishNotification($"Colocaste {string.Join(", ",movedProducts)} · carga {carry.Total}/{carry.Capacity}");return;}
             signals.PublishNotification(carry.Total>0?"Esta carga no corresponde a este expositor o está lleno":"La cesta está vacía: recoge mercancía en el almacén");
         }
 

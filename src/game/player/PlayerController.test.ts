@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cameraRelativeMovement, DEFAULT_PLAYER_MOTION, moveVelocity, PLAYER_TIER_ONE_SPEED_MULTIPLIER, playerMotionForTier } from "./PlayerController";
+import { cameraRelativeMovement, DEFAULT_PLAYER_MOTION, moveVelocity, PLAYER_MAX_SPEED_MULTIPLIER, PLAYER_TIER_ONE_SPEED_MULTIPLIER, playerMotionForTier } from "./PlayerController";
 
 describe("player controller", () => {
   it("maps screen input through camera forward", () => {
@@ -15,15 +15,19 @@ describe("player controller", () => {
     expect(stopped).toEqual({ x: 0, y: 0 });
   });
 
-  it("aplica exactamente la reducción del 10% sin perder la progresión por tier", () => {
+  it("progresa del 60% inicial al 100% anterior en diez tiers", () => {
     const tierOne = playerMotionForTier(1);
     const tierTwo = playerMotionForTier(2);
+    const tierTen = playerMotionForTier(10);
 
     expect(tierOne.walkSpeed).toBeCloseTo(DEFAULT_PLAYER_MOTION.walkSpeed * PLAYER_TIER_ONE_SPEED_MULTIPLIER);
-    expect(tierOne.walkSpeed).toBeCloseTo(5.94);
-    expect(tierOne.acceleration).toBe(DEFAULT_PLAYER_MOTION.acceleration * 2.7);
-    expect(tierOne.braking).toBe(DEFAULT_PLAYER_MOTION.braking * 2.7);
-    expect(tierTwo.walkSpeed).toBeCloseTo(tierOne.walkSpeed * 1.08);
+    expect(tierOne.walkSpeed).toBeCloseTo(3.564);
+    expect(tierTen.walkSpeed).toBeCloseTo(DEFAULT_PLAYER_MOTION.walkSpeed * PLAYER_MAX_SPEED_MULTIPLIER);
+    expect(tierTen.walkSpeed).toBeCloseTo(5.94);
+    expect(tierOne.acceleration).toBe(DEFAULT_PLAYER_MOTION.acceleration * PLAYER_MAX_SPEED_MULTIPLIER);
+    expect(tierOne.braking).toBe(DEFAULT_PLAYER_MOTION.braking * PLAYER_MAX_SPEED_MULTIPLIER);
+    expect(tierTwo.walkSpeed).toBeGreaterThan(tierOne.walkSpeed);
+    expect(playerMotionForTier(99)).toEqual(tierTen);
   });
 
   it("normaliza tiers persistidos inválidos antes de calcular movimiento", () => {

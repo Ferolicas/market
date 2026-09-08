@@ -29,7 +29,7 @@ namespace MiniMarket.Editor
             "FlourMillAlt","BreadOven","CheeseMachine","JuiceMachineAlt","FarmPlotEmpty","FarmPlotFurrows","FarmFenceLong","FarmFenceShort","FarmToolSet","CompostBin","MiniGreenhouse",
             "Scarecrow","FarmWaterTank","Chicken","Cow","SupplierTerminal","DeliveryDock","HiringPoint","UpgradePlatform",
             "CropSeed","CropSprout","CropSmall","CropGrowing","TomatoRipe","WheatRipe","CornRipe",
-            "CheckoutBag","HarvestBasket","FlourMill","JuiceMachine",
+            "CheckoutBag","ReusableShoppingBag","HarvestBasket","FlourMill","JuiceMachine",
             "ShelfGondolaDouble","ShelfGondolaSingle","ShelfDivider","ShelfPriceRail","DisplayTable",
             "ChestFreezer","WorkCounter","UtilitySink","BakeryWorkArea","Pallet","WoodCrate","Furniture2:WoodCrate","DeliveryDockAlt",
             "UpgradePlatformAlt","FarmGate","FarmFenceCorner","RaisedBed","IrrigationBed","IrrigationChannel","Sprinkler","WateringCan","SeedSack",

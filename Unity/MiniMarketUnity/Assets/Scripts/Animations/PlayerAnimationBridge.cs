@@ -28,7 +28,12 @@ namespace MiniMarket.Animations
             // covers the ground the body actually crosses. A fixed threshold
             // also flipped Run and Walk on every frame that hovered around it,
             // restarting a 0.18 s crossfade each time.
-            var (clip, rate) = CharacterActor.Locomotion(speed, loaded, actor.StrideScale, controller.Running);
+            // A full stick starts in Run immediately because its target is above
+            // the fastest believable walk. Partial analogue input can still
+            // select Walk naturally when its requested speed fits that gait.
+            var walkLimit=CharacterActor.WalkGroundSpeed*actor.StrideScale*CharacterActor.MaxRate;
+            var running=controller.TargetWorldSpeed>walkLimit;
+            var (clip, rate) = CharacterActor.Locomotion(speed, loaded, actor.StrideScale, running);
             if (clip == current && Mathf.Abs(rate - lastRate) < .06f) return;
             current = clip; lastRate = rate; actor.Play(clip, .18f, rate);
         }

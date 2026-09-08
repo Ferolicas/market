@@ -69,6 +69,8 @@ namespace MiniMarket.Core
         float simulationClock;float worldClock;float simulationDeltaMs;Vector3 lastPlayerPosition;
         readonly IGameTelemetry telemetry=new UnityGameTelemetry();
         IRuntimeConfigProvider runtimeConfig;
+        string proximityQaId;
+        bool playerHiddenAtCheckout;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void EnsureRuntime()
@@ -123,7 +125,7 @@ namespace MiniMarket.Core
             PlayerActor.gameObject.tag="Player";
             Player=PlayerActor.gameObject.AddComponent<PlayerController>();Player.Bind(State);Player.InputEnabled=false;Interactions.Bind(Player);lastPlayerPosition=Player.transform.position;
             var bridge=PlayerActor.gameObject.AddComponent<PlayerAnimationBridge>();bridge.Bind(Player,PlayerActor,Carry);
-            cameraRig=Camera.main.GetComponent<IsometricCamera>();cameraRig.target=Player.transform;CharacterLod.Focus=Player.transform;if(PlayerActor.GetComponent<CharacterLod>() is CharacterLod playerLod)playerLod.PinNear=!MiniMarket.Performance.PerformanceGovernor.Handheld;
+            cameraRig=Camera.main.GetComponent<IsometricCamera>();cameraRig.target=Player.transform;cameraRig.checkoutAnchor=World.CheckoutCameraAnchor;CharacterLod.Focus=Player.transform;if(PlayerActor.GetComponent<CharacterLod>() is CharacterLod playerLod)playerLod.PinNear=!MiniMarket.Performance.PerformanceGovernor.Handheld;
             playerCarryVisual=gameObject.AddComponent<PlayerCarryVisual>();await playerCarryVisual.BindAsync(gltf,PlayerActor,Carry);
 
             productVisuals=new ProductVisualSystem(gltf,World,State,ProductPolicy,Signals);
@@ -173,8 +175,16 @@ namespace MiniMarket.Core
             if(worldClock>=.25f){worldClock=0;State.SimulationTimeMs+=(long)simulationDeltaMs;simulationDeltaMs=0;Farm.Tick(State.SimulationTimeMs);Production.Tick(State.SimulationTimeMs);farmVisuals?.Tick(State.SimulationTimeMs);}
             if(simulationClock>=5f){simulationClock-=5f;Days.AdvanceMinutes(1);Orders.Tick();}
             workstation.Sync(WorkstationController.ZoneOf(Interactions.Nearest?Interactions.Nearest.interactionId:null),Player.InputMagnitude);
-            workstation.UpdateInput(Player.InputMagnitude);
-            if(cameraRig)cameraRig.checkoutFocused=workstation.PerformingZoneId()=="checkout";
+            Player.MovementLocked=workstation.UpdateInput(Player.InputMagnitude);
+            var checkoutFocused=workstation.PerformingZoneId()=="checkout";
+            if(cameraRig)cameraRig.checkoutFocused=checkoutFocused;
+            if(checkoutFocused!=playerHiddenAtCheckout)
+            {
+                playerHiddenAtCheckout=checkoutFocused;
+                // Keep LOD state intact while hiding the owner from the checkout
+                // shot. Toggling enabled restored every LOD at once afterwards.
+                foreach(var renderer in PlayerActor.GetComponentsInChildren<Renderer>(true))renderer.forceRenderingOff=checkoutFocused;
+            }
             RecoverIfFallen();
             var moved=Vector3.Distance(lastPlayerPosition,Player.transform.position);if(moved>.01f){lastPlayerPosition=Player.transform.position;RecordPlayerDistance(moved);}
         }
@@ -423,6 +433,80 @@ namespace MiniMarket.Core
             State.Changed();MovePlayerToInteractionEdge("machine:flour-mill-1");
             Debug.Log("MINIMARKET_MANUAL_QA prepared=production");
         }
+        public void PrepareLocalProximityQaScenario(string id)
+        {
+            if(!LocalQaAllowed()||string.IsNullOrWhiteSpace(id))return;
+            EnsureLocalQaSetup();State.CurrentFranchise["owned"]=true;State.Level=30;Progression.ReconcileAllUnlocks();ProductPolicy.ReconcileProgressionState(State);Carry.ReturnAllToWarehouse();
+            if(State.CurrentFranchise["unlockedAreas"] is not JArray unlockedAreas)State.CurrentFranchise["unlockedAreas"]=unlockedAreas=new JArray();
+            if(!HasArrayString(unlockedAreas,"checkout-2"))unlockedAreas.Add("checkout-2");
+            foreach(var product in Spec.ProductIds())State.SetQuantity("warehouse",product,0);
+            if(id=="stock:produce")
+            {
+                State.SetQuantity("shelves","tomatoes",0);Carry.Add("tomatoes",Math.Min(3,Carry.Capacity));
+            }
+            else if(id=="warehouse")
+            {
+                State.SetQuantity("warehouse","tomatoes",3);
+            }
+            else if(id=="returns")
+            {
+                State.SetQuantity("warehouse","tomatoes",0);Carry.Add("tomatoes",Math.Min(3,Carry.Capacity));
+            }
+            else if(id=="animal:chicken")
+            {
+                foreach(var token in State.Array("productionMachines"))
+                    if(token is JObject machine&&machine.Value<string>("id")=="chicken-coop-1")
+                    {machine["status"]="OUTPUT_READY";machine["output"]=2;machine["startedAt"]=null;machine["completesAt"]=null;}
+            }
+            State.Changed();proximityQaId=id;MovePlayerToInteractionEdge(id);Debug.Log($"MINIMARKET_PROXIMITY_QA prepared={id} sensors={World.Interactions.Count}");
+        }
+        public void LogProximityQa()
+        {
+            if(!LocalQaAllowed())return;
+            JObject chicken=null;foreach(var token in State.Array("productionMachines"))if(token is JObject value&&value.Value<string>("id")=="chicken-coop-1")chicken=value;
+            World.Interactions.TryGetValue(proximityQaId??"",out var requested);var distance=requested?Math.Sqrt(requested.DistanceSquared(Player.transform.position)):-1;
+            var checkout2=State.CurrentFranchise["unlockedAreas"] is JArray areas&&HasArrayString(areas,"checkout-2");
+            Debug.Log($"MINIMARKET_PROXIMITY_QA requested={proximityQaId??"none"} active={requested&&requested.isActiveAndEnabled} " +
+                      $"self={requested&&requested.gameObject.activeSelf} hierarchy={requested&&requested.gameObject.activeInHierarchy} checkout2={checkout2} distance={distance:0.00} " +
+                      $"player=({Player.transform.position.x:0.00},{Player.transform.position.z:0.00}) nearest={Interactions.Nearest?.interactionId??"none"} carry={Carry.Total} " +
+                      $"tomatoesShelf={Inventory.Quantity("shelves","tomatoes")} tomatoesWarehouse={Inventory.Quantity("warehouse","tomatoes")} " +
+                      $"eggsCarry={Carry.Quantity("eggs")} chicken={chicken?.Value<string>("status")??"missing"}:{chicken?.Value<int?>("output")??-1}");
+        }
+        public void LogCameraQa()
+        {
+            if(!LocalQaAllowed()||!Camera.main||!Player)return;
+            var centre=new Vector3(Player.transform.position.x,.99f,Player.transform.position.z);var viewport=Camera.main.WorldToViewportPoint(centre);
+            var offset=Camera.main.transform.position-centre;var elevation=Mathf.Asin(offset.y/Mathf.Max(.001f,offset.magnitude))*Mathf.Rad2Deg;
+            Debug.Log($"MINIMARKET_CAMERA_QA viewport=({viewport.x:0.000},{viewport.y:0.000}) distance={offset.magnitude:0.00} elevation={elevation:0.00} size={Camera.main.orthographicSize:0.00}");
+        }
+        public void FocusFirstCustomerForQa()
+        {
+            if(!LocalQaAllowed()||!cameraRig)return;
+            var target=Customers?.FirstActiveTransform;
+            if(!target)return;
+            cameraRig.checkoutFocused=false;cameraRig.target=target;
+            Debug.Log($"MINIMARKET_CUSTOMER_QA focus={target.name}");
+        }
+        public void RestorePlayerCameraForQa()
+        {
+            if(!LocalQaAllowed()||!cameraRig||!Player)return;
+            cameraRig.checkoutFocused=false;cameraRig.target=Player.transform;
+        }
+        public void PrepareLocalMovementQaScenario(string rawTier)
+        {
+            if(!LocalQaAllowed()||!Player)return;
+            EnsureLocalQaSetup();
+            if(!int.TryParse(rawTier,out var tier))tier=1;
+            State.CurrentFranchise["playerSpeedTier"]=Mathf.Clamp(tier,1,10);
+            workstation.Cancel();Player.MovementLocked=false;Player.InputEnabled=true;State.Changed();
+        }
+        public void LogMovementQa()
+        {
+            if(!LocalQaAllowed()||!Player)return;
+            var tier=State.CurrentFranchise.Value<int?>("playerSpeedTier")??1;
+            Debug.Log($"MINIMARKET_MOVEMENT_QA tier={tier} multiplier={PlayerController.SpeedMultiplierForTier(tier):0.000} " +
+                      $"speed={Player.WorldSpeed:0.00} target={Player.TargetWorldSpeed:0.00} clip={PlayerActor?.Playing??"none"}");
+        }
         public void LogManualInteractionQa()
         {
             if(!LocalQaAllowed())return;
@@ -544,6 +628,7 @@ namespace MiniMarket.Core
 #endif
         }
         void EnsureLocalQaSetup(){if(CompanySetup.Required){CompanySetup.Configure("ES");Player.InputEnabled=true;hud?.DismissSetup();}}
+        static bool HasArrayString(JArray values,string expected){foreach(var value in values)if(string.Equals(value.Value<string>(),expected,StringComparison.Ordinal))return true;return false;}
         void MovePlayerToInteractionEdge(string id)
         {
             if(!World.Interactions.TryGetValue(id,out var point)||!Player)return;
