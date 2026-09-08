@@ -19,11 +19,11 @@ namespace MiniMarket.Store
         readonly InteractionDirector interactions;
         readonly Transform parent;
         static readonly Dictionary<string,Material> RuntimeMaterials=new();
-        /// The original expanded shop used a spatial factor of three. The owner
-        /// requested twice that usable space while every fixture, tile and actor
-        /// keeps its approved physical size, so only positions and spans use six.
+        /// The shop returns to its original compact footprint. Metric fixtures,
+        /// tiles and actors keep their approved physical size; only the excess
+        /// spacing and envelope spans introduced by the former x2 expansion go.
         public const float PreviousStoreScale = 3f;
-        public const float StoreScale = PreviousStoreScale * 2f;
+        public const float StoreScale = PreviousStoreScale;
         /// The approved dairy case measures 1.955 m in its source and 12.12
         /// units beside the 1.75 m owner. This is the single conversion used by
         /// every clean metric prop, so cars, furniture and farm equipment all
@@ -82,7 +82,8 @@ namespace MiniMarket.Store
         };
         static float SizeFactor(string id,float authored)=>
             Envelope.Contains(id)?EnvelopeScale:MetricEnvironment.Contains(id)?WorldUnitsPerMeter:authored<SmallThreshold?SmallPieceScale:PieceScale;
-        const float LayoutScale = 2f;
+        public const float LayoutScale = 2f;
+        public const float FarmWorldRadius = 68f;
         const float ElementScale = 1.6f;
 
         static readonly Dictionary<string, string> DisplayAssets = new()
@@ -237,9 +238,10 @@ namespace MiniMarket.Store
             // They contain exactly the same visible 3 x 3 tiles as the old GLB;
             // UV repetition adds floor area without enlarging a tile or creating
             // 576 startup objects that would bring the first-movement hitch back.
-            TexturedSurface(root,"FloorBeige",new Vector2(46f,34f),new Vector3(0,-.006f,-.7f),"FloorTileBeige",new Vector2(24,18),.18f);
-            TexturedSurface(root,"FloorWhite",new Vector2(46f,15f),new Vector3(0,-.008f,23.8f),"FloorTileWhite",new Vector2(24,6),.16f);
-            Debug.Log($"MINIMARKET_EXPANSION escala={StoreScale:0.##} interior={46f*StoreScale:0.00}x{49f*StoreScale:0.00} modulos_baldosa=576 superficies=2 tamano_baldosa=sin_cambios");
+            var tileScale=StoreScale/PreviousStoreScale;
+            TexturedSurface(root,"FloorBeige",new Vector2(46f,34f),new Vector3(0,-.006f,-.7f),"FloorTileBeige",new Vector2(12,9)*tileScale,.18f);
+            TexturedSurface(root,"FloorWhite",new Vector2(46f,15f),new Vector3(0,-.008f,23.8f),"FloorTileWhite",new Vector2(12,3)*tileScale,.16f);
+            Debug.Log($"MINIMARKET_FOOTPRINT escala={StoreScale:0.##} interior={46f*StoreScale:0.00}x{49f*StoreScale:0.00} baldosas=144 superficies=2 tamano_baldosa=sin_cambios");
             VisualBox(root,"StoreKerb",new Vector3(50,.12f,2.4f*FixedPlanFactor),new Vector3(0,-.09f,32.3f),Hex("566A62"),.02f,false);
             // MarketBuilding's entrance mat: the dark slab the player crosses in
             // the doorway, authored at [0, 0.035, 7.02] with a 3.75 x 1.05
@@ -1367,6 +1369,12 @@ namespace MiniMarket.Store
             world.EntranceInside = New("EntranceInside", new Vector3(0, 0, 11.2f));
             world.ExitPoint = New("ExitPoint", new Vector3(0, 0, 30.8f));
             world.EntranceOutside.SetParent(world.Root, true); world.EntranceInside.SetParent(world.Root, true); world.ExitPoint.SetParent(world.Root, true);
+            var field=(JObject)spec.Layouts["farm"]["FARM_FIELD"];
+            var fieldCenter=(JArray)field["center"];
+            world.FarmCameraAnchor=WorldAnchor("FarmCameraAnchor",new Vector3(
+                -fieldCenter[0].Value<float>()*LayoutScale*StoreScale,
+                .99f,
+                fieldCenter[2].Value<float>()*LayoutScale*StoreScale),world.Root);
             // StorefrontDoorPresenter owns the entrance proximity directly. An
             // extra no-op InteractionPoint only displayed a misleading prompt.
         }

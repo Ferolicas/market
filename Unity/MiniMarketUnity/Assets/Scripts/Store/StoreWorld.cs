@@ -26,6 +26,7 @@ namespace MiniMarket.Store
         public Transform EntranceInside;
         public Transform CheckoutPoint;
         public Transform CheckoutCameraAnchor;
+        public Transform FarmCameraAnchor;
         public Transform CheckoutUnloadPoint;
         public Transform CheckoutScanPoint;
         public Transform CheckoutBagPoint;

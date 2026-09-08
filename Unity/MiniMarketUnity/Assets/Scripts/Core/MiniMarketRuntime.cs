@@ -125,7 +125,7 @@ namespace MiniMarket.Core
             PlayerActor.gameObject.tag="Player";
             Player=PlayerActor.gameObject.AddComponent<PlayerController>();Player.Bind(State);Player.InputEnabled=false;Interactions.Bind(Player);lastPlayerPosition=Player.transform.position;
             var bridge=PlayerActor.gameObject.AddComponent<PlayerAnimationBridge>();bridge.Bind(Player,PlayerActor,Carry);
-            cameraRig=Camera.main.GetComponent<IsometricCamera>();cameraRig.target=Player.transform;cameraRig.checkoutAnchor=World.CheckoutCameraAnchor;CharacterLod.Focus=Player.transform;if(PlayerActor.GetComponent<CharacterLod>() is CharacterLod playerLod)playerLod.PinNear=!MiniMarket.Performance.PerformanceGovernor.Handheld;
+            cameraRig=Camera.main.GetComponent<IsometricCamera>();cameraRig.target=Player.transform;cameraRig.checkoutAnchor=World.CheckoutCameraAnchor;cameraRig.farmAnchor=World.FarmCameraAnchor;CharacterLod.Focus=Player.transform;if(PlayerActor.GetComponent<CharacterLod>() is CharacterLod playerLod)playerLod.PinNear=!MiniMarket.Performance.PerformanceGovernor.Handheld;
             playerCarryVisual=gameObject.AddComponent<PlayerCarryVisual>();await playerCarryVisual.BindAsync(gltf,PlayerActor,Carry);
 
             productVisuals=new ProductVisualSystem(gltf,World,State,ProductPolicy,Signals);

@@ -1,4 +1,5 @@
 using UnityEngine;
+using MiniMarket.Store;
 
 namespace MiniMarket.Player
 {
@@ -11,6 +12,7 @@ namespace MiniMarket.Player
     {
         public Transform target;
         public Transform checkoutAnchor;
+        public Transform farmAnchor;
         /// Matches Next's WorkstationController checkout focus.
         public bool checkoutFocused;
 
@@ -44,10 +46,12 @@ namespace MiniMarket.Player
         // viewing angle; it only puts the complete frustum above the ground.
         const float GroundCoverageMargin = 1f;
         const float MinimumFarClip = 512f;
+        const float AxisResponse = 8f;
 
         Camera view;
         float checkoutBlend;
         float inverseSize;
+        float axisDegrees;
         bool framed;
 
         void Awake()
@@ -60,11 +64,17 @@ namespace MiniMarket.Player
         {
             if (!target) return;
             if (!view) view = GetComponent<Camera>();
-            var centre = new Vector3(target.position.x, TargetHeight, target.position.z);
+            var north=new Vector3(16f,0,-25.75f).normalized;
+            var facesSouth=Vector3.Dot(target.forward,north)<-.35f;
+            axisDegrees=Mathf.LerpAngle(axisDegrees,facesSouth?180f:0f,Damp(AxisResponse,FrameDelta(Time.deltaTime)));
+            var cameraOffset=Quaternion.AngleAxis(axisDegrees,Vector3.up)*OverviewOffset;
+            var farmFocused=farmAnchor&&target.position.z<farmAnchor.position.z+26f;
+            var focus=farmFocused?farmAnchor.position:target.position;
+            var centre = new Vector3(focus.x, TargetHeight, focus.z);
             var overviewPosition = new Vector3(
-                centre.x + OverviewOffset.x,
-                TargetHeight + OverviewOffset.y,
-                centre.z + OverviewOffset.z);
+                centre.x + cameraOffset.x,
+                TargetHeight + cameraOffset.y,
+                centre.z + cameraOffset.z);
 
             var blendTarget=checkoutFocused&&checkoutAnchor?1f:0f;
             checkoutBlend=Mathf.Lerp(checkoutBlend,blendTarget,Damp(blendTarget>0?FocusResponse:ReleaseResponse,FrameDelta(Time.deltaTime)));
@@ -80,7 +90,8 @@ namespace MiniMarket.Player
                 :overviewPosition;
             var desiredTarget=Vector3.Lerp(centre,checkoutTarget,checkoutBlend);
             var desiredPosition=Vector3.Lerp(overviewPosition,checkoutPosition,checkoutBlend);
-            var desiredInverse=Mathf.Lerp(1f/OverviewSize(),1f/CheckoutSize(),checkoutBlend);
+            var overviewSize=farmFocused?FarmSize():OverviewSize();
+            var desiredInverse=Mathf.Lerp(1f/overviewSize,1f/CheckoutSize(),checkoutBlend);
 
             var frameHalfHeight=1f/Mathf.Max(.0001f,desiredInverse);
             if (view && view.orthographic)
@@ -131,6 +142,7 @@ namespace MiniMarket.Player
         // previously approved 30-degree view.
         float FrontalProjectionCompensation => Mathf.Cos(ElevationDegrees * Mathf.Deg2Rad) / Mathf.Cos(ReferenceElevationDegrees * Mathf.Deg2Rad);
         float OverviewSize() => PullBack * FrontalProjectionCompensation * Mathf.Max(28.5f * 1.15f / 6f, 32f * 1.15f / (6f * Aspect));
+        float FarmSize()=>Mathf.Max(OverviewSize(),(StoreWorldBuilder.FarmWorldRadius+10f)/Aspect);
         // CHECKOUT_CAMERA_FRAME = { width: 39, height: 27 }. The close view is
         // intentionally independent of the requested 40% overview pullback.
         float CheckoutSize()=>Mathf.Max(27f*.5f,39f/(2f*Aspect));
