@@ -13,9 +13,14 @@ namespace MiniMarket.Customers
         float speed;
         bool moving;
         float lastRate=-1f;
+        float arrivalRadius=.4f;
+        Vector3 progressPosition;
+        float progressAt;
+        int recoveryAttempt;
+        bool recovering;
         public bool PushingCart { get; set; }
         public string CustomerId { get; private set; }
-        public bool Arrived => !moving || (nav && nav.isOnNavMesh && !nav.pathPending && nav.remainingDistance <= nav.stoppingDistance + .08f);
+        public bool Arrived => !moving || FlatSqr(transform.position,target)<=arrivalRadius*arrivalRadius;
 
         public void Bind(string id, CharacterActor character)
         {
@@ -24,19 +29,21 @@ namespace MiniMarket.Customers
             controller = GetComponent<CharacterController>();
             if(controller)controller.enabled=false;
             nav=GetComponent<NavMeshAgent>();if(!nav)nav=gameObject.AddComponent<NavMeshAgent>();
-            nav.enabled=true;nav.radius=1.1f;nav.height=10.85f;nav.baseOffset=0;nav.angularSpeed=540;nav.acceleration=64;nav.stoppingDistance=.28f;nav.avoidancePriority=UnityEngine.Random.Range(35,75);nav.obstacleAvoidanceType=ObstacleAvoidanceType.GoodQualityObstacleAvoidance;
+            nav.enabled=true;nav.radius=1.1f;nav.height=10.85f;nav.baseOffset=0;nav.angularSpeed=540;nav.acceleration=64;nav.stoppingDistance=.28f;nav.avoidancePriority=UnityEngine.Random.Range(35,75);nav.obstacleAvoidanceType=ObstacleAvoidanceType.HighQualityObstacleAvoidance;nav.autoRepath=true;
             if(NavMesh.SamplePosition(transform.position,out var hit,4f,NavMesh.AllAreas))nav.Warp(hit.position);
-            target = transform.position;moving=false;speed=0;
+            target=transform.position;moving=false;speed=0;recovering=false;recoveryAttempt=0;progressPosition=transform.position;progressAt=Time.time;
         }
 
         public void PrepareForPool(){moving=false;PushingCart=false;if(nav&&nav.isOnNavMesh)nav.ResetPath();if(nav)nav.enabled=false;}
 
-        public void GoTo(Vector3 destination, float movementSpeed = Core.Pace.Cast)
+        public void GoTo(Vector3 destination, float movementSpeed = Core.Pace.Cast,float acceptableDistance=.4f)
         {
             target = destination;
             target.y = transform.position.y;
-            speed = movementSpeed;
-            moving = Vector3.SqrMagnitude(target - transform.position) > .05f;
+            if(nav&&nav.isOnNavMesh&&NavMesh.SamplePosition(target,out var reachable,Mathf.Max(1.2f,acceptableDistance),NavMesh.AllAreas))target=reachable.position;
+            speed=movementSpeed;arrivalRadius=Mathf.Max(.3f,acceptableDistance);
+            moving=FlatSqr(target,transform.position)>arrivalRadius*arrivalRadius;
+            recovering=false;recoveryAttempt=0;progressPosition=transform.position;progressAt=Time.time;
             if(nav&&nav.isOnNavMesh){nav.speed=speed;nav.SetDestination(target);}
             if (moving) Stride(speed);
         }
@@ -72,6 +79,11 @@ namespace MiniMarket.Customers
             if(nav&&nav.isOnNavMesh)
             {
                 if(Arrived){moving=false;nav.ResetPath();lastRate=-1f;actor.Play("Idle");return;}
+                if(recovering&&!nav.pathPending&&nav.remainingDistance<=nav.stoppingDistance+.12f)
+                {
+                    recovering=false;nav.SetDestination(target);progressPosition=transform.position;progressAt=Time.time;
+                }
+                RecoverIfBlocked();
                 // The stride follows the speed the body actually has, not the
                 // one it was asked for: an agent slows into corners, around
                 // other shoppers and as it arrives, and a stride left at the
@@ -93,5 +105,23 @@ namespace MiniMarket.Customers
             transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(direction), 1f - Mathf.Exp(-8f * Time.deltaTime));
             controller.enabled=true;controller.Move(direction * Mathf.Min(speed * Time.deltaTime, delta.magnitude));controller.enabled=false;
         }
+
+        void RecoverIfBlocked()
+        {
+            if(FlatSqr(transform.position,progressPosition)>.04f){progressPosition=transform.position;progressAt=Time.time;return;}
+            if(Time.time-progressAt<1.35f)return;
+            progressAt=Time.time;recoveryAttempt++;
+            var forward=target-transform.position;forward.y=0;if(forward.sqrMagnitude<.01f)return;forward.Normalize();
+            var side=Vector3.Cross(Vector3.up,forward)*((recoveryAttempt&1)==0?1f:-1f);
+            var probe=transform.position+side*(1.25f+.35f*(recoveryAttempt%3))+forward*.55f;
+            nav.avoidancePriority=Mathf.Clamp(nav.avoidancePriority+((recoveryAttempt&1)==0?9:-11),8,92);
+            if(NavMesh.SamplePosition(probe,out var detour,1.8f,NavMesh.AllAreas)&&FlatSqr(detour.position,transform.position)>.16f)
+            {
+                recovering=true;nav.ResetPath();nav.SetDestination(detour.position);
+            }
+            else{recovering=false;nav.ResetPath();nav.SetDestination(target);}
+        }
+
+        static float FlatSqr(Vector3 a,Vector3 b){var delta=a-b;delta.y=0;return delta.sqrMagnitude;}
     }
 }

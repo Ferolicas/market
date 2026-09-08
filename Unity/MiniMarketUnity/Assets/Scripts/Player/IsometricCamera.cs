@@ -19,10 +19,10 @@ namespace MiniMarket.Player
         // OVERVIEW_CAMERA_OFFSET = { x: 16, y: 23, z: 25.75 }, X mirrored: that
         // is Next's azimuth and distance, 37 degrees up. The furniture sheets
         // use a low three-quarter view, so the follow rig keeps the approved
-        // azimuth and drops to a more frontal 20-degree elevation. The requested
+        // azimuth and uses the requested 30-degree elevation. The approved
         // 40% pullback scales this vector without changing that angle.
         const float ReferenceElevationDegrees = 30f;
-        const float ElevationDegrees = 20f;
+        const float ElevationDegrees = 30f;
         const float DistanceMultiplier = 1.4f;
         static readonly Vector3 OverviewOffset = Lowered(new Vector3(-16f, 23f, 25.75f), ElevationDegrees) * DistanceMultiplier;
         static Vector3 Lowered(Vector3 offset, float degrees)
@@ -38,7 +38,7 @@ namespace MiniMarket.Player
         const float ReleaseResponse = 3.2f;
         const float ZoomResponse = 5f;
         // In portrait the orthographic frustum is much taller. At the approved
-        // 20-degree angle its lower edge used to start below y=0 while its upper
+        // camera angle its lower edge used to start below y=0 while its upper
         // rays reached beyond the 120-unit far plane. The canvas was full-screen,
         // but those rays could only draw the cyan clear colour, making the world
         // look like a rounded iframe between two bands. Pulling an orthographic
@@ -106,7 +106,7 @@ namespace MiniMarket.Player
 
         /// Keeps every portrait-screen ray in front of the y=0 world plane.
         /// The returned point stays on the exact same camera axis, so the
-        /// projection, target position, character size and 20-degree view remain
+        /// projection, target position, character size and 30-degree view remain
         /// unchanged. Wide screens already have enough height and return the
         /// original position byte-for-byte.
         internal static Vector3 CoverGround(Vector3 target,Vector3 position,float halfHeight)

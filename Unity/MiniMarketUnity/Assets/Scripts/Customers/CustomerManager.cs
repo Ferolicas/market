@@ -227,7 +227,7 @@ namespace MiniMarket.Customers
             mind.ShoppingIndex=0;mind.Product=mind.ShoppingList[0];
             mind.Phase = Phase.Shopping;
             mind.Agent.Play("Browse");
-            mind.Agent.GoTo(world.ServicePoint(mind.Product).position);
+            mind.Agent.GoTo(world.ServicePoint(mind.Product).position,Core.Pace.Cast,2.6f);
         }
 
         void Pick(Mind mind)
@@ -241,7 +241,7 @@ namespace MiniMarket.Customers
             while(mind.ShoppingIndex<mind.ShoppingList.Count&&inventory.Quantity("shelves",mind.ShoppingList[mind.ShoppingIndex])<1)mind.ShoppingIndex++;
             if(mind.ShoppingIndex<mind.ShoppingList.Count)
             {
-                mind.Product=mind.ShoppingList[mind.ShoppingIndex];mind.Phase=Phase.Shopping;mind.Agent.Play("Browse");mind.Agent.GoTo(world.ServicePoint(mind.Product).position);return;
+                mind.Product=mind.ShoppingList[mind.ShoppingIndex];mind.Phase=Phase.Shopping;mind.Agent.Play("Browse");mind.Agent.GoTo(world.ServicePoint(mind.Product).position,Core.Pace.Cast,2.6f);return;
             }
             if(mind.Basket.Count==0){mind.Agent.Play("LookAround");ReturnCartAndLeave(mind);return;}
             mind.CheckoutLane=ChooseLane();mind.QueueSlot = queues[mind.CheckoutLane].Reserve(mind.Agent.CustomerId);

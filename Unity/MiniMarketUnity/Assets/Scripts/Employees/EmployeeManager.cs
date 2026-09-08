@@ -198,7 +198,8 @@ namespace MiniMarket.Employees
             if(mind.Kind is WorkKind.Harvest or WorkKind.CollectOutput)destination=world.WarehousePoint.position;
             else if(mind.Kind==WorkKind.Stock)destination=world.ProductServicePoints[mind.Product].position;
             else destination=world.MachinePoints[mind.Station].position;
-            mind.Phase=WorkPhase.GoingToDropoff;mind.Since=Time.time;mind.Agent.GoTo(destination,EmployeeSpeed(mind),true);
+            mind.Phase=WorkPhase.GoingToDropoff;mind.Since=Time.time;
+            mind.Agent.GoTo(destination,EmployeeSpeed(mind),true,mind.Kind==WorkKind.Stock?2.6f:.4f);
         }
 
         void Dropoff(Mind mind)
