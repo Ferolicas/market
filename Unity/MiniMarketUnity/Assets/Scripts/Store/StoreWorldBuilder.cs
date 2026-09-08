@@ -1269,8 +1269,9 @@ namespace MiniMarket.Store
                 world.AvailabilityVisuals[$"machine:{data.Value<string>("machineId")}"]=root;
                 var work=(JArray)data["operatorWorkPoint"];
                 var workPoint=New($"MachineWork_{property.Name}",new Vector3(-work[0].Value<float>()*LayoutScale,0,work[1].Value<float>()*LayoutScale));workPoint.SetParent(world.Root,true);
-                var interaction=AddInteraction(world,workPoint,$"machine:{data.Value<string>("machineId")}",data.Value<string>("label"),1.55f,true,.08f,.75f);
-                world.MachinePoints[data.Value<string>("machineId")] = interaction.transform;
+                var interaction=AddAreaInteraction(world,root,$"machine:{data.Value<string>("machineId")}",data.Value<string>("label"),WorldUnitsPerMeter*.72f,true,.035f,.75f);
+                interaction.repeatAutomatically=false;
+                world.MachinePoints[data.Value<string>("machineId")] = workPoint;
             }
         }
 
@@ -1284,8 +1285,13 @@ namespace MiniMarket.Store
                 var asset = await Place("FarmPlotFurrows", new Vector3(-pos[0].Value<float>() * LayoutScale, 0, pos[2].Value<float>() * LayoutScale), Quaternion.identity, Vector3.one * ElementScale, world.Root, true);
                 world.CropVisualRoots[plot.Value<string>("id")]=asset.transform;
                 world.AvailabilityVisuals[$"crop:{plot.Value<string>("id")}"]=asset;
-                var interaction=AddInteraction(world, asset.transform, $"farm:{plot.Value<string>("id")}", "Cultivar / cosechar");
-                world.CropPoints[plot.Value<string>("id")] = interaction.transform;
+                var interaction=AddAreaInteraction(world,asset,$"farm:{plot.Value<string>("id")}","Cultivar / cosechar",WorldUnitsPerMeter*.65f,true,.035f,.22f);
+                interaction.repeatAutomatically=false;
+                // Automated farmers need a reachable point outside the solid
+                // plot. The player uses the complete rounded perimeter above.
+                var workPosition=interaction.transform.position+Vector3.forward*(interaction.AreaHalfExtents.y+WorldUnitsPerMeter*.3f);
+                workPosition.y=.08f;
+                world.CropPoints[plot.Value<string>("id")]=WorldAnchor($"CropWork_{plot.Value<string>("id")}",workPosition,world.Root);
             }
             var facilities = (JObject)farm["FARM_FACILITIES"];
             var facilityAssets = new Dictionary<string, string> { ["tools"] = "FarmToolSet", ["compost"] = "CompostBin", ["greenhouse"] = "MiniGreenhouse", ["scarecrow"] = "Scarecrow", ["waterTank"] = "FarmWaterTank" };
@@ -1459,11 +1465,33 @@ namespace MiniMarket.Store
 
         InteractionPoint AddInteraction(StoreWorld world, Transform target, string id, string label,float radius=1.8f,bool automatic=true,float dwell=.08f,float repeat=.22f)
         {
-            var pointRoot = New($"Interaction_{id}",target.position);
-            pointRoot.SetParent(world.Root, true);
+            // target.position is already in world space. Passing it through
+            // New() multiplied it by StoreScale again and moved every sensor
+            // away from the fixture it belonged to.
+            var pointRoot = WorldAnchor($"Interaction_{id}",target.position,world.Root);
             var point = pointRoot.gameObject.AddComponent<InteractionPoint>();
             point.Configure(id,label,radius,automatic,dwell,repeat);
             interactions.Register(point); world.Interactions[id] = point; return point;
+        }
+
+        InteractionPoint AddAreaInteraction(StoreWorld world,GameObject target,string id,string label,float reach,bool automatic=true,float dwell=.08f,float repeat=.22f)
+        {
+            var renderers=target.GetComponentsInChildren<Renderer>(true);
+            if(renderers.Length==0)return AddInteraction(world,target.transform,id,label,reach,automatic,dwell,repeat);
+            var bounds=renderers[0].bounds;for(var i=1;i<renderers.Length;i++)bounds.Encapsulate(renderers[i].bounds);
+            var position=new Vector3(bounds.center.x,target.transform.position.y,bounds.center.z);
+            var pointRoot=WorldAnchor($"Interaction_{id}",position,world.Root);
+            var point=pointRoot.gameObject.AddComponent<InteractionPoint>();
+            point.ConfigureArea(id,label,new Vector2(bounds.extents.x,bounds.extents.z),reach,automatic,dwell,repeat);
+            interactions.Register(point);world.Interactions[id]=point;return point;
+        }
+
+        static Transform WorldAnchor(string name,Vector3 worldPosition,Transform root)
+        {
+            var value=new GameObject(name).transform;
+            value.position=worldPosition;
+            value.SetParent(root,true);
+            return value;
         }
 
         Transform New(string name, Vector3 position)

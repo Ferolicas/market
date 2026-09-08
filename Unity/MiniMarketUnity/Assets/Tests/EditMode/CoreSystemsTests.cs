@@ -7,6 +7,7 @@ using MiniMarket.Economy;
 using MiniMarket.Employees;
 using MiniMarket.Farm;
 using MiniMarket.Inventory;
+using MiniMarket.Interactions;
 using MiniMarket.Networking;
 using MiniMarket.Persistence;
 using MiniMarket.Production;
@@ -20,6 +21,21 @@ namespace MiniMarket.Tests
 {
     public sealed class CoreSystemsTests
     {
+        [Test]
+        public void AreaInteractionMeasuresReachFromEveryVisibleEdge()
+        {
+            var root=new GameObject("AreaInteractionTest");
+            try
+            {
+                var point=root.AddComponent<InteractionPoint>();
+                point.ConfigureArea("farm:test","Cosechar",new Vector2(4f,2f),1f);
+                Assert.That(point.DistanceSquared(new Vector3(4.9f,0,0)),Is.LessThanOrEqualTo(point.range*point.range));
+                Assert.That(point.DistanceSquared(new Vector3(4.6f,0,2.6f)),Is.LessThanOrEqualTo(point.range*point.range));
+                Assert.That(point.DistanceSquared(new Vector3(5f,0,3f)),Is.GreaterThan(point.range*point.range));
+            }
+            finally{UnityEngine.Object.DestroyImmediate(root);}
+        }
+
         [Test]
         public void QueueCompactsWithoutDuplicatingCustomers()
         {

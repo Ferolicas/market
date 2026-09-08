@@ -39,14 +39,15 @@ namespace MiniMarket.Interactions
                 {
                     if (!points[i]) { points.RemoveAt(i); continue; }
                     if(!points[i].isActiveAndEnabled)continue;
-                    var distance = Vector3.SqrMagnitude(points[i].transform.position - position);
+                    var distance = points[i].DistanceSquared(position);
                     if (distance < best && distance <= points[i].range * points[i].range) { best = distance; Nearest = points[i]; }
                 }
                 if (previous != Nearest) { previous = Nearest;enteredAt=Time.time;nextAutomaticAt=enteredAt+(Nearest?Nearest.dwellSeconds:0);NearestChanged?.Invoke(Nearest); }
             }
             if(Nearest&&Nearest.automatic&&Time.time>=nextAutomaticAt)
             {
-                Nearest.Activate();nextAutomaticAt=Time.time+Nearest.repeatSeconds;
+                Nearest.Activate();
+                nextAutomaticAt=Nearest.repeatAutomatically?Time.time+Nearest.repeatSeconds:float.PositiveInfinity;
             }
             if (Nearest && Keyboard.current != null && Keyboard.current.eKey.wasPressedThisFrame) Nearest.Activate();
         }

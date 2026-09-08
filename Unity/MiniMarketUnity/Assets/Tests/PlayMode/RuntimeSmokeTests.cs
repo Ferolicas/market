@@ -1,6 +1,7 @@
 using System.Collections;
 using MiniMarket.Core;
 using MiniMarket.Data;
+using MiniMarket.Interactions;
 using MiniMarket.Performance;
 using MiniMarket.Player;
 using Newtonsoft.Json.Linq;
@@ -12,6 +13,25 @@ namespace MiniMarket.PlayModeTests
 {
     public sealed class RuntimeSmokeTests
     {
+        [UnityTest]
+        public IEnumerator AutomaticStationActivatesOnlyOnceUntilPlayerLeaves()
+        {
+            var playerObject=new GameObject("SingleEntryPlayer");playerObject.AddComponent<CharacterController>();
+            var player=playerObject.AddComponent<PlayerController>();player.Bind(State());
+            var directorObject=new GameObject("SingleEntryDirector");var director=directorObject.AddComponent<InteractionDirector>();director.Bind(player);
+            var pointObject=new GameObject("SingleEntryPoint");pointObject.AddComponent<SphereCollider>();
+            var point=pointObject.AddComponent<InteractionPoint>();point.Configure("farm:test","Cosechar",3f,true,0,.05f);point.repeatAutomatically=false;
+            var activations=0;point.Activated+=_=>activations++;director.Register(point);
+
+            yield return null;yield return null;yield return null;
+            Assert.That(activations,Is.EqualTo(1));
+            playerObject.transform.position=Vector3.right*10f;yield return null;
+            playerObject.transform.position=Vector3.zero;yield return null;yield return null;
+            Assert.That(activations,Is.EqualTo(2));
+
+            Object.Destroy(playerObject);Object.Destroy(directorObject);Object.Destroy(pointObject);
+        }
+
         [UnityTest]
         public IEnumerator PerformanceGovernorSelectsAValidTierAndFrameTarget()
         {

@@ -403,6 +403,36 @@ namespace MiniMarket.Core
             EnsureQaEmployee("farmer",0);EnsureQaEmployee("operator",1);EnsureQaEmployee("stocker",2);State.Changed();
             Debug.Log("MINIMARKET_WORKER_QA level=6 target=wheat-to-flour-to-bread");
         }
+        public void PrepareLocalHarvestInteractionQaScenario()
+        {
+            if(!LocalQaAllowed())return;
+            EnsureLocalQaSetup();State.Level=1;Progression.ReconcileAllUnlocks();ProductPolicy.ReconcileProgressionState(State);Carry.ReturnAllToWarehouse();
+            foreach(var token in State.Array("crops"))
+                if(token is JObject crop&&crop.Value<string>("id")=="crop-tomato-1")
+                {crop["status"]="READY";crop["available"]=3;crop["readyAt"]=State.SimulationTimeMs;}
+            State.Changed();MovePlayerToInteractionEdge("farm:crop-tomato-1");
+            Debug.Log("MINIMARKET_MANUAL_QA prepared=harvest");
+        }
+        public void PrepareLocalProductionInteractionQaScenario()
+        {
+            if(!LocalQaAllowed())return;
+            EnsureLocalQaSetup();State.Level=6;Progression.ReconcileAllUnlocks();ProductPolicy.ReconcileProgressionState(State);Carry.ReturnAllToWarehouse();Carry.Add("wheat",2);
+            foreach(var token in State.Array("productionMachines"))
+                if(token is JObject machine&&machine.Value<string>("id")=="flour-mill-1")
+                {machine["status"]="WAITING_INPUT";machine["output"]=0;machine["startedAt"]=null;machine["completesAt"]=null;}
+            State.Changed();MovePlayerToInteractionEdge("machine:flour-mill-1");
+            Debug.Log("MINIMARKET_MANUAL_QA prepared=production");
+        }
+        public void LogManualInteractionQa()
+        {
+            if(!LocalQaAllowed())return;
+            JObject crop=null,mill=null;
+            foreach(var token in State.Array("crops"))if(token is JObject value&&value.Value<string>("id")=="crop-tomato-1")crop=value;
+            foreach(var token in State.Array("productionMachines"))if(token is JObject value&&value.Value<string>("id")=="flour-mill-1")mill=value;
+            Debug.Log($"MINIMARKET_MANUAL_QA nearest={Interactions.Nearest?.interactionId??"none"} " +
+                      $"tomates={Carry.Quantity("tomatoes")} cultivo={crop?.Value<string>("status")??"missing"}:{crop?.Value<int?>("available")??-1} " +
+                      $"trigo={Carry.Quantity("wheat")} molino={mill?.Value<string>("status")??"missing"}");
+        }
         public void LogRuntimeState()
         {
             var snapshot=new JObject
@@ -514,6 +544,15 @@ namespace MiniMarket.Core
 #endif
         }
         void EnsureLocalQaSetup(){if(CompanySetup.Required){CompanySetup.Configure("ES");Player.InputEnabled=true;hud?.DismissSetup();}}
+        void MovePlayerToInteractionEdge(string id)
+        {
+            if(!World.Interactions.TryGetValue(id,out var point)||!Player)return;
+            var target=point.transform.position;
+            if(point.HasArea)target+=Vector3.forward*(point.AreaHalfExtents.y+point.range*.5f);
+            target.y=.08f;
+            var body=Player.GetComponent<CharacterController>();if(body)body.enabled=false;Player.transform.position=target;if(body)body.enabled=true;
+            Debug.Log($"MINIMARKET_MANUAL_QA sensor={id} jugador=({target.x:0.00},{target.z:0.00}) ancla=({point.transform.position.x:0.00},{point.transform.position.z:0.00}) alcance={point.range:0.00} area=({point.AreaHalfExtents.x:0.00},{point.AreaHalfExtents.y:0.00})");
+        }
         void EnsureQaEmployee(string role,int index)
         {
             foreach(var token in State.Array("employees"))if(token.Value<string>("role")==role)return;
