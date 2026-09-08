@@ -7,6 +7,7 @@ using MiniMarket.Core;
 using MiniMarket.Data;
 using MiniMarket.Farm;
 using MiniMarket.Inventory;
+using MiniMarket.Interactions;
 using MiniMarket.Performance;
 using MiniMarket.Production;
 using MiniMarket.Progression;
@@ -33,6 +34,7 @@ namespace MiniMarket.Employees
             public int CheckoutLane=-1;
             public float Since;
             public EmployeeCarryVisual CarryVisual;
+            public InteractionPoint ActionArea;
         }
 
         static readonly string[] Bodies={"AdultFemale","Boy","Girl","AdultMale"};
@@ -98,7 +100,7 @@ namespace MiniMarket.Employees
 
         public void ResetForFranchise()
         {
-            generation++;foreach(var mind in minds.Values)if(mind.Agent)Destroy(mind.Agent.gameObject);minds.Clear();reconciling=false;lastCropProduct=null;reconcileAt=0;decisionAt=0;_ = ReconcileAsync();
+            generation++;foreach(var mind in minds.Values)if(mind.Agent){ReleaseActionArea(mind);Destroy(mind.Agent.gameObject);}minds.Clear();reconciling=false;lastCropProduct=null;reconcileAt=0;decisionAt=0;_ = ReconcileAsync();
         }
 
         void Step(Mind mind)
@@ -154,7 +156,7 @@ namespace MiniMarket.Employees
             var crop=planner.BestReadyCrop(lastCropProduct);
             if(crop==null||!world.CropPoints.TryGetValue(crop.Value<string>("id"),out var point)){Rest(mind);return;}
             mind.Kind=WorkKind.Harvest;mind.Product=crop.Value<string>("productId");mind.Station=crop.Value<string>("id");
-            lastCropProduct=mind.Product;LogTask(mind,"assign");GoPickup(mind,point.position);
+            lastCropProduct=mind.Product;LogTask(mind,"assign");world.CropActionAreas.TryGetValue(mind.Station,out var area);GoPickup(mind,point.position,area);
         }
 
         void AssignOperator(Mind mind)
@@ -162,24 +164,29 @@ namespace MiniMarket.Employees
             var output=planner.BestMachineOutput();
             if(output!=null&&world.MachinePoints.TryGetValue(output.Value<string>("id"),out var outputPoint))
             {
-                mind.Kind=WorkKind.CollectOutput;mind.Product=output.Value<string>("productId");mind.Station=output.Value<string>("id");LogTask(mind,"assign");GoPickup(mind,outputPoint.position);return;
+                mind.Kind=WorkKind.CollectOutput;mind.Product=output.Value<string>("productId");mind.Station=output.Value<string>("id");LogTask(mind,"assign");world.MachineActionAreas.TryGetValue(mind.Station,out var area);GoPickup(mind,outputPoint.position,area);return;
             }
             var machine=planner.BestMachineToStart();
             if(machine==null||!world.MachinePoints.ContainsKey(machine.Value<string>("id"))||!world.WarehousePoint){Rest(mind);return;}
-            mind.Kind=WorkKind.StartMachine;mind.Product=machine.Value<string>("productId");mind.Station=machine.Value<string>("id");LogTask(mind,"assign");GoPickup(mind,world.WarehousePoint.position);
+            mind.Kind=WorkKind.StartMachine;mind.Product=machine.Value<string>("productId");mind.Station=machine.Value<string>("id");LogTask(mind,"assign");GoPickup(mind,world.WarehousePoint.position,world.WarehouseActionArea);
         }
 
         void AssignStocker(Mind mind)
         {
             var product=planner.BestStockProduct(spec.ProductIds());
             if(product==null||!world.WarehousePoint||!world.ProductServicePoints.ContainsKey(product)){Rest(mind);return;}
-            mind.Kind=WorkKind.Stock;mind.Product=product;mind.Station=null;LogTask(mind,"assign");GoPickup(mind,world.WarehousePoint.position);
+            mind.Kind=WorkKind.Stock;mind.Product=product;mind.Station=null;LogTask(mind,"assign");GoPickup(mind,world.WarehousePoint.position,world.WarehouseActionArea);
         }
 
-        void GoPickup(Mind mind,Vector3 destination){mind.Phase=WorkPhase.GoingToPickup;mind.Since=Time.time;mind.Agent.GoTo(destination,EmployeeSpeed(mind));}
+        void GoPickup(Mind mind,Vector3 destination,InteractionPoint area=null)
+        {
+            ReserveActionArea(mind,area,ref destination);mind.Phase=WorkPhase.GoingToPickup;mind.Since=Time.time;
+            mind.Agent.GoTo(destination,EmployeeSpeed(mind),false,area ? .85f : .4f);
+        }
 
         void Pickup(Mind mind)
         {
+            ReleaseActionArea(mind);
             var capacity=Math.Min(8,2+Math.Max(1,mind.Data.Value<int?>("level")??1));
             mind.Amount=0;
             if(mind.Kind==WorkKind.Harvest)mind.Amount=farm.HarvestForWorker(mind.Station,capacity,out mind.Product);
@@ -195,15 +202,18 @@ namespace MiniMarket.Employees
             mind.CarryVisual?.Show(mind.Product,mind.Kind is WorkKind.Stock or WorkKind.StartMachine,mind.Kind is WorkKind.Harvest or WorkKind.CollectOutput,mind.Amount);
 
             Vector3 destination;
-            if(mind.Kind is WorkKind.Harvest or WorkKind.CollectOutput)destination=world.WarehousePoint.position;
-            else if(mind.Kind==WorkKind.Stock)destination=world.ProductServicePoints[mind.Product].position;
-            else destination=world.MachinePoints[mind.Station].position;
+            InteractionPoint area=null;
+            if(mind.Kind is WorkKind.Harvest or WorkKind.CollectOutput){destination=world.WarehousePoint.position;area=world.WarehouseActionArea;}
+            else if(mind.Kind==WorkKind.Stock){destination=world.ProductServicePoints[mind.Product].position;world.ProductActionAreas.TryGetValue(mind.Product,out area);}
+            else{destination=world.MachinePoints[mind.Station].position;world.MachineActionAreas.TryGetValue(mind.Station,out area);}
+            ReserveActionArea(mind,area,ref destination);
             mind.Phase=WorkPhase.GoingToDropoff;mind.Since=Time.time;
-            mind.Agent.GoTo(destination,EmployeeSpeed(mind),true,mind.Kind==WorkKind.Stock?2.6f:.4f);
+            mind.Agent.GoTo(destination,EmployeeSpeed(mind),true,area ? .85f : .4f);
         }
 
         void Dropoff(Mind mind)
         {
+            ReleaseActionArea(mind);
             if(mind.Kind is WorkKind.Harvest or WorkKind.CollectOutput)inventory.Add("warehouse",mind.Product,mind.Amount);
             else if(mind.Kind==WorkKind.Stock)
             {
@@ -227,7 +237,20 @@ namespace MiniMarket.Employees
 
         void Rest(Mind mind)
         {
+            ReleaseActionArea(mind);
             mind.CarryVisual?.Hide();mind.Kind=WorkKind.None;mind.Product=null;mind.Station=null;mind.Amount=0;mind.Phase=WorkPhase.Idle;mind.Since=Time.time;mind.Agent.Play("Idle");
+        }
+
+        static void ReserveActionArea(Mind mind,InteractionPoint area,ref Vector3 destination)
+        {
+            ReleaseActionArea(mind);mind.ActionArea=area;
+            if(area&&mind.Agent)destination=area.ClaimApproach(mind.Agent.GetInstanceID(),mind.Agent.transform.position);
+        }
+
+        static void ReleaseActionArea(Mind mind)
+        {
+            if(!mind.ActionArea||!mind.Agent)return;
+            mind.ActionArea.ReleaseApproach(mind.Agent.GetInstanceID());mind.ActionArea=null;
         }
 
         static string PickAnimation(WorkKind kind)=>kind switch

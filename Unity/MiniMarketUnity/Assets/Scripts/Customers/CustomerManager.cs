@@ -8,6 +8,7 @@ using MiniMarket.Core;
 using MiniMarket.Data;
 using MiniMarket.Economy;
 using MiniMarket.Inventory;
+using MiniMarket.Interactions;
 using MiniMarket.Performance;
 using MiniMarket.Store;
 using MiniMarket.Progression;
@@ -37,6 +38,7 @@ namespace MiniMarket.Customers
             public int CheckoutIndex;
             public int CheckoutLane;
             public CheckoutFlowVisual CheckoutFlow;
+            public InteractionPoint ActionArea;
         }
 
         static readonly string[] CharacterIds = { "CustomerFemale01", "CustomerFemale02", "CustomerFemale03", "CustomerFemale04", "CustomerMale01" };
@@ -154,10 +156,10 @@ namespace MiniMarket.Customers
             switch (mind.Phase)
             {
                 case Phase.Entering:
-                    if (mind.Agent.Arrived) { mind.Phase=Phase.GettingCart;mind.Agent.GoTo(world.CartReturnPoint.position); }
+                    if (mind.Agent.Arrived) { mind.Phase=Phase.GettingCart;GoToArea(mind,world.CartActionArea,world.CartReturnPoint.position); }
                     break;
                 case Phase.GettingCart:
-                    if(mind.Agent.Arrived){mind.BasketVisual?.TakeCart();mind.Agent.PushingCart=true;BuildShoppingList(mind);}
+                    if(mind.Agent.Arrived){ReleaseActionArea(mind);mind.BasketVisual?.TakeCart();mind.Agent.PushingCart=true;BuildShoppingList(mind);}
                     break;
                 case Phase.Shopping:
                     if (mind.Agent.Arrived) { mind.Phase = Phase.Picking; mind.Since = Time.time; mind.Agent.Play("PickupLow"); }
@@ -198,11 +200,11 @@ namespace MiniMarket.Customers
                     if(Time.time-mind.Since>=.7f)
                     {
                         mind.BasketVisual?.TakeBag();mind.CheckoutFlow?.EndSession();mind.Phase=Phase.ReturningCart;
-                        mind.Agent.GoTo(world.CartReturnPoint.position);
+                        GoToArea(mind,world.CartActionArea,world.CartReturnPoint.position);
                     }
                     break;
                 case Phase.ReturningCart:
-                    if(mind.Agent.Arrived){mind.BasketVisual?.ReturnCart();mind.Agent.PushingCart=false;mind.Phase=Phase.Leaving;mind.Agent.GoTo(world.ExitPoint.position);}
+                    if(mind.Agent.Arrived){ReleaseActionArea(mind);mind.BasketVisual?.ReturnCart();mind.Agent.PushingCart=false;mind.Phase=Phase.Leaving;mind.Agent.GoTo(world.ExitPoint.position);}
                     break;
                 case Phase.Leaving:
                     if (mind.Agent.Arrived) Release(mind);
@@ -227,11 +229,12 @@ namespace MiniMarket.Customers
             mind.ShoppingIndex=0;mind.Product=mind.ShoppingList[0];
             mind.Phase = Phase.Shopping;
             mind.Agent.Play("Browse");
-            mind.Agent.GoTo(world.ServicePoint(mind.Product).position,Core.Pace.Cast,2.6f);
+            GoToProduct(mind);
         }
 
         void Pick(Mind mind)
         {
+            ReleaseActionArea(mind);
             if (inventory.Consume("shelves", mind.Product, 1))
             {
                 mind.Basket[mind.Product] = mind.Basket.TryGetValue(mind.Product, out var quantity) ? quantity + 1 : 1;
@@ -241,7 +244,7 @@ namespace MiniMarket.Customers
             while(mind.ShoppingIndex<mind.ShoppingList.Count&&inventory.Quantity("shelves",mind.ShoppingList[mind.ShoppingIndex])<1)mind.ShoppingIndex++;
             if(mind.ShoppingIndex<mind.ShoppingList.Count)
             {
-                mind.Product=mind.ShoppingList[mind.ShoppingIndex];mind.Phase=Phase.Shopping;mind.Agent.Play("Browse");mind.Agent.GoTo(world.ServicePoint(mind.Product).position,Core.Pace.Cast,2.6f);return;
+                mind.Product=mind.ShoppingList[mind.ShoppingIndex];mind.Phase=Phase.Shopping;mind.Agent.Play("Browse");GoToProduct(mind);return;
             }
             if(mind.Basket.Count==0){mind.Agent.Play("LookAround");ReturnCartAndLeave(mind);return;}
             mind.CheckoutLane=ChooseLane();mind.QueueSlot = queues[mind.CheckoutLane].Reserve(mind.Agent.CustomerId);
@@ -334,7 +337,8 @@ namespace MiniMarket.Customers
         void PenalizeRating(){var franchise=state.CurrentFranchise;franchise["rating"]=Math.Round(Math.Max(1,(franchise.Value<double?>("rating")??3.5)-.15),2);state.Changed();}
         void ReturnCartAndLeave(Mind mind)
         {
-            if(world.CartReturnPoint&&mind.Agent.PushingCart){mind.Phase=Phase.ReturningCart;mind.Agent.GoTo(world.CartReturnPoint.position);}
+            ReleaseActionArea(mind);
+            if(world.CartReturnPoint&&mind.Agent.PushingCart){mind.Phase=Phase.ReturningCart;GoToArea(mind,world.CartActionArea,world.CartReturnPoint.position);}
             else{mind.Phase=Phase.Leaving;mind.Agent.GoTo(world.ExitPoint.position);}
         }
         bool HasCashier(int lane){var count=0;foreach(var employee in state.Array("employees"))if(employee.Value<string>("role")=="cashier")count++;return count>lane;}
@@ -352,6 +356,7 @@ namespace MiniMarket.Customers
 
         void Release(Mind mind)
         {
+            ReleaseActionArea(mind);
             QueueFor(mind).Release(mind.Agent.CustomerId);customers.Remove(mind);mind.Agent.PrepareForPool();mind.BasketVisual?.ResetForPool();mind.CheckoutFlow?.EndSession();
             var actor=mind.Agent.GetComponent<CharacterActor>();
             Pool(mind.CharacterId,actor);
@@ -361,6 +366,25 @@ namespace MiniMarket.Customers
         {
             if(!actor)return;if(!pools.TryGetValue(characterId,out var pool))pools[characterId]=pool=new Stack<CharacterActor>();
             if(pool.Count<5){actor.gameObject.SetActive(false);pool.Push(actor);}else Destroy(actor.gameObject);
+        }
+
+        void GoToProduct(Mind mind)
+        {
+            world.ProductActionAreas.TryGetValue(mind.Product,out var area);
+            GoToArea(mind,area,world.ServicePoint(mind.Product).position);
+        }
+
+        void GoToArea(Mind mind,InteractionPoint area,Vector3 fallback)
+        {
+            ReleaseActionArea(mind);mind.ActionArea=area;
+            var destination=area?area.ClaimApproach(mind.Agent.GetInstanceID(),mind.Agent.transform.position):fallback;
+            mind.Agent.GoTo(destination,Core.Pace.Cast,area ? .85f : .4f);
+        }
+
+        static void ReleaseActionArea(Mind mind)
+        {
+            if(!mind.ActionArea||!mind.Agent)return;
+            mind.ActionArea.ReleaseApproach(mind.Agent.GetInstanceID());mind.ActionArea=null;
         }
 
         public void ResetForFranchise()

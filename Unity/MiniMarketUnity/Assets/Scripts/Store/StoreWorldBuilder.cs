@@ -1234,12 +1234,13 @@ namespace MiniMarket.Store
                 // the expanded floor put customer destinations behind the unit.
                 var servicePoint = NearLayoutPoint($"Service_{property.Name}",display.transform,
                     pos[0].Value<float>(),displayZ,service[0].Value<float>(),serviceZ,world.Root);
+                var interaction=AddAreaInteraction(world,display,$"stock:{property.Name}",$"Reponer {data.Value<string>("label")}",RetailReach,true,.035f,.22f);
+                interaction.repeatAutomatically=false;
                 foreach (var product in shelf.allowedProducts)
                 {
                     world.ProductServicePoints[product] = servicePoint;
+                    world.ProductActionAreas[product] = interaction;
                 }
-                var interaction=AddAreaInteraction(world,display,$"stock:{property.Name}",$"Reponer {data.Value<string>("label")}",RetailReach,true,.035f,.22f);
-                interaction.repeatAutomatically=false;
             }
         }
 
@@ -1278,7 +1279,8 @@ namespace MiniMarket.Store
                 world.CheckoutCashierPoints.Add(cashierPoint);
                 var stool=await Place("CashierStool",cashierPoint.position,Quaternion.identity,Vector3.one,world.Root);
                 stool.name=$"CashierStool_{laneIndex+1}";
-                AddInteraction(world,cashierPoint,$"checkout:{lane.Name}","Atender caja",ServiceReach,true,.08f,.75f);
+                var checkoutInteraction=AddAreaInteraction(world,checkout,$"checkout:{lane.Name}","Atender caja",ServiceReach,true,.08f,.75f);
+                checkoutInteraction.repeatAutomatically=false;
                 // CheckoutKit's physical sockets, converted from StoreElement
                 // units (1.6) through Next's WORLD_SCALE (3), with X mirrored.
                 // The three points now sit on the real belt, scanner and bagger.
@@ -1318,7 +1320,7 @@ namespace MiniMarket.Store
                     pos[0].Value<float>(),pos[2].Value<float>(),work[0].Value<float>(),work[1].Value<float>(),world.Root);
                 var interaction=AddAreaInteraction(world,root,$"machine:{data.Value<string>("machineId")}",data.Value<string>("label"),WorldUnitsPerMeter*.72f,true,.035f,.75f);
                 interaction.repeatAutomatically=false;
-                world.MachinePoints[data.Value<string>("machineId")] = workPoint;
+                var machineId=data.Value<string>("machineId");world.MachinePoints[machineId]=workPoint;world.MachineActionAreas[machineId]=interaction;
             }
         }
 
@@ -1338,7 +1340,7 @@ namespace MiniMarket.Store
                 // plot. The player uses the complete rounded perimeter above.
                 var workPosition=interaction.transform.position+Vector3.forward*(interaction.AreaHalfExtents.y+WorldUnitsPerMeter*.3f);
                 workPosition.y=.08f;
-                world.CropPoints[plot.Value<string>("id")]=WorldAnchor($"CropWork_{plot.Value<string>("id")}",workPosition,world.Root);
+                var plotId=plot.Value<string>("id");world.CropPoints[plotId]=WorldAnchor($"CropWork_{plotId}",workPosition,world.Root);world.CropActionAreas[plotId]=interaction;
             }
             var facilities = (JObject)farm["FARM_FACILITIES"];
             var facilityAssets = new Dictionary<string, string> { ["tools"] = "FarmToolSet", ["compost"] = "CompostBin", ["greenhouse"] = "MiniGreenhouse", ["scarecrow"] = "Scarecrow", ["waterTank"] = "FarmWaterTank" };
@@ -1354,10 +1356,7 @@ namespace MiniMarket.Store
                 var id = property.Name == "chicken" ? "Chicken" : "Cow";
                 var animal = await Place(id, new Vector3(-pos[0].Value<float>() * LayoutScale, 0, pos[2].Value<float>() * LayoutScale), Quaternion.Euler(0, 180, 0), Vector3.one * ElementScale, world.Root, true);
                 world.AvailabilityVisuals[$"machine:{(property.Name=="chicken"?"chicken-coop-1":"cow-station-1")}"]=animal;
-                var work=(JArray)property.Value["workPosition"];
-                var workPoint=NearLayoutPoint($"AnimalWork_{property.Name}",animal.transform,
-                    pos[0].Value<float>(),pos[2].Value<float>(),work[0].Value<float>(),work[2].Value<float>(),world.Root);
-                var interaction=AddInteraction(world,workPoint,$"animal:{property.Name}",property.Name == "chicken" ? "Recoger huevos" : "Recoger leche",ServiceReach,true,.08f,.75f);
+                var interaction=AddAreaInteraction(world,animal,$"animal:{property.Name}",property.Name == "chicken" ? "Recoger huevos" : "Recoger leche",ServiceReach,true,.08f,.75f);
                 interaction.repeatAutomatically=false;
             }
         }
@@ -1374,8 +1373,8 @@ namespace MiniMarket.Store
             const float cartBayZ=8.2f;
             var cartBay=HideIfBare(await Place("CartBay",XZ(3.05f,cartBayZ),Quaternion.identity,Vector3.one,world.Root,true));
             world.CartReturnPoint=NearLayoutPoint("CartReturnPoint",cartBay.transform,3.05f,cartBayZ,3.05f,7.25f,world.Root);
-            var supplierPoint=NearLayoutPoint("SupplierServicePoint",supplier.transform,8.8f,-2.15f,8.8f,-.95f,world.Root);
-            AddInteraction(world,supplierPoint,"supplier","Abrir proveedores",ServiceReach,false);
+            world.CartActionArea=AddAreaAnchor(world,cartBay,"cart-bay",ServiceReach);
+            AddAreaInteraction(world,supplier,"supplier","Abrir proveedores",ServiceReach,false);
             var returnsInteraction=AddAreaInteraction(world,returns,"returns","Devolver mercancía",ServiceReach,true,.08f,.75f);
             returnsInteraction.repeatAutomatically=false;
             var pickup = (JArray)spec.Layouts["warehouse"]?["WAREHOUSE_PICKUP_STATION"]?["position"];
@@ -1383,8 +1382,9 @@ namespace MiniMarket.Store
                 ? WorldAnchor("WarehousePickupPoint",deliveryDock.transform.position+new Vector3(8.4f,.08f,-1.02f),world.Root)
                 : NearLayoutPoint("WarehousePickupPoint",deliveryDock.transform,8.8f,-3.23f,
                     pickup[0].Value<float>(),pickup[2].Value<float>(),world.Root);
-            var warehouseInteraction=AddInteraction(world,world.WarehousePoint,"warehouse","Recoger mercancía",ServiceReach,true,.08f,1.1f);
+            var warehouseInteraction=AddAreaInteraction(world,deliveryDock,"warehouse","Recoger mercancía",ServiceReach,true,.08f,1.1f);
             warehouseInteraction.repeatAutomatically=false;
+            world.WarehouseActionArea=warehouseInteraction;
         }
 
         void BuildNavigationAnchors(StoreWorld world)
@@ -1440,7 +1440,7 @@ namespace MiniMarket.Store
         static void BuildNavMesh(Transform root)
         {
             var surface=root.gameObject.AddComponent<NavMeshSurface>();
-            surface.collectObjects=CollectObjects.Children;surface.useGeometry=NavMeshCollectGeometry.PhysicsColliders;surface.layerMask=~0;
+            surface.collectObjects=CollectObjects.Children;surface.useGeometry=NavMeshCollectGeometry.PhysicsColliders;surface.layerMask=~(1<<2);
             surface.BuildNavMesh();
         }
 
@@ -1530,25 +1530,39 @@ namespace MiniMarket.Store
 
         InteractionPoint AddInteraction(StoreWorld world, Transform target, string id, string label,float radius=1.8f,bool automatic=true,float dwell=.08f,float repeat=.22f)
         {
+            var point=AddPointAnchor(world,target,id,label,radius,automatic,dwell,repeat);
+            interactions.Register(point);world.Interactions[id]=point;return point;
+        }
+
+        InteractionPoint AddPointAnchor(StoreWorld world,Transform target,string id,string label,float radius,bool automatic,float dwell,float repeat)
+        {
             // target.position is already in world space. Passing it through
             // New() multiplied it by StoreScale again and moved every sensor
             // away from the fixture it belonged to.
             var pointRoot = WorldAnchor($"Interaction_{id}",target.position,world.Root);
+            pointRoot.gameObject.layer=2;
             var point = pointRoot.gameObject.AddComponent<InteractionPoint>();
             point.Configure(id,label,radius,automatic,dwell,repeat);
-            interactions.Register(point); world.Interactions[id] = point; return point;
+            return point;
         }
 
         InteractionPoint AddAreaInteraction(StoreWorld world,GameObject target,string id,string label,float reach,bool automatic=true,float dwell=.08f,float repeat=.22f)
         {
+            var point=AddAreaAnchor(world,target,id,reach,label,automatic,dwell,repeat);
+            interactions.Register(point);world.Interactions[id]=point;return point;
+        }
+
+        InteractionPoint AddAreaAnchor(StoreWorld world,GameObject target,string id,float reach,string label="",bool automatic=false,float dwell=.08f,float repeat=.22f)
+        {
             var renderers=target.GetComponentsInChildren<Renderer>(true);
-            if(renderers.Length==0)return AddInteraction(world,target.transform,id,label,reach,automatic,dwell,repeat);
+            if(renderers.Length==0)return AddPointAnchor(world,target.transform,id,label,reach,automatic,dwell,repeat);
             var bounds=renderers[0].bounds;for(var i=1;i<renderers.Length;i++)bounds.Encapsulate(renderers[i].bounds);
             var position=new Vector3(bounds.center.x,target.transform.position.y,bounds.center.z);
             var pointRoot=WorldAnchor($"Interaction_{id}",position,world.Root);
+            pointRoot.gameObject.layer=2;
             var point=pointRoot.gameObject.AddComponent<InteractionPoint>();
             point.ConfigureArea(id,label,new Vector2(bounds.extents.x,bounds.extents.z),reach,automatic,dwell,repeat);
-            interactions.Register(point);world.Interactions[id]=point;return point;
+            return point;
         }
 
         static Transform WorldAnchor(string name,Vector3 worldPosition,Transform root)
