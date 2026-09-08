@@ -135,9 +135,12 @@ namespace MiniMarket.Store
             ("ShelfDivider",-7.8f,1.9f,0f,90f),
             ("ShelfPriceRail",-7.8f,-1.9f,0f,90f),
             ("ChestFreezer",10.4f,-2.2f,0f,90f),
-            ("WorkCounter",-8.25f,-4.6f,0f,0f),   // obrador dentro de la cabina
-            ("UtilitySink",-10.2f,-7.0f,0f,0f),
-            ("BakeryWorkArea",-6.3f,-7.0f,0f,0f),
+            // Keep the bakery centre clear: two pieces form one straight run
+            // against the rear wall, while the counter rests on the side wall
+            // and opens towards the room.
+            ("WorkCounter",-10.6f,-5.25f,0f,-90f),
+            ("UtilitySink",-9.8f,-7.55f,0f,0f),
+            ("BakeryWorkArea",-7.3f,-7.55f,0f,0f),
             ("Pallet",2.8f,-7.4f,0f,0f),   // trastienda
             ("WoodCrate",2.8f,-7.4f,1.04f,0f),
             ("Furniture2:WoodCrate",2.4f,-6.9f,0f,25f),
@@ -909,14 +912,15 @@ namespace MiniMarket.Store
             // The production room uses the shop's rear and side walls. Only the
             // two exposed sides receive glass: one full inner side and a front
             // split around the doorway, which produces the requested inverted L.
-            // These are three lightweight boxes, with the exact facade glass
+            // These are three lightweight boxes, with their own darker glass
             // material, no roof, opaque module or decorative frame.
-            var cubicle=(JObject)spec.Layouts["production"]["PRODUCTION_CUBICLE"];
-            var bounds=(JObject)cubicle["bounds"];var doorway=(JObject)cubicle["doorway"];
+            var doorway=(JObject)spec.Layouts["production"]["PRODUCTION_CUBICLE"]["doorway"];
             const float buildingSide=23f,buildingRear=-17.1f,glassHeight=11.2f,glassThickness=.18f;
-            var innerX=-bounds.Value<float>("right")*LayoutScale;
-            var frontZ=bounds.Value<float>("front")*LayoutScale;
-            var doorCenter=-doorway.Value<float>("centerX")*LayoutScale;
+            // Pull both exposed sides towards the two existing building walls.
+            // This keeps the room useful while removing the oversized empty
+            // footprint left by the former expanded-store layout.
+            const float innerX=13f,frontZ=-6.5f;
+            var doorCenter=(innerX+buildingSide)*.5f;
             var doorHalf=doorway.Value<float>("halfWidth")*LayoutScale;
             var doorLeft=doorCenter-doorHalf;var doorRight=doorCenter+doorHalf;
 
@@ -939,7 +943,10 @@ namespace MiniMarket.Store
         {
             var panel=GameObject.CreatePrimitive(PrimitiveType.Cube);panel.name=name;panel.transform.SetParent(root,false);
             panel.transform.localPosition=position;panel.transform.localScale=size;panel.isStatic=true;
-            var renderer=panel.GetComponent<Renderer>();renderer.sharedMaterial=TransparentRuntimeMaterial("FacadeGlass",new Color(.45f,.72f,.78f,.16f));
+            // Its own cached material is required: sharing FacadeGlass would
+            // silently reuse the facade colour. RGB is 40% darker and the added
+            // opacity makes the boundary readable without turning it opaque.
+            var renderer=panel.GetComponent<Renderer>();renderer.sharedMaterial=TransparentRuntimeMaterial("ProductionGlass",new Color(.27f,.432f,.468f,.224f));
             renderer.shadowCastingMode=ShadowCastingMode.Off;renderer.receiveShadows=false;
             HideIfBare(panel);
         }
@@ -1208,10 +1215,10 @@ namespace MiniMarket.Store
                 if(property.Name=="drinks")
                     displayZ=dairyDisplay[2].Value<float>()+(displayZ-dairyDisplay[2].Value<float>())*FixedPlanFactor;
                 var position = new Vector3(-pos[0].Value<float>() * LayoutScale, 0, displayZ * LayoutScale);
-                // X is mirrored at the Three -> Unity boundary, therefore yaw
-                // must be mirrored too. Keeping -90 made the open face of both
-                // wall displays point through the wall instead of at the aisle.
-                var rotation = Quaternion.Euler(0, -(data.Value<float?>("yaw") ?? 0), 0);
+                // The GLB front already follows Unity's local forward axis. The
+                // position is mirrored, but mirroring this yaw a second time
+                // turns dairy and drinks into the wall instead of the aisle.
+                var rotation = Quaternion.Euler(0, data.Value<float?>("yaw") ?? 0, 0);
                 var display = HideIfBare(await Place(DisplayAssets[property.Name],position,rotation,Vector3.one*ElementScale,world.Root,true));
                 var shelf = display.AddComponent<ProductShelf>();
                 shelf.departmentId = property.Name;
@@ -1246,12 +1253,11 @@ namespace MiniMarket.Store
 
         async Task BuildCheckout(StoreWorld world)
         {
-            // Bring the lanes four world units closer to the door laterally,
-            // while increasing their facade clearance from four to sixteen
-            // world units. Every service, queue, camera and product socket is
-            // derived from this transform and therefore moves with its lane.
-            const float checkoutDoorOffsetX=4f;
-            const float checkoutEntranceOffsetZ=-8f;
+            // Shift the current placement 40% farther left and recover 40% of
+            // its distance from the facade. Every service, queue, camera and
+            // product socket is derived from this transform and moves with it.
+            const float checkoutDoorOffsetX=5.6f;
+            const float checkoutEntranceOffsetZ=-4.8f;
             var lanes = (JObject)spec.Layouts["checkout"]["CHECKOUT_LANES"];
             foreach (var lane in lanes.Properties())
             {
@@ -1313,7 +1319,12 @@ namespace MiniMarket.Store
             foreach (var property in fixtures.Properties())
             {
                 var data = (JObject)property.Value; var pos = (JArray)data["position"];
-                var root = HideIfBare(await Place(ids[property.Name], new Vector3(-pos[0].Value<float>() * LayoutScale, 0, pos[2].Value<float>() * LayoutScale), Quaternion.identity, Vector3.one * ElementScale, world.Root, true));
+                var fixtureX=pos[0].Value<float>();var fixtureZ=pos[2].Value<float>();
+                // The front row and its left column follow the smaller glass
+                // room instead of protruding through its new exposed sides.
+                if(property.Name=="breadOven"||property.Name=="juiceMachine")fixtureX=-7.25f;
+                if(property.Name=="cheeseMaker"||property.Name=="juiceMachine")fixtureZ=-4f;
+                var root = HideIfBare(await Place(ids[property.Name], new Vector3(-fixtureX * LayoutScale, 0, fixtureZ * LayoutScale), Quaternion.identity, Vector3.one * ElementScale, world.Root, true));
                 world.AvailabilityVisuals[$"machine:{data.Value<string>("machineId")}"]=root;
                 var work=(JArray)data["operatorWorkPoint"];
                 var workPoint=NearLayoutPoint($"MachineWork_{property.Name}",root.transform,
