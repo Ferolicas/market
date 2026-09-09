@@ -19,6 +19,14 @@ namespace MiniMarket.Store
         readonly InteractionDirector interactions;
         readonly Transform parent;
         static readonly Dictionary<string,Material> RuntimeMaterials=new();
+        static readonly HashSet<string> PremiumStoreAssets=new(StringComparer.OrdinalIgnoreCase)
+        {
+            "AutomaticDoor","BackroomStorage","BakeryWorkArea","CartBay","CashierStool","CeilingLight",
+            "CheckoutArea","ChestFreezer","DisplayProduceMixed","DisplayRefrigeratedDoors","DisplayTable",
+            "EggDisplay","HangingSign","JuiceMachineAlt","OperationsWall","ReturnsStation","SeasonalDisplay",
+            "ShelfEndcap","ShelfGondolaDouble","ShelfGondolaSingle","ShelfWallTall","ShelfWallWide",
+            "StockroomRack","StoreEntrance","StorefrontWindow","UtilitySink","WallCorner","WallStraight","WorkCounter",
+        };
         /// The shop returns to its original compact footprint. Metric fixtures,
         /// tiles and actors keep their approved physical size; only the excess
         /// spacing and envelope spans introduced by the former x2 expansion go.
@@ -123,18 +131,16 @@ namespace MiniMarket.Store
             "CheckoutArea","ShelfWallTall","ShelfWallWide","DisplayProduceMixed","SeasonalDisplay","DisplayTable","ShelfEndcap",
         };
 
-        /// Where each of them stands: shop coordinates as the specification
-        /// uses them, the height above the floor in world units for the ones
-        /// that sit on a surface, and the turn. None of them carries a collider:
-        /// they are furnishing, and the navigation mesh is baked from what was
-        /// already there, so no customer or worker route changes.
+        /// Supporting furniture for the final store plan. The two clean green
+        /// gondolas form the central grocery aisle, the chest freezer closes the
+        /// frozen-food zone and the remaining pieces live inside production or
+        /// storage. Loose rails, dividers and duplicate machines are deliberately
+        /// absent: they used to sit on the floor and intersect complete fixtures.
         static readonly (string id,float x,float z,float y,float yaw)[] KitProps =
         {
-            ("ShelfGondolaDouble",-7.8f,-1.8f,0f,-90f),   // referencia verde de la fila
-            ("ShelfGondolaSingle",-5.704f,-1.8f,0f,-90f),
-            ("ShelfDivider",-7.8f,-.8f,0f,-90f),
-            ("ShelfPriceRail",-7.8f,-1.8f,0f,-90f),
-            ("ChestFreezer",10.4f,5.2f,0f,90f),
+            ("ShelfGondolaDouble",-2.15f,-.9f,0f,-90f),
+            ("ShelfGondolaSingle",1.2f,-.9f,0f,-90f),
+            ("ChestFreezer",4.35f,-4.65f,0f,0f),
             // Keep the bakery centre clear: two pieces form one straight run
             // against the rear wall, while the counter rests on the side wall
             // and opens towards the room.
@@ -144,9 +150,6 @@ namespace MiniMarket.Store
             ("Pallet",2.8f,-7.4f,0f,0f),   // trastienda
             ("WoodCrate",2.8f,-7.4f,1.04f,0f),
             ("Furniture2:WoodCrate",2.4f,-6.9f,0f,25f),
-            ("FlourMill",1.4f,-5.4f,0f,0f),
-            ("DeliveryDockAlt",10.6f,-5.4f,0f,90f),   // segundo muelle
-            ("UpgradePlatformAlt",10.6f,-3.8f,0f,90f),
             ("FarmGate",7.5f,-10.575f,0f,0f),   // porton de la granja
             ("FarmFenceCorner",10.3f,-10.7f,0f,0f),
             ("RaisedBed",-1.8f,-11.6f,0f,0f),   // franja de trabajo de la granja
@@ -891,22 +894,59 @@ namespace MiniMarket.Store
             HideIfBare(await Place("OperationsWall",XZ(-1.6f,-8.05f),Quaternion.identity,Vector3.one,root,true));
             HideIfBare(await Place("BackroomStorage",XZ(5.25f,-8f),Quaternion.identity,Vector3.one,root,true));
             HideIfBare(await Place("StockroomRack",XZ(9.65f,-7.85f),Quaternion.identity,Vector3.one,root,true));
-            // Every shelf follows the green gondola at the same -90 degree
-            // orientation. Centres account for each real fitted width and leave
-            // exactly two individual floor tiles (7.667 world units) free.
-            HideIfBare(await Place("SeasonalDisplay",XZ(-1.274f,-1.8f),Quaternion.Euler(0,-90,0),Vector3.one,root,true));
-            // Three's +90 degree turn becomes -90 after mirroring the plan on X.
-            HideIfBare(await Place("ShelfEndcap",XZ(7.144f,-1.8f),Quaternion.Euler(0,-90,0),Vector3.one,root,true));
+            // Low, colourful islands welcome the player at the entrance. The
+            // endcap terminates the long green gondola instead of floating in a
+            // line of unrelated furniture.
+            HideIfBare(await Place("SeasonalDisplay",XZ(-7.3f,4f),Quaternion.identity,Vector3.one,root,true));
+            HideIfBare(await Place("ShelfEndcap",XZ(-2.15f,1.4f),Quaternion.Euler(0,-90,0),Vector3.one,root,true));
 
-            HideIfBare(await Place("WallClock",XZ(9.65f,-8.34f,2.2f),Quaternion.identity,Vector3.one,root));
-            HideIfBare(await Place("SecurityCamera",XZ(-10.75f,-8.05f,2.55f),Quaternion.identity,Vector3.one,root));
-            HideIfBare(await Place("SecurityCamera",XZ(10.65f,7.2f,2.55f),Quaternion.Euler(0,180,0),Vector3.one,root));
-            HideIfBare(await Place("HangingSign",XZ(7.25f,1.65f,2.45f),Quaternion.identity,Vector3.one,root));
-            HideIfBare(await Place("HangingSign",XZ(-3.8f,-3.35f,2.45f),Quaternion.identity,Vector3.one,root));
-            foreach(var x in new[]{-7.2f,-2.4f,2.4f,7.2f})HideIfBare(await Place("CeilingLight",XZ(x,-.6f,2.85f),Quaternion.identity,Vector3.one,root));
+            // Metric wall accessories previously used their metre values as
+            // world units and consequently appeared around shoulder height.
+            // Their bases now sit above the cast, with lights above the signs.
+            HideIfBare(await Place("WallClock",XZ(9.65f,-8.34f,9f),Quaternion.identity,Vector3.one,root));
+            HideIfBare(await Place("SecurityCamera",XZ(-10.75f,-8.05f,9.1f),Quaternion.identity,Vector3.one,root));
+            HideIfBare(await Place("SecurityCamera",XZ(10.65f,7.2f,9.1f),Quaternion.Euler(0,180,0),Vector3.one,root));
+
+            BuildPremiumHangingSign(root,"FreshDepartmentSign","FRUTAS · VERDURAS",-5.55f,4.15f,0f,17f,15f);
+            BuildPremiumHangingSign(root,"ColdDepartmentSign","LÁCTEOS · BEBIDAS",-8.8f,2.5f,90f,17f,15f);
+            BuildPremiumHangingSign(root,"PantryDepartmentSign","DESPENSA",-2.15f,-.9f,90f,17f,9.8f);
+            BuildPremiumHangingSign(root,"BakeryDepartmentSign","PANADERÍA",-5.2f,-5.45f,0f,17f,10.8f);
+            BuildPremiumHangingSign(root,"CheckoutDepartmentSign","CAJAS",4.75f,4.3f,0f,17f,8.6f);
 
             await BuildProductionCubicle(root);
             await BuildFarmField(root);
+        }
+
+        static void BuildPremiumHangingSign(Transform root,string name,string label,float x,float z,float yaw,float centreY,float widthWorld)
+        {
+            if(BareInterior)return;
+            var scale=Mathf.Max(.001f,root.lossyScale.x);
+            var rotation=Quaternion.Euler(0,yaw,0);
+            var centre=XZ(x,z,centreY);
+            var boxCentre=new Vector3(-x*LayoutScale,centreY,z*LayoutScale);
+            const float heightWorld=1.8f,depthWorld=.34f;
+            var board=VisualBox(root,name,
+                new Vector3(widthWorld/scale,heightWorld,depthWorld/scale),
+                boxCentre,Hex("6F873D"),.42f,false);
+            board.transform.localRotation=rotation;
+
+            var postHeightWorld=1.7f;
+            var postY=centreY+(heightWorld+postHeightWorld)*.5f;
+            foreach(var side in new[]{-.36f,.36f})
+            {
+                var offset=rotation*new Vector3(widthWorld*side/scale,0,0);
+                var post=VisualBox(root,$"{name}_Support",
+                    new Vector3(.18f/scale,postHeightWorld,.18f/scale),
+                    new Vector3(-x*LayoutScale,postY,z*LayoutScale)+offset,Hex("293431"),.34f,false);
+                post.transform.localRotation=rotation;
+            }
+
+            var faceOffset=rotation*new Vector3(0,0,(depthWorld*.5f+.025f)/scale);
+            // TextMesh characterSize is multiplied by the 90-point glyph and
+            // again by StoreWorld. These restrained values keep every word
+            // inside its panel instead of painting metre-high letters in space.
+            var textSize=label.Length>14?.03f:.04f;
+            WorldLabel(root,$"{name}_FrontText",label,centre+faceOffset,rotation,textSize,Hex("FFF4D7"));
         }
 
         Task BuildProductionCubicle(Transform root)
@@ -965,9 +1005,55 @@ namespace MiniMarket.Store
                 var bounds=renderers[0].bounds;for(var i=1;i<renderers.Length;i++)bounds.Encapsulate(renderers[i].bounds);
                 report.Add($"{prop.id}@{bounds.center.x:0.#},{bounds.center.z:0.#} base={bounds.min.y:0.##} alto={bounds.size.y:0.##}");
             }
+            BuildDecorativeGondolaStock(root);
             var rotos=report.FindAll(line=>line.Contains("FALTA")||line.Contains("SIN_MALLA"));
             if(rotos.Count>0)Debug.LogWarning("MINIMARKET_PROPS "+string.Join(" ",rotos));
             Debug.Log($"MINIMARKET_PROPS colocadas={report.Count-rotos.Count}/{KitProps.Length}");
+        }
+
+        /// The clean green gondolas are permanent grocery furniture rather than
+        /// one of the six simulated stock destinations. Give them the visual
+        /// abundance of the loading scene with generic sealed packs. Eighty
+        /// boxes are merged into five meshes (one per colour), keeping mobile
+        /// renderer count and startup cost effectively flat.
+        static void BuildDecorativeGondolaStock(Transform root)
+        {
+            if(BareInterior)return;
+            var rootScale=Mathf.Max(.001f,root.lossyScale.x);
+            var batches=new[]{new List<Matrix4x4>(),new List<Matrix4x4>(),new List<Matrix4x4>(),new List<Matrix4x4>(),new List<Matrix4x4>()};
+            var levels=new[]{2.55f,4.65f,6.75f,8.85f};
+
+            void AddRun(float centreX,float centreZ,int columns,float spacing,float[] rows)
+            {
+                for(var level=0;level<levels.Length;level++)
+                    for(var row=0;row<rows.Length;row++)
+                        for(var column=0;column<columns;column++)
+                        {
+                            var height=1.25f+((column+level)&1)*.32f;
+                            var width=1.12f+((column+row)%3==0?.18f:0f);
+                            var worldPosition=new Vector3(centreX+rows[row],levels[level],centreZ+(column-(columns-1)*.5f)*spacing);
+                            var localPosition=worldPosition/rootScale;
+                            var localSize=new Vector3(1.05f,height,width)/rootScale;
+                            batches[(column+level*2+row*3)%batches.Length].Add(Matrix4x4.TRS(localPosition,Quaternion.identity,localSize));
+                        }
+            }
+
+            // Authored centres converted through mirror × layout × store scale.
+            AddRun(12.9f,-5.4f,7,1.7f,new[]{-1.45f,1.45f});
+            AddRun(-7.2f,-5.4f,6,1.8f,new[]{0f});
+
+            var template=GameObject.CreatePrimitive(PrimitiveType.Cube);
+            var cube=template.GetComponent<MeshFilter>().sharedMesh;
+            var colours=new[]{Hex("58752C"),Hex("D9974B"),Hex("C9653C"),Hex("E0B34D"),Hex("F2E7CF")};
+            for(var index=0;index<batches.Length;index++)
+            {
+                var combines=new CombineInstance[batches[index].Count];
+                for(var item=0;item<combines.Length;item++)combines[item]=new CombineInstance{mesh=cube,transform=batches[index][item]};
+                var mesh=new Mesh{name=$"PremiumGroceryPacks_{index+1}"};mesh.CombineMeshes(combines,true,true,false);mesh.UploadMeshData(true);
+                var batch=new GameObject(mesh.name,typeof(MeshFilter),typeof(MeshRenderer));batch.transform.SetParent(root,false);batch.GetComponent<MeshFilter>().sharedMesh=mesh;
+                var renderer=batch.GetComponent<MeshRenderer>();renderer.sharedMaterial=RuntimeMaterial($"PremiumPack_{index+1}",colours[index],.14f);renderer.shadowCastingMode=ShadowCastingMode.On;renderer.receiveShadows=true;batch.isStatic=true;
+            }
+            UnityEngine.Object.Destroy(template);
         }
 
         async Task BuildFarmField(Transform root)
@@ -1211,19 +1297,22 @@ namespace MiniMarket.Store
                 var displayX=pos[0].Value<float>();var displayZ=pos[2].Value<float>();
                 var serviceX=service[0].Value<float>();var serviceZ=service[1].Value<float>();
                 var yaw=data.Value<float?>("yaw")??0f;
-                // All merchandise displays form one parallel aisle row based
-                // on the green gondola. Their centres include the true fitted
-                // widths plus two complete floor tiles of free passage.
+                // A supermarket reads in zones, not as one mixed furniture row:
+                // fresh produce greets the player, cold essentials form a wall
+                // run, pantry anchors the central aisle and bread sits beside
+                // the glazed bakery. Service targets follow the same positions.
                 if(property.Name=="produce")
-                {displayX=-3.582f;displayZ=-1.8f;serviceX=-2.482f;serviceZ=-1.8f;yaw=-90f;}
+                {displayX=-4.55f;displayZ=4.1f;serviceX=-4.55f;serviceZ=2.75f;yaw=0f;}
                 else if(property.Name=="drinks")
-                {displayX=.963f;displayZ=-1.8f;serviceX=2.063f;serviceZ=-1.8f;yaw=-90f;}
+                {displayX=-10.45f;displayZ=2.45f;serviceX=-9.35f;serviceZ=2.45f;yaw=-90f;}
                 else if(property.Name=="bakery")
-                {displayX=9.519f;displayZ=-1.8f;serviceX=10.619f;serviceZ=-1.8f;yaw=-90f;}
+                {displayX=-4.3f;displayZ=-5f;serviceX=-4.3f;serviceZ=-3.75f;yaw=0f;}
                 else if(property.Name=="pantry")
-                {displayX=5.028f;displayZ=-1.8f;serviceX=6.128f;serviceZ=-1.8f;yaw=-90f;}
+                {displayX=1.2f;displayZ=-3.75f;serviceX=2.3f;serviceZ=-3.75f;yaw=-90f;}
                 else if(property.Name=="eggs")
-                {displayX=3.082f;displayZ=-1.8f;serviceX=4.182f;serviceZ=-1.8f;yaw=-90f;}
+                {displayX=-10.25f;displayZ=-1.75f;serviceX=-9.15f;serviceZ=-1.75f;yaw=-90f;}
+                else if(property.Name=="dairy")
+                {displayX=-10.45f;displayZ=6.1f;serviceX=-9.35f;serviceZ=6.1f;yaw=-90f;}
                 var position = new Vector3(-displayX * LayoutScale, 0, displayZ * LayoutScale);
                 // The GLB front already follows Unity's local forward axis. The
                 // position is mirrored, but mirroring this yaw a second time
@@ -1335,7 +1424,7 @@ namespace MiniMarket.Store
                 if(property.Name=="breadOven")fixtureX=-7.75f;
                 if(property.Name=="cheeseMaker")fixtureZ=-4f;
                 if(property.Name=="juiceMachine")
-                {fixtureX=-10.34f;fixtureZ=2.74f;rotation=Quaternion.Euler(0,-90,0);}
+                {fixtureX=-10.34f;fixtureZ=.45f;rotation=Quaternion.Euler(0,-90,0);}
                 var root = HideIfBare(await Place(ids[property.Name], new Vector3(-fixtureX * LayoutScale, 0, fixtureZ * LayoutScale), rotation, Vector3.one * ElementScale, world.Root, true));
                 // The requested juice-machine furniture remains visible in its
                 // final position before level 21; only its action stays locked.
@@ -1471,6 +1560,51 @@ namespace MiniMarket.Store
             surface.BuildNavMesh();
         }
 
+        /// One controlled store palette replaces the accidental mix of source
+        /// PNG hues. Textured furniture keeps its baked detail, but receives the
+        /// same warm, brighter grade; named materials are mapped exactly to the
+        /// loading screen's cream, olive, graphite, steel and warm wood.
+        static void ApplyPremiumPalette(string id,GameObject instance)
+        {
+            if(!instance||!PremiumStoreAssets.Contains(id))return;
+            foreach(var renderer in instance.GetComponentsInChildren<Renderer>(true))
+            {
+                foreach(var material in renderer.sharedMaterials)
+                {
+                    if(!material)continue;
+                    var token=material.name.ToLowerInvariant();
+                    if(token.Contains("glass")||token.Contains("cristal"))continue;
+                    Color color;
+                    if(token.Contains("dark")||token.Contains("frame")||token.Contains("marco")||token.Contains("bolardo"))
+                        color=Hex("27332F");
+                    else if(token.Contains("olive")||token.Contains("green")||token.Contains("placa_panel"))
+                        color=Hex("58752C");
+                    else if(token.Contains("silver"))
+                        color=Hex("B7C0BC");
+                    else if(token.Contains("steel"))
+                        color=Hex("44514D");
+                    else if(token.Contains("wood"))
+                        color=Hex("A56B3F");
+                    else if(token.Contains("ivory")||token.Contains("cream")||token.Contains("beige")||
+                            token.Contains("masonry")||token.Contains("muro")||token.Contains("losa")||token.Contains("white"))
+                        color=Hex("F2E7CF");
+                    else if(token.Contains("letras"))
+                        color=Hex("FFF4D7");
+                    else
+                        // A value above one brightens the baked furniture texture
+                        // without flattening its wood grain, labels or material detail.
+                        color=new Color(1.04f,1.02f,.96f,1f);
+                    SetMaterialColor(material,color);
+                }
+            }
+        }
+
+        static void SetMaterialColor(Material material,Color color)
+        {
+            foreach(var property in new[]{"_BaseColorFactor","_BaseColor","_Color"})
+                if(material.HasProperty(property))material.SetColor(property,color);
+        }
+
         async Task<GameObject> Place(string id, Vector3 position, Quaternion rotation, Vector3 scale, Transform root, bool collider = false)
         {
             var instance = await loader.InstantiateAsync(id, root, position, rotation, Vector3.one);
@@ -1488,6 +1622,7 @@ namespace MiniMarket.Store
                     :Mathf.Max(scale.x,Mathf.Max(scale.y,scale.z));
                 NormalizeScale(instance,target*SizeFactor(id,target));
             }
+            ApplyPremiumPalette(id,instance);
             if(SeptemberFurniture.Contains(id))LogFurnitureSize(id,instance);
             foreach(var child in instance.GetComponentsInChildren<Transform>(true))child.gameObject.isStatic=true;
             if (collider) AddBoundsCollider(instance);
@@ -1505,6 +1640,7 @@ namespace MiniMarket.Store
                 if(MetricGlassEnvironment.Contains(id))GlazePanes(instance.transform,"glass");
                 RestOnFloor(instance,floorY);
             }
+            ApplyPremiumPalette(id,instance);
             foreach(var child in instance.GetComponentsInChildren<Transform>(true))child.gameObject.isStatic=true;
             if(collider)AddBoundsCollider(instance);
             return instance;

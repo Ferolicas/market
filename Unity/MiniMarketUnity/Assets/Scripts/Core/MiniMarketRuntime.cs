@@ -28,6 +28,7 @@ using UnityEngine;
 using UnityEngine.AI;
 using UnityEngine.EventSystems;
 using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
 
 namespace MiniMarket.Core
 {
@@ -647,16 +648,19 @@ namespace MiniMarket.Core
         void BuildEventSystem(){if(FindFirstObjectByType<EventSystem>())return;var go=new GameObject("EventSystem");go.AddComponent<EventSystem>();go.AddComponent<UnityEngine.InputSystem.UI.InputSystemUIInputModule>();}
         void BuildPresentation()
         {
-            // Match the neutral studio daylight used by the authoritative
-            // Three scene.  The previous warm/high-energy rig clipped the
-            // cream floor and made the approved rubber materials look yellow.
-            RenderSettings.ambientMode=AmbientMode.Trilight;RenderSettings.ambientSkyColor=new Color(.86f,.89f,.93f);RenderSettings.ambientEquatorColor=new Color(.72f,.75f,.76f);RenderSettings.ambientGroundColor=new Color(.48f,.46f,.43f);RenderSettings.ambientIntensity=.68f;
-            var sun=new GameObject("Sun").AddComponent<Light>();sun.type=LightType.Directional;sun.color=new Color(1f,.97f,.91f);sun.intensity=.78f;sun.shadows=LightShadows.Soft;
+            // Warm retail daylight and a restrained colour grade reproduce the
+            // vivid cream/olive/graphite balance of the approved loading image.
+            // This is one sun plus colour adjustment, so mobile does not pay for
+            // a grid of real-time point lights.
+            RenderSettings.ambientMode=AmbientMode.Trilight;RenderSettings.ambientSkyColor=new Color(.9f,.88f,.82f);RenderSettings.ambientEquatorColor=new Color(.75f,.74f,.69f);RenderSettings.ambientGroundColor=new Color(.49f,.47f,.43f);RenderSettings.ambientIntensity=.7f;
+            var sun=new GameObject("Sun").AddComponent<Light>();sun.type=LightType.Directional;sun.color=new Color(1f,.96f,.88f);sun.intensity=.82f;sun.shadows=LightShadows.Soft;
             // MarketKeyLight sits at (8, 13, 7) aiming at the origin. X is
             // mirrored like the rest of the world, otherwise every shadow
             // falls on the opposite side of its object from the Next scene.
             sun.transform.rotation=Quaternion.Euler(50.754f,131.185f,0f);
-            var cameraGo=new GameObject("Main Camera");cameraGo.tag="MainCamera";var camera=cameraGo.AddComponent<Camera>();camera.orthographic=true;camera.orthographicSize=5.4625f;camera.nearClipPlane=.1f;camera.farClipPlane=512;camera.clearFlags=CameraClearFlags.SolidColor;camera.backgroundColor=new Color(.22f,.36f,.12f);cameraGo.AddComponent<AudioListener>();cameraGo.AddComponent<IsometricCamera>();
+            var gradeObject=new GameObject("PremiumStoreColourGrade");var volume=gradeObject.AddComponent<Volume>();volume.isGlobal=true;volume.priority=10f;volume.profile=ScriptableObject.CreateInstance<VolumeProfile>();
+            var grade=volume.profile.Add<ColorAdjustments>(true);grade.postExposure.Override(-.08f);grade.contrast.Override(7f);grade.saturation.Override(12f);grade.colorFilter.Override(new Color(1f,.99f,.96f));
+            var cameraGo=new GameObject("Main Camera");cameraGo.tag="MainCamera";var camera=cameraGo.AddComponent<Camera>();camera.orthographic=true;camera.orthographicSize=5.4625f;camera.nearClipPlane=.1f;camera.farClipPlane=512;camera.clearFlags=CameraClearFlags.SolidColor;camera.backgroundColor=new Color(.22f,.36f,.12f);camera.GetUniversalAdditionalCameraData().renderPostProcessing=true;cameraGo.AddComponent<AudioListener>();cameraGo.AddComponent<IsometricCamera>();
         }
 
         void OnDestroy()
