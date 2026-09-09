@@ -34,7 +34,6 @@ page.on('pageerror',error=>events.push({type:'pageerror',text:error.stack||error
 page.on('requestfailed',request=>events.push({type:'requestfailed',url:request.url(),text:request.failure()?.errorText||''}));
 
 await page.goto(baseUrl,{waitUntil:'domcontentloaded',timeout:30_000});
-await page.click('#start');
 let instanceReady=false;
 try{
   await page.waitForFunction(()=>Boolean(window.miniMarketUnity),null,{timeout:180_000});

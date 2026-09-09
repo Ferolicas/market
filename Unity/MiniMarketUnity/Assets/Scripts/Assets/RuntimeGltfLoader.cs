@@ -50,6 +50,7 @@ namespace MiniMarket.Assets
                 if (renderer.sharedMaterials == null) continue;
                 foreach (var material in renderer.sharedMaterials) if (material) material.enableInstancing = true;
             }
+            if(entry.Kind=="environment")WorldPalette.Apply(entry.Id,root);
             root.SetActive(true);
             return root;
         }

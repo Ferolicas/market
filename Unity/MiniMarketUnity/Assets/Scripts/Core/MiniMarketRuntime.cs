@@ -399,6 +399,25 @@ namespace MiniMarket.Core
             Player.transform.LookAt(new Vector3(bounds.center.x,destination.y,bounds.center.z));
             Debug.Log($"MINIMARKET_FURNITURE_VIEW id={assetId} medida={bounds.size.x:0.00}x{bounds.size.y:0.00}x{bounds.size.z:0.00}");
         }
+        public void ViewLocalHangingSignQa(string objectName)
+        {
+            if(!LocalQaAllowed()||string.IsNullOrWhiteSpace(objectName)||!Player)return;
+            var target=GameObject.Find(objectName);if(!target)return;
+            var renderer=target.GetComponent<Renderer>();if(!renderer)return;
+            // The bakery sign sits far enough south that the production camera
+            // would otherwise switch to the farm overview during this QA-only
+            // teleport and photograph the paddocks instead of the requested text.
+            var view=FindFirstObjectByType<IsometricCamera>();if(view)view.farmAnchor=null;
+            // Aiming at the owner keeps tall fixtures near the top edge. Moving
+            // the QA target 30 m toward screen-bottom cancels the sign's height
+            // in the fixed 30-degree projection and centres the actual panel.
+            var destination=renderer.bounds.center+new Vector3(0,0,-30f);destination.y=.08f;
+            var body=Player.GetComponent<CharacterController>();if(body)body.enabled=false;
+            Player.transform.position=destination;
+            Player.transform.LookAt(new Vector3(renderer.bounds.center.x,destination.y,renderer.bounds.center.z));
+            if(body)body.enabled=true;
+            Debug.Log($"MINIMARKET_SIGN_VIEW id={objectName}");
+        }
         public void PrepareLocalWorkerQaScenario()
         {
             if(!LocalQaAllowed())return;

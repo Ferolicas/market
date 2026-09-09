@@ -19,14 +19,6 @@ namespace MiniMarket.Store
         readonly InteractionDirector interactions;
         readonly Transform parent;
         static readonly Dictionary<string,Material> RuntimeMaterials=new();
-        static readonly HashSet<string> PremiumStoreAssets=new(StringComparer.OrdinalIgnoreCase)
-        {
-            "AutomaticDoor","BackroomStorage","BakeryWorkArea","CartBay","CashierStool","CeilingLight",
-            "CheckoutArea","ChestFreezer","DisplayProduceMixed","DisplayRefrigeratedDoors","DisplayTable",
-            "EggDisplay","HangingSign","JuiceMachineAlt","OperationsWall","ReturnsStation","SeasonalDisplay",
-            "ShelfEndcap","ShelfGondolaDouble","ShelfGondolaSingle","ShelfWallTall","ShelfWallWide",
-            "StockroomRack","StoreEntrance","StorefrontWindow","UtilitySink","WallCorner","WallStraight","WorkCounter",
-        };
         /// The shop returns to its original compact footprint. Metric fixtures,
         /// tiles and actors keep their approved physical size; only the excess
         /// spacing and envelope spans introduced by the former x2 expansion go.
@@ -230,7 +222,7 @@ namespace MiniMarket.Store
             // block at [0, -0.2, -2] in the soft green below, and this is the
             // same slab at layout scale. It had been standing in a pale pink,
             // which is what showed through wherever a floor was missing.
-            TexturedSurface(root,"CityGrass",new Vector2(108,128),new Vector3(0,-.15f,-4),"Grass",new Vector2(18,21.333f)*(StoreScale/PreviousStoreScale),.02f);
+            TexturedSurface(root,"CityGrass",new Vector2(108,128),new Vector3(0,-.15f,-4),"GrassPremium",new Vector2(18,21.333f)*(StoreScale/PreviousStoreScale),.02f);
             // The floor is the designer's own, taken whole out of MOBILIARIO.glb
             // by tools/kit/extract_part.py: the beige is a 3 x 3 panel slab, the
             // white a 3 x 2, coloured from MOBILIARIO.png seen square on. The
@@ -244,10 +236,10 @@ namespace MiniMarket.Store
             // UV repetition adds floor area without enlarging a tile or creating
             // 576 startup objects that would bring the first-movement hitch back.
             var tileScale=StoreScale/PreviousStoreScale;
-            TexturedSurface(root,"FloorBeige",new Vector2(46f,34f),new Vector3(0,-.006f,-.7f),"FloorTileBeige",new Vector2(12,9)*tileScale,.18f);
-            TexturedSurface(root,"FloorWhite",new Vector2(46f,15f),new Vector3(0,-.008f,23.8f),"FloorTileWhite",new Vector2(12,3)*tileScale,.16f);
+            TexturedSurface(root,"FloorBeige",new Vector2(46f,34f),new Vector3(0,-.006f,-.7f),"FloorTilePremium",new Vector2(12,9)*tileScale,.18f);
+            TexturedSurface(root,"FloorWhite",new Vector2(46f,15f),new Vector3(0,-.008f,23.8f),"FloorTilePremium",new Vector2(12,3)*tileScale,.16f);
             Debug.Log($"MINIMARKET_FOOTPRINT escala={StoreScale:0.##} interior={46f*StoreScale:0.00}x{49f*StoreScale:0.00} baldosas=144 superficies=2 tamano_baldosa=sin_cambios");
-            VisualBox(root,"StoreKerb",new Vector3(50,.12f,2.4f*FixedPlanFactor),new Vector3(0,-.09f,32.3f),Hex("566A62"),.02f,false);
+            VisualBox(root,"StoreKerb",new Vector3(50,.12f,2.4f*FixedPlanFactor),new Vector3(0,-.09f,32.3f),WorldPalette.Linear(WorldPalette.Kerb),.02f,false);
             // MarketBuilding's entrance mat: the dark slab the player crosses in
             // the doorway, authored at [0, 0.035, 7.02] with a 3.75 x 1.05
             // footprint beneath the layout-scale group, and receiveShadow only.
@@ -257,7 +249,7 @@ namespace MiniMarket.Store
             // and static batching. The neighbouring glTF floor lights correctly.
             const float entranceZ=15.9f;const float approvedMatOffset=5.58f;
             var entranceMat=VisualBox(root,"EntranceMat",new Vector3(7.5f*FixedPlanFactor,.055f,2.1f*FixedPlanFactor),
-                                      new Vector3(0,.035f,entranceZ-approvedMatOffset/StoreScale),Hex("2B4B43"),.08f,false);
+                                      new Vector3(0,.035f,entranceZ-approvedMatOffset/StoreScale),WorldPalette.Linear(WorldPalette.StoreFrame),.08f,false);
             entranceMat.GetComponent<Renderer>().shadowCastingMode=ShadowCastingMode.Off;
             foreach(var x in new[]{-12f,0,12f})await PlaceFitted("ParkingSpace",new Vector3(x,-.08f,32.3f),Quaternion.identity,new Vector3(8f,.12f,2.4f),root,false);
             await PlaceFitted("SidewalkSegment",new Vector3(-15,-.105f,-19.22f),Quaternion.identity,new Vector3(5.16f,.08f,4.4f),root,false);
@@ -339,8 +331,8 @@ namespace MiniMarket.Store
             // widths retain their world size. Divide only the width by the root
             // scale, exactly as PlaceFitted used to compensate the road GLB.
             var horizontalTiles=horizontalLength*StoreScale/(roadWidthWorld*3f);var verticalTiles=verticalLength*StoreScale/(roadWidthWorld*3f);
-            foreach(var z in new[]{36.5f,-43.6f})TexturedSurface(root,$"Road_{z:0.0}",new Vector2(horizontalLength,roadWidthWorld/StoreScale),new Vector3(2,-.034f,z),"Road",new Vector2(horizontalTiles,1),.08f);
-            foreach(var x in new[]{-31.7f,31.7f})TexturedSurface(root,$"Road_{x:0.0}",new Vector2(verticalLength,roadWidthWorld/StoreScale),new Vector3(x,-.034f,-3.5f),"Road",new Vector2(verticalTiles,1),.08f,90);
+            foreach(var z in new[]{36.5f,-43.6f})TexturedSurface(root,$"Road_{z:0.0}",new Vector2(horizontalLength,roadWidthWorld/StoreScale),new Vector3(2,-.034f,z),"RoadPremium",new Vector2(horizontalTiles,1),.08f);
+            foreach(var x in new[]{-31.7f,31.7f})TexturedSurface(root,$"Road_{x:0.0}",new Vector2(verticalLength,roadWidthWorld/StoreScale),new Vector3(x,-.034f,-3.5f),"RoadPremium",new Vector2(verticalTiles,1),.08f,90);
             const float sidewalkModule=53.6f/7f;const float sidewalkWidth=2.2f;
             foreach(var z in new[]{32.1f,-38.8f})await FillSpan("SidewalkSegment",false,z,-26.8f,26.8f,sidewalkModule,.1f,sidewalkWidth,-.03f,root);
             foreach(var x in new[]{-26.9f,26.9f})await FillSpan("SidewalkSegment",true,x,-38.7f,32.1f,sidewalkModule,.1f,sidewalkWidth,-.03f,root);
@@ -359,8 +351,8 @@ namespace MiniMarket.Store
             await Place("BusStop",XZ(-11.2f,20.35f),Quaternion.Euler(0,180,0),Vector3.one,root,true);
             await Place("Bench",XZ(9.4f,20.55f),Quaternion.identity,Vector3.one,root,true);
             var crosswalkSize=new Vector2(CrosswalkWidthMeters*WorldUnitsPerMeter/StoreScale,4.667f*WorldUnitsPerMeter/StoreScale);
-            TexturedSurface(root,"CrosswalkFront",crosswalkSize,new Vector3(0,-.026f,35.9f),"Crosswalk",Vector2.one,.04f);
-            TexturedSurface(root,"CrosswalkSide",crosswalkSize,new Vector3(31.1f,-.026f,18.4f),"Crosswalk",Vector2.one,.04f,90);
+            TexturedSurface(root,"CrosswalkFront",crosswalkSize,new Vector3(0,-.026f,35.9f),"CrosswalkPremium",Vector2.one,.04f);
+            TexturedSurface(root,"CrosswalkSide",crosswalkSize,new Vector3(31.1f,-.026f,18.4f),"CrosswalkPremium",Vector2.one,.04f,90);
             Debug.Log($"MINIMARKET_EXTERIOR escala_metrica={WorldUnitsPerMeter:0.##} calzada={RoadWidthMeters:0.##}m paso_cebra={CrosswalkWidthMeters:0.##}m coche=3.9m");
         }
 
@@ -408,7 +400,7 @@ namespace MiniMarket.Store
             await FillSpan("StorefrontWindow",false,15.6f,edge,22.7f,storefrontModule,11.2f,1.44f,0,root);
             foreach(Transform child in root)
                 if(child.name.StartsWith("StorefrontWindow",StringComparison.OrdinalIgnoreCase))
-                    GlazePanes(child,"facadeglass");
+                    GlazePanes(child,"facadeglass","StorefrontWindow");
             // The entrance stays on screen. Next never hides its storefront --
             // the only visibility toggles there are particles and the checkout
             // focus -- because its glass is transparent (opacity .12 to .28 with
@@ -453,7 +445,7 @@ namespace MiniMarket.Store
             // dropping the file's alpha from 0.26 to 0.035 did not change a
             // single pixel on screen. They are moved onto the same transparent
             // material the cold-room door already uses, which does blend.
-            GlazePanes(door.transform);
+            GlazePanes(door.transform,"cristal","StoreEntrance");
             // PlaceFitted marks every child static, and static batching bakes the
             // geometry in place: moving a transform then changes no pixels. Each
             // pane and the frame half that travels with it must stay dynamic.
@@ -520,11 +512,14 @@ namespace MiniMarket.Store
         /// pair of thin, similar panels sitting either side of the doorway's
         /// centre. Matching on the mosaic's part names works only until an export
         /// renames them, and then the door silently stops opening.
-        static void GlazePanes(Transform target,string materialToken="cristal")
+        static void GlazePanes(Transform target,string materialToken="cristal",string assetId=null)
         {
             var facade=materialToken.Equals("facadeglass",StringComparison.OrdinalIgnoreCase);
-            var glass=TransparentRuntimeMaterial(facade?"FacadeGlass":"EntranceGlass",
-                facade?new Color(.45f,.72f,.78f,.16f):new Color(.60f,.71f,.74f,.14f));
+            var cold=assetId is "ChestFreezer" or "RefrigeratedDisplay" or "DisplayRefrigeratedDoors";
+            var vehicle=assetId=="Car";
+            var color=WorldPalette.Linear(vehicle?"333936":cold?WorldPalette.ColdGlass:WorldPalette.StoreGlass);
+            color.a=vehicle?.34f:cold?.18f:.16f;
+            var glass=TransparentRuntimeMaterial($"WorldGlass_{assetId??(facade?"Facade":"Entrance")}",color);
             var glazed=0;
             foreach(var renderer in target.GetComponentsInChildren<Renderer>(true))
             {
@@ -615,10 +610,10 @@ namespace MiniMarket.Store
         static void BuildWallSegment(Vector3 position,Quaternion rotation,Transform root)
         {
             var holder=new GameObject("WallStraight_Runtime").transform;holder.SetParent(root,false);holder.localPosition=position;holder.localRotation=rotation;
-            WallBox(holder,"Wall",new Vector3(4.62f,2.85f,.24f),new Vector3(0,1.425f,0),new Color(.86f,.80f,.67f));
-            WallBox(holder,"Base",new Vector3(4.68f,.5f,.31f),new Vector3(0,.25f,0),new Color(.13f,.15f,.15f));
-            WallBox(holder,"Accent",new Vector3(4.68f,.17f,.32f),new Vector3(0,.62f,0),new Color(.25f,.38f,.23f));
-            WallBox(holder,"Cap",new Vector3(4.72f,.2f,.33f),new Vector3(0,2.95f,0),new Color(.12f,.14f,.14f));
+            WallBox(holder,"Wall",new Vector3(4.62f,2.85f,.24f),new Vector3(0,1.425f,0),WorldPalette.Linear(WorldPalette.StoreWall));
+            WallBox(holder,"Base",new Vector3(4.68f,.5f,.31f),new Vector3(0,.25f,0),WorldPalette.Linear(WorldPalette.StoreFrame));
+            WallBox(holder,"Accent",new Vector3(4.68f,.17f,.32f),new Vector3(0,.62f,0),WorldPalette.Linear(WorldPalette.StoreGreen));
+            WallBox(holder,"Cap",new Vector3(4.72f,.2f,.33f),new Vector3(0,2.95f,0),WorldPalette.Linear(WorldPalette.StoreFrame));
         }
 
         static void WallBox(Transform parent,string name,Vector3 size,Vector3 localPosition,Color color)
@@ -713,7 +708,7 @@ namespace MiniMarket.Store
         static GameObject BuildSeasonalDisplayRuntime(Transform parent,Vector3 position)
         {
             const float s=ElementScale;var root=new GameObject("SeasonalDisplay_Runtime");root.transform.SetParent(parent,false);root.transform.localPosition=position;
-            var steel=Hex("53666B");var wood=Hex("A8835D");
+            var steel=WorldPalette.Linear(WorldPalette.ShelfStructure);var wood=WorldPalette.Linear(WorldPalette.Wood);
             FurniturePart(root.transform,"SeasonalBase",PrimitiveType.Cube,new Vector3(0,.08f*s,0),new Vector3(1.95f,.14f,.86f)*s,steel);
             foreach(var x in new[]{-.88f,.88f})FurniturePart(root.transform,"SeasonalUpright",PrimitiveType.Cube,new Vector3(x,.96f,-.3f)*s,new Vector3(.075f,1.85f,.075f)*s,steel);
             var levels=new[]{.32f,.75f,1.18f,1.61f};
@@ -724,8 +719,8 @@ namespace MiniMarket.Store
             }
             foreach(var y in levels)foreach(var x in new[]{-.55f,0,.55f})
             {
-                FurniturePart(root.transform,"SeasonalPlanter",PrimitiveType.Cylinder,new Vector3(x,y+.14f,0)*s,new Vector3(.15f,.08f,.15f)*s,Hex("B06E46"),.08f);
-                FurniturePart(root.transform,"SeasonalFoliage",PrimitiveType.Sphere,new Vector3(x,y+.34f,0)*s,new Vector3(.2f,.27f,.2f)*s,Hex("5D8B5B"),.06f);
+                FurniturePart(root.transform,"SeasonalPlanter",PrimitiveType.Cylinder,new Vector3(x,y+.14f,0)*s,new Vector3(.15f,.08f,.15f)*s,WorldPalette.Linear(WorldPalette.WoodCrate),.08f);
+                FurniturePart(root.transform,"SeasonalFoliage",PrimitiveType.Sphere,new Vector3(x,y+.34f,0)*s,new Vector3(.2f,.27f,.2f)*s,WorldPalette.Linear(WorldPalette.SmallPlant),.06f);
             }
             AddRuntimeBoundsCollider(root);return root;
         }
@@ -736,24 +731,24 @@ namespace MiniMarket.Store
             for(var index=0;index<7;index++)
             {
                 var y=.22f+index*Mathf.Max(.2f,(height-.34f)/6f);
-                FurniturePart(root,"RetailBackSlat",PrimitiveType.Cube,new Vector3(0,y,z+.042f)*s,new Vector3(width*.86f,.012f,.012f)*s,Hex("747D79"),.22f);
+                FurniturePart(root,"RetailBackSlat",PrimitiveType.Cube,new Vector3(0,y,z+.042f)*s,new Vector3(width*.86f,.012f,.012f)*s,WorldPalette.Linear(WorldPalette.ShelfTray),.22f);
             }
         }
 
         static void RetailUprights(Transform root,float width,float height,float z,float s)
         {
             foreach(var side in new[]{-1f,1f})foreach(var postZ in new[]{z-.03f,z+.09f})
-                FurniturePart(root,"RetailUpright",PrimitiveType.Cube,new Vector3(side*(width*.5f-.055f),height*.5f,postZ)*s,new Vector3(.07f,height,.07f)*s,Hex("53666B"),.38f);
+                FurniturePart(root,"RetailUpright",PrimitiveType.Cube,new Vector3(side*(width*.5f-.055f),height*.5f,postZ)*s,new Vector3(.07f,height,.07f)*s,WorldPalette.Linear(WorldPalette.ShelfStructure),.38f);
         }
 
         static void RetailShelfBank(Transform root,float[] levels,float width,float depth,float z,float front,Color accent,float s)
         {
             foreach(var y in levels)
             {
-                FurniturePart(root,"RetailShelf",PrimitiveType.Cube,new Vector3(0,y,z)*s,new Vector3(width,.065f,depth)*s,Hex("D8DED9"),.12f);
-                FurniturePart(root,"RetailShelfLip",PrimitiveType.Cube,new Vector3(0,y+.025f,z+front*(depth*.5f-.006f))*s,new Vector3(width+.035f,.105f,.035f)*s,Hex("53666B"),.32f);
+                FurniturePart(root,"RetailShelf",PrimitiveType.Cube,new Vector3(0,y,z)*s,new Vector3(width,.065f,depth)*s,WorldPalette.Linear(WorldPalette.ShelfTray),.12f);
+                FurniturePart(root,"RetailShelfLip",PrimitiveType.Cube,new Vector3(0,y+.025f,z+front*(depth*.5f-.006f))*s,new Vector3(width+.035f,.105f,.035f)*s,WorldPalette.Linear(WorldPalette.ShelfStructure),.32f);
                 FurniturePart(root,"RetailShelfAccent",PrimitiveType.Cube,new Vector3(0,y+.075f,z+front*(depth*.5f+.017f))*s,new Vector3(width*.92f,.062f,.018f)*s,accent,.18f);
-                foreach(var offset in new[]{-.31f,0,.31f})FurniturePart(root,"RetailPriceTag",PrimitiveType.Cube,new Vector3(offset*width,y+.075f,z+front*(depth*.5f+.029f))*s,new Vector3(.25f,.055f,.012f)*s,Hex("FFF8E7"),.06f);
+                foreach(var offset in new[]{-.31f,0,.31f})FurniturePart(root,"RetailPriceTag",PrimitiveType.Cube,new Vector3(offset*width,y+.075f,z+front*(depth*.5f+.029f))*s,new Vector3(.25f,.055f,.012f)*s,WorldPalette.Linear(WorldPalette.ShelfPanel),.06f);
             }
         }
 
@@ -761,19 +756,17 @@ namespace MiniMarket.Store
         {
             const float s=ElementScale;
             var root=new GameObject($"Retail_{department}_Runtime");root.transform.SetParent(parent,false);root.transform.localPosition=position;
-            var steel=Hex("53666B");
-            var accent=department switch
-            {
-                "bakery"=>Hex("B96D39"),"pantry"=>Hex("6F4938"),"eggs"=>Hex("D49A34"),
-                "produce"=>Hex("3F7B4C"),"dairy"=>Hex("4382A1"),_=>Hex("CC6841")
-            };
+            var steel=WorldPalette.Linear(WorldPalette.ShelfStructure);
+            // Products provide the department accents. The furniture itself
+            // deliberately speaks one language throughout the shop.
+            var accent=WorldPalette.Linear(WorldPalette.ShelfGreen);
 
             if(department=="produce")
             {
                 FurniturePart(root.transform,"ProduceBase",PrimitiveType.Cube,new Vector3(0,.08f,0)*s,new Vector3(2.42f,.12f,1.5f)*s,steel,.22f);
                 foreach(var x in new[]{-1.08f,1.08f})foreach(var z in new[]{-.58f,.58f})FurniturePart(root.transform,"ProduceLeg",PrimitiveType.Cube,new Vector3(x,.39f,z)*s,new Vector3(.09f,.7f,.09f)*s,steel,.24f);
-                FurniturePart(root.transform,"ProduceBody",PrimitiveType.Cube,new Vector3(0,.43f,0)*s,new Vector3(2.28f,.54f,1.34f)*s,Hex("A8835D"),.08f);
-                foreach(var x in new[]{-.92f,-.46f,0,.46f,.92f})FurniturePart(root.transform,"ProduceDivider",PrimitiveType.Cube,new Vector3(x,.44f,0)*s,new Vector3(.035f,.46f,1.37f)*s,Hex("6E482D"),.06f);
+                FurniturePart(root.transform,"ProduceBody",PrimitiveType.Cube,new Vector3(0,.43f,0)*s,new Vector3(2.28f,.54f,1.34f)*s,WorldPalette.Linear(WorldPalette.Wood),.08f);
+                foreach(var x in new[]{-.92f,-.46f,0,.46f,.92f})FurniturePart(root.transform,"ProduceDivider",PrimitiveType.Cube,new Vector3(x,.44f,0)*s,new Vector3(.035f,.46f,1.37f)*s,WorldPalette.Linear(WorldPalette.WoodDark),.06f);
                 foreach(var x in new[]{-.76f,0,.76f})
                 {
                     FurniturePart(root.transform,"ProduceBin",PrimitiveType.Cube,new Vector3(x,.78f,-.29f)*s,new Vector3(.7f,.095f,.68f)*s,steel,.24f,Quaternion.Euler(9.74f,0,0));
@@ -792,7 +785,7 @@ namespace MiniMarket.Store
                 var panelZ=department=="pantry"?0:department=="eggs"?-.31f:-.34f;
                 var baseZ=department=="bakery"?-.11f:0;
                 FurniturePart(root.transform,"RetailBase",PrimitiveType.Cube,new Vector3(0,.08f,baseZ)*s,new Vector3(width,.16f,depth)*s,steel,.24f);
-                RetailBackPanel(root.transform,width-.16f,panelHeight,panelZ,department switch{"bakery"=>Hex("D8C3A2"),"pantry"=>Hex("B69A77"),"eggs"=>Hex("D7C9AA"),"dairy"=>Hex("D5E2E0"),_=>Hex("D8D3C6")},s);
+                RetailBackPanel(root.transform,width-.16f,panelHeight,panelZ,WorldPalette.Linear(WorldPalette.ShelfPanel),s);
                 RetailUprights(root.transform,width-.06f,panelHeight+.1f,panelZ,s);
                 var levels=department switch
                 {
@@ -810,9 +803,10 @@ namespace MiniMarket.Store
                     foreach(var side in new[]{-1f,1f})
                     {
                         var x=side*.55f;
-                        foreach(var edgeY in new[]{.16f,2.2f})FurniturePart(root.transform,"ColdDoorFrame",PrimitiveType.Cube,new Vector3(x,edgeY,.47f)*s,new Vector3(1.04f,.07f,.055f)*s,Hex("34423F"),.38f);
-                        foreach(var edgeX in new[]{-.495f,.495f})FurniturePart(root.transform,"ColdDoorFrame",PrimitiveType.Cube,new Vector3(x+edgeX,1.18f,.47f)*s,new Vector3(.055f,2.08f,.055f)*s,Hex("34423F"),.38f);
-                        TransparentBox(root.transform,"ColdDoorGlass",new Vector3(.94f,1.95f,.022f)*s,new Vector3(x,1.18f,.485f)*s,new Color(.78f,.93f,.94f,.18f),false);
+                        foreach(var edgeY in new[]{.16f,2.2f})FurniturePart(root.transform,"ColdDoorFrame",PrimitiveType.Cube,new Vector3(x,edgeY,.47f)*s,new Vector3(1.04f,.07f,.055f)*s,WorldPalette.Linear(WorldPalette.ColdFrame),.38f);
+                        foreach(var edgeX in new[]{-.495f,.495f})FurniturePart(root.transform,"ColdDoorFrame",PrimitiveType.Cube,new Vector3(x+edgeX,1.18f,.47f)*s,new Vector3(.055f,2.08f,.055f)*s,WorldPalette.Linear(WorldPalette.ColdFrame),.38f);
+                        var coldGlass=WorldPalette.Linear(WorldPalette.ColdGlass);coldGlass.a=.18f;
+                        TransparentBox(root.transform,"ColdDoorGlass",new Vector3(.94f,1.95f,.022f)*s,new Vector3(x,1.18f,.485f)*s,coldGlass,false);
                     }
                 }
                 FurniturePart(root.transform,"RetailTop",PrimitiveType.Cube,new Vector3(0,panelHeight+.08f,baseZ)*s,new Vector3(width+.08f,.18f,depth)*s,steel,.24f);
@@ -824,16 +818,16 @@ namespace MiniMarket.Store
         static GameObject BuildCartBayRuntime(Transform parent,Vector3 position)
         {
             const float s=ElementScale;var root=new GameObject("CartBay_Runtime");root.transform.SetParent(parent,false);root.transform.localPosition=position;
-            var frame=Hex("C2CBC7");var metal=Hex("C6CECB");var gold=Hex("F0C45E");
-            FurniturePart(root.transform,"CartBayBase",PrimitiveType.Cube,new Vector3(0,.035f,0)*s,new Vector3(2.1f,.07f,1.45f)*s,Hex("BEC7C3"));
+            var frame=WorldPalette.Linear(WorldPalette.ShelfMetal);var metal=WorldPalette.Linear(WorldPalette.ColdStructure);var gold=WorldPalette.Linear(WorldPalette.CropYellow);
+            FurniturePart(root.transform,"CartBayBase",PrimitiveType.Cube,new Vector3(0,.035f,0)*s,new Vector3(2.1f,.07f,1.45f)*s,WorldPalette.Linear(WorldPalette.ShelfMetal));
             foreach(var x in new[]{-.96f,.96f})
             {
                 FurniturePart(root.transform,"CartBaySide",PrimitiveType.Cube,new Vector3(x,.67f,0)*s,new Vector3(.075f,1.34f,1.45f)*s,frame);
                 FurniturePart(root.transform,"CartBayGoldRail",PrimitiveType.Cube,new Vector3(x,.18f,0)*s,new Vector3(.16f,.14f,1.48f)*s,gold,.42f);
-                FurniturePart(root.transform,"CartBayFinial",PrimitiveType.Sphere,new Vector3(x,1.35f,0)*s,Vector3.one*.2f*s,Hex("F0C45E"),.58f);
+                FurniturePart(root.transform,"CartBayFinial",PrimitiveType.Sphere,new Vector3(x,1.35f,0)*s,Vector3.one*.2f*s,WorldPalette.Linear(WorldPalette.CropYellow),.58f);
             }
-            FurniturePart(root.transform,"CartBaySign",PrimitiveType.Cube,new Vector3(0,1.5f,-.66f)*s,new Vector3(2.08f,.4f,.12f)*s,Hex("F1E8CF"));
-            WorldLabel(root.transform,"CartBayLabel","CARROS",new Vector3(0,1.5f*s,-.555f*s),Quaternion.Euler(0,180,0),.036f,Hex("214D40"));
+            FurniturePart(root.transform,"CartBaySign",PrimitiveType.Cube,new Vector3(0,1.5f,-.66f)*s,new Vector3(2.08f,.4f,.12f)*s,WorldPalette.Linear(WorldPalette.StoreTrim));
+            WorldLabel(root.transform,"CartBayLabel","CARROS",new Vector3(0,1.5f*s,-.555f*s),Quaternion.Euler(0,180,0),.036f,WorldPalette.Linear(WorldPalette.StoreGreenDark));
             for(var cartIndex=0;cartIndex<3;cartIndex++)BuildSimpleCart(root.transform,new Vector3(0,0,(.42f-cartIndex*.26f)*s),s*(1-cartIndex*.055f),metal);
             AddRuntimeBoundsCollider(root);return root;
         }
@@ -927,7 +921,7 @@ namespace MiniMarket.Store
             const float heightWorld=1.8f,depthWorld=.34f;
             var board=VisualBox(root,name,
                 new Vector3(widthWorld/scale,heightWorld,depthWorld/scale),
-                boxCentre,Hex("6F873D"),.42f,false);
+                boxCentre,WorldPalette.Linear(WorldPalette.StoreGreen),.42f,false);
             board.transform.localRotation=rotation;
 
             var postHeightWorld=1.7f;
@@ -937,7 +931,7 @@ namespace MiniMarket.Store
                 var offset=rotation*new Vector3(widthWorld*side/scale,0,0);
                 var post=VisualBox(root,$"{name}_Support",
                     new Vector3(.18f/scale,postHeightWorld,.18f/scale),
-                    new Vector3(-x*LayoutScale,postY,z*LayoutScale)+offset,Hex("293431"),.34f,false);
+                    new Vector3(-x*LayoutScale,postY,z*LayoutScale)+offset,WorldPalette.Linear(WorldPalette.StoreFrame),.34f,false);
                 post.transform.localRotation=rotation;
             }
 
@@ -946,7 +940,16 @@ namespace MiniMarket.Store
             // again by StoreWorld. These restrained values keep every word
             // inside its panel instead of painting metre-high letters in space.
             var textSize=label.Length>14?.03f:.04f;
-            WorldLabel(root,$"{name}_FrontText",label,centre+faceOffset,rotation,textSize,Hex("FFF4D7"));
+            var textColor=WorldPalette.Linear(WorldPalette.StoreTrim);
+            // Legacy TextMesh is readable along local -Z, but its font shader
+            // renders the reverse too. Select the one board face aimed at the
+            // fixed isometric camera and put a single label there; duplicating
+            // both sides makes mirrored glyphs show through one another.
+            var cameraSide=new Vector3(-16f,0,25.75f);
+            var usePositiveFace=Vector3.Dot(rotation*Vector3.forward,cameraSide)>=0;
+            WorldLabel(root,$"{name}_CameraText",label,
+                centre+(usePositiveFace?faceOffset:-faceOffset),
+                usePositiveFace?rotation*Quaternion.Euler(0,180,0):rotation,textSize,textColor);
         }
 
         Task BuildProductionCubicle(Transform root)
@@ -988,7 +991,8 @@ namespace MiniMarket.Store
             // Its own cached material is required: sharing FacadeGlass would
             // silently reuse the facade colour. RGB is 40% darker and the added
             // opacity makes the boundary readable without turning it opaque.
-            var renderer=panel.GetComponent<Renderer>();renderer.sharedMaterial=TransparentRuntimeMaterial("ProductionGlass",new Color(.27f,.432f,.468f,.224f));
+            var glass=WorldPalette.Linear(WorldPalette.StoreGlass);glass.a=.224f;
+            var renderer=panel.GetComponent<Renderer>();renderer.sharedMaterial=TransparentRuntimeMaterial("ProductionGlass",glass);
             renderer.shadowCastingMode=ShadowCastingMode.Off;renderer.receiveShadows=false;
             HideIfBare(panel);
         }
@@ -1068,8 +1072,8 @@ namespace MiniMarket.Store
             // FARM_FIELD. Without it the plots sat straight on the city ground
             // and the gaps between them read as bare grass.
             var fieldWidth=size[0].Value<float>()*LayoutScale;var fieldDepth=size[2].Value<float>()*LayoutScale;
-            VisualBox(root,"FarmLawnEdge",new Vector3(fieldWidth*1.035f,.1f,fieldDepth*1.035f),new Vector3(centerX,-.038f,centerZ),Hex("315D36"),.03f,false);
-            TexturedSurface(root,"FarmLawn",new Vector2(fieldWidth,fieldDepth),new Vector3(centerX,.021f,centerZ),"Grass",new Vector2(fieldWidth/6f,fieldDepth/6f)*(StoreScale/PreviousStoreScale),.02f);
+            VisualBox(root,"FarmLawnEdge",new Vector3(fieldWidth*1.035f,.1f,fieldDepth*1.035f),new Vector3(centerX,-.038f,centerZ),WorldPalette.Linear(WorldPalette.Grass),.03f,false);
+            TexturedSurface(root,"FarmLawn",new Vector2(fieldWidth,fieldDepth),new Vector3(centerX,.021f,centerZ),"GrassPremium",new Vector2(fieldWidth/6f,fieldDepth/6f)*(StoreScale/PreviousStoreScale),.02f);
             var gate=(JObject)spec.Layouts["farm"]["FARM_GATE"];
             foreach(var token in (JArray)gate["accessCorridorFences"])await BuildFence((JObject)token,root);
             foreach(var token in (JArray)gate["perimeterWallFences"])await BuildFence((JObject)token,root);
@@ -1241,8 +1245,9 @@ namespace MiniMarket.Store
             var glassZ = bounds.max.z + .025f / Mathf.Max(.0001f, Mathf.Abs(scale.z));
             var thickness = Mathf.Max(.025f / Mathf.Max(.0001f, Mathf.Abs(scale.z)), bounds.size.z * .009f);
             var hinges = new Transform[3];
-            var glass = TransparentRuntimeMaterial("DairyDoorGlass", new Color(.55f,.82f,.88f,.15f));
-            var handle = RuntimeMaterial("DairyDoorHandle", Hex("202928"), .48f);
+            var dairyGlass=WorldPalette.Linear(WorldPalette.ColdGlass);dairyGlass.a=.18f;
+            var glass = TransparentRuntimeMaterial("DairyDoorGlass",dairyGlass);
+            var handle = RuntimeMaterial("DairyDoorHandle",WorldPalette.Linear(WorldPalette.ColdFrame),.48f);
 
             for (var bay = 0; bay < 3; bay++)
             {
@@ -1560,51 +1565,6 @@ namespace MiniMarket.Store
             surface.BuildNavMesh();
         }
 
-        /// One controlled store palette replaces the accidental mix of source
-        /// PNG hues. Textured furniture keeps its baked detail, but receives the
-        /// same warm, brighter grade; named materials are mapped exactly to the
-        /// loading screen's cream, olive, graphite, steel and warm wood.
-        static void ApplyPremiumPalette(string id,GameObject instance)
-        {
-            if(!instance||!PremiumStoreAssets.Contains(id))return;
-            foreach(var renderer in instance.GetComponentsInChildren<Renderer>(true))
-            {
-                foreach(var material in renderer.sharedMaterials)
-                {
-                    if(!material)continue;
-                    var token=material.name.ToLowerInvariant();
-                    if(token.Contains("glass")||token.Contains("cristal"))continue;
-                    Color color;
-                    if(token.Contains("dark")||token.Contains("frame")||token.Contains("marco")||token.Contains("bolardo"))
-                        color=Hex("27332F");
-                    else if(token.Contains("olive")||token.Contains("green")||token.Contains("placa_panel"))
-                        color=Hex("58752C");
-                    else if(token.Contains("silver"))
-                        color=Hex("B7C0BC");
-                    else if(token.Contains("steel"))
-                        color=Hex("44514D");
-                    else if(token.Contains("wood"))
-                        color=Hex("A56B3F");
-                    else if(token.Contains("ivory")||token.Contains("cream")||token.Contains("beige")||
-                            token.Contains("masonry")||token.Contains("muro")||token.Contains("losa")||token.Contains("white"))
-                        color=Hex("F2E7CF");
-                    else if(token.Contains("letras"))
-                        color=Hex("FFF4D7");
-                    else
-                        // A value above one brightens the baked furniture texture
-                        // without flattening its wood grain, labels or material detail.
-                        color=new Color(1.04f,1.02f,.96f,1f);
-                    SetMaterialColor(material,color);
-                }
-            }
-        }
-
-        static void SetMaterialColor(Material material,Color color)
-        {
-            foreach(var property in new[]{"_BaseColorFactor","_BaseColor","_Color"})
-                if(material.HasProperty(property))material.SetColor(property,color);
-        }
-
         async Task<GameObject> Place(string id, Vector3 position, Quaternion rotation, Vector3 scale, Transform root, bool collider = false)
         {
             var instance = await loader.InstantiateAsync(id, root, position, rotation, Vector3.one);
@@ -1612,7 +1572,7 @@ namespace MiniMarket.Store
             if(MetricEnvironment.Contains(id))
             {
                 instance.transform.localScale=Vector3.one*(WorldUnitsPerMeter/StoreScale);
-                if(MetricGlassEnvironment.Contains(id))GlazePanes(instance.transform,"glass");
+                if(MetricGlassEnvironment.Contains(id))GlazePanes(instance.transform,"glass",id);
                 RestOnFloor(instance,floorY);
             }
             else if(TargetWorldHeight.TryGetValue(id,out var targetHeight))FitWorldHeight(instance,targetHeight);
@@ -1622,7 +1582,6 @@ namespace MiniMarket.Store
                     :Mathf.Max(scale.x,Mathf.Max(scale.y,scale.z));
                 NormalizeScale(instance,target*SizeFactor(id,target));
             }
-            ApplyPremiumPalette(id,instance);
             if(SeptemberFurniture.Contains(id))LogFurnitureSize(id,instance);
             foreach(var child in instance.GetComponentsInChildren<Transform>(true))child.gameObject.isStatic=true;
             if (collider) AddBoundsCollider(instance);
@@ -1637,10 +1596,9 @@ namespace MiniMarket.Store
             FitLocalSize(instance,targetSize*sizeFactor);
             if(MetricEnvironment.Contains(id))
             {
-                if(MetricGlassEnvironment.Contains(id))GlazePanes(instance.transform,"glass");
+                if(MetricGlassEnvironment.Contains(id))GlazePanes(instance.transform,"glass",id);
                 RestOnFloor(instance,floorY);
             }
-            ApplyPremiumPalette(id,instance);
             foreach(var child in instance.GetComponentsInChildren<Transform>(true))child.gameObject.isStatic=true;
             if(collider)AddBoundsCollider(instance);
             return instance;

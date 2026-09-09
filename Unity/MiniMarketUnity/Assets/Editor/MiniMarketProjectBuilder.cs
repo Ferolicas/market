@@ -47,7 +47,9 @@ namespace MiniMarket.Editor
         static void ConfigureSurfaceTextures()
         {
             foreach(var path in new[]{"Assets/Resources/Surfaces/Grass.png","Assets/Resources/Surfaces/Road.png","Assets/Resources/Surfaces/Crosswalk.png",
-                                      "Assets/Resources/Surfaces/FloorTileBeige.jpg","Assets/Resources/Surfaces/FloorTileWhite.jpg"})
+                                      "Assets/Resources/Surfaces/FloorTileBeige.jpg","Assets/Resources/Surfaces/FloorTileWhite.jpg",
+                                      "Assets/Resources/Surfaces/GrassPremium.png","Assets/Resources/Surfaces/RoadPremium.png",
+                                      "Assets/Resources/Surfaces/CrosswalkPremium.png","Assets/Resources/Surfaces/FloorTilePremium.png"})
             {
                 if(AssetImporter.GetAtPath(path) is not TextureImporter importer)continue;
                 importer.textureType=TextureImporterType.Default;importer.sRGBTexture=true;importer.mipmapEnabled=true;
