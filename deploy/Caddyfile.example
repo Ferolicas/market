@@ -1,0 +1,17 @@
+# Fragmento administrado en el Caddy central del VPS.
+# La PWA Three.js/Next.js, sus assets y sus APIs salen del mismo proceso PM2.
+market.olcas.app {
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Frame-Options DENY
+		Content-Security-Policy "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; worker-src 'self' blob:; child-src 'self' blob:; media-src 'self' blob:; manifest-src 'self'; upgrade-insecure-requests"
+		Cross-Origin-Opener-Policy same-origin
+		Cross-Origin-Embedder-Policy require-corp
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+	}
+
+	encode zstd gzip
+	reverse_proxy 127.0.0.1:4010
+}

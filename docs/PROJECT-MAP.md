@@ -13,7 +13,11 @@ Producción:
 - aplicación: `/var/www/market`;
 - puerto interno: `4010`;
 - base de datos: `market_db`;
+- Caddy entrega todo el dominio mediante proxy al proceso Next.js en `127.0.0.1:4010`; no sirve el build Unity retirado;
 - despliegue: push a `main`, controles de calidad y ejecución nativa con Node/PM2.
+
+El bloque de referencia está en `deploy/Caddyfile.example`. La configuración
+activa forma parte del Caddy central del VPS y debe validarse antes de recargar.
 
 ## Fronteras principales
 
