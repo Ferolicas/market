@@ -20,6 +20,7 @@ import { deriveVisualTransferPresentation, updateVisualTransferRemaining } from 
 import { cropIdFromFarmInteraction, isFarmInteractionId } from "@/game/stations/farm-layout";
 import { isStockingInteractionId, retailDepartmentFromStockingInteraction, RETAIL_DEPARTMENTS } from "@/game/stations/retail-layout";
 import { marketQaQueryEnabled } from "@/game/debug/QaAccess";
+import { clearRecoverySnapshot } from "@/game/persistence/RecoveryStorage";
 
 type Panel = "stock" | "suppliers" | "team" | "map" | "finance" | "build" | "avatar" | "help" | null;
 
@@ -496,7 +497,7 @@ function ManagementPanel({ panel, close }: { panel: Exclude<Panel, null>; close:
       {panel === "avatar" && <AvatarCustomizer avatar={game.avatar} onChange={(change) => dispatch({ type: "SET_AVATAR", ...change })} />}
       {panel === "help" && <div className="help-grid"><article><kbd>ARRASTRA</kbd><kbd>WASD</kbd><strong>Moverse</strong><p>Arrastra desde cualquier punto libre con ratón, dedo o lápiz. El teclado sigue disponible.</p></article><article><kbd>🧺</kbd><strong>Cosecha magnética</strong><p>Cruza un bancal maduro sin detenerte. Cada verdura vuela a la cesta y la parcela vuelve a crecer automáticamente.</p></article><article><kbd>◎</kbd><strong>Trabajo por proximidad</strong><p>Acércate al mueble correcto para cargar máquinas, colocar mercancía o atender la caja.</p></article><article><kbd>📦</kbd><strong>Pedidos y gestión</strong><p>Compra a proveedores, contrata personal y mejora mobiliario desde este tablet; no hay botones de compra en el suelo.</p></article><article><kbd>🎮</kbd><strong>Mando</strong><p>El stick izquierdo controla el movimiento; las actividades se activan por proximidad.</p></article><div className="tutorial-flow"><b>1. Cosecha</b><span>→</span><b>2. Surte</b><span>→</span><b>3. Abre</b><span>→</span><b>4. Atiende</b><span>→</span><b>5. Crece</b></div></div>}
     </div>
-    <footer className="panel-footer"><span>Empresa: {COUNTRIES[game.countryCode].name} · {game.currency}</span><div className="panel-actions"><button className="danger-soft" onClick={() => dispatch({ type: "CLOSE_DAY" })}>Cerrar jornada y contabilizar</button><button className="danger-soft" onClick={async () => { localStorage.removeItem("mini-market-offline-player-v1"); localStorage.removeItem("mini-market-recovery-v1"); navigator.serviceWorker?.controller?.postMessage({ type: "CLEAR_PRIVATE_CACHE" }); await authClient.signOut(); window.location.reload(); }}>Cerrar sesión</button></div></footer>
+    <footer className="panel-footer"><span>Empresa: {COUNTRIES[game.countryCode].name} · {game.currency}</span><div className="panel-actions"><button className="danger-soft" onClick={() => dispatch({ type: "CLOSE_DAY" })}>Cerrar jornada y contabilizar</button><button className="danger-soft" onClick={async () => { localStorage.removeItem("mini-market-offline-player-v1"); await clearRecoverySnapshot(); navigator.serviceWorker?.controller?.postMessage({ type: "CLEAR_PRIVATE_CACHE" }); await authClient.signOut(); window.location.reload(); }}>Cerrar sesión</button></div></footer>
   </section></div>;
 }
 

@@ -28,7 +28,7 @@ activa forma parte del Caddy central del VPS y debe validarse antes de recargar.
 - `src/components/game/Customer.tsx`: cliente, carro, productos y presentación de caja.
 - `src/game/engine.ts`: reglas puras de economía y simulación. La escena únicamente despacha acciones.
 - `src/game/store.ts`: estado React, carga, guardado y sincronización.
-- `src/game/persistence/`: snapshots, recuperación local, revisión optimista y autoridad del servidor.
+- `src/game/persistence/`: snapshots, recuperación local asíncrona en IndexedDB, revisión optimista y autoridad del servidor.
 - `src/game/stations/`: única fuente para posiciones, huellas, imanes y sockets funcionales.
 - `src/game/animation/`: locomoción, transiciones, contactos, carro y presentación del rig.
 - `src/game/render/`: calidad adaptativa y agrupación de mallas estáticas.
@@ -52,7 +52,7 @@ activa forma parte del Caddy central del VPS y debe validarse antes de recargar.
 - La PWA conserva una copia local de recuperación y puede abrirla sin conexión.
 - Las escrituras usan concurrencia optimista; un conflicto nunca destruye la copia local.
 - Todo importe se almacena como entero en unidades menores y aplica `countryMoneyScale` a precios base.
-- `GameRuntime` guarda cada 15 segundos mientras la pestaña está visible y al ocultarse; la simulación periódica se pausa en segundo plano.
+- Los ticks agrupan el snapshot local más reciente y lo persisten con IndexedDB durante tiempo ocioso, sin serializar la partida completa en el hilo de render. `GameRuntime` sincroniza el servidor cada 30 segundos durante tiempo ocioso y fuerza persistencia/sincronización al ocultar o cerrar la pestaña; la simulación periódica se pausa en segundo plano.
 
 ## Escena y gameplay
 

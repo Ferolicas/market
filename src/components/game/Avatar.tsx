@@ -26,6 +26,7 @@ interface AvatarProps {
   motion?: RefObject<{ speed: number; locomotionSpeed?: number; yawDelta: number }>;
   animation?: CharacterAnimation;
   animationSpeed?: number;
+  idleAnimationSpeed?: number;
   scale?: number;
   carryAccessory?: ReactNode;
   feedbackSource?: FeedbackSource;
@@ -70,6 +71,7 @@ function RiggedAvatar({
   motion,
   animation,
   animationSpeed,
+  idleAnimationSpeed,
   scale = 1,
   carryAccessory,
   feedbackSource,
@@ -125,8 +127,18 @@ function RiggedAvatar({
   useFrame(({ camera, clock }) => {
     const liveClip: CharacterAnimation = animation ?? locomotion.current.select(motion?.current.locomotionSpeed ?? motion?.current.speed ?? (walking ? 2.2 : 0), motion?.current.yawDelta ?? 0, carrying);
     const strideWorld = 0.72 * scale * BODY_SCALE[body];
-    const gaitScale = motion?.current.speed && ["Walk", "CarryWalk", "Run", "CarryRun"].includes(liveClip) ? THREE.MathUtils.clamp(motion.current.speed / Math.max(0.1, strideWorld), 0.72, 2.8) : animationSpeed ?? (liveClip === "Walk" || liveClip === "CarryWalk" ? 1.3 : liveClip === "Run" || liveClip === "CarryRun" ? 1.4 : 1);
+    const authoredSpeed = liveClip === "Idle" ? idleAnimationSpeed ?? animationSpeed : animationSpeed;
+    const gaitScale = motion?.current.speed && ["Walk", "CarryWalk", "Run", "CarryRun"].includes(liveClip) ? THREE.MathUtils.clamp(motion.current.speed / Math.max(0.1, strideWorld), 0.72, 2.8) : authoredSpeed ?? (liveClip === "Walk" || liveClip === "CarryWalk" ? 1.3 : liveClip === "Run" || liveClip === "CarryRun" ? 1.4 : 1);
     locomotion.current.transition(actions, liveClip, gaitScale);
+    if (feedbackActorId === "player" && typeof window !== "undefined" && marketQaQueryEnabled(window.location.search)) {
+      const qaWindow = window as typeof window & { __MARKET_QA__?: Record<string, unknown> };
+      qaWindow.__MARKET_QA__ ??= {};
+      qaWindow.__MARKET_QA__.avatarAnimation = {
+        clip: liveClip,
+        time: actions[liveClip]?.time ?? 0,
+        timeScale: actions[liveClip]?.getEffectiveTimeScale() ?? 0,
+      };
+    }
     const inView = !avatarRoot.current || characterIsInView(camera, avatarRoot.current, visibilityScratch);
     mixerRef.current.timeScale = inView ? 1 : 0;
     if (!inView) return;
@@ -220,9 +232,9 @@ function RiggedAvatar({
   }, [modelTier]);
 
   useEffect(() => {
-    locomotion.current.transition(actions, fallbackClip, animationSpeed ?? 1);
+    locomotion.current.transition(actions, fallbackClip, fallbackClip === "Idle" ? idleAnimationSpeed ?? animationSpeed ?? 1 : animationSpeed ?? 1);
     return () => { actions[fallbackClip]?.fadeOut(0.16); };
-  }, [actions, animationSpeed, fallbackClip]);
+  }, [actions, animationSpeed, fallbackClip, idleAnimationSpeed]);
 
   useEffect(() => {
     const skinColor = new THREE.Color(skin);

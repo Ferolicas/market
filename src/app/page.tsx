@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import { AuthScreen } from "@/components/auth/AuthScreen";
 import { authClient } from "@/lib/auth-client";
+import { hasRecoverySnapshotHint } from "@/game/persistence/RecoveryStorage";
 
 const OFFLINE_PLAYER_KEY = "mini-market-offline-player-v1";
 
@@ -23,8 +24,7 @@ export default function Home() {
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
       if (!navigator.onLine) {
-        const recovery = localStorage.getItem("mini-market-recovery-v1");
-        setOfflinePlayer(recovery ? localStorage.getItem(OFFLINE_PLAYER_KEY) : null);
+        setOfflinePlayer(hasRecoverySnapshotHint() ? localStorage.getItem(OFFLINE_PLAYER_KEY) : null);
         setOfflineChecked(true);
         return;
       }

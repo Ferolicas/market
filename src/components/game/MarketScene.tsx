@@ -1073,7 +1073,7 @@ function Player({ avatar, carry, crops, checkoutLevel, playerSpeedTier, unlocked
   const worldStart = PLAYER_START.map((value) => value * WORLD_SCALE) as [number, number, number];
   return <RigidBody ref={body} type="kinematicPosition" colliders={false} position={worldStart} enabledRotations={[false, false, false]} canSleep={false} userData={{ actor: "player" }}>
     <CapsuleCollider ref={collider} args={[0.45 * WORLD_SCALE, 0.24 * WORLD_SCALE]} position={[0, 0.69 * WORLD_SCALE, 0]} friction={0} />
-    <group ref={visual}><Avatar {...avatar} scale={PLAYER_SCALE * WORLD_SCALE} walking={walking} carrying={carryTotal(carry) > 0} carryAccessory={<HarvestBasket ref={basketVisual} carry={carry} />} motion={avatarMotion} animation={!walking && lastInteraction?.kind === "work" && lastInteraction.id === performingWorkstation ? interactionAnimation[lastInteraction.id] : undefined} feedbackSource="player" feedbackActorId="player" /></group>
+    <group ref={visual}><Avatar {...avatar} scale={PLAYER_SCALE * WORLD_SCALE} walking={walking} carrying={carryTotal(carry) > 0} carryAccessory={<HarvestBasket ref={basketVisual} carry={carry} />} motion={avatarMotion} animation={!walking && lastInteraction?.kind === "work" && lastInteraction.id === performingWorkstation ? interactionAnimation[lastInteraction.id] : undefined} idleAnimationSpeed={0} feedbackSource="player" feedbackActorId="player" /></group>
   </RigidBody>;
 }
 

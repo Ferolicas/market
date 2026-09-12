@@ -6,6 +6,9 @@ import { AudioFeedback } from "@/game/feedback/AudioFeedback";
 import { feedbackBus } from "@/game/feedback/FeedbackBus";
 import { WORLD_TICK_INTERVAL_MS } from "@/game/core/timing";
 import { marketQaFreezeEnabled } from "@/game/debug/QaAccess";
+import { flushRecoverySnapshot } from "@/game/persistence/RecoveryStorage";
+
+const REMOTE_SYNC_INTERVAL_MS = 30_000;
 
 export function GameRuntime() {
   const loadGame = useMarketStore((state) => state.loadGame);
@@ -28,32 +31,58 @@ export function GameRuntime() {
     let worldTimer = 0;
     let simulationTimer = 0;
     let saveTimer = 0;
+    let saveIdleCallback = 0;
+    const cancelBackgroundSave = () => {
+      if (saveIdleCallback && typeof window.cancelIdleCallback === "function") window.cancelIdleCallback(saveIdleCallback);
+      saveIdleCallback = 0;
+    };
+    const scheduleBackgroundSave = () => {
+      if (saveIdleCallback) return;
+      if (typeof window.requestIdleCallback === "function") {
+        saveIdleCallback = window.requestIdleCallback(() => {
+          saveIdleCallback = 0;
+          void saveGame();
+        }, { timeout: 4_000 });
+        return;
+      }
+      void saveGame();
+    };
     const stopTimers = () => {
       window.clearInterval(worldTimer);
       window.clearInterval(simulationTimer);
       window.clearInterval(saveTimer);
+      cancelBackgroundSave();
       worldTimer = simulationTimer = saveTimer = 0;
     };
     const startTimers = () => {
       if (worldTimer || document.visibilityState !== "visible") return;
       worldTimer = window.setInterval(() => tickWorld(WORLD_TICK_INTERVAL_MS), WORLD_TICK_INTERVAL_MS);
       simulationTimer = window.setInterval(() => simulate(1), 5000);
-      saveTimer = window.setInterval(() => void saveGame(), 15000);
+      saveTimer = window.setInterval(scheduleBackgroundSave, REMOTE_SYNC_INTERVAL_MS);
     };
     const online = () => void saveGame();
     const visibility = () => {
       if (document.visibilityState === "hidden") {
         stopTimers();
+        void flushRecoverySnapshot();
         void saveGame();
       } else startTimers();
     };
+    const pageHide = () => {
+      stopTimers();
+      void flushRecoverySnapshot();
+      void saveGame();
+    };
     startTimers();
     window.addEventListener("online", online);
+    window.addEventListener("pagehide", pageHide);
     document.addEventListener("visibilitychange", visibility);
     return () => {
       stopTimers();
       window.removeEventListener("online", online);
+      window.removeEventListener("pagehide", pageHide);
       document.removeEventListener("visibilitychange", visibility);
+      void flushRecoverySnapshot();
       void saveGame();
     };
   }, [saveGame, simulate, tickWorld]);

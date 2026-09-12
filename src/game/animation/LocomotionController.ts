@@ -32,8 +32,8 @@ export class LocomotionController {
     const next = actions[requested] ? requested : actions.Idle ? "Idle" : requested;
     const nextAction = actions[next];
     if (!nextAction) return;
-    const targetScale = MathUtils.clamp(speedScale, 0.55, 2.8);
-    if (next === this.active && nextAction.isRunning()) {
+    const targetScale = speedScale === 0 ? 0 : MathUtils.clamp(speedScale, 0.55, 2.8);
+    if (next === this.active && nextAction.isScheduled()) {
       nextAction.setEffectiveTimeScale(MathUtils.lerp(nextAction.getEffectiveTimeScale(), targetScale, 0.18));
       return;
     }

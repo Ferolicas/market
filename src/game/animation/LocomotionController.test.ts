@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { AnimationClip, AnimationMixer, Object3D } from "three";
 import { GAIT_FOOT_CONTACT_PHASES, locomotionGroundingSupport, LocomotionController } from "./LocomotionController";
 
@@ -24,6 +24,20 @@ describe("LocomotionController", () => {
 
     expect(carryWalk.time / carryWalk.getClip().duration).toBeCloseTo(0.42);
     expect(carryWalk.isRunning()).toBe(true);
+  });
+
+  it("permite una pose idle inmóvil sin reiniciar la acción cada frame", () => {
+    const controller = new LocomotionController();
+    const mixer = new AnimationMixer(new Object3D());
+    const idle = mixer.clipAction(new AnimationClip("Idle", 2, []));
+    const reset = vi.spyOn(idle, "reset");
+
+    controller.transition({ Idle: idle }, "Idle", 0);
+    controller.transition({ Idle: idle }, "Idle", 0);
+
+    expect(idle.isScheduled()).toBe(true);
+    expect(idle.getEffectiveTimeScale()).toBe(0);
+    expect(reset).toHaveBeenCalledTimes(1);
   });
 
   it("usa histéresis para no alternar entre marcha y carrera cerca del umbral", () => {
