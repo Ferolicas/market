@@ -2,23 +2,14 @@
 
 ## Partida local
 
-Android/iOS guardan bajo `Application.persistentDataPath/MiniMarket`:
+La PWA Three.js conserva una copia de recuperación en el almacenamiento local
+del navegador y sincroniza las revisiones con el servidor. Limpiar los datos de
+`market.olcas.app` elimina la copia local; soporte debe comprobar primero la
+partida remota asociada a la cuenta.
 
-1. `save-current.json`;
-2. `save-previous.json`;
-3. `save.tmp` si el proceso terminó después de forzar el archivo y antes del
-   rename;
-4. `conflicts/save-conflict-*.json` para soporte.
-
-La carga elige la primera copia cuyo esquema y checksum sean válidos. No editar
-el archivo original de un usuario. Copiar primero toda la carpeta, registrar
-build, save schema, estado de sync y timestamps, y reproducir la validación en
-una copia. Si current falla y previous abre, el siguiente flush vuelve a crear
-current sin borrar la evidencia de conflicto.
-
-WebGL conserva `mini-market-unity-recovery-v1` y
-`mini-market-unity-recovery-previous-v1` en PlayerPrefs/IndexedDB. Limpiar datos
-del sitio elimina ambas; soporte debe revisar cloud save antes de recomendarlo.
+No se debe modificar directamente una partida de usuario. Antes de intervenir,
+registrar el identificador de usuario, la revisión local y remota, el estado de
+sincronización y las marcas de tiempo. Trabajar siempre sobre una copia.
 
 ## Conflicto cloud
 
