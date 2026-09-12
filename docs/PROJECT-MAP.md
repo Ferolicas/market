@@ -1,6 +1,6 @@
 # Mini Market — mapa vivo
 
-Actualizado: 2026-09-12.
+Actualizado: 2026-09-13.
 
 ## Producto y stack
 
@@ -92,15 +92,18 @@ El suelo se monta fuera de los límites `Suspense` de edificio, mobiliario y gra
 `src/game/render/AdaptiveQuality.ts` decide el perfil antes de crear el renderer:
 
 - 30 FPS de presentación en móvil cuando el jugador está quieto y 60 FPS durante locomoción; escritorio permanece a 60 FPS;
-- DPR máximo 1,25 en móvil y 1,4 en escritorio;
+- la presentación móvil se decide contando ticks de `requestAnimationFrame` contra el refresco medido del panel (`DisplayCadenceEstimator`, `presentationDivisor`): 60 Hz presenta cada tick en movimiento, 120 Hz cada dos, 90 Hz cada dos (45 FPS regulares en lugar de 60 con cadencia 22/11 ms);
+- DPR máximo 2 en móvil y 2 en escritorio (dos píxeles físicos por píxel CSS; dibujar menos píxeles que la pantalla y estirarlos es lo que se veía como personaje pixelado);
 - MSAA activo para recuperar bordes nítidos, preferencia de GPU de bajo consumo y atlas de sombra 512 en móvil;
-- transmisión de cristales a media resolución y luminarias emisivas sin cuatro PointLights redundantes en móvil;
+- en móvil el cristal físico conserva tinte, opacidad, clearcoat y reflejo de entorno, pero `glassTransmission` es `false`: el pase de transmisión de Three redibuja todos los objetos opacos y re-resuelve el programa de cada material dos veces por frame (`getParameters` + `getProgramCacheKey` eran el 19 % de la CPU); en escritorio se mantiene a resolución completa. `useGlassTransmission` en `MarketRenderProfile.tsx` aplica la política en cada cristal;
+- luminarias emisivas sin cuatro PointLights redundantes en móvil;
 - sombra principal estática después del calentamiento;
 - render bajo demanda: no hay frames 3D cuando la pestaña está oculta;
 - timers de mundo, simulación y autosave periódico detenidos en segundo plano;
-- reducción adaptativa de DPR a un mínimo de 1,0 sólo ante presión sostenida (40 ms en reposo o 24 ms durante locomoción);
+- la calidad adaptativa sólo mide juego real: empieza cuando `SceneReadinessProbe` declara la escena lista más 2,5 s de gracia (antes, la carga de GLB y la compilación de shaders contaban como presión sostenida y bajaban el DPR de forma permanente en todos los dispositivos). Cada paso baja ×0,86 hasta `minDpr` (1,5 móvil, 0,85 escritorio) tras presión sostenida (40 ms en reposo o 24 ms en locomoción) y se devuelve tras 8 s de frames dentro de presupuesto;
+- el paso de locomoción del jugador corre dentro del paso fijo de Rapier (`useBeforePhysicsStep`, 1/60): un único acumulador para objetivo cinemático y física, de modo que la interpolación de Rapier presenta al jugador de forma regular a cualquier refresco; el giro del cuerpo se suaviza por frame y la cámara sigue la cápsula interpolada;
 - tick autoritativo de IA/economía a 5 Hz con `deltaTime`, desacoplado de la física y presentación del jugador a 60 Hz, para evitar clonar/reconciliar todo el mundo 10 veces por segundo;
-- suelo y perímetro urbano estáticos fusionados por material/geometría compatible, preservando por separado puertas, productos e interacción dinámica.
+- suelo, perímetro urbano, edificio, mobiliario y granja estáticos fusionados por `StaticMeshBatch`: el color del material se hornea por vértice (`diffuse × vertexColor` es exactamente lo que ya calcula `material.color`), de modo que piezas que sólo difieren en color comparten un draw, y las `InstancedMesh` estáticas ya colocadas (montantes, baldas, tubos de carro, decoración) se expanden dentro del mismo lote. Todo lo que cambia en ejecución debe colgar de un nombre `dynamic:*`, `retail-stock:*`, `retail-cold-door:*`, `fixture:returns`, `fixture:cart-bay` o `fixture:promotional-endcap` (o marcar `userData.disableStaticBatch`); los optimizadores de lote son el último hijo de cada raíz para que las instancias ya tengan sus matrices. Las mallas fuente ocultas dejan de recomponer su matriz cada frame. Con `?perf`, `window.__MARKET_PERF_DRAWS__()` devuelve los draws del último frame por grupo, tipo y prefijo de nombre, con su tiempo de envío.
 
 Estas medidas no cambian reglas, dinero, inventario, IA ni tiempos autoritativos; reducen píxeles, pases GPU y trabajo de presentación.
 

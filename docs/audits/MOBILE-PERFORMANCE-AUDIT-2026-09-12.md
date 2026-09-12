@@ -3,6 +3,50 @@
 Fecha: 2026-09-12  
 Alcance: cliente Three.js/React Three Fiber, simulación, física, UI, carga de GLB y comportamiento en segundo plano.
 
+## Actualización 2026-09-13: personaje pixelado y tirones al caminar
+
+Queja del propietario tras la actualización anterior: el personaje se veía pixelado (no desenfocado) y el juego daba tirones al caminar. Medido con Chrome real + GPU (harness de paseo de 14 s con arrastre táctil real por CDP, viewport 390 × 844, DPR de dispositivo 3, CPU 4×; escritorio 1600 × 900, DPR 1, teclado) sobre la build de producción con QA.
+
+Causas demostradas:
+
+1. **La calidad adaptativa bajaba el DPR durante la carga y nunca lo devolvía.** `AdaptiveQualityController` muestreaba desde el primer frame: la decodificación de GLB y la compilación de shaders contaban como "presión sostenida" y a los 2,9 s de cargar regresaba el DPR una única vez de forma permanente. Medido: móvil 1,25 → 1,075 (framebuffer 419 × 907 estirado ×2,8 en un panel DPR 3) y **escritorio 1,0 → 0,86**. Eso es el pixelado. Ahora sólo mide con la escena lista más 2,5 s de gracia, el paso es acotado por `minDpr` y se devuelve tras 8 s de frames sanos.
+2. **Tope de DPR demasiado bajo de base.** 1,25 móvil y 1,4 escritorio → ahora 2 en ambos.
+3. **Pase de transmisión del cristal.** `renderTransmissionPass` de Three pone `toneMapping = NoToneMapping`, así que cada material opaco cambia de programa dos veces por frame: `getParameters` + `getProgramCacheKey` eran el 19 % de la CPU en móvil y la tienda entera se dibujaba dos veces mientras un cristal estaba en cámara. En móvil `glassTransmission: false` (tinte, opacidad, clearcoat y reflejo intactos; captura comparada sin diferencia apreciable); escritorio sin cambios.
+4. **Dos bucles de paso fijo independientes.** El jugador acumulaba su propio `FixedStepLoop` a 60 Hz y Rapier el suyo; cuando sus fronteras caían en frames distintos la cápsula avanzaba dos pasos y luego ninguno. Ahora el paso del jugador corre en `useBeforePhysicsStep` (mismo acumulador), Rapier interpola la presentación, el giro se suaviza por frame y la cámara sigue la cápsula interpolada.
+5. **Planificador móvil por tiempo.** `nextFrameAt += 16,67` deriva contra el vsync real; en paneles de 90/120 Hz produce cadencias 22/11 ms. Ahora cuenta ticks de `requestAnimationFrame` contra el refresco medido (`DisplayCadenceEstimator`) y presenta en un submúltiplo regular.
+6. Las mallas fuente ocultas por el batching estático ya no recomponen su matriz cada frame (`updateMatrixWorld` era el 8,6 % restante).
+
+Resultado caminando (misma escena, misma build salvo los cambios):
+
+| Métrica | Móvil antes | Móvil después | Escritorio antes | Escritorio después |
+|---|---:|---:|---:|---:|
+| framebuffer | 419 × 907 (DPR 1,075) | 780 × 1688 (DPR 2) | 1376 × 774 (DPR 0,86) | 1600 × 900 (DPR 1) |
+| rAF p50 / p90 / p95 / p99 | 16,7 / 33,4 / 33,4 / 50 ms | 16,7 / 16,7 / 16,7 / 16,8 ms | 16,7 / 16,7 / 16,8 / 16,8 ms | 16,7 / 16,7 / 16,7 / 16,8 ms |
+| saltos de cadencia (>6 ms entre frames consecutivos) | 433 de 636 | 4 de 900 | 1 | 0 |
+| frames > 25 ms | 276 | 2 | 1 | 0 |
+| FPS mediano R3F | 41 | 60 | 60 | 60 |
+| draw calls mediana | 337 | 177 | 260 | 260 |
+| regresiones de DPR | 1 (a 1,075) | 0 | 1 (a 0,86) | 0 |
+
+`pnpm qa:mobile-render` en reposo: 30 FPS exactos, 148 draws (antes 286), 0 regresiones, 0 tareas largas. El personaje móvil sigue usando el LOD1 (8.864 triángulos); a DPR 2 la silueta se ve limpia en la captura, así que no se generó un LOD intermedio.
+
+### Interior de la tienda: draw calls
+
+Caminando de forma continua hacia el fondo de la tienda (sin cristal en cámara) la CPU 4× seguía en 43–48 FPS medianos con ~343 draws. El desglose por frame (`window.__MARKET_PERF_DRAWS__()`, nuevo en la build de QA) lo atribuyó así: 70 lotes estáticos separados únicamente por el color del material, 128 `InstancedMesh` (la mayoría montantes, baldas, tubos y decoración fijos, una por mueble), 42 props decorativos `retail-product:*` excluidos del batching sólo por su nombre, y la granja (26 instancias de cultivo dinámicas + 30 mallas de cultivo/animales, también dinámicas).
+
+`StaticMeshBatch` ahora hornea el color por vértice y expande las instancias estáticas ya colocadas dentro del mismo lote; los optimizadores pasan a ser el último hijo de cada raíz; la salida de las máquinas de proceso cuelga de `dynamic:machine-output` y `retail-product:*` deja de ser un límite de batching (los anchors de stock siguen bajo `retail-stock:*`). Capturas antes/después del interior comparadas píxel a píxel a ojo: idénticas.
+
+| Interior, CPU 4×, caminando 13 s | Antes | Después |
+|---|---:|---:|
+| draw calls mediana | 343 | 183 |
+| FPS mediano R3F | 43 | 60 |
+| rAF p50 / p90 / p95 / p99 | 16,7 / 33,4 / 33,4 / 50 ms | 16,7 / 16,7 / 16,8 / 33,4 ms |
+| frames > 25 ms | 174 de 658 | 30 de 784 |
+| saltos de cadencia | 280 | 20–56 |
+| envío de draws por frame | — | 7,8 ms |
+
+Lo que queda son lotes que difieren en rugosidad/metalidad/textura (30 en mobiliario, 12 edificio, 10 ciudad), los cultivos y animales dinámicos de la granja (38) y transparentes/textos (27). Reducirlos exigiría atributos de rugosidad por vértice con shader propio o re-agrupar la granja en cada cambio de estado; no compensa con el resultado actual.
+
 ## Actualización de fluidez y nitidez móvil
 
 Después de validar la primera versión en un iPhone real, el perfil de ahorro puro resultó visualmente demasiado blando y el límite fijo de 30 FPS hacía perceptible la cadencia durante locomoción. Esta actualización sustituye ese compromiso por un perfil híbrido:

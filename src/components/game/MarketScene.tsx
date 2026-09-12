@@ -2,10 +2,11 @@
 
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { ContactShadows, Environment, Lightformer, Line, OrthographicCamera } from "@react-three/drei";
-import { BallCollider, CapsuleCollider, CuboidCollider, CylinderCollider, Physics, RigidBody, useRapier, type RapierCollider, type RapierRigidBody } from "@react-three/rapier";
+import { BallCollider, CapsuleCollider, CuboidCollider, CylinderCollider, Physics, RigidBody, useBeforePhysicsStep, useRapier, type RapierCollider, type RapierRigidBody } from "@react-three/rapier";
 import { Fragment, memo, Suspense, useEffect, useEffectEvent, useMemo, useRef, useState, type RefObject } from "react";
 import * as THREE from "three";
 import { Avatar, type CharacterAnimation } from "./Avatar";
+import { MarketRenderProfileContext, useGlassTransmission } from "./MarketRenderProfile";
 import { CityPerimeter } from "./CityPerimeter";
 import { Customer } from "./Customer";
 import { KitFarm, KitFurniture } from "./MarketKit";
@@ -14,7 +15,6 @@ import { MarketText as Text } from "./MarketText";
 import { dampFactor, frameDelta, turnTowards } from "@/game/locomotion";
 import type { AvatarConfig, CarryState, CharacterId, CheckoutTransaction, CropState, CustomerRuntimeState, Employee, EmployeeRole, HairId, Inventory, ProductId, ProductionMachineState } from "@/game/types";
 import { scaleStorePoint, scaleStorePosition, STORE_ELEMENT_SCALE, STORE_LAYOUT_SCALE, STORE_OBSTACLES, WORLD_SCALE } from "@/game/world-scale";
-import { FixedStepLoop } from "@/game/core/GameLoop";
 import { inputManager } from "@/game/input/InputManager";
 import { InteractionDirector } from "@/game/interaction/InteractionDirector";
 import { WorkstationController } from "@/game/interaction/WorkstationController";
@@ -45,7 +45,7 @@ import {
 import { STORE_SERVICE_FIXTURE_IDS, STORE_SERVICE_FIXTURES } from "@/game/stations/store-service-layout";
 import { WAREHOUSE_PICKUP_STATION } from "@/game/stations/warehouse-layout";
 import { isProductionWorkstationId, productionMachineMagnet, PRODUCTION_WORKSTATION_IDS } from "@/game/stations/production-layout";
-import { advanceAdaptiveQuality, INITIAL_ADAPTIVE_QUALITY_STATE, legacyMobileRenderProfile, marketRenderProfileForCapabilities, MOBILE_ADAPTIVE_QUALITY, MOBILE_MOTION_ADAPTIVE_QUALITY, type MarketRenderProfile } from "@/game/render/AdaptiveQuality";
+import { ADAPTIVE_QUALITY_GRACE_MS, advanceAdaptiveQuality, DisplayCadenceEstimator, INITIAL_ADAPTIVE_QUALITY_STATE, legacyMobileRenderProfile, marketRenderProfileForCapabilities, MOBILE_ADAPTIVE_QUALITY, MOBILE_MOTION_ADAPTIVE_QUALITY, presentationDivisor, recoveredDpr, regressedDpr, type MarketRenderProfile } from "@/game/render/AdaptiveQuality";
 import { createStaticMeshBatch } from "@/game/render/StaticMeshBatch";
 
 export type InteractionId = Exclude<WorkstationId, "shelf"> | StockingInteractionId | FarmInteractionId | "supplier" | "door";
@@ -69,11 +69,13 @@ const CAMERA_PROXIMITY_FACTOR = 1.3;
 const OVERVIEW_CAMERA_OFFSET = { x: 16, y: 23, z: 25.75 } as const;
 const OVERVIEW_CAMERA_GROUND_FORWARD = { x: -OVERVIEW_CAMERA_OFFSET.x, y: -OVERVIEW_CAMERA_OFFSET.z } as const;
 const MAX_VISUAL_TRANSFER_DELTA = 0.25;
+/** Rapier's fixed step. Player locomotion advances inside the same step. */
+const PHYSICS_STEP_SECONDS = 1 / 60;
 const StaticCityPerimeter = memo(function StaticCityPerimeterBatched() {
   const root = useRef<THREE.Group>(null);
   return <group ref={root}>
-    <SceneStaticBatch rootRef={root} />
     <CityPerimeter />
+    <SceneStaticBatch rootRef={root} />
   </group>;
 });
 // Drei keeps its `frames` counter in component scope. Parent world snapshots
@@ -143,6 +145,7 @@ interface MarketSceneProps {
 export const MarketScene = memo(function MarketScene({ avatar, carry, visualCarry, warehousePickupEnabled, customers, checkoutTransactions, returnsBin, returnedCartCount, crops, visualCrops, productionMachines, shelves, visualShelves, shelfTier, unlockedAreas, lightsOn, simulationTimeMs, employees, onPrompt, onInteract, onDistance, onDoorPresence, onSceneReady, lastInteraction, transferEvents, onTransferProgress, open, doorProgress, checkoutLevel, playerSpeedTier, debug = false }: MarketSceneProps) {
   const playerFocus = useRef(new THREE.Vector3(...PLAYER_START));
   const playerMotionActiveRef = useRef(false);
+  const sceneSettledRef = useRef(false);
   const basketTarget = useRef(new THREE.Vector3(...PLAYER_START));
   const [checkoutFocused, setCheckoutFocused] = useState(false);
   const [renderProfile] = useState(initialMarketRenderProfile);
@@ -234,8 +237,9 @@ export const MarketScene = memo(function MarketScene({ avatar, carry, visualCarr
   }, [debug, stockableByDepartment, stockableProduct, warehousePickupEnabled]);
   return (
     <Canvas dpr={canvasDpr} events={safeCanvasEvents} frameloop={renderProfile.mobile && renderProfile.targetFps < 60 ? "never" : "always"} shadows="percentage" performance={MARKET_CANVAS_PERFORMANCE} gl={canvasGl} onCreated={({ gl }) => configureRendererPolicy(gl, renderProfile)}>
+      <MarketRenderProfileContext.Provider value={renderProfile}>
       <CappedFrameScheduler profile={renderProfile} playerMotionActiveRef={playerMotionActiveRef} publishDiagnostics={performanceProbe} />
-      <AdaptiveQualityController canvasDpr={canvasDpr} profile={renderProfile} playerMotionActiveRef={playerMotionActiveRef} onDprChange={setCanvasDpr} publishDiagnostics={performanceProbe} />
+      <AdaptiveQualityController canvasDpr={canvasDpr} profile={renderProfile} playerMotionActiveRef={playerMotionActiveRef} sceneSettledRef={sceneSettledRef} onDprChange={setCanvasDpr} publishDiagnostics={performanceProbe} />
       <OverviewCamera playerFocus={playerFocus} checkoutFocused={checkoutFocused} />
       <color attach="background" args={["#b8dfce"]} />
       <fog attach="fog" args={["#b8dfce", 62 * WORLD_SCALE, 105 * WORLD_SCALE]} />
@@ -267,15 +271,16 @@ export const MarketScene = memo(function MarketScene({ avatar, carry, visualCarr
         <group name="perf:customers"><Customers customers={customers} checkoutTransactions={checkoutTransactions} simulationTimeMs={simulationTimeMs} /></group>
         <group name="perf:contact-shadows"><StaticContactShadows frames={1} position={[0, 0.015, 2 * STORE_LAYOUT_SCALE]} opacity={0.24} scale={34 * STORE_LAYOUT_SCALE} blur={2.6} far={8} /></group>
       </group>
-      <Physics timeStep={1 / 60} gravity={[0, -9.81, 0]}>
+      <Physics timeStep={PHYSICS_STEP_SECONDS} gravity={[0, -9.81, 0]}>
         <StoreColliders doorProgress={doorProgress} />
         <RearDoorAssembly playerFocus={playerFocus} employees={employees} />
         <InteractionSensors checkoutLevel={checkoutLevel} unlockedAreas={unlockedAreas} crops={crops} warehousePickupEnabled={warehousePickupEnabled} />
         <group name="perf:player"><Suspense fallback={null}><Player avatar={avatar} carry={visualCarry} crops={crops} checkoutLevel={checkoutLevel} playerSpeedTier={playerSpeedTier} unlockedAreas={unlockedAreas} warehousePickupEnabled={warehousePickupEnabled} debug={debug} onPrompt={onPrompt} onInteract={onInteract} onDistance={onDistance} onDoorPresence={onDoorPresence} onCheckoutFocus={setCheckoutFocused} lastInteraction={lastInteraction} playerFocus={playerFocus} playerMotionActiveRef={playerMotionActiveRef} basketTarget={basketTarget} interactionLabels={interactionLabels} /></Suspense></group>
       </Physics>
       <LocalEnvironment />
-      <SceneReadinessProbe onReady={onSceneReady} />
+      <SceneReadinessProbe onReady={onSceneReady} sceneSettledRef={sceneSettledRef} />
       {(debug || performanceProbe) && <DebugProbe inspectScene={debug} publishInventory={performanceProbe} />}
+      </MarketRenderProfileContext.Provider>
     </Canvas>
   );
 }, sameMarketSceneProps);
@@ -325,32 +330,36 @@ function initialMarketRenderProfile(): MarketRenderProfile {
 
 /** R3F's manual loop is authoritative on touch/mobile hardware. It presents
  * locomotion at 60 Hz and falls back to 30 Hz when the player is still, while
- * unrelated React invalidations cannot bypass the cap. */
+ * unrelated React invalidations cannot bypass the cap. Presentation is gated
+ * by counting animation-frame ticks against the measured panel refresh, so
+ * the cadence stays even on 60, 90 and 120 Hz screens instead of drifting
+ * against vsync and alternating short and long frames. */
 function CappedFrameScheduler({ profile, playerMotionActiveRef, publishDiagnostics }: { profile: MarketRenderProfile; playerMotionActiveRef: RefObject<boolean>; publishDiagnostics: boolean }) {
   const advance = useThree((state) => state.advance);
   useEffect(() => {
     if (publishDiagnostics) window.dispatchEvent(new CustomEvent("market-render-profile", { detail: profile }));
     if (!profile.mobile || profile.targetFps >= 60) return;
     let frameRequest = 0;
-    let nextFrameAt = performance.now();
+    let ticksSincePresent = 0;
+    const cadence = new DisplayCadenceEstimator();
     const schedule = (now: number) => {
       if (document.visibilityState !== "visible") return;
-      if (now >= nextFrameAt - 1) {
+      const refreshIntervalMs = cadence.observe(now);
+      const targetFps = playerMotionActiveRef.current ? profile.motionFps : profile.targetFps;
+      ticksSincePresent += 1;
+      if (ticksSincePresent >= presentationDivisor(refreshIntervalMs, targetFps)) {
+        ticksSincePresent = 0;
         // R3F's manual frameloop receives seconds (its clock's elapsedTime
         // unit), while requestAnimationFrame supplies milliseconds.
         advance(now / 1_000, true);
-        const targetFps = playerMotionActiveRef.current ? profile.motionFps : profile.targetFps;
-        const intervalMs = 1_000 / targetFps;
-        nextFrameAt += intervalMs;
-        // Never replay frames missed while the main thread was occupied.
-        if (nextFrameAt < now) nextFrameAt = now + intervalMs;
       }
       frameRequest = window.requestAnimationFrame(schedule);
     };
     const visibility = () => {
       window.cancelAnimationFrame(frameRequest);
       if (document.visibilityState === "visible") {
-        nextFrameAt = performance.now();
+        cadence.reset();
+        ticksSincePresent = 0;
         frameRequest = window.requestAnimationFrame(schedule);
       }
     };
@@ -369,7 +378,7 @@ function CappedFrameScheduler({ profile, playerMotionActiveRef, publishDiagnosti
  * ready and several consecutive frames are stable. The simulation can warm
  * up behind the loader without exposing a frozen employee or player pose.
  */
-function SceneReadinessProbe({ onReady }: { onReady?: () => void }) {
+function SceneReadinessProbe({ onReady, sceneSettledRef }: { onReady?: () => void; sceneSettledRef: RefObject<boolean> }) {
   const { gl, scene, camera } = useThree();
   const compileGeneration = useRef(0);
   const stableFrames = useRef(0);
@@ -379,17 +388,18 @@ function SceneReadinessProbe({ onReady }: { onReady?: () => void }) {
   const mountedAt = useRef<number | null>(null);
 
   useEffect(() => {
-    if (!onReady || ready.current) return;
+    if (ready.current) return;
     const timeout = window.setTimeout(() => {
       if (ready.current) return;
       ready.current = true;
-      onReady();
+      sceneSettledRef.current = true;
+      onReady?.();
     }, 10_000);
     return () => window.clearTimeout(timeout);
-  }, [onReady]);
+  }, [onReady, sceneSettledRef]);
 
   useFrame((state, delta) => {
-    if (!onReady || ready.current) return;
+    if (ready.current) return;
     mountedAt.current ??= state.clock.elapsedTime * 1_000;
     let objects = 0;
     let meshes = 0;
@@ -422,31 +432,46 @@ function SceneReadinessProbe({ onReady }: { onReady?: () => void }) {
     stableFrames.current = delta <= 0.05 ? stableFrames.current + 1 : 0;
     if (stableFrames.current < 30) return;
     ready.current = true;
+    sceneSettledRef.current = true;
     onReady?.();
   });
 
   return null;
 }
 
-function AdaptiveQualityController({ canvasDpr, profile, playerMotionActiveRef, onDprChange, publishDiagnostics }: { canvasDpr: number; profile: MarketRenderProfile; playerMotionActiveRef: RefObject<boolean>; onDprChange: (dpr: number) => void; publishDiagnostics: boolean }) {
+/**
+ * Resolution only adapts to measured gameplay. Loading, GLB decoding and
+ * program compilation used to be sampled as "sustained pressure", which
+ * permanently dropped the canvas below native density a few seconds after
+ * start on every device: that stretched, pixelated look was not a GPU limit.
+ * Now sampling starts after the scene settles plus a grace period, steps are
+ * bounded by the profile floor, and a long healthy run hands them back.
+ */
+function AdaptiveQualityController({ canvasDpr, profile, playerMotionActiveRef, sceneSettledRef, onDprChange, publishDiagnostics }: { canvasDpr: number; profile: MarketRenderProfile; playerMotionActiveRef: RefObject<boolean>; sceneSettledRef: RefObject<boolean>; onDprChange: (dpr: number) => void; publishDiagnostics: boolean }) {
   const quality = useRef({ ...INITIAL_ADAPTIVE_QUALITY_STATE });
-  const degraded = useRef(false);
-  useFrame((state, delta) => {
+  const settledForMs = useRef(0);
+  useFrame((_, delta) => {
+    if (!sceneSettledRef.current) return;
+    if (settledForMs.current < ADAPTIVE_QUALITY_GRACE_MS) {
+      settledForMs.current += delta * 1_000;
+      return;
+    }
     const result = advanceAdaptiveQuality(
       quality.current,
       delta * 1_000,
       playerMotionActiveRef.current ? MOBILE_MOTION_ADAPTIVE_QUALITY : MOBILE_ADAPTIVE_QUALITY,
     );
     quality.current = result.state;
-    if (result.regress) state.performance.regress();
-    if (!result.regress || degraded.current) return;
-    degraded.current = true;
-    const performanceFactor = state.performance.min;
-    const desiredDpr = Math.max(profile.mobile ? 1 : 0.85, canvasDpr * performanceFactor);
-    if (Math.abs(canvasDpr - desiredDpr) > 0.001) onDprChange(desiredDpr);
+    const desiredDpr = result.regress
+      ? regressedDpr(canvasDpr, profile)
+      : result.recover
+        ? recoveredDpr(canvasDpr, profile)
+        : canvasDpr;
+    if (Math.abs(canvasDpr - desiredDpr) <= 0.001) return;
+    onDprChange(desiredDpr);
     if (publishDiagnostics) {
-      window.dispatchEvent(new CustomEvent("market-quality-regress", { detail: {
-        performance: performanceFactor,
+      window.dispatchEvent(new CustomEvent(result.regress ? "market-quality-regress" : "market-quality-recover", { detail: {
+        performance: desiredDpr / profile.dpr,
         dpr: desiredDpr,
       } }));
     }
@@ -820,6 +845,53 @@ function DebugProbe({ inspectScene, publishInventory }: { inspectScene: boolean;
     }, 3_000);
     return () => window.clearTimeout(timer);
   }, [get, publishInventory]);
+  useEffect(() => {
+    if (!publishInventory) return;
+    // Per-frame draw breakdown for the gated QA build: every renderBufferDirect
+    // call is attributed to its "perf:" owner, kind and object name prefix so a
+    // browser probe can read which content costs draws from any camera view.
+    const renderer = get().gl;
+    const original = renderer.renderBufferDirect;
+    let frameId = -1;
+    let breakdown: Record<string, number> = {};
+    let published: Record<string, number> = {};
+    let submitMs: Record<string, number> = {};
+    let publishedSubmitMs: Record<string, number> = {};
+    const ownerOf = (object: THREE.Object3D) => {
+      let owner: THREE.Object3D | null = object;
+      while (owner && !owner.name.startsWith("perf:")) owner = owner.parent;
+      return owner?.name ?? "perf:other";
+    };
+    renderer.renderBufferDirect = (camera, scene, geometry, material, object, group) => {
+      const frame = renderer.info.render.frame;
+      if (frame !== frameId) {
+        frameId = frame;
+        published = breakdown;
+        publishedSubmitMs = submitMs;
+        breakdown = {};
+        submitMs = {};
+      }
+      const text = (object as THREE.Object3D & { isTroikaText?: boolean }).isTroikaText;
+      const kind = text ? "text"
+        : object instanceof THREE.SkinnedMesh ? "skinned"
+          : object instanceof THREE.InstancedMesh ? "instanced"
+            : material.transparent ? "transparent"
+              : "opaque";
+      const prefix = object.name ? object.name.split(":")[0] : (object.parent?.name ? `${object.parent.name.split(":")[0]}/` : "-");
+      const key = `${ownerOf(object)}|${kind}|${material.type}|${prefix}`;
+      breakdown[key] = (breakdown[key] ?? 0) + 1;
+      const startedAt = performance.now();
+      const result = original.call(renderer, camera, scene, geometry, material, object, group);
+      submitMs[key] = (submitMs[key] ?? 0) + (performance.now() - startedAt);
+      return result;
+    };
+    const qaWindow = window as typeof window & { __MARKET_PERF_DRAWS__?: () => { frame: number; draws: Record<string, number>; submitMs: Record<string, number> } };
+    qaWindow.__MARKET_PERF_DRAWS__ = () => ({ frame: frameId, draws: { ...published }, submitMs: { ...publishedSubmitMs } });
+    return () => {
+      renderer.renderBufferDirect = original;
+      delete qaWindow.__MARKET_PERF_DRAWS__;
+    };
+  }, [get, publishInventory]);
   useFrame(({ gl }, delta) => {
     const metrics = monitor.current.sample(delta * 1_000, {
       drawCalls: gl.info.render.calls,
@@ -889,7 +961,8 @@ function Player({ avatar, carry, crops, checkoutLevel, playerSpeedTier, unlocked
   const lastRequestedMovement = useRef(new THREE.Vector3());
   const lastComputedMovement = useRef(new THREE.Vector3());
   const lastPhysicsCollisions = useRef<unknown[]>([]);
-  const fixedLoop = useRef(new FixedStepLoop());
+  const frameClockMs = useRef(0);
+  const workLockedRef = useRef(false);
   const frameCount = useRef(0);
   const checkoutFocused = useRef(false);
   const workstation = useRef(new WorkstationController());
@@ -955,84 +1028,104 @@ function Player({ avatar, carry, crops, checkoutLevel, playerSpeedTier, unlocked
     };
   }, [debug]);
 
-  useFrame(({ clock }) => {
+  // One authoritative locomotion step per Rapier world step. The kinematic
+  // target and the physics accumulator used to run as two independent fixed
+  // loops keyed to the same clock; whenever their step boundaries fell in
+  // different animation frames the body advanced two steps and then none,
+  // which read as a hitch while walking. Sharing Rapier's step lets its
+  // frame interpolation present the capsule evenly at any refresh rate.
+  useBeforePhysicsStep(() => {
+    if (!body.current || !collider.current || !visual.current || !characterController.current) return;
+    const step = PHYSICS_STEP_SECONDS;
+    const input = inputManager.sample();
+    lastInput.current = input;
+    const workLocked = workstation.current.updateInput(input.magnitude);
+    workLockedRef.current = workLocked;
+    const currentWorkstation = workstation.current.performingZoneId() as WorkstationId | null;
+    publishWorkstation(currentWorkstation);
+    const intention = workLocked ? { x: 0, y: 0 } : cameraRelativeMovement(input, OVERVIEW_CAMERA_GROUND_FORWARD);
+    const nextVelocity = workLocked ? { x: 0, y: 0 } : moveVelocity(
+      { x: velocity.current.x, y: velocity.current.y },
+      intention,
+      step,
+      playerMotion,
+    );
+    velocity.current.set(nextVelocity.x, nextVelocity.y);
+
+    lastRequestedMovement.current.set(velocity.current.x * step, -0.025, velocity.current.y * step);
+    characterController.current.computeColliderMovement(
+      collider.current,
+      lastRequestedMovement.current,
+      rapier.QueryFilterFlags.EXCLUDE_SENSORS,
+    );
+    if (debug) {
+      lastPhysicsCollisions.current = Array.from({ length: characterController.current.numComputedCollisions() }, (_, index) => {
+        const collision = characterController.current!.computedCollision(index);
+        const translation = collision?.collider?.translation();
+        return collision ? {
+          handle: collision.collider?.handle ?? null,
+          shape: collision.collider?.shapeType() ?? null,
+          colliderPosition: translation ? [translation.x / WORLD_SCALE, translation.y / WORLD_SCALE, translation.z / WORLD_SCALE] : null,
+          normal: [collision.normal1.x, collision.normal1.y, collision.normal1.z],
+          remaining: [collision.translationDeltaRemaining.x, collision.translationDeltaRemaining.y, collision.translationDeltaRemaining.z],
+          toi: collision.toi,
+        } : null;
+      });
+    }
+    const movement = characterController.current.computedMovement();
+    lastComputedMovement.current.set(movement.x, movement.y, movement.z);
+    logicalPosition.current.add(lastComputedMovement.current);
+    unreportedDistance.current += Math.hypot(movement.x, movement.z) / WORLD_SCALE;
+    if (unreportedDistance.current >= 1) { const meters = unreportedDistance.current; unreportedDistance.current = 0; onDistance(meters); }
+    logicalPosition.current.y = Math.max(0, logicalPosition.current.y);
+    body.current.setNextKinematicTranslation(logicalPosition.current);
+
+    const events = director.update("player", logicalPosition.current.x / WORLD_SCALE, logicalPosition.current.z / WORLD_SCALE, frameClockMs.current);
+    const activeWorkstation = highestPriorityWorkstation(director.activeZoneIds());
+    workstation.current.sync(activeWorkstation, input.magnitude);
+    publishWorkstation(workstation.current.performingZoneId() as WorkstationId | null);
+    for (const event of events) {
+      if (event.zone.id === "door" && (event.signal === "enter" || event.signal === "exit")) onDoorPresence(event.signal === "enter");
+      if (event.signal === "tick" && (!isMovementLockingWorkstation(event.zone.id) || workstation.current.canPerform(event.zone.id))) onInteract(event.zone.id as InteractionId);
+    }
+  });
+
+  useFrame(({ clock }, delta) => {
     frameCount.current += 1;
+    frameClockMs.current = clock.elapsedTime * 1_000;
     if (!body.current || !collider.current || !visual.current || !characterController.current) return;
     const gamepad = navigator.getGamepads?.()[0];
     inputManager.setGamepad(gamepad?.axes[0] ?? 0, gamepad?.axes[1] ?? 0);
-    fixedLoop.current.advance(clock.elapsedTime, (step) => {
-      const input = inputManager.sample();
-      lastInput.current = input;
-      const workLocked = workstation.current.updateInput(input.magnitude);
-      const currentWorkstation = workstation.current.performingZoneId() as WorkstationId | null;
-      publishWorkstation(currentWorkstation);
-      const intention = workLocked ? { x: 0, y: 0 } : cameraRelativeMovement(input, OVERVIEW_CAMERA_GROUND_FORWARD);
-      const nextVelocity = workLocked ? { x: 0, y: 0 } : moveVelocity(
-        { x: velocity.current.x, y: velocity.current.y },
-        intention,
-        step,
-        playerMotion,
-      );
-      velocity.current.set(nextVelocity.x, nextVelocity.y);
 
-      lastRequestedMovement.current.set(velocity.current.x * step, -0.025, velocity.current.y * step);
-      characterController.current!.computeColliderMovement(
-        collider.current!,
-        lastRequestedMovement.current,
-        rapier.QueryFilterFlags.EXCLUDE_SENSORS,
-      );
-      if (debug) {
-        lastPhysicsCollisions.current = Array.from({ length: characterController.current!.numComputedCollisions() }, (_, index) => {
-          const collision = characterController.current!.computedCollision(index);
-          const translation = collision?.collider?.translation();
-          return collision ? {
-            handle: collision.collider?.handle ?? null,
-            shape: collision.collider?.shapeType() ?? null,
-            colliderPosition: translation ? [translation.x / WORLD_SCALE, translation.y / WORLD_SCALE, translation.z / WORLD_SCALE] : null,
-            normal: [collision.normal1.x, collision.normal1.y, collision.normal1.z],
-            remaining: [collision.translationDeltaRemaining.x, collision.translationDeltaRemaining.y, collision.translationDeltaRemaining.z],
-            toi: collision.toi,
-          } : null;
-        });
-      }
-      const movement = characterController.current!.computedMovement();
-      lastComputedMovement.current.set(movement.x, movement.y, movement.z);
-      logicalPosition.current.add(lastComputedMovement.current);
-      unreportedDistance.current += Math.hypot(movement.x, movement.z) / WORLD_SCALE;
-      if (unreportedDistance.current >= 1) { const meters = unreportedDistance.current; unreportedDistance.current = 0; onDistance(meters); }
-      logicalPosition.current.y = Math.max(0, logicalPosition.current.y);
-      body.current!.setNextKinematicTranslation(logicalPosition.current);
+    // Heading is presentation: it turns with the real frame delta so a 90 or
+    // 120 Hz panel sees a smooth rotation instead of 60 Hz steps.
+    const speed = velocity.current.length();
+    const workLocked = workLockedRef.current;
+    const currentWorkstation = workstation.current.performingZoneId() as WorkstationId | null;
+    const workHeading = currentWorkstation ? workstationFacing(currentWorkstation) : null;
+    const turnDelta = frameDelta(delta);
+    if (workLocked && workHeading !== null) {
+      const turn = smoothYaw(visual.current.rotation.y, workHeading, angularVelocity.current, turnDelta, playerMotion);
+      avatarMotion.current.yawDelta = workHeading - visual.current.rotation.y;
+      visual.current.rotation.y = turn.yaw;
+      angularVelocity.current = turn.angularVelocity;
+    } else if (speed > 0.08) {
+      const heading = Math.atan2(velocity.current.x, velocity.current.y);
+      const turn = smoothYaw(visual.current.rotation.y, heading, angularVelocity.current, turnDelta, playerMotion);
+      avatarMotion.current.yawDelta = heading - visual.current.rotation.y;
+      visual.current.rotation.y = turn.yaw;
+      angularVelocity.current = turn.angularVelocity;
+    }
 
-      const speed = velocity.current.length();
-      const workHeading = currentWorkstation ? workstationFacing(currentWorkstation) : null;
-      if (workLocked && workHeading !== null) {
-        const turn = smoothYaw(visual.current!.rotation.y, workHeading, angularVelocity.current, step, playerMotion);
-        avatarMotion.current.yawDelta = workHeading - visual.current!.rotation.y;
-        visual.current!.rotation.y = turn.yaw;
-        angularVelocity.current = turn.angularVelocity;
-      } else if (speed > 0.08) {
-        const heading = Math.atan2(velocity.current.x, velocity.current.y);
-        const turn = smoothYaw(visual.current!.rotation.y, heading, angularVelocity.current, step, playerMotion);
-        avatarMotion.current.yawDelta = heading - visual.current!.rotation.y;
-        visual.current!.rotation.y = turn.yaw;
-        angularVelocity.current = turn.angularVelocity;
-      }
-
-      const events = director.update("player", logicalPosition.current.x / WORLD_SCALE, logicalPosition.current.z / WORLD_SCALE, clock.elapsedTime * 1000);
-      const activeWorkstation = highestPriorityWorkstation(director.activeZoneIds());
-      workstation.current.sync(activeWorkstation, input.magnitude);
-      publishWorkstation(workstation.current.performingZoneId() as WorkstationId | null);
-      for (const event of events) {
-        if (event.zone.id === "door" && (event.signal === "enter" || event.signal === "exit")) onDoorPresence(event.signal === "enter");
-        if (event.signal === "tick" && (!isMovementLockingWorkstation(event.zone.id) || workstation.current.canPerform(event.zone.id))) onInteract(event.zone.id as InteractionId);
-      }
-    });
-    const isMoving = velocity.current.length() > 0.12;
+    const isMoving = speed > 0.12;
     playerMotionActiveRef.current = isMoving;
-    avatarMotion.current.speed = velocity.current.length();
-    avatarMotion.current.locomotionSpeed = velocity.current.length() / WORLD_SCALE;
+    avatarMotion.current.speed = speed;
+    avatarMotion.current.locomotionSpeed = speed / WORLD_SCALE;
     if (isMoving !== moving.current) { moving.current = isMoving; setWalking(isMoving); }
-    playerFocus.current.copy(logicalPosition.current).multiplyScalar(1 / WORLD_SCALE);
+    // The camera follows the interpolated capsule Rapier presents this frame,
+    // not the discrete logical step, so player and camera never disagree.
+    const presented = visual.current.parent;
+    playerFocus.current.copy(presented ? presented.position : logicalPosition.current).multiplyScalar(1 / WORLD_SCALE);
     if (basketVisual.current) {
       basketVisual.current.getWorldPosition(basketWorldPosition.current);
       basketTarget.current.copy(basketWorldPosition.current).multiplyScalar(1 / WORLD_SCALE);
@@ -1134,6 +1227,7 @@ function RearDoorAssembly({ playerFocus, employees }: { playerFocus: RefObject<T
   const [progress, setProgress] = useState(0);
   const door = STORE_REAR_DOOR.door;
   const doorHalfHeight = door.leafHeight / 2;
+  const leafTransmission = useGlassTransmission(0.32);
 
   useEffect(() => {
     const qaWindow = window as typeof window & { __MARKET_QA__?: Record<string, unknown> };
@@ -1174,7 +1268,7 @@ function RearDoorAssembly({ playerFocus, employees }: { playerFocus: RefObject<T
       >
         <mesh castShadow receiveShadow>
           <boxGeometry args={[door.leafWidth, door.leafHeight, door.leafDepth]} />
-          <meshPhysicalMaterial color="#cbe8de" transparent opacity={0.42} transmission={0.32} clearcoat={1} clearcoatRoughness={0.06} roughness={0.13} metalness={0.04} depthWrite={false} />
+          <meshPhysicalMaterial color="#cbe8de" transparent opacity={0.42} transmission={leafTransmission} clearcoat={1} clearcoatRoughness={0.06} roughness={0.13} metalness={0.04} depthWrite={false} />
         </mesh>
         {[-door.leafWidth / 2, door.leafWidth / 2].map((edge, index) => <mesh key={`rear-door-edge-${side}-${index}`} position={[edge, 0, 0.055]} castShadow>
           <boxGeometry args={[0.065, door.leafHeight + 0.02, 0.1]} />
@@ -1310,7 +1404,6 @@ function SceneStaticBatch({ rootRef }: { rootRef: { current: THREE.Group | null 
 const MarketGround = memo(function MarketGround() {
   const root = useRef<THREE.Group>(null);
   return <group ref={root}>
-    <SceneStaticBatch rootRef={root} />
     <mesh receiveShadow position={[0, -0.08, -0.35]}><boxGeometry args={[23, 0.16, 17]} /><meshStandardMaterial color="#eee8dc" roughness={0.82} /></mesh>
     {[-7.6, -3.8, 0, 3.8, 7.6].map((x) => <mesh key={`floor-seam-x-${x}`} position={[x, 0.012, -0.35]}><boxGeometry args={[0.018, 0.008, 16.7]} /><meshStandardMaterial color="#d9d2c5" roughness={0.95} /></mesh>)}
     {[-6.8, -3.4, 0, 3.4, 6.8].map((z) => <mesh key={`floor-seam-z-${z}`} position={[0, 0.013, z - 0.35]}><boxGeometry args={[22.7, 0.008, 0.018]} /><meshStandardMaterial color="#d9d2c5" roughness={0.95} /></mesh>)}
@@ -1319,6 +1412,7 @@ const MarketGround = memo(function MarketGround() {
     {[-6, 0, 6].map((x) => <mesh key={x} position={[x, -0.015, 16.1]}><boxGeometry args={[2.7, 0.02, 0.1]} /><meshStandardMaterial color="#f4d58d" /></mesh>)}
     <mesh receiveShadow position={[STORE_REAR_DOOR.x, -0.015, -9.61]}><boxGeometry args={[2.58, 0.08, 2.2]} /><meshStandardMaterial color="#b8ab8f" roughness={0.96} /></mesh>
     {[-0.72, 0, 0.72].map((offset, index) => <mesh key={`rear-path-inlay-${index}`} position={[STORE_REAR_DOOR.x + offset, 0.03, -9.61]}><boxGeometry args={[0.035, 0.018, 2.08]} /><meshStandardMaterial color="#dfd3b8" roughness={0.88} /></mesh>)}
+    <SceneStaticBatch rootRef={root} />
   </group>;
 });
 
@@ -1329,8 +1423,9 @@ const MarketBuilding = memo(function MarketBuilding({ open, doorProgress }: { op
   const wallHeight = STOREFRONT_LAYOUT.wallHeight;
   const frontGlassHeight = wallHeight - 0.6;
   const frontGlassCenterY = frontGlassHeight / 2 + 0.3;
+  const frontGlassTransmission = useGlassTransmission(0.35);
+  const doorLeafTransmission = useGlassTransmission(0.5);
   return <group ref={root}>
-    <SceneStaticBatch rootRef={root} />
     {rearDoorWallSegments().map((segment, index) => <group key={`rear-wall-visual-${index}`}>
       <mesh receiveShadow position={[segment.centerX, wallHeight / 2, STORE_REAR_DOOR.wallCenterZ]}><boxGeometry args={[segment.width, wallHeight, STORE_REAR_DOOR.wallDepth]} /><meshStandardMaterial color="#eee8dc" roughness={0.88} /></mesh>
       <mesh position={[segment.centerX, 0.68, -8.34]}><boxGeometry args={[Math.max(0.01, segment.width - 0.08), 1.25, 0.12]} /><meshStandardMaterial color="#2f6958" roughness={0.78} /></mesh>
@@ -1349,13 +1444,13 @@ const MarketBuilding = memo(function MarketBuilding({ open, doorProgress }: { op
     <mesh receiveShadow position={[11.35, wallHeight / 2, -0.35]}><boxGeometry args={[0.34, wallHeight, 16.5]} /><meshStandardMaterial color="#e5ded2" roughness={0.9} /></mesh>
     {[-6.585, 6.585].map((x) => <group key={x} position={[x, 0.3, 7.78]}>
       <mesh><boxGeometry args={[9.53, 0.6, 0.3]} /><meshStandardMaterial color="#e7dfd2" roughness={0.9} /></mesh>
-      <mesh position={[0, frontGlassCenterY, 0]}><boxGeometry args={[9.34, frontGlassHeight, 0.07]} /><meshPhysicalMaterial color="#c7e4df" transparent opacity={0.12} transmission={0.35} clearcoat={1} clearcoatRoughness={0.08} roughness={0.08} depthWrite={false} /></mesh>
+      <mesh position={[0, frontGlassCenterY, 0]}><boxGeometry args={[9.34, frontGlassHeight, 0.07]} /><meshPhysicalMaterial color="#c7e4df" transparent opacity={0.12} transmission={frontGlassTransmission} clearcoat={1} clearcoatRoughness={0.08} roughness={0.08} depthWrite={false} /></mesh>
       {[-4.67, 0, 4.67].map((edge) => <mesh key={edge} position={[edge, frontGlassCenterY, 0.06]}><boxGeometry args={[0.1, frontGlassHeight, 0.12]} /><meshStandardMaterial color="#37564d" metalness={0.28} roughness={0.42} /></mesh>)}
     </group>)}
     <mesh receiveShadow position={[0, 0.035, 7.02]}><boxGeometry args={[3.75, 0.055, 1.05]} /><meshStandardMaterial color="#2b4b43" roughness={0.92} /></mesh>
     <group name="dynamic:storefront-door" position={[0, door.leafHeight / 2, STOREFRONT_LAYOUT.z]}>
       {([-1, 1] as const).map((side) => <group key={side} position={[storefrontDoorLeafCenter(side, doorProgress), 0, 0]}>
-        <mesh><boxGeometry args={[door.leafWidth, door.leafHeight, door.leafDepth]} /><meshPhysicalMaterial color="#c9e9e3" transparent opacity={0.28} transmission={0.5} clearcoat={1} clearcoatRoughness={0.04} roughness={0.06} envMapIntensity={1.9} depthWrite={false} /></mesh>
+        <mesh><boxGeometry args={[door.leafWidth, door.leafHeight, door.leafDepth]} /><meshPhysicalMaterial color="#c9e9e3" transparent opacity={0.28} transmission={doorLeafTransmission} clearcoat={1} clearcoatRoughness={0.04} roughness={0.06} envMapIntensity={1.9} depthWrite={false} /></mesh>
         {[-door.leafWidth / 2, door.leafWidth / 2].map((edge) => <mesh key={edge} position={[edge, 0, 0.07]}><boxGeometry args={[0.075, door.leafHeight + 0.02, 0.1]} /><meshStandardMaterial color="#294a41" metalness={0.62} roughness={0.25} /></mesh>)}
         <mesh position={[0, 0.9, 0.1]} rotation={[0, 0, -0.2]}><planeGeometry args={[0.075, door.leafHeight * 0.61]} /><meshBasicMaterial color="#ffffff" transparent opacity={0.32} depthWrite={false} /></mesh>
       </group>)}
@@ -1366,6 +1461,7 @@ const MarketBuilding = memo(function MarketBuilding({ open, doorProgress }: { op
         <mesh position={[0, 0, 0.12]}><circleGeometry args={[0.065, 20]} /><meshStandardMaterial color={open ? "#72e8a9" : "#f08d73"} emissive={open ? "#2fac74" : "#b84f38"} emissiveIntensity={1.35} /></mesh>
       </group>
     </group>
+    <SceneStaticBatch rootRef={root} />
   </group>;
 });
 

@@ -18,6 +18,7 @@ import { marketAsset } from "@/game/assets/AssetRegistry";
 import { sameFarmPresentation, sameFurniturePresentation, type FarmPresentationProps, type FurniturePresentationProps } from "@/game/render/MarketPresentation";
 import { createStaticMeshBatch } from "@/game/render/StaticMeshBatch";
 import { MarketText as Text } from "./MarketText";
+import { useGlassTransmission } from "./MarketRenderProfile";
 
 type Position = [number, number, number];
 
@@ -329,7 +330,6 @@ export const KitFurniture = memo(function KitFurniture({ shelves, machines, cust
     }
   }, [activeCheckouts, checkoutHandoffs, checkoutHandoffLocations, coldDoorActive]);
   return <group ref={root}>
-    <StaticBatchOptimizer rootRef={root} structureRevision={structureRevision} />
     <StoreElement position={[-1.6, 0, -8.05]}><OperationsWall /></StoreElement>
 
     <StoreElement position={retailDisplayPosition("bakery")} yaw={RETAIL_DEPARTMENTS.bakery.yaw}><BakeryDisplay bread={shelves.bread} flour={shelves.flour} wheat={shelves.wheat} /></StoreElement>
@@ -353,6 +353,8 @@ export const KitFurniture = memo(function KitFurniture({ shelves, machines, cust
     <StoreElement position={[8.8, 0, -2.15]}><SupplierCorner position={[0, 0, 0]} /></StoreElement>
     <StoreElement position={[8.8, 0, -5.35]}><TerminalModel position={[0, 0, 0]} label="MAPA" /></StoreElement>
     <StoreUtilities lightsOn={lightsOn} dynamicCeilingLights={dynamicCeilingLights} />
+    {/* Last child: its effect runs after every sibling placed its instances. */}
+    <StaticBatchOptimizer rootRef={root} structureRevision={structureRevision} />
   </group>;
 }, sameFurniturePresentation);
 
@@ -551,6 +553,7 @@ function ChilledDisplay({ position, milk, cheese, open }: { position: Position; 
     { position: [0.495, 0, 0], scale: [0.055, 2.08, 0.055] },
   ], []);
   const vents = useMemo<InstanceTransform[]>(() => Array.from({ length: 9 }, (_, index) => ({ position: [(index - 4) * 0.23, 2.28, 0.47], scale: [0.12, 0.055, 0.015] })), []);
+  const doorGlassTransmission = useGlassTransmission(0.62);
   useFrame((_, delta) => {
     doors.current.forEach((door, index) => {
       const side = index === 0 ? -1 : 1;
@@ -571,7 +574,7 @@ function ChilledDisplay({ position, milk, cheese, open }: { position: Position; 
       position={[side * 0.55, 1.18, 0.47]}
     >
       <StaticInstances transforms={doorFrames} castShadow><RoundedBoxGeometry args={[1, 1, 1]} radius={0.12} smoothness={2} /><meshStandardMaterial color="#34423f" metalness={0.38} roughness={0.34} /></StaticInstances>
-      <mesh position={[0, 0, 0.015]}><boxGeometry args={[0.94, 1.95, 0.022]} /><meshPhysicalMaterial color="#c7eef0" transparent opacity={0.2} transmission={0.62} clearcoat={1} clearcoatRoughness={0.05} roughness={0.05} depthWrite={false} /></mesh>
+      <mesh position={[0, 0, 0.015]}><boxGeometry args={[0.94, 1.95, 0.022]} /><meshPhysicalMaterial color="#c7eef0" transparent opacity={0.2} transmission={doorGlassTransmission} clearcoat={1} clearcoatRoughness={0.05} roughness={0.05} depthWrite={false} /></mesh>
       <Box args={[0.045, 1.12, 0.055]} position={[side * -0.4, 0, 0.065]} color="#aab5b2" radius={0.015} />
     </group>)}
     <Box args={[2.48, 0.24, 0.92]} position={[0, 2.28, 0]} color={palette.fixtureSteel} radius={0.045} />
@@ -911,7 +914,9 @@ function ProcessMachine({ kind, machine }: { kind: "cheese" | "juice"; machine?:
       <RetailProduct productId="juice" position={[0.34, 0.33, 0.12]} scale={1.22} />
     </>}
     {processing && <pointLight position={[0, 0.65, 0.45]} intensity={0.45} distance={1.6} color={kind === "cheese" ? "#ffd75c" : "#ff6b43"} />}
-    {Array.from({ length: Math.min(4, machine?.output ?? 0) }, (_, index) => <RetailProduct key={index} productId={kind} position={[0.34 + (index % 2) * 0.13, 0.16 + Math.floor(index / 2) * 0.12, 0.45]} scale={0.8} />)}
+    <group name="dynamic:machine-output">
+      {Array.from({ length: Math.min(4, machine?.output ?? 0) }, (_, index) => <RetailProduct key={index} productId={kind} position={[0.34 + (index % 2) * 0.13, 0.16 + Math.floor(index / 2) * 0.12, 0.45]} scale={0.8} />)}
+    </group>
   </group>;
 }
 
@@ -1089,7 +1094,6 @@ export const KitFarm = memo(function KitFarm({ crops, machines, nowMs, unlockedA
   const chicken = machines.find((machine) => machine.id === "chicken-coop-1");
   const cow = machines.find((machine) => machine.id === "cow-station-1");
   return <group ref={root}>
-    <StaticBatchOptimizer rootRef={root} structureRevision={structureRevision} />
     <StoreElement position={[...FARM_FIELD.center]}><GardenFloor /></StoreElement>
     {FARM_PLOTS.map((plot) => {
       const crop = cropsById.get(plot.id);
@@ -1120,6 +1124,8 @@ export const KitFarm = memo(function KitFarm({ crops, machines, nowMs, unlockedA
       <AnimalPaddock kind="cow" />
       {unlockedAreas.includes("cow-station") && cow && <AnimalStation kind="cow" machine={cow} />}
     </StoreElement>
+    {/* Last child: its effect runs after every sibling placed its instances. */}
+    <StaticBatchOptimizer rootRef={root} structureRevision={structureRevision} />
   </group>;
 }, sameFarmPresentation);
 
@@ -1368,11 +1374,12 @@ function CompostBin({ position }: { position: Position }) {
 }
 
 function MiniGreenhouse({ position }: { position: Position }) {
+  const paneTransmission = useGlassTransmission(0.12);
   return <group position={position}>
     <Box args={[1.12, 0.14, 0.88]} position={[0, 0.12, 0]} color="#68472f" radius={0.05} />
     {[-0.46, 0.46].flatMap((x) => [-0.34, 0.34].map((z) => <Box key={`${x}-${z}`} args={[0.045, 0.85, 0.045]} position={[x, 0.55, z]} color={palette.frame} />))}
-    <mesh position={[0, 0.6, 0]}><boxGeometry args={[1, 0.8, 0.76]} /><meshPhysicalMaterial color="#b8e2d0" transparent opacity={0.2} roughness={0.12} transmission={0.12} /></mesh>
-    <mesh position={[0, 1.06, 0]} rotation={[0, 0, Math.PI / 4]}><boxGeometry args={[0.76, 0.76, 0.78]} /><meshPhysicalMaterial color="#b8e2d0" transparent opacity={0.24} roughness={0.12} transmission={0.12} /></mesh>
+    <mesh position={[0, 0.6, 0]}><boxGeometry args={[1, 0.8, 0.76]} /><meshPhysicalMaterial color="#b8e2d0" transparent opacity={0.2} roughness={0.12} transmission={paneTransmission} /></mesh>
+    <mesh position={[0, 1.06, 0]} rotation={[0, 0, Math.PI / 4]}><boxGeometry args={[0.76, 0.76, 0.78]} /><meshPhysicalMaterial color="#b8e2d0" transparent opacity={0.24} roughness={0.12} transmission={paneTransmission} /></mesh>
     <StaticInstances transforms={GREENHOUSE_SEEDLINGS} castShadow><coneGeometry args={[0.06, 0.25, 6]} /><meshStandardMaterial color="#559147" roughness={0.95} /></StaticInstances>
   </group>;
 }
