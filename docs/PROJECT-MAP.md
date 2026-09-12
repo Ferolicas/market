@@ -32,6 +32,7 @@ activa forma parte del Caddy central del VPS y debe validarse antes de recargar.
 - `src/game/stations/`: única fuente para posiciones, huellas, imanes y sockets funcionales.
 - `src/game/animation/`: locomoción, transiciones, contactos, carro y presentación del rig.
 - `src/game/render/`: calidad adaptativa y agrupación de mallas estáticas.
+- `src/components/game/MarketText.tsx`: fuente local común para texto 3D; no depende de CDN bajo la CSP de producción.
 - `src/game/ai/`: comportamiento y colas de clientes.
 - `public/models/market/`: GLB servidos por la PWA.
 
@@ -83,6 +84,8 @@ La PWA cambia de cuerpo completo según capacidad del dispositivo:
 - nunca carga a la vez las tres variantes de un mismo actor.
 
 El service worker usa `mini-market-v9`; el cambio de versión invalida los antiguos GLB cacheados bajo la misma URL.
+
+El suelo se monta fuera de los límites `Suspense` de edificio, mobiliario y granja. Cada bloque pesado tiene su propio límite, de modo que una fuente o GLB pendiente no puede dejar toda la escena mostrando únicamente el color de fondo. Los textos Troika usan `/fonts/OpenSans-SemiBold.ttf`, servido desde el mismo origen porque la CSP pública bloquea fuentes y conexiones externas.
 
 ## Perfil de batería móvil
 

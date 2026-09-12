@@ -1,7 +1,7 @@
 "use client";
 
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { ContactShadows, Environment, Lightformer, Line, OrthographicCamera, Text } from "@react-three/drei";
+import { ContactShadows, Environment, Lightformer, Line, OrthographicCamera } from "@react-three/drei";
 import { BallCollider, CapsuleCollider, CuboidCollider, CylinderCollider, Physics, RigidBody, useRapier, type RapierCollider, type RapierRigidBody } from "@react-three/rapier";
 import { Fragment, memo, Suspense, useEffect, useEffectEvent, useMemo, useRef, useState, type RefObject } from "react";
 import * as THREE from "three";
@@ -10,6 +10,7 @@ import { CityPerimeter } from "./CityPerimeter";
 import { Customer } from "./Customer";
 import { KitFarm, KitFurniture } from "./MarketKit";
 import { BasketProduct, HarvestBasket } from "./HarvestBasket";
+import { MarketText as Text } from "./MarketText";
 import { dampFactor, frameDelta, turnTowards } from "@/game/locomotion";
 import type { AvatarConfig, CarryState, CharacterId, CheckoutTransaction, CropState, CustomerRuntimeState, Employee, EmployeeRole, HairId, Inventory, ProductId, ProductionMachineState } from "@/game/types";
 import { scaleStorePoint, scaleStorePosition, STORE_ELEMENT_SCALE, STORE_LAYOUT_SCALE, STORE_OBSTACLES, WORLD_SCALE } from "@/game/world-scale";
@@ -233,11 +234,20 @@ export const MarketScene = memo(function MarketScene({ avatar, carry, visualCarr
       <ambientLight intensity={1.15} />
       <MarketKeyLight shadowMapSize={renderProfile.shadowMapSize} publishDiagnostics={performanceProbe} />
       <group scale={WORLD_SCALE}>
+        <group name="perf:ground" scale={[STORE_LAYOUT_SCALE, 1, STORE_LAYOUT_SCALE]}><MarketGround /></group>
         <Suspense fallback={null}>
           <group name="perf:city" scale={[STORE_LAYOUT_SCALE, 1, STORE_LAYOUT_SCALE]}><StaticCityPerimeter /></group>
+        </Suspense>
+        <Suspense fallback={null}>
           <group name="perf:building" scale={[STORE_LAYOUT_SCALE, 1, STORE_LAYOUT_SCALE]}><MarketBuilding open={open} doorProgress={doorProgress} /></group>
+        </Suspense>
+        <Suspense fallback={null}>
           <group name="perf:furniture"><KitFurniture shelves={visualShelves} machines={productionMachines} customers={customers} checkoutTransactions={checkoutTransactions} returnsBin={returnsBin} returnedCartCount={returnedCartCount} lightsOn={lightsOn} dynamicCeilingLights={!renderProfile.mobile || Boolean(renderProfile.baseline)} unlockedAreas={unlockedAreas} /></group>
+        </Suspense>
+        <Suspense fallback={null}>
           <group name="perf:farm"><KitFarm crops={visualCrops} machines={productionMachines} nowMs={simulationTimeMs} unlockedAreas={unlockedAreas} /></group>
+        </Suspense>
+        <Suspense fallback={null}>
           {transferEvents.map((event) => event.kind === "harvest" && event.cropId && event.productId
             ? <HarvestMagnetBurst key={event.sequence} sequence={event.sequence} cropId={event.cropId} productId={event.productId} quantity={event.quantity ?? 1} basketTarget={basketTarget} onProgress={onTransferProgress} />
             : event.kind === "stock" && event.productId
@@ -1284,6 +1294,19 @@ function SceneStaticBatch({ rootRef }: { rootRef: { current: THREE.Group | null 
   return null;
 }
 
+const MarketGround = memo(function MarketGround() {
+  return <group>
+    <mesh receiveShadow position={[0, -0.08, -0.35]}><boxGeometry args={[23, 0.16, 17]} /><meshStandardMaterial color="#eee8dc" roughness={0.82} /></mesh>
+    {[-7.6, -3.8, 0, 3.8, 7.6].map((x) => <mesh key={`floor-seam-x-${x}`} position={[x, 0.012, -0.35]}><boxGeometry args={[0.018, 0.008, 16.7]} /><meshStandardMaterial color="#d9d2c5" roughness={0.95} /></mesh>)}
+    {[-6.8, -3.4, 0, 3.4, 6.8].map((z) => <mesh key={`floor-seam-z-${z}`} position={[0, 0.013, z - 0.35]}><boxGeometry args={[22.7, 0.008, 0.018]} /><meshStandardMaterial color="#d9d2c5" roughness={0.95} /></mesh>)}
+    <mesh receiveShadow position={[0, -0.1, 11.9]}><boxGeometry args={[23, 0.14, 7.5]} /><meshStandardMaterial color="#d7e3db" roughness={0.94} /></mesh>
+    <mesh receiveShadow position={[0, -0.09, 16.15]}><boxGeometry args={[25, 0.12, 1.2]} /><meshStandardMaterial color="#566a62" roughness={0.98} /></mesh>
+    {[-6, 0, 6].map((x) => <mesh key={x} position={[x, -0.015, 16.1]}><boxGeometry args={[2.7, 0.02, 0.1]} /><meshStandardMaterial color="#f4d58d" /></mesh>)}
+    <mesh receiveShadow position={[STORE_REAR_DOOR.x, -0.015, -9.61]}><boxGeometry args={[2.58, 0.08, 2.2]} /><meshStandardMaterial color="#b8ab8f" roughness={0.96} /></mesh>
+    {[-0.72, 0, 0.72].map((offset, index) => <mesh key={`rear-path-inlay-${index}`} position={[STORE_REAR_DOOR.x + offset, 0.03, -9.61]}><boxGeometry args={[0.035, 0.018, 2.08]} /><meshStandardMaterial color="#dfd3b8" roughness={0.88} /></mesh>)}
+  </group>;
+});
+
 const MarketBuilding = memo(function MarketBuilding({ open, doorProgress }: { open: boolean; doorProgress: number }) {
   const root = useRef<THREE.Group>(null);
   const door = STOREFRONT_LAYOUT.door;
@@ -1293,14 +1316,6 @@ const MarketBuilding = memo(function MarketBuilding({ open, doorProgress }: { op
   const frontGlassCenterY = frontGlassHeight / 2 + 0.3;
   return <group ref={root}>
     <SceneStaticBatch rootRef={root} />
-    <mesh receiveShadow position={[0, -0.08, -0.35]}><boxGeometry args={[23, 0.16, 17]} /><meshStandardMaterial color="#eee8dc" roughness={0.82} /></mesh>
-    {[-7.6, -3.8, 0, 3.8, 7.6].map((x) => <mesh key={`floor-seam-x-${x}`} position={[x, 0.012, -0.35]}><boxGeometry args={[0.018, 0.008, 16.7]} /><meshStandardMaterial color="#d9d2c5" roughness={0.95} /></mesh>)}
-    {[-6.8, -3.4, 0, 3.4, 6.8].map((z) => <mesh key={`floor-seam-z-${z}`} position={[0, 0.013, z - 0.35]}><boxGeometry args={[22.7, 0.008, 0.018]} /><meshStandardMaterial color="#d9d2c5" roughness={0.95} /></mesh>)}
-    <mesh receiveShadow position={[0, -0.1, 11.9]}><boxGeometry args={[23, 0.14, 7.5]} /><meshStandardMaterial color="#d7e3db" roughness={0.94} /></mesh>
-    <mesh receiveShadow position={[0, -0.09, 16.15]}><boxGeometry args={[25, 0.12, 1.2]} /><meshStandardMaterial color="#566a62" roughness={0.98} /></mesh>
-    {[-6, 0, 6].map((x) => <mesh key={x} position={[x, -0.015, 16.1]}><boxGeometry args={[2.7, 0.02, 0.1]} /><meshStandardMaterial color="#f4d58d" /></mesh>)}
-    <mesh receiveShadow position={[STORE_REAR_DOOR.x, -0.015, -9.61]}><boxGeometry args={[2.58, 0.08, 2.2]} /><meshStandardMaterial color="#b8ab8f" roughness={0.96} /></mesh>
-    {[-0.72, 0, 0.72].map((offset, index) => <mesh key={`rear-path-inlay-${index}`} position={[STORE_REAR_DOOR.x + offset, 0.03, -9.61]}><boxGeometry args={[0.035, 0.018, 2.08]} /><meshStandardMaterial color="#dfd3b8" roughness={0.88} /></mesh>)}
     {rearDoorWallSegments().map((segment, index) => <group key={`rear-wall-visual-${index}`}>
       <mesh receiveShadow position={[segment.centerX, wallHeight / 2, STORE_REAR_DOOR.wallCenterZ]}><boxGeometry args={[segment.width, wallHeight, STORE_REAR_DOOR.wallDepth]} /><meshStandardMaterial color="#eee8dc" roughness={0.88} /></mesh>
       <mesh position={[segment.centerX, 0.68, -8.34]}><boxGeometry args={[Math.max(0.01, segment.width - 0.08), 1.25, 0.12]} /><meshStandardMaterial color="#2f6958" roughness={0.78} /></mesh>

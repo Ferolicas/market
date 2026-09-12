@@ -1,6 +1,6 @@
 "use client";
 
-import { RoundedBox, RoundedBoxGeometry, Text, useGLTF, useTexture } from "@react-three/drei";
+import { RoundedBox, RoundedBoxGeometry, useGLTF, useTexture } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { memo, useCallback, useEffect, useMemo, useRef, type ReactNode } from "react";
 import * as THREE from "three";
@@ -17,6 +17,7 @@ import { PRODUCTION_CUBICLE, STORE_PRODUCTION_FIXTURES, type ProductionFixtureLa
 import { marketAsset } from "@/game/assets/AssetRegistry";
 import { sameFarmPresentation, sameFurniturePresentation, type FarmPresentationProps, type FurniturePresentationProps } from "@/game/render/MarketPresentation";
 import { createStaticMeshBatch } from "@/game/render/StaticMeshBatch";
+import { MarketText as Text } from "./MarketText";
 
 type Position = [number, number, number];
 
