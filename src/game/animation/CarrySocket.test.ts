@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import * as THREE from "three";
-import { CHARACTER_PALM_OFFSETS, composeCarryAnimations, createCarrySocketScratch, handPalmPoint, HARVEST_BASKET_GRIP_HALF_WIDTH, HARVEST_BASKET_GRIP_HEIGHT, HARVEST_BASKET_GRIP_REACH, mountedHarvestBasketHandle, placeCarrySocket, updateHarvestBasketHandle } from "./CarrySocket";
+import { CHARACTER_PALM_OFFSETS, composeCarryAnimations, composeRuntimeAnimationAliases, createCarrySocketScratch, handPalmPoint, HARVEST_BASKET_GRIP_HALF_WIDTH, HARVEST_BASKET_GRIP_HEIGHT, HARVEST_BASKET_GRIP_REACH, mountedHarvestBasketHandle, placeCarrySocket, updateHarvestBasketHandle } from "./CarrySocket";
 
 describe("agarre de la cesta de cosecha", () => {
   it("calibrates a finite visible-palm socket for every selectable body", () => {
@@ -145,5 +145,17 @@ describe("agarre de la cesta de cosecha", () => {
     expect(Array.from(carryRun.tracks.find((track) => track.name === "Rig_Arm_L.rotation[x]")!.values)).toEqual([expect.closeTo(1.2), expect.closeTo(1.2)]);
     expect(composed.find((clip) => clip.name === "Walk")).toBe(walk);
     expect(composed.find((clip) => clip.name === "Run")).toBe(run);
+  });
+
+  it("fills only the gameplay names absent from the delivered animation pack", () => {
+    const walk = new THREE.AnimationClip("Walk", 1, []);
+    const wait = new THREE.AnimationClip("Wait", 2, []);
+    const authoredTurn = new THREE.AnimationClip("TurnLeft", 0.7, []);
+
+    const composed = composeRuntimeAnimationAliases([walk, wait, authoredTurn]);
+
+    expect(composed.find((clip) => clip.name === "TurnLeft")).toBe(authoredTurn);
+    expect(composed.find((clip) => clip.name === "TurnRight")?.duration).toBe(1);
+    expect(composed.find((clip) => clip.name === "Phone")?.duration).toBe(2);
   });
 });

@@ -1,7 +1,7 @@
 import type { CropState } from "../types";
 import { STORE_REAR_DOOR } from "./storefront-layout";
 
-export type FarmPlotId = "crop-tomato-1" | "crop-tomato-2" | "crop-wheat-1" | "crop-corn-1";
+export type FarmPlotId = "crop-tomato-1" | "crop-tomato-2" | "crop-wheat-1" | "crop-corn-1" | "crop-orange-1";
 export type FarmInteractionId = `farm:${FarmPlotId}`;
 
 export interface FarmPlotLayout {
@@ -39,6 +39,7 @@ const FARM_SIDE_FENCE_X = 10.6;
 const REAR_DOOR_CLEAR_HALF_WIDTH = STORE_REAR_DOOR.door.outerPostOffset - STORE_REAR_DOOR.door.postWidth / 2;
 const FARM_GATE_LEFT_POST_X = STORE_REAR_DOOR.x - REAR_DOOR_CLEAR_HALF_WIDTH;
 const FARM_GATE_RIGHT_POST_X = STORE_REAR_DOOR.x + REAR_DOOR_CLEAR_HALF_WIDTH;
+const FARM_LEFT_EDGE_X = -FARM_SIDE_FENCE_X;
 const STORE_REAR_DOOR_FARM_FACE_Z = STORE_REAR_DOOR.z - STORE_REAR_DOOR.door.frameDepth / 2;
 const STORE_REAR_WALL_OUTER_Z = STORE_REAR_DOOR.wallCenterZ - STORE_REAR_DOOR.wallDepth / 2;
 const ACCESS_CORRIDOR_FENCE_CENTER_Z = (FARM_FRONT_FENCE_Z + STORE_REAR_DOOR_FARM_FACE_Z) / 2;
@@ -53,12 +54,12 @@ export const FARM_GATE = {
   center: [STORE_REAR_DOOR.x, 0, FARM_FRONT_FENCE_Z] as const,
   frontPost: [FARM_GATE_LEFT_POST_X, 0, FARM_FRONT_FENCE_Z] as const,
   innerPost: [FARM_GATE_RIGHT_POST_X, 0, FARM_FRONT_FENCE_Z] as const,
-  // The open leaf has the same rendered length as the 2.6-layout-unit gate
-  // opening and starts flush behind the inner hinge post.
-  openLeaf: { center: [8.8, 0, -11.875] as const, halfX: 0.07, halfZ: 1.625, terminalPostDepth: 0.09 },
+  // The open leaf has the same rendered length as the widened storefront door
+  // and starts flush behind the inner hinge post.
+  openLeaf: { center: [FARM_GATE_RIGHT_POST_X, 0, FARM_FRONT_FENCE_Z - REAR_DOOR_CLEAR_HALF_WIDTH] as const, halfX: 0.07, halfZ: REAR_DOOR_CLEAR_HALF_WIDTH / FARM_ELEMENT_TO_LAYOUT_RATIO, terminalPostDepth: 0.09 },
   rightFence: { center: [FARM_SIDE_FENCE_X, 0, -14.15] as const, halfX: 0.07, halfZ: 4.46875 },
-  leftFrontFence: { center: [-2.2, 0, FARM_FRONT_FENCE_Z] as const, halfX: 10.5, halfZ: 0.07 },
-  rightFrontFence: { center: [9.7, 0, FARM_FRONT_FENCE_Z] as const, halfX: 1.125, halfZ: 0.07 },
+  leftFrontFence: { center: [(FARM_LEFT_EDGE_X + FARM_GATE_LEFT_POST_X) / 2, 0, FARM_FRONT_FENCE_Z] as const, halfX: (FARM_GATE_LEFT_POST_X - FARM_LEFT_EDGE_X) / 2 / FARM_ELEMENT_TO_LAYOUT_RATIO, halfZ: 0.07 },
+  rightFrontFence: { center: [(FARM_GATE_RIGHT_POST_X + FARM_SIDE_FENCE_X) / 2, 0, FARM_FRONT_FENCE_Z] as const, halfX: (FARM_SIDE_FENCE_X - FARM_GATE_RIGHT_POST_X) / 2 / FARM_ELEMENT_TO_LAYOUT_RATIO, halfZ: 0.07 },
   // These two rails form a direct chute from the clear edges of the rear door
   // to the matching gate posts. They prevent turning into either transverse
   // passage before entering the estate. Authored half extents account for
@@ -143,6 +144,7 @@ export const FARM_PLOTS: readonly FarmPlotLayout[] = [
   { id: "crop-tomato-2", productId: "tomatoes", position: [-3.55, 0, -12.72], accent: "#ef6a4b" },
   { id: "crop-wheat-1", productId: "wheat", position: [-6.3, 0, -15.45], accent: "#e9b83f" },
   { id: "crop-corn-1", productId: "corn", position: [-3.55, 0, -15.45], accent: "#f0c438" },
+  { id: "crop-orange-1", productId: "oranges", position: [-0.75, 0, -14], accent: "#D58236" },
 ] as const;
 
 export const FARM_FACILITIES = {

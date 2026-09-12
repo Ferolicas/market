@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { collectMachineOutput, collectMachineOutputBatch, createCrop, createEmptyCrop, createMachine, cropGrowthDurationMs, cropHarvestYield, harvestCrop, harvestCropBatch, loadMachine, plantCrop, updateCrop, updateMachine } from "./StationSystem";
 import type { Inventory } from "../types";
 
-const emptyInventory = (): Inventory => ({ wheat: 0, flour: 0, bread: 0, corn: 0, milk: 0, eggs: 0, cheese: 0, apples: 0, tomatoes: 0, coffee: 0, juice: 0 });
+const emptyInventory = (): Inventory => ({ wheat: 0, flour: 0, bread: 0, corn: 0, milk: 0, eggs: 0, cheese: 0, apples: 0, tomatoes: 0, oranges: 0, coffee: 0, juice: 0 });
 
 describe("station systems", () => {
   it("replants automatically after the last unit is harvested", () => {
@@ -62,6 +62,16 @@ describe("station systems", () => {
     const complete = updateMachine(loaded.machine, 6_000);
     expect(complete.output).toBe(1);
     expect(collectMachineOutput(complete, 6_000).collected).toBe(1);
+  });
+
+  it("uses three cultivated oranges—not tomatoes—to make one juice", () => {
+    const inventory = emptyInventory(); inventory.oranges = 3; inventory.tomatoes = 2;
+    const loaded = loadMachine(createMachine("juicer", "juice"), inventory, 2_000);
+    expect(loaded.loaded).toBe(true);
+    expect(loaded.inventory.oranges).toBe(0);
+    expect(loaded.inventory.tomatoes).toBe(2);
+    const complete = updateMachine(loaded.machine, 7_000);
+    expect(complete).toMatchObject({ status: "OUTPUT_READY", output: 1 });
   });
 
   it("rejects locked or output-blocked machines without mutating the station or inventory", () => {

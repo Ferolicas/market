@@ -10,6 +10,7 @@ export interface ProductionFixtureLayout {
   processLabel: string;
   accent: string;
   position: readonly [number, number, number];
+  yaw?: number;
   /** Bounds of the solid machine in local StoreElement coordinates. */
   localFootprint: { centerX: number; centerZ: number; halfX: number; halfZ: number };
   /** Walkable destination for automated operators, in authored layout units. */
@@ -33,9 +34,9 @@ export const STORE_PRODUCTION_FIXTURES: Record<ProductionFixtureId, ProductionFi
     label: "MOLINO",
     processLabel: "TRIGO · HARINA",
     accent: "#c99a45",
-    position: [-9.75, 0, -5.95],
+    position: [-10.5, 0, -7.35],
     localFootprint: { centerX: 0, centerZ: -0.58, halfX: 0.65, halfZ: 0.58 },
-    operatorWorkPoint: [-8.7, -5.3],
+    operatorWorkPoint: [-9.65, -6.55],
   },
   breadOven: {
     fixtureId: "breadOven",
@@ -45,9 +46,9 @@ export const STORE_PRODUCTION_FIXTURES: Record<ProductionFixtureId, ProductionFi
     label: "HORNO",
     processLabel: "HARINA · PAN",
     accent: "#c96d3e",
-    position: [-6.75, 0, -5.95],
+    position: [-7.85, 0, -7.35],
     localFootprint: { centerX: 0, centerZ: -0.55, halfX: 0.76, halfZ: 0.55 },
-    operatorWorkPoint: [-8, -5.3],
+    operatorWorkPoint: [-8.8, -6.55],
   },
   cheeseMaker: {
     fixtureId: "cheeseMaker",
@@ -57,9 +58,9 @@ export const STORE_PRODUCTION_FIXTURES: Record<ProductionFixtureId, ProductionFi
     label: "QUESERÍA",
     processLabel: "LECHE · QUESO",
     accent: "#d8a92f",
-    position: [-9.75, 0, -3.25],
+    position: [-7.25, 0, -3.85],
     localFootprint: { centerX: 0, centerZ: -0.55, halfX: 0.6, halfZ: 0.55 },
-    operatorWorkPoint: [-8.7, -4.9],
+    operatorWorkPoint: [-8.7, -4],
   },
   juiceMachine: {
     fixtureId: "juiceMachine",
@@ -67,11 +68,12 @@ export const STORE_PRODUCTION_FIXTURES: Record<ProductionFixtureId, ProductionFi
     machineId: "juice-machine-1",
     obstacleId: "fixture:juice-machine",
     label: "ZUMOS",
-    processLabel: "TOMATE · ZUMO",
+    processLabel: "NARANJA · ZUMO",
     accent: "#df7540",
-    position: [-6.75, 0, -3.25],
+    position: [-5.4, 0, -5.8],
+    yaw: 0,
     localFootprint: { centerX: 0, centerZ: -0.55, halfX: 0.6, halfZ: 0.55 },
-    operatorWorkPoint: [-8, -4.9],
+    operatorWorkPoint: [-5.4, -4.4],
   },
 };
 
@@ -119,14 +121,14 @@ const cubicleWall = (id: string, x: number, z: number, halfX: number, halfZ: num
 });
 
 export const PRODUCTION_CUBICLE = {
-  center: [-8.25, -4.925] as const,
-  bounds: { left: -10.92, right: -5.58, rear: -7.7, front: -2.15 },
-  doorway: { centerX: -8.25, halfWidth: 1.15 },
+  center: [-9, -5.9] as const,
+  bounds: { left: -11.5, right: -6.5, rear: -8.55, front: -3.25 },
+  doorway: { centerX: -9, halfWidth: 1.15 },
   walls: [
-    cubicleWall("left", -10.92, -4.925, 0.07, 2.775),
-    cubicleWall("right", -5.58, -4.925, 0.07, 2.775),
-    cubicleWall("rear", -8.25, -7.7, 2.67, 0.07),
-    cubicleWall("front-left", -10.16, -2.15, 0.76, 0.07),
-    cubicleWall("front-right", -6.34, -2.15, 0.76, 0.07),
+    cubicleWall("left", -11.5, -5.9, 0.07, 2.65),
+    cubicleWall("right", -6.5, -5.9, 0.07, 2.65),
+    cubicleWall("rear", -9, -8.55, 2.5, 0.07),
+    cubicleWall("front-left", -10.825, -3.25, 0.675, 0.07),
+    cubicleWall("front-right", -7.175, -3.25, 0.675, 0.07),
   ],
 } as const;

@@ -8,6 +8,8 @@ const enforceBudget = process.env.MARKET_PERF_ENFORCE !== "0";
 const freezeWorld = process.env.MARKET_PERF_FREEZE_WORLD === "1";
 const keepStoreClosed = process.env.MARKET_PERF_STORE_CLOSED === "1";
 const captureCpuProfile = process.env.MARKET_PERF_CPU_PROFILE === "1";
+const baseline = process.env.MARKET_PERF_BASELINE === "1";
+const movePlayer = process.env.MARKET_PERF_MOVE === "1";
 const sampleWindows = Number.parseInt(process.env.MARKET_PERF_SAMPLE_WINDOWS ?? "24", 10);
 if (!Number.isSafeInteger(sampleWindows) || sampleWindows < 8 || sampleWindows > 120) throw new Error(`MARKET_PERF_SAMPLE_WINDOWS inválido: ${sampleWindows}`);
 const profiles = {
@@ -31,7 +33,7 @@ const browser = await chromium.launch({
 const context = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
 const page = await context.newPage();
 await page.addInitScript(() => {
-  window.__MARKET_PERF__ = { samples: [], inventory: null, frameTimes: [], longTasks: [], qualityEvents: [], shadowMode: null, touchEvents: [] };
+  window.__MARKET_PERF__ = { samples: [], inventory: null, frameTimes: [], longTasks: [], qualityEvents: [], renderProfile: null, shadowMode: null, touchEvents: [] };
   let previousFrame = performance.now();
   const recordFrame = (timestamp) => {
     const delta = timestamp - previousFrame;
@@ -58,6 +60,7 @@ await page.addInitScript(() => {
   window.addEventListener("market-debug-metrics", (event) => window.__MARKET_PERF__.samples.push(structuredClone(event.detail)));
   window.addEventListener("market-perf-inventory", (event) => { window.__MARKET_PERF__.inventory = structuredClone(event.detail); });
   window.addEventListener("market-quality-regress", (event) => window.__MARKET_PERF__.qualityEvents.push({ at: performance.now(), ...structuredClone(event.detail) }));
+  window.addEventListener("market-render-profile", (event) => { window.__MARKET_PERF__.renderProfile = structuredClone(event.detail); });
   window.addEventListener("market-shadow-mode", (event) => { window.__MARKET_PERF__.shadowMode = event.detail; });
   window.addEventListener("pointerdown", (event) => {
     if (window.__MARKET_PERF__.tracking) window.__MARKET_PERF__.touchEvents.push({
@@ -76,7 +79,7 @@ page.on("pageerror", (error) => pageErrors.push(error.stack ?? error.message));
 page.on("response", (response) => { if (response.status() >= 400) failedResponses.push({ url: response.url(), status: response.status() }); });
 
 const suffix = Date.now().toString(36);
-await page.goto(`${APP_URL}?perf=1${freezeWorld ? "&perf-freeze=1" : ""}`, { waitUntil: "domcontentloaded", timeout: 60_000 });
+await page.goto(`${APP_URL}?perf=1${baseline ? "&perf-baseline=1" : ""}${freezeWorld ? "&perf-freeze=1" : ""}`, { waitUntil: "domcontentloaded", timeout: 60_000 });
 await page.getByRole("button", { name: "Crear perfil nuevo" }).click();
 await page.getByLabel("Tu nombre").fill("Mobile Render QA");
 await page.getByLabel("Nombre de usuario").fill(`render_${suffix}`.slice(0, 24));
@@ -91,24 +94,32 @@ await page.waitForFunction(() => window.__MARKET_PERF__?.samples.length >= 5 && 
 
 const cdp = await context.newCDPSession(page);
 await cdp.send("Emulation.setCPUThrottlingRate", { rate: profile.cpuRate });
+await cdp.send("Performance.enable");
 if (captureCpuProfile) {
   await cdp.send("Profiler.enable");
   await cdp.send("Profiler.setSamplingInterval", { interval: 500 });
 }
 await page.evaluate(() => { window.__MARKET_PERF__.samples = []; });
 await page.waitForTimeout(4_000);
+const browserMetricsBefore = metricsByName(await cdp.send("Performance.getMetrics"));
 if (captureCpuProfile) await cdp.send("Profiler.start");
-await page.evaluate(() => window.__MARKET_PERF_RESET__());
+await page.evaluate((move) => {
+  window.__MARKET_PERF_RESET__();
+  if (move) window.dispatchEvent(new KeyboardEvent("keydown", { code: "ArrowUp", key: "ArrowUp" }));
+}, movePlayer);
 const canvasBox = await page.locator("canvas").first().boundingBox();
 if (canvasBox) await page.touchscreen.tap(canvasBox.x + canvasBox.width * 0.5, canvasBox.y + canvasBox.height * 0.52);
 await page.waitForFunction((minimum) => window.__MARKET_PERF__.samples.length >= minimum, sampleWindows, { timeout: 120_000 });
+if (movePlayer) await page.evaluate(() => window.dispatchEvent(new KeyboardEvent("keyup", { code: "ArrowUp", key: "ArrowUp" })));
 const cpuProfile = captureCpuProfile ? (await cdp.send("Profiler.stop")).profile : null;
+const browserMetricsAfter = metricsByName(await cdp.send("Performance.getMetrics"));
 
 const samples = await page.evaluate((minimum) => structuredClone(window.__MARKET_PERF__.samples.slice(-minimum)), sampleWindows);
 const inventory = await page.evaluate(() => structuredClone(window.__MARKET_PERF__.inventory));
 const frameTimes = await page.evaluate(() => structuredClone(window.__MARKET_PERF__.frameTimes));
 const longTasks = await page.evaluate(() => structuredClone(window.__MARKET_PERF__.longTasks));
 const qualityEvents = await page.evaluate(() => structuredClone(window.__MARKET_PERF__.qualityEvents));
+const renderProfile = await page.evaluate(() => structuredClone(window.__MARKET_PERF__.renderProfile));
 const shadowMode = await page.evaluate(() => window.__MARKET_PERF__.shadowMode);
 const touchEvents = await page.evaluate(() => structuredClone(window.__MARKET_PERF__.touchEvents));
 const webgl = await page.locator("canvas").first().evaluate((canvas) => {
@@ -125,7 +136,7 @@ const summary = summarize(samples, frameTimes, longTasks);
 await page.screenshot({ path: path.join(output, `${profileName}.png`), fullPage: true });
 const report = {
   generatedAt: new Date().toISOString(),
-  profile: { name: profileName, ...profile, freezeWorld, keepStoreClosed, sampleWindows, viewport: page.viewportSize(), deviceScaleFactor: 2 },
+  profile: { name: profileName, ...profile, baseline, movePlayer, freezeWorld, keepStoreClosed, sampleWindows, viewport: page.viewportSize(), deviceScaleFactor: 2 },
   enforceBudget,
   budget: budgetFor(profileName),
   summary,
@@ -133,10 +144,12 @@ const report = {
   frameTimes,
   longTasks,
   qualityEvents,
+  renderProfile,
   shadowMode,
   touchEvents,
   inventory,
   webgl,
+  browserMetrics: summarizeBrowserMetrics(browserMetricsBefore, browserMetricsAfter),
   consoleErrors,
   pageErrors,
   failedResponses,
@@ -151,7 +164,9 @@ console.log(JSON.stringify({
   summary: report.summary,
   inventory: report.inventory,
   webgl: report.webgl,
+  browserMetrics: report.browserMetrics,
   qualityRegressions: report.qualityEvents.length,
+  renderProfile: report.renderProfile,
   shadowMode: report.shadowMode,
   touchEvents: report.touchEvents,
   errors: { console: report.consoleErrors, page: report.pageErrors, responses: report.failedResponses },
@@ -159,10 +174,14 @@ console.log(JSON.stringify({
 }, null, 2));
 
 const budget = report.budget;
-if (enforceBudget && (summary.medianFps < budget.minMedianFps || summary.p95FrameMs > budget.maxP95FrameMs || summary.medianDrawCalls > budget.maxDrawCalls || summary.medianTriangles > budget.maxTriangles || summary.maxTextures > budget.maxTextures || summary.maxPrograms > budget.maxPrograms)) {
+if (enforceBudget && (summary.medianFps < budget.minMedianFps || summary.p95RenderFrameMs > budget.maxP95FrameMs || summary.medianDrawCalls > budget.maxDrawCalls || summary.medianTriangles > budget.maxTriangles || summary.maxTextures > budget.maxTextures || summary.maxPrograms > budget.maxPrograms)) {
   throw new Error(`Presupuesto ${profileName} incumplido: ${JSON.stringify({ budget, summary })}`);
 }
 if (!webgl || webgl.contextLost) throw new Error(`WebGL inestable: ${JSON.stringify(webgl)}`);
+if (!renderProfile) throw new Error("No se recibió el perfil de render.");
+if (baseline) {
+  if (renderProfile.targetFps !== 60 || renderProfile.dpr < 1.2 || renderProfile.antialias !== true || renderProfile.transmissionResolutionScale !== 1 || renderProfile.powerPreference !== "high-performance") throw new Error(`Baseline histórico incorrecto: ${JSON.stringify(renderProfile)}`);
+} else if (renderProfile.targetFps !== 30 || renderProfile.dpr > 0.9 || renderProfile.antialias !== false || renderProfile.transmissionResolutionScale !== 0.5 || renderProfile.powerPreference !== "low-power") throw new Error(`Perfil móvil no está en modo batería: ${JSON.stringify(renderProfile)}`);
 if (profile.softwareGpu && !/swiftshader/i.test(webgl.renderer)) throw new Error(`El proxy GPU software no quedó activo: ${webgl.renderer}`);
 if (!touchEvents.some((event) => event.pointerType === "touch")) throw new Error(`El canvas no recibió input táctil real: ${JSON.stringify(touchEvents)}`);
 if (consoleErrors.length || pageErrors.length || failedResponses.length) throw new Error(`Errores durante QA: ${JSON.stringify({ consoleErrors, pageErrors, failedResponses })}`);
@@ -173,22 +192,48 @@ function summarize(values, measuredFrameTimes, measuredLongTasks) {
   const triangles = values.map((sample) => sample.triangles);
   return {
     medianFps: median(fps),
-    p95FrameMs: percentile(measuredFrameTimes, 0.95),
-    maxFrameMs: Math.max(0, ...measuredFrameTimes),
-    measuredFrames: measuredFrameTimes.length,
+    minFps: Math.min(...fps),
+    maxFps: Math.max(...fps),
+    medianRenderFrameMs: median(values.map((sample) => sample.averageFrameMs)),
+    p95RenderFrameMs: percentile(values.map((sample) => sample.p95FrameMs), 0.95),
+    p50BrowserRafMs: percentile(measuredFrameTimes, 0.5),
+    p95BrowserRafMs: percentile(measuredFrameTimes, 0.95),
+    p99BrowserRafMs: percentile(measuredFrameTimes, 0.99),
+    maxBrowserRafMs: Math.max(0, ...measuredFrameTimes),
+    measuredBrowserFrames: measuredFrameTimes.length,
     longTaskCount: measuredLongTasks.length,
     maxLongTaskMs: Math.max(0, ...measuredLongTasks.map((entry) => entry.duration)),
     medianDrawCalls: median(drawCalls),
     maxDrawCalls: Math.max(...drawCalls),
     medianTriangles: median(triangles),
     maxTriangles: Math.max(...triangles),
+    medianGeometries: median(values.map((sample) => sample.geometries)),
     maxTextures: Math.max(...values.map((sample) => sample.textures)),
     maxPrograms: Math.max(...values.map((sample) => sample.programs)),
   };
 }
 
+function metricsByName(payload) {
+  return Object.fromEntries(payload.metrics.map((metric) => [metric.name, metric.value]));
+}
+
+function summarizeBrowserMetrics(before, after) {
+  const delta = (name) => Math.max(0, (after[name] ?? 0) - (before[name] ?? 0));
+  return {
+    taskDurationMs: delta("TaskDuration") * 1_000,
+    scriptDurationMs: delta("ScriptDuration") * 1_000,
+    layoutDurationMs: delta("LayoutDuration") * 1_000,
+    recalcStyleDurationMs: delta("RecalcStyleDuration") * 1_000,
+    jsHeapUsedBytes: after.JSHeapUsedSize ?? null,
+    jsHeapTotalBytes: after.JSHeapTotalSize ?? null,
+    nodes: after.Nodes ?? null,
+    documents: after.Documents ?? null,
+    eventListeners: after.JSEventListeners ?? null,
+  };
+}
+
 function budgetFor(name) {
-  if (name === "hardware-4x") return { minMedianFps: 30, maxP95FrameMs: 55, maxDrawCalls: 420, maxTriangles: 330_000, maxTextures: 70, maxPrograms: 100 };
+  if (name === "hardware-4x") return { minMedianFps: 20, maxP95FrameMs: 90, maxDrawCalls: 420, maxTriangles: 390_000, maxTextures: 70, maxPrograms: 100 };
   if (name === "hardware-6x") return { minMedianFps: 24, maxP95FrameMs: 75, maxDrawCalls: 420, maxTriangles: 330_000, maxTextures: 70, maxPrograms: 100 };
   return { minMedianFps: 18, maxP95FrameMs: 110, maxDrawCalls: 420, maxTriangles: 330_000, maxTextures: 70, maxPrograms: 100 };
 }

@@ -38,6 +38,7 @@ OUTPUT  = opt("output")
 EXPORT  = opt("export", "")
 REPORT  = opt("report", "")
 MAXK    = int(opt("maxk", "4"))
+TARGETTRIS = int(opt("tris", "0"))
 TMP     = os.path.dirname(OUTPUT) or "."
 NAME    = opt("name", "objeto")
 
@@ -70,6 +71,25 @@ for o in meshes:
     bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
     for poly in o.data.polygons:
         poly.use_smooth = False
+
+# Reduce the delivered scan before classifying its faces.  Decimating after
+# region assignment lets the collapse modifier spread a small dark region as
+# isolated triangles over a light surface; classifying the final topology keeps
+# every premium colour boundary contiguous and removes that speckle.
+triangles_before = sum(sum(max(1, len(poly.vertices) - 2) for poly in o.data.polygons) for o in meshes)
+if TARGETTRIS > 0 and triangles_before > TARGETTRIS:
+    ratio = TARGETTRIS / triangles_before
+    for o in meshes:
+        bpy.context.view_layer.objects.active = o
+        bpy.ops.object.select_all(action="DESELECT")
+        o.select_set(True)
+        modifier = o.modifiers.new("WebGL detail budget", "DECIMATE")
+        modifier.decimate_type = "COLLAPSE"
+        modifier.ratio = ratio
+        modifier.use_collapse_triangulate = True
+        bpy.ops.object.modifier_apply(modifier=modifier.name)
+triangles_after = sum(sum(max(1, len(poly.vertices) - 2) for poly in o.data.polygons) for o in meshes)
+print(f"TOPOLOGIA {triangles_before}->{triangles_after}")
 
 lo = Vector((1e9,) * 3); hi = Vector((-1e9,) * 3)
 for o in meshes:

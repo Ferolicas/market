@@ -21,7 +21,7 @@ import { interactionZoneSensorPrimitives, type InteractionZoneConfig } from "@/g
 import { cameraRelativeMovement, moveVelocity, playerMotionForTier, smoothYaw } from "@/game/player/PlayerController";
 import { safeCanvasEvents } from "./safeCanvasEvents";
 import { PerformanceMonitor } from "@/game/debug/PerformanceMonitor";
-import { marketPerformanceProbeEnabled } from "@/game/debug/QaAccess";
+import { marketPerformanceBaselineEnabled, marketPerformanceProbeEnabled } from "@/game/debug/QaAccess";
 import { createWalkableStoreGeometry, storePathfinder } from "@/game/navigation/NavMeshService";
 import { captureEmployeeMotion, projectCustomerMotion, type CustomerMotionSnapshot } from "@/game/animation/CustomerVisualMotion";
 import { CHECKOUT_CAMERA_FRAME, CHECKOUT_CAMERA_POSITION as CHECKOUT_CAMERA_POSITION_COORDS, CHECKOUT_CAMERA_TARGET as CHECKOUT_CAMERA_TARGET_COORDS, checkoutQueuePosition } from "@/game/stations/checkout-layout";
@@ -44,7 +44,7 @@ import {
 import { STORE_SERVICE_FIXTURE_IDS, STORE_SERVICE_FIXTURES } from "@/game/stations/store-service-layout";
 import { WAREHOUSE_PICKUP_STATION } from "@/game/stations/warehouse-layout";
 import { isProductionWorkstationId, productionMachineMagnet, PRODUCTION_WORKSTATION_IDS } from "@/game/stations/production-layout";
-import { advanceAdaptiveQuality, INITIAL_ADAPTIVE_QUALITY_STATE } from "@/game/render/AdaptiveQuality";
+import { advanceAdaptiveQuality, INITIAL_ADAPTIVE_QUALITY_STATE, legacyMobileRenderProfile, marketRenderProfileForCapabilities, type MarketRenderProfile } from "@/game/render/AdaptiveQuality";
 import { createStaticMeshBatch } from "@/game/render/StaticMeshBatch";
 
 export type InteractionId = Exclude<WorkstationId, "shelf"> | StockingInteractionId | FarmInteractionId | "supplier" | "door";
@@ -72,10 +72,9 @@ const StaticCityPerimeter = memo(CityPerimeter);
 // arrive at 10 Hz, so a normal rerender would reset frames=1 and render the
 // whole scene into the contact atlas again. These authored props are static.
 const StaticContactShadows = memo(ContactShadows, () => true);
-// 1.4 × 0.86 = 1.20 DPR on a retina phone: enough headroom to recover GPU
-// time while keeping labels, product silhouettes and bevels visibly crisp.
+// The canvas starts below native DPR on mobile and can recover more GPU time
+// while keeping labels, product silhouettes and bevels legible.
 const MARKET_CANVAS_PERFORMANCE = { min: 0.86, max: 1, debounce: 3_000 } as const;
-const MARKET_CANVAS_GL = { antialias: true, powerPreference: "high-performance" as const };
 
 /** Transfer flights follow elapsed presentation time, not the locomotion
  * stabilizer's 50 ms cap. A bounded real frame delta keeps their wall-clock
@@ -137,7 +136,9 @@ export const MarketScene = memo(function MarketScene({ avatar, carry, visualCarr
   const playerFocus = useRef(new THREE.Vector3(...PLAYER_START));
   const basketTarget = useRef(new THREE.Vector3(...PLAYER_START));
   const [checkoutFocused, setCheckoutFocused] = useState(false);
-  const [canvasDpr, setCanvasDpr] = useState(initialMarketCanvasDpr);
+  const [renderProfile] = useState(initialMarketRenderProfile);
+  const [canvasDpr, setCanvasDpr] = useState(renderProfile.dpr);
+  const canvasGl = useMemo(() => ({ antialias: renderProfile.antialias, powerPreference: renderProfile.powerPreference }), [renderProfile]);
   const [performanceProbe] = useState(() => typeof window !== "undefined" && marketPerformanceProbeEnabled(window.location.search));
   const stockableByDepartment = Object.fromEntries(RETAIL_DEPARTMENT_IDS.map((departmentId) => [
     departmentId,
@@ -223,18 +224,19 @@ export const MarketScene = memo(function MarketScene({ avatar, carry, visualCarr
     });
   }, [debug, stockableByDepartment, stockableProduct, warehousePickupEnabled]);
   return (
-    <Canvas dpr={canvasDpr} events={safeCanvasEvents} shadows="percentage" performance={MARKET_CANVAS_PERFORMANCE} gl={MARKET_CANVAS_GL}>
-      <AdaptiveQualityController canvasDpr={canvasDpr} onDprChange={setCanvasDpr} publishDiagnostics={performanceProbe} />
+    <Canvas dpr={canvasDpr} events={safeCanvasEvents} frameloop={renderProfile.mobile && renderProfile.targetFps < 60 ? "never" : "always"} shadows="percentage" performance={MARKET_CANVAS_PERFORMANCE} gl={canvasGl} onCreated={({ gl }) => configureRendererPolicy(gl, renderProfile)}>
+      <CappedFrameScheduler profile={renderProfile} publishDiagnostics={performanceProbe} />
+      <AdaptiveQualityController canvasDpr={canvasDpr} profile={renderProfile} onDprChange={setCanvasDpr} publishDiagnostics={performanceProbe} />
       <OverviewCamera playerFocus={playerFocus} checkoutFocused={checkoutFocused} />
       <color attach="background" args={["#b8dfce"]} />
       <fog attach="fog" args={["#b8dfce", 62 * WORLD_SCALE, 105 * WORLD_SCALE]} />
       <ambientLight intensity={1.15} />
-      <MarketKeyLight publishDiagnostics={performanceProbe} />
+      <MarketKeyLight shadowMapSize={renderProfile.shadowMapSize} publishDiagnostics={performanceProbe} />
       <group scale={WORLD_SCALE}>
         <Suspense fallback={null}>
           <group name="perf:city" scale={[STORE_LAYOUT_SCALE, 1, STORE_LAYOUT_SCALE]}><StaticCityPerimeter /></group>
           <group name="perf:building" scale={[STORE_LAYOUT_SCALE, 1, STORE_LAYOUT_SCALE]}><MarketBuilding open={open} doorProgress={doorProgress} /></group>
-          <group name="perf:furniture"><KitFurniture shelves={visualShelves} machines={productionMachines} customers={customers} checkoutTransactions={checkoutTransactions} returnsBin={returnsBin} returnedCartCount={returnedCartCount} lightsOn={lightsOn} unlockedAreas={unlockedAreas} /></group>
+          <group name="perf:furniture"><KitFurniture shelves={visualShelves} machines={productionMachines} customers={customers} checkoutTransactions={checkoutTransactions} returnsBin={returnsBin} returnedCartCount={returnedCartCount} lightsOn={lightsOn} dynamicCeilingLights={!renderProfile.mobile || Boolean(renderProfile.baseline)} unlockedAreas={unlockedAreas} /></group>
           <group name="perf:farm"><KitFarm crops={visualCrops} machines={productionMachines} nowMs={simulationTimeMs} unlockedAreas={unlockedAreas} /></group>
           {transferEvents.map((event) => event.kind === "harvest" && event.cropId && event.productId
             ? <HarvestMagnetBurst key={event.sequence} sequence={event.sequence} cropId={event.cropId} productId={event.productId} quantity={event.quantity ?? 1} basketTarget={basketTarget} onProgress={onTransferProgress} />
@@ -276,6 +278,13 @@ function sameMarketSceneProps(previous: MarketSceneProps, next: MarketSceneProps
   return previous.employees === next.employees;
 }
 
+/** Transmission uses a separate scene buffer. Halving only that buffer on
+ * mobile removes three quarters of its pixels while preserving the authored
+ * glass colour, opacity, roughness and environment response. */
+function configureRendererPolicy(gl: THREE.WebGLRenderer, profile: MarketRenderProfile) {
+  gl.transmissionResolutionScale = profile.transmissionResolutionScale;
+}
+
 const LocalEnvironment = memo(function LocalEnvironment() {
   return <Environment resolution={64} frames={1} environmentIntensity={0.28}>
     <Lightformer form="rect" intensity={2.4} color="#fff3d2" position={[0, 8, 2]} rotation={[Math.PI / 2, 0, 0]} scale={[12, 12]} />
@@ -284,11 +293,57 @@ const LocalEnvironment = memo(function LocalEnvironment() {
   </Environment>;
 });
 
-function initialMarketCanvasDpr() {
-  if (typeof window === "undefined") return 1;
-  const deviceDpr = Math.max(0.85, Math.min(1.4, window.devicePixelRatio || 1));
-  const mobile = window.matchMedia("(pointer: coarse)").matches || window.innerWidth <= 820;
-  return mobile ? Math.max(0.85, deviceDpr * MARKET_CANVAS_PERFORMANCE.min) : deviceDpr;
+function initialMarketRenderProfile(): MarketRenderProfile {
+  if (typeof window === "undefined") return marketRenderProfileForCapabilities({ width: 1440, coarsePointer: false, devicePixelRatio: 1 });
+  const capabilities = {
+    width: window.innerWidth,
+    coarsePointer: window.matchMedia("(any-pointer: coarse)").matches,
+    devicePixelRatio: window.devicePixelRatio,
+  };
+  return marketPerformanceBaselineEnabled(window.location.search)
+    ? legacyMobileRenderProfile(capabilities)
+    : marketRenderProfileForCapabilities(capabilities);
+}
+
+/** R3F's manual loop is authoritative on touch/mobile hardware. Calling
+ * advance at 30 Hz prevents unrelated component invalidations from silently
+ * restoring a 60 Hz render loop, and it stops all animation/physics callbacks
+ * while the page is hidden. */
+function CappedFrameScheduler({ profile, publishDiagnostics }: { profile: MarketRenderProfile; publishDiagnostics: boolean }) {
+  const advance = useThree((state) => state.advance);
+  useEffect(() => {
+    if (publishDiagnostics) window.dispatchEvent(new CustomEvent("market-render-profile", { detail: profile }));
+    if (!profile.mobile || profile.targetFps >= 60) return;
+    const intervalMs = 1_000 / profile.targetFps;
+    let frameRequest = 0;
+    let nextFrameAt = performance.now();
+    const schedule = (now: number) => {
+      if (document.visibilityState !== "visible") return;
+      if (now >= nextFrameAt - 1) {
+        // R3F's manual frameloop receives seconds (its clock's elapsedTime
+        // unit), while requestAnimationFrame supplies milliseconds.
+        advance(now / 1_000, true);
+        nextFrameAt += intervalMs;
+        // Never replay frames missed while the main thread was occupied.
+        if (nextFrameAt < now) nextFrameAt = now + intervalMs;
+      }
+      frameRequest = window.requestAnimationFrame(schedule);
+    };
+    const visibility = () => {
+      window.cancelAnimationFrame(frameRequest);
+      if (document.visibilityState === "visible") {
+        nextFrameAt = performance.now();
+        frameRequest = window.requestAnimationFrame(schedule);
+      }
+    };
+    frameRequest = window.requestAnimationFrame(schedule);
+    document.addEventListener("visibilitychange", visibility);
+    return () => {
+      window.cancelAnimationFrame(frameRequest);
+      document.removeEventListener("visibilitychange", visibility);
+    };
+  }, [advance, profile, publishDiagnostics]);
+  return null;
 }
 
 /**
@@ -355,7 +410,7 @@ function SceneReadinessProbe({ onReady }: { onReady?: () => void }) {
   return null;
 }
 
-function AdaptiveQualityController({ canvasDpr, onDprChange, publishDiagnostics }: { canvasDpr: number; onDprChange: (dpr: number) => void; publishDiagnostics: boolean }) {
+function AdaptiveQualityController({ canvasDpr, profile, onDprChange, publishDiagnostics }: { canvasDpr: number; profile: MarketRenderProfile; onDprChange: (dpr: number) => void; publishDiagnostics: boolean }) {
   const quality = useRef({ ...INITIAL_ADAPTIVE_QUALITY_STATE });
   const degraded = useRef(false);
   useFrame((state, delta) => {
@@ -364,9 +419,8 @@ function AdaptiveQualityController({ canvasDpr, onDprChange, publishDiagnostics 
     if (result.regress) state.performance.regress();
     if (!result.regress || degraded.current) return;
     degraded.current = true;
-    const deviceDpr = Math.max(0.85, Math.min(1.4, window.devicePixelRatio || 1));
     const performanceFactor = state.performance.min;
-    const desiredDpr = Math.max(0.85, deviceDpr * performanceFactor);
+    const desiredDpr = Math.max(profile.mobile ? 0.75 : 0.85, canvasDpr * performanceFactor);
     if (Math.abs(canvasDpr - desiredDpr) > 0.001) onDprChange(desiredDpr);
     if (publishDiagnostics) {
       window.dispatchEvent(new CustomEvent("market-quality-regress", { detail: {
@@ -378,7 +432,7 @@ function AdaptiveQualityController({ canvasDpr, onDprChange, publishDiagnostics 
   return null;
 }
 
-function MarketKeyLight({ publishDiagnostics }: { publishDiagnostics: boolean }) {
+function MarketKeyLight({ shadowMapSize, publishDiagnostics }: { shadowMapSize: 512 | 1024; publishDiagnostics: boolean }) {
   const light = useRef<THREE.DirectionalLight>(null);
   const [freezeStaticShadow] = useState(() => typeof window !== "undefined" && (
     window.matchMedia("(pointer: coarse)").matches || window.innerWidth <= 820
@@ -399,7 +453,7 @@ function MarketKeyLight({ publishDiagnostics }: { publishDiagnostics: boolean })
       shadow.needsUpdate = true;
     };
   }, [freezeStaticShadow, publishDiagnostics]);
-  return <directionalLight ref={light} position={[8 * WORLD_SCALE, 13 * WORLD_SCALE, 7 * WORLD_SCALE]} intensity={2.3} castShadow shadow-mapSize={[1024, 1024]} shadow-camera-far={30 * WORLD_SCALE} />;
+  return <directionalLight ref={light} position={[8 * WORLD_SCALE, 13 * WORLD_SCALE, 7 * WORLD_SCALE]} intensity={2.3} castShadow shadow-mapSize={[shadowMapSize, shadowMapSize]} shadow-camera-far={30 * WORLD_SCALE} />;
 }
 
 function HarvestMagnetBurst({ sequence, cropId, productId, quantity, basketTarget, onProgress }: { sequence: number; cropId: string; productId: ProductId; quantity: number; basketTarget: RefObject<THREE.Vector3>; onProgress: (sequence: number, remainingQuantity: number) => void }) {
@@ -428,13 +482,15 @@ function HarvestMagnetBurst({ sequence, cropId, productId, quantity, basketTarge
 
   useFrame((_, delta) => {
     elapsed.current += visualTransferDelta(delta);
-    Array.from({ length: particleCount }, (_, index) => index).forEach((index) => {
+    let landedCount = 0;
+    for (let index = 0; index < particleCount; index += 1) {
       const t = THREE.MathUtils.clamp((elapsed.current - index * 0.045) / 0.52, 0, 1);
       if (t >= 1) landed.current[index] = true;
+      if (landed.current[index]) landedCount += 1;
       const particle = particles.current[index];
-      if (!particle) return;
+      if (!particle) continue;
       particle.visible = t < 1 && elapsed.current >= index * 0.045;
-      if (!particle.visible) return;
+      if (!particle.visible) continue;
       const eased = 1 - Math.pow(1 - t, 3);
       const offset = offsets[index];
       particle.position.set(
@@ -445,8 +501,8 @@ function HarvestMagnetBurst({ sequence, cropId, productId, quantity, basketTarge
       particle.rotation.y += delta * (5.5 + index);
       particle.rotation.z = Math.sin(t * Math.PI * 3 + index) * 0.28;
       particle.scale.setScalar((0.86 + Math.sin(Math.PI * t) * 0.24) * (1 - t * 0.18));
-    });
-    const remaining = particleCount - landed.current.filter(Boolean).length;
+    }
+    const remaining = particleCount - landedCount;
     if (remaining === publishedRemaining.current) return;
     publishedRemaining.current = remaining;
     const qaWindow = window as typeof window & { __MARKET_QA__?: Record<string, unknown> };
@@ -505,15 +561,17 @@ function StockMagnetBurst({ sequence, productId, quantity, shelfStart, basketTar
 
   useFrame((_, delta) => {
     elapsed.current += visualTransferDelta(delta);
-    Array.from({ length: particleCount }, (_, index) => index).forEach((index) => {
+    let landedCount = 0;
+    for (let index = 0; index < particleCount; index += 1) {
       const started = elapsed.current >= index * 0.065;
       if (started && !sources.current[index]) sources.current[index] = basketTarget.current.clone();
       const t = THREE.MathUtils.clamp((elapsed.current - index * 0.065) / 0.5, 0, 1);
       if (t >= 1) landed.current[index] = true;
+      if (landed.current[index]) landedCount += 1;
       const particle = particles.current[index];
-      if (!particle) return;
+      if (!particle) continue;
       particle.visible = t < 1 && started;
-      if (!particle.visible) return;
+      if (!particle.visible) continue;
       const eased = t * t * (3 - 2 * t);
       const particleTarget = particleTargets[index];
       const source = sources.current[index] ?? basketTarget.current;
@@ -525,8 +583,8 @@ function StockMagnetBurst({ sequence, productId, quantity, shelfStart, basketTar
       particle.rotation.x += delta * (3.5 + index * 0.3);
       particle.rotation.y += delta * (5.2 + index * 0.45);
       particle.scale.setScalar(0.94 + Math.sin(Math.PI * t) * 0.18);
-    });
-    const remaining = particleCount - landed.current.filter(Boolean).length;
+    }
+    const remaining = particleCount - landedCount;
     if (remaining === publishedRemaining.current) return;
     publishedRemaining.current = remaining;
     const qaWindow = window as typeof window & { __MARKET_QA__?: Record<string, unknown> };
@@ -650,22 +708,52 @@ function DebugProbe({ inspectScene, publishInventory }: { inspectScene: boolean;
     const timer = window.setTimeout(() => {
       const { scene } = get();
       const geometries = new Set<string>();
-      const materials = new Set<string>();
+      const materials = new Set<THREE.Material>();
+      const textures = new Set<string>();
+      const skeletons = new Set<string>();
+      const materialTypes: Record<string, number> = {};
       const groups: Record<string, { meshes: number; instancedMeshes: number; skinnedMeshes: number; shadowCasters: number; triangles: number }> = {};
       const staticBatch = { sourceMeshes: 0, batches: 0, savedDraws: 0 };
+      let objects = 0;
+      let visibleObjects = 0;
       let meshes = 0;
       let instancedMeshes = 0;
       let skinnedMeshes = 0;
+      let sprites = 0;
+      let lights = 0;
+      let shadowLights = 0;
       let shadowCasters = 0;
+      let shadowReceivers = 0;
+      let transparentObjects = 0;
+      let doubleSidedMaterials = 0;
+      scene.traverse((object) => {
+        objects += 1;
+        if (object.visible) visibleObjects += 1;
+        if (object instanceof THREE.Sprite) sprites += 1;
+        if (object instanceof THREE.Light) {
+          lights += 1;
+          if (object.castShadow) shadowLights += 1;
+        }
+      });
       scene.traverseVisible((object) => {
         if (!(object instanceof THREE.Mesh)) return;
         meshes += 1;
         if (object instanceof THREE.InstancedMesh) instancedMeshes += 1;
         if (object instanceof THREE.SkinnedMesh) skinnedMeshes += 1;
         if (object.castShadow) shadowCasters += 1;
+        if (object.receiveShadow) shadowReceivers += 1;
         geometries.add(object.geometry.uuid);
         const objectMaterials = Array.isArray(object.material) ? object.material : [object.material];
-        objectMaterials.forEach((material) => materials.add(material.uuid));
+        if (objectMaterials.some((material) => material.transparent || material.opacity < 1)) transparentObjects += 1;
+        objectMaterials.forEach((material) => {
+          materials.add(material);
+          materialTypes[material.type] = (materialTypes[material.type] ?? 0) + 1;
+          if (material.side === THREE.DoubleSide) doubleSidedMaterials += 1;
+          for (const value of Object.values(material)) {
+            if (value instanceof THREE.Texture) textures.add(value.uuid);
+          }
+        });
+        if (object instanceof THREE.SkinnedMesh && object.skeleton) skeletons.add(object.skeleton.uuid);
         let owner: THREE.Object3D | null = object;
         while (owner && !owner.name.startsWith("perf:")) owner = owner.parent;
         const groupName = owner?.name ?? "perf:other";
@@ -688,11 +776,22 @@ function DebugProbe({ inspectScene, publishInventory }: { inspectScene: boolean;
       });
       window.dispatchEvent(new CustomEvent("market-perf-inventory", { detail: {
         meshes,
+        objects,
+        visibleObjects,
         instancedMeshes,
         skinnedMeshes,
+        sprites,
+        lights,
+        shadowLights,
         shadowCasters,
+        shadowReceivers,
+        transparentObjects,
+        doubleSidedMaterials,
+        skeletons: skeletons.size,
+        textures: textures.size,
         geometries: geometries.size,
         materials: materials.size,
+        materialTypes,
         staticBatch,
         groups,
       } }));
@@ -700,7 +799,15 @@ function DebugProbe({ inspectScene, publishInventory }: { inspectScene: boolean;
     return () => window.clearTimeout(timer);
   }, [get, publishInventory]);
   useFrame(({ gl }, delta) => {
-    const metrics = monitor.current.sample(delta * 1_000, { drawCalls: gl.info.render.calls, triangles: gl.info.render.triangles, textures: gl.info.memory.textures, programs: gl.info.programs?.length ?? 0 });
+    const metrics = monitor.current.sample(delta * 1_000, {
+      drawCalls: gl.info.render.calls,
+      triangles: gl.info.render.triangles,
+      points: gl.info.render.points,
+      lines: gl.info.render.lines,
+      geometries: gl.info.memory.geometries,
+      textures: gl.info.memory.textures,
+      programs: gl.info.programs?.length ?? 0,
+    });
     if (metrics) window.dispatchEvent(new CustomEvent("market-debug-metrics", { detail: metrics }));
     gl.info.reset();
   });
@@ -907,7 +1014,11 @@ function Player({ avatar, carry, crops, checkoutLevel, playerSpeedTier, unlocked
       basketVisual.current.getWorldPosition(basketWorldPosition.current);
       basketTarget.current.copy(basketWorldPosition.current).multiplyScalar(1 / WORLD_SCALE);
     } else {
-      basketTarget.current.copy(playerFocus.current).add(new THREE.Vector3(0, 1.05, 0));
+      basketTarget.current.set(
+        playerFocus.current.x,
+        playerFocus.current.y + 1.05,
+        playerFocus.current.z,
+      );
     }
     if (debug) {
       const qaWindow = window as typeof window & { __MARKET_QA__?: Record<string, unknown> };
@@ -1201,7 +1312,7 @@ const MarketBuilding = memo(function MarketBuilding({ open, doorProgress }: { op
       {([-1, 1] as const).map((side) => <mesh key={`rear-frame-post-${side}`} position={[side * rearDoor.outerPostOffset, (rearDoor.leafHeight + 0.18) / 2, 0.02]} castShadow receiveShadow><boxGeometry args={[rearDoor.postWidth, rearDoor.leafHeight + 0.18, rearDoor.frameDepth]} /><meshStandardMaterial color="#294a41" metalness={0.68} roughness={0.26} /></mesh>)}
       <mesh position={[0, rearDoor.leafHeight + 0.09, 0.02]} castShadow><boxGeometry args={[rearDoor.outerPostOffset * 2 + rearDoor.postWidth, 0.18, rearDoor.frameDepth]} /><meshStandardMaterial color="#294a41" metalness={0.68} roughness={0.26} /></mesh>
       <mesh position={[0, rearDoor.leafHeight + 0.48, 0.035]} castShadow><boxGeometry args={[2.18, 0.5, 0.16]} /><meshStandardMaterial color="#173f35" metalness={0.1} roughness={0.55} /></mesh>
-      <Text position={[0, rearDoor.leafHeight + 0.49, 0.13]} fontSize={0.22} color="#fff3ce" anchorX="center" anchorY="middle" fontWeight={800}>ACCESO FINCA</Text>
+      <Text position={[0, rearDoor.leafHeight + 0.49, 0.13]} fontSize={0.22} color="#fff3ce" anchorX="center" anchorY="middle" fontWeight={800}>GRANJA</Text>
       <mesh position={[0, 0.035, 0]} receiveShadow><boxGeometry args={[rearDoor.outerPostOffset * 2, 0.07, 0.54]} /><meshStandardMaterial color="#8e9894" metalness={0.42} roughness={0.38} /></mesh>
     </group>
     <mesh receiveShadow position={[-11.35, wallHeight / 2, -0.35]}><boxGeometry args={[0.34, wallHeight, 16.5]} /><meshStandardMaterial color="#e5ded2" roughness={0.9} /></mesh>

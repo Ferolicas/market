@@ -131,8 +131,8 @@ def pane(
     thickness = 0.10
     z_min = APERTURE_BOTTOM + inset
     z_max = APERTURE_TOP - inset
-    # A wafer-thin closed solid gives Unity/URP valid outward faces on both
-    # sides and remains visible from inside and outside with back-face culling.
+    # A wafer-thin closed solid gives the renderer valid outward faces on both
+    # sides and stays visible from inside and outside with back-face culling.
     return box(
         name,
         (x_min + inset, y - thickness * 0.5, z_min),

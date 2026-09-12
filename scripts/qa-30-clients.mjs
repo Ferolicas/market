@@ -3,20 +3,24 @@ import path from "node:path";
 import { chromium } from "playwright";
 
 const outputRoot = process.argv[2] ?? "/tmp/market-30-clients-qa";
+const mobile = process.env.MARKET_QA_MOBILE === "1";
 await fs.mkdir(outputRoot, { recursive: true });
 const browser = await chromium.launch({
   headless: process.env.MARKET_QA_HEADFUL !== "1",
   executablePath: "/home/ferney_oliveros/.local/bin/google-chrome",
   args: ["--no-sandbox", "--enable-gpu", "--ignore-gpu-blocklist", "--use-angle=vulkan", "--enable-features=Vulkan", "--disable-background-timer-throttling", "--disable-backgrounding-occluded-windows", "--disable-renderer-backgrounding"],
 });
-const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+const context = await browser.newContext(mobile
+  ? { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true }
+  : { viewport: { width: 1440, height: 1000 } });
+const page = await context.newPage();
 const consoleErrors = []; const pageErrors = []; const failedResponses = [];
 page.on("console", (message) => { if (message.type() === "error") consoleErrors.push(message.text()); });
 page.on("pageerror", (error) => pageErrors.push(error.stack ?? error.message));
 page.on("response", (response) => { if (response.status() >= 400) failedResponses.push({ url: response.url(), status: response.status() }); });
 
 const suffix = Date.now().toString(36);
-await page.goto("http://localhost:3000?debug=1", { waitUntil: "domcontentloaded", timeout: 60_000 });
+await page.goto(`http://localhost:3000?debug=1${mobile ? "&perf=1" : ""}`, { waitUntil: "domcontentloaded", timeout: 60_000 });
 await page.getByRole("button", { name: "Crear perfil nuevo" }).click();
 await page.getByLabel("Tu nombre").fill("Thirty Customer QA");
 await page.getByLabel("Nombre de usuario").fill(`thirty_qa_${suffix}`.slice(0, 24));
@@ -30,7 +34,8 @@ await page.waitForFunction(() => Boolean(window.__MARKET_QA__?.player && window.
 // legitimate save during reload and overwrites the synthetic recovery fixture
 // before loadGame can select it.
 await page.evaluate(() => sessionStorage.setItem("mini-market-qa-freeze", "1"));
-await page.locator(".player-chip button").click();
+if (mobile) await page.locator(".player-chip button").evaluate((button) => button.click());
+else await page.locator(".player-chip button").click();
 await page.waitForFunction(() => window.__MARKET_QA__?.saveStatus === "saved", null, { timeout: 30_000 });
 await page.evaluate(() => {
   const qa = structuredClone(window.__MARKET_QA__);
@@ -94,12 +99,12 @@ const webgl = await page.locator("canvas").first().evaluate((canvas) => {
 });
 await page.screenshot({ path: path.join(outputRoot, "30-clients-performance.png"), fullPage: true });
 const franchise = qa.state.franchises.find((item) => item.id === qa.state.currentFranchiseId);
-const report = { generatedAt: new Date().toISOString(), customers: franchise.customers.length, employees: franchise.employees.length, metrics: qa.metrics, renderer: qa.renderer, debugText, webgl, consoleErrors, pageErrors, failedResponses };
+const report = { generatedAt: new Date().toISOString(), mobile, customers: franchise.customers.length, employees: franchise.employees.length, metrics: qa.metrics, renderer: qa.renderer, debugText, webgl, consoleErrors, pageErrors, failedResponses };
 await fs.writeFile(path.join(outputRoot, "report.json"), JSON.stringify(report, null, 2));
 await browser.close();
 console.log(JSON.stringify(report, null, 2));
 if (report.customers < 30) throw new Error(`La escena de estrés solo conservó ${report.customers} clientes`);
 if (report.employees < 4) throw new Error(`La escena de estrés solo cargó ${report.employees} empleados`);
-if (!report.metrics || report.metrics.fps < 55) throw new Error(`El perfil de escritorio no sostuvo 60 FPS: ${JSON.stringify(report.metrics)}`);
+if (!report.metrics || report.metrics.fps < (mobile ? 20 : 55)) throw new Error(`El perfil ${mobile ? "móvil" : "de escritorio"} no sostuvo su presupuesto: ${JSON.stringify(report.metrics)}`);
 if (!report.webgl || report.webgl.contextLost || report.renderer?.contextLost) throw new Error(`WebGL no permaneció estable: ${JSON.stringify({ webgl: report.webgl, renderer: report.renderer })}`);
 if (report.consoleErrors.length || report.pageErrors.length || report.failedResponses.length) throw new Error(`Errores durante el estrés: ${JSON.stringify({ consoleErrors: report.consoleErrors, pageErrors: report.pageErrors, failedResponses: report.failedResponses })}`);

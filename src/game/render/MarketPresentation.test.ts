@@ -30,6 +30,7 @@ describe("market presentation reconciliation", () => {
       returnsBin: franchise.returnsBin,
       returnedCartCount: franchise.returnedCartCount,
       lightsOn: franchise.lightsOn,
+      dynamicCeilingLights: true,
       unlockedAreas: franchise.unlockedAreas,
     };
     expect(sameFurniturePresentation(base, { ...base, customers: [moved] })).toBe(true);
@@ -60,6 +61,7 @@ describe("market presentation reconciliation", () => {
       returnsBin: franchise.returnsBin,
       returnedCartCount: franchise.returnedCartCount,
       lightsOn: franchise.lightsOn,
+      dynamicCeilingLights: true,
       unlockedAreas: franchise.unlockedAreas,
     };
     expect(sameFurniturePresentation(base, { ...base, customers: [{ ...customer, state: "PICK_PRODUCT" }] })).toBe(false);

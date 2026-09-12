@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { addToCarry, canPickupWarehouse, carriedProductIds, carryQuantity, carryTotal, createCarryContainer, departmentStockingPulses, MAX_WAREHOUSE_PICKUP_BATCH, nextStockingPulse, preferredStockingProduct, primaryCarryProduct, removeFromCarry, transferCarryToShelf, transferWarehouseToCarry } from "./CarrySystem";
 
-const inventory = () => ({ wheat: 0, flour: 0, bread: 0, corn: 0, milk: 0, eggs: 0, cheese: 0, apples: 0, tomatoes: 0, coffee: 0, juice: 0 });
+const inventory = () => ({ wheat: 0, flour: 0, bread: 0, corn: 0, milk: 0, eggs: 0, cheese: 0, apples: 0, tomatoes: 0, oranges: 0, coffee: 0, juice: 0 });
 
 describe("CarrySystem", () => {
   it("combines product types while enforcing total basket capacity", () => {

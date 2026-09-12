@@ -15,6 +15,7 @@ export type ProductConfig = z.infer<typeof productConfigSchema> & { id: ProductI
 
 const rawProducts: ProductConfig[] = [
   { id: "tomatoes", growMs: 4_000, yield: 1, saleMinor: 400, shelfCapacity: 12 },
+  { id: "oranges", growMs: 6_500, yield: 1, saleMinor: 500, shelfCapacity: 12 },
   { id: "wheat", growMs: 6_000, yield: 1 },
   { id: "corn", growMs: 7_000, yield: 1, saleMinor: 700, shelfCapacity: 12 },
   { id: "eggs", cycleMs: 8_000, yield: 1, saleMinor: 900, shelfCapacity: 10 },
@@ -22,7 +23,7 @@ const rawProducts: ProductConfig[] = [
   { id: "flour", cycleMs: 4_000, yield: 1, recipe: { wheat: 2 } },
   { id: "bread", cycleMs: 6_000, yield: 1, saleMinor: 1_400, shelfCapacity: 8, recipe: { flour: 1 } },
   { id: "cheese", cycleMs: 8_000, yield: 1, saleMinor: 2_600, shelfCapacity: 8, recipe: { milk: 2 } },
-  { id: "juice", cycleMs: 5_000, yield: 1, saleMinor: 1_100, shelfCapacity: 8, recipe: { tomatoes: 2 } },
+  { id: "juice", cycleMs: 5_000, yield: 1, saleMinor: 1_100, shelfCapacity: 8, recipe: { oranges: 3 } },
 ];
 
 export const PRODUCT_CONFIG = Object.fromEntries(rawProducts.map((product) => {

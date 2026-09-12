@@ -64,7 +64,7 @@ const report = {
   simulationAdvanced: clockBefore !== clockAfter,
   clockBefore,
   clockAfter,
-  serviceWorkerCacheV8: serviceWorkerSource.includes("mini-market-v8"),
+  serviceWorkerCacheV9: serviceWorkerSource.includes("mini-market-v9"),
   consoleErrors,
   pageErrors,
   failedResponses,
@@ -77,5 +77,5 @@ if (runtimeSurface.hasQaHook || runtimeSurface.hasPathHook || runtimeSurface.met
   throw new Error(`El build público expuso superficie QA: ${JSON.stringify({ runtimeSurface, debugOverlayCount })}`);
 }
 if (!report.simulationAdvanced) throw new Error(`perf-freeze detuvo indebidamente el build público: ${JSON.stringify({ clockBefore, clockAfter })}`);
-if (!report.serviceWorkerCacheV8) throw new Error("El service worker público no usa mini-market-v8.");
+if (!report.serviceWorkerCacheV9) throw new Error("El service worker público no usa mini-market-v9.");
 if (consoleErrors.length || pageErrors.length || failedResponses.length) throw new Error(`Errores durante QA pública: ${JSON.stringify({ consoleErrors, pageErrors, failedResponses })}`);

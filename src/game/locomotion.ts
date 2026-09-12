@@ -51,8 +51,8 @@ export const VISITOR_ROUTES: Record<number, VisitorRoute> = {
   // The positive-X entrance lane stays inside the cart-bay fixture rather
   // than grazing its padded left edge. This is a real route displacement:
   // the customer/cart clearance in world-scale remains unchanged.
-  2: { browse: [0, -3.35], queue: checkoutQueuePosition(1), enterVia: [[1.5, 5.6], [1.5, -3.35]], queueVia: [[2.15, -3.35], [5.35, -3.35]] },
-  3: { browse: [4.1, -0.9], queue: checkoutQueuePosition(2), enterVia: [[1.5, 5.6], [1.5, 0.45]], queueVia: [[5.35, -0.9]] },
+  2: { browse: [0, 2.75], queue: checkoutQueuePosition(1), enterVia: [[1.5, 5.6], [1.5, 2.75]], queueVia: [[2.15, 2.75], [5.35, 2.75]] },
+  3: { browse: [3.25, -0.9], queue: checkoutQueuePosition(2), enterVia: [[1.5, 5.6], [1.5, 0.45], [3.25, 0.45]], queueVia: [[3.25, 0.8], [5.35, 0.8], [5.35, -0.9]] },
   4: { browse: [-4.0, 4.15], queue: checkoutQueuePosition(3), enterVia: [[-2.2, 5.6]], queueVia: [[5.35, 4.15]] },
   5: { browse: [0, 4.2], queue: checkoutQueuePosition(4), enterVia: [[0, 5.6]], queueVia: [[5.35, 4.2]] },
   6: { browse: [4.0, 4.15], queue: checkoutQueuePosition(5), enterVia: [[1.5, 5.6]], queueVia: [[5.35, 4.15]] },

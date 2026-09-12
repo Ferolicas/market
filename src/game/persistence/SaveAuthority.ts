@@ -51,7 +51,7 @@ export function validateSaveTransition(current: GameState, next: GameState, even
   return { ok: true };
 }
 
-const PRODUCT_IDS: ProductId[] = ["wheat", "flour", "bread", "corn", "milk", "eggs", "cheese", "apples", "tomatoes", "coffee", "juice"];
+const PRODUCT_IDS: ProductId[] = ["wheat", "flour", "bread", "corn", "milk", "eggs", "cheese", "apples", "tomatoes", "oranges", "coffee", "juice"];
 
 function hasInvalidInventory(inventory: Inventory) {
   return PRODUCT_IDS.some((productId) => !Number.isSafeInteger(inventory[productId]) || inventory[productId] < 0 || inventory[productId] > 1_000_000);

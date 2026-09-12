@@ -9,7 +9,7 @@ export const MAX_WAREHOUSE_PICKUP_BATCH = CAPACITY_TIERS[CAPACITY_TIERS.length -
  * is taken per round, so a single proximity pass can build a mixed basket
  * instead of letting the first warehouse key monopolise all free capacity. */
 export const WAREHOUSE_PICKUP_PRODUCT_ORDER: readonly ProductId[] = [
-  "wheat", "flour", "bread", "corn", "milk", "eggs", "cheese", "apples", "tomatoes", "coffee", "juice",
+  "wheat", "flour", "bread", "corn", "milk", "eggs", "cheese", "apples", "tomatoes", "oranges", "coffee", "juice",
 ];
 
 export function createCarryContainer(tier = 0): CarryState {

@@ -10,12 +10,12 @@ const root = process.cwd();
 const modelRoot = join(root, "public", "models", "market");
 const familyConfig = {
   characters: {
-    lod1: { ratio: 0.3, error: 0.008, maxRenderVertices: 30_000, textureSize: 768 },
-    lod2: { ratio: 0.18, error: 0.015, maxRenderVertices: 18_000, textureSize: 512 },
+    lod1: { ratio: 0.045, error: 0.02, maxRenderVertices: 30_000, textureSize: 768 },
+    lod2: { ratio: 0.027, error: 0.035, maxRenderVertices: 18_000, textureSize: 512 },
   },
   customers: {
-    lod1: { ratio: 0.45, error: 0.008, maxRenderVertices: 20_000, textureSize: 768 },
-    lod2: { ratio: 0.27, error: 0.015, maxRenderVertices: 12_000, textureSize: 512 },
+    lod1: { ratio: 0.03, error: 0.02, maxRenderVertices: 20_000, textureSize: 768 },
+    lod2: { ratio: 0.018, error: 0.035, maxRenderVertices: 12_000, textureSize: 512 },
   },
 };
 

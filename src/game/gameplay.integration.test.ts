@@ -203,7 +203,7 @@ describe("real supermarket loop", () => {
     expect(state.franchises[0].crops[0]).toMatchObject({ status: "READY", available: 3 });
     state = act(state, { type: "HARVEST", cropId: franchise.crops[0].id, productId: "tomatoes" });
     state = act(state, { type: "STOCK", productId: "tomatoes", quantity: 1, source: "carry" });
-    state = tick(state, 65);
+    state = tick(state, 75);
     expect(state.franchises[0].customers.some((customer) => customerBasketUnitsForTest(customer) > 0)).toBe(true);
     expect(state.franchises[0].checkoutTransactions.some((transaction) => transaction.state !== "COMPLETE")).toBe(true);
   });
@@ -358,7 +358,7 @@ describe("real supermarket loop", () => {
     state.level = 30;
     state.franchises[0].open = true;
     state.franchises[0].unlockedAreas.push("checkout-2");
-    for (const id of ["tomatoes", "bread", "eggs", "corn", "milk", "cheese", "juice"] as ProductId[]) state.franchises[0].shelves[id] = 200;
+    for (const id of ["tomatoes", "oranges", "bread", "eggs", "corn", "milk", "cheese", "juice"] as ProductId[]) state.franchises[0].shelves[id] = 200;
     state = act(state, { type: "HIRE", role: "cashier" });
     const saleIds = new Set<string>();
     for (let second = 0; second < 180; second += 1) {

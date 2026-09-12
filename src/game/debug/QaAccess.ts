@@ -14,6 +14,13 @@ export function marketPerformanceProbeEnabled(search: string, enabled = MARKET_Q
   return enabled && new URLSearchParams(search).has("perf");
 }
 
+/** Reproduces the pre-audit renderer policy against the current scene so A/B
+ * measurements do not compare different gameplay or asset revisions. */
+export function marketPerformanceBaselineEnabled(search: string, enabled = MARKET_QA_BUILD_ENABLED) {
+  const params = new URLSearchParams(search);
+  return enabled && params.has("perf") && params.has("perf-baseline");
+}
+
 export function marketQaFreezeEnabled(search: string, freezeToken: string | null, enabled = MARKET_QA_BUILD_ENABLED) {
   if (!enabled) return false;
   const params = new URLSearchParams(search);

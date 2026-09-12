@@ -1,8 +1,7 @@
 import { CHECKOUT_LANES } from "./stations/checkout-layout";
 import { FARM_OBSTACLES } from "./stations/farm-layout";
-import { RETAIL_DEPARTMENT_IDS, RETAIL_DEPARTMENTS } from "./stations/retail-layout";
+import { PANTRY_DISPLAY_POSITIONS, PRODUCE_DISPLAY_POSITIONS, RETAIL_DEPARTMENT_IDS, RETAIL_DEPARTMENTS } from "./stations/retail-layout";
 import { STORE_SERVICE_FIXTURE_IDS, STORE_SERVICE_FIXTURES } from "./stations/store-service-layout";
-import { STORE_REAR_DOOR } from "./stations/storefront-layout";
 import { PRODUCTION_CUBICLE, STORE_PRODUCTION_FIXTURES } from "./stations/production-layout";
 
 export { STORE_PRODUCTION_FIXTURES } from "./stations/production-layout";
@@ -40,28 +39,30 @@ const productionCubicleObstacles: StoreObstacle[] = PRODUCTION_CUBICLE.walls.map
   halfZ: wall.halfZ * STORE_LAYOUT_SCALE / STORE_ELEMENT_SCALE,
 }));
 
-const retailObstacles: StoreObstacle[] = RETAIL_DEPARTMENT_IDS.map((departmentId) => {
+const retailObstacles: StoreObstacle[] = RETAIL_DEPARTMENT_IDS.flatMap((departmentId) => {
   const department = RETAIL_DEPARTMENTS[departmentId];
   const quarterTurn = Math.abs(department.yaw ?? 0) % 180 === 90;
-  return {
-    id: `fixture:retail-${departmentId}`,
-    x: department.display[0],
-    z: department.display[2],
+  const displays = departmentId === "pantry"
+    ? PANTRY_DISPLAY_POSITIONS
+    : departmentId === "produce"
+      ? PRODUCE_DISPLAY_POSITIONS
+      : [department.display] as const;
+  return displays.map((display, index) => ({
+    id: `fixture:retail-${departmentId}-${index + 1}`,
+    x: display[0],
+    z: display[2],
     halfX: department.fixtureHalfExtents[quarterTurn ? 1 : 0],
     halfZ: department.fixtureHalfExtents[quarterTurn ? 0 : 1],
-  };
+  }));
 });
 
 const BASE_STORE_OBSTACLES: StoreObstacle[] = [
   ...[-5.2, -2.8, -0.4, 2].map((x) => ({ x, z: -8.05, halfX: 1.12, halfZ: 0.5 })),
-  { x: 5.25, z: -8, halfX: 1.2, halfZ: 0.5 },
-  { x: STORE_REAR_DOOR.adjacentRackPosition[0], z: STORE_REAR_DOOR.adjacentRackPosition[2], halfX: 0.85, halfZ: 0.5 },
   ...retailObstacles,
   { x: CHECKOUT_LANES[0].counter[0], z: CHECKOUT_LANES[0].counter[2], halfX: 2.25, halfZ: 0.65 },
   { x: CHECKOUT_LANES[1].counter[0], z: CHECKOUT_LANES[1].counter[2], halfX: 2.25, halfZ: 0.65 },
   ...productionObstacles,
   ...productionCubicleObstacles,
-  { x: -7, z: 3.15, halfX: 1.05, halfZ: 0.7 },
   { x: 8.8, z: -2.65, halfX: 0.95, halfZ: 1.55 },
   { x: 8.8, z: -5.35, halfX: 0.95, halfZ: 0.7 },
   ...STORE_SERVICE_FIXTURE_IDS.map((fixtureId) => {

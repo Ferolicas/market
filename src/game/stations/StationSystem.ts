@@ -7,7 +7,7 @@ export type MachineStatus = "LOCKED" | "IDLE" | "WAITING_INPUT" | "PROCESSING" |
 
 export interface CropStation {
   id: string;
-  productId: "tomatoes" | "wheat" | "corn";
+  productId: "tomatoes" | "oranges" | "wheat" | "corn";
   status: CropStatus;
   plantedAt: number;
   readyAt: number;

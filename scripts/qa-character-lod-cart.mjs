@@ -88,6 +88,7 @@ const samples = await page.evaluate(() => new Promise((resolve) => {
 await page.screenshot({ path: path.join(outputRoot, "mobile-lod-cart.png"), fullPage: true });
 
 const controlledCartSamples = samples.filter((sample) => sample.cartVisible && sample.cartGripDistance !== null && !["GET_CART", "RETURN_CART"].includes(sample.state));
+const worstCartGripSample = controlledCartSamples.reduce((worst, sample) => !worst || sample.cartGripDistance > worst.cartGripDistance ? sample : worst, null);
 const tiers = [...new Set(samples.map((sample) => sample.characterModelTier).filter((tier) => tier !== undefined))].sort();
 const drawCalls = samples.map((sample) => sample.cartBaseDrawCalls).filter((value) => Number.isFinite(value) && value > 0);
 const report = {
@@ -100,6 +101,7 @@ const report = {
   cartBaseDrawCalls: drawCalls.length ? { min: Math.min(...drawCalls), max: Math.max(...drawCalls) } : null,
   cartGripSamples: controlledCartSamples.length,
   maxCartGripDistance: controlledCartSamples.length ? Math.max(...controlledCartSamples.map((sample) => sample.cartGripDistance)) : null,
+  worstCartGripSample,
   modelResponses: [...new Map(modelResponses.map((entry) => [entry.pathname, entry])).values()],
   consoleErrors,
   pageErrors,

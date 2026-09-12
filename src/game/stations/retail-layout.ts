@@ -19,15 +19,26 @@ export interface RetailDepartment {
 /** Reach measured outwards from every physical edge of a retail fixture. */
 export const RETAIL_STOCKING_MAGNET_REACH = { enter: 1.1, exit: 1.3 } as const;
 
+const INDIVIDUAL_FLOOR_TILE_LAYOUT = 46 / (12 * 3 * 2);
+export const PANTRY_DISPLAY_POSITIONS = [
+  [0, 0, 1.4],
+  [0, 0, -0.9],
+  [0, 0, -3.2],
+] as const;
+export const PRODUCE_DISPLAY_POSITIONS = [
+  [-4.55, 0, 4.1 - 4 * INDIVIDUAL_FLOOR_TILE_LAYOUT],
+  [-7.3, 0, 4.1 - 4 * INDIVIDUAL_FLOOR_TILE_LAYOUT],
+] as const;
+
 export const RETAIL_DEPARTMENTS: Record<RetailDepartmentId, RetailDepartment> = {
   // Service points remain useful route destinations, but the actual stocking
   // volume wraps the complete fixture footprint so every walkable side works.
-  bakery: { id: "bakery", label: "PAN Y HARINAS", color: "#b96d39", display: [-4, 0, -2.2], fixtureHalfExtents: [1.2, 0.78], service: [-4, -0.88], products: ["bread", "flour", "wheat"] },
-  pantry: { id: "pantry", label: "DESPENSA", color: "#6f4938", display: [0, 0, -2.2], fixtureHalfExtents: [1.2, 0.78], service: [0, -0.88], products: ["coffee"] },
-  eggs: { id: "eggs", label: "HUEVOS", color: "#d49a34", display: [4, 0, -2.2], fixtureHalfExtents: [1.2, 0.78], service: [4, -0.88], products: ["eggs"] },
-  produce: { id: "produce", label: "FRUTAS Y VERDURAS", color: "#3f7b4c", display: [-4.1, 0, 2.45], fixtureHalfExtents: [1.25, 0.83], service: [-4.1, 1.08], products: ["tomatoes", "apples", "corn"] },
-  dairy: { id: "dairy", label: "LÁCTEOS", color: "#4382a1", display: [-10.5, 0, 6], yaw: -90, fixtureHalfExtents: [1.25, 0.83], service: [-9.4, 6], products: ["milk", "cheese"] },
-  drinks: { id: "drinks", label: "BEBIDAS", color: "#cc6841", display: [-10.5, 0, 2.25], yaw: -90, fixtureHalfExtents: [1.18, 0.8], service: [-9.4, 2.25], products: ["juice"] },
+  bakery: { id: "bakery", label: "PAN Y HARINAS", color: "#b96d39", display: [-4.3, 0, -5], yaw: 90, fixtureHalfExtents: [1.2, 0.78], service: [-3.05, -5], products: ["bread", "flour", "wheat"] },
+  pantry: { id: "pantry", label: "DESPENSA", color: "#6f4938", display: [...PANTRY_DISPLAY_POSITIONS[0]], yaw: 0, fixtureHalfExtents: [1.2, 0.78], service: [0, 2.75], products: ["coffee"] },
+  eggs: { id: "eggs", label: "HUEVOS", color: "#d49a34", display: [-10.25, 0, -1.75], yaw: 0, fixtureHalfExtents: [1.2, 0.78], service: [-10.25, -0.4], products: ["eggs"] },
+  produce: { id: "produce", label: "FRUTAS Y VERDURAS", color: "#3f7b4c", display: [...PRODUCE_DISPLAY_POSITIONS[0]], yaw: 0, fixtureHalfExtents: [1.25, 0.83], service: [-4.55, 4.1 - 4 * INDIVIDUAL_FLOOR_TILE_LAYOUT - 1.35], products: ["tomatoes", "apples", "oranges", "corn"] },
+  dairy: { id: "dairy", label: "LÁCTEOS", color: "#4382a1", display: [-10.34, 0, 0.45 + 3 * INDIVIDUAL_FLOOR_TILE_LAYOUT], yaw: -90, fixtureHalfExtents: [1.25, 0.83], service: [-9.24, 0.45 + 3 * INDIVIDUAL_FLOOR_TILE_LAYOUT], products: ["milk", "cheese"] },
+  drinks: { id: "drinks", label: "BEBIDAS", color: "#cc6841", display: [4.35, 0, -0.9], yaw: -90, fixtureHalfExtents: [1.18, 0.8], service: [3.25, -0.9], products: ["juice"] },
 };
 
 export const RETAIL_DEPARTMENT_IDS = Object.keys(RETAIL_DEPARTMENTS) as RetailDepartmentId[];
@@ -51,6 +62,7 @@ export const RETAIL_VISUAL_CAPACITY: Record<ProductId, number> = {
   eggs: 24,
   tomatoes: 26,
   apples: 26,
+  oranges: 26,
   corn: 26,
   milk: 25,
   cheese: 25,
@@ -60,6 +72,7 @@ export const RETAIL_VISUAL_CAPACITY: Record<ProductId, number> = {
 export const PRODUCT_RETAIL_DEPARTMENT: Record<ProductId, RetailDepartmentId> = {
   tomatoes: "produce",
   apples: "produce",
+  oranges: "produce",
   corn: "produce",
   eggs: "eggs",
   milk: "dairy",
@@ -154,14 +167,14 @@ export function retailStockLandingLocalPosition(productId: ProductId, ordinalInp
     return [centeredSlot(ordinal % perRow, count, 0.2), RETAIL_FIXTURE_LEVELS.drinks[row] + 0.14, 0.21];
   }
 
-  const productColumn = productId === "tomatoes" ? 0 : productId === "apples" ? 1 : 2;
+  const productColumn = productId === "tomatoes" ? 0 : productId === "apples" ? 1 : productId === "oranges" ? 2 : 3;
   if (ordinal < 9) {
     const row = Math.floor(ordinal / 3);
     const angle = 0.17;
     const innerY = row * 0.055;
     const innerZ = (row - 1) * 0.17;
     return [
-      [-0.76, 0, 0.76][productColumn] + (ordinal % 3 - 1) * 0.16,
+      [-0.82, -0.28, 0.28, 0.82][productColumn] + (ordinal % 3 - 1) * 0.13,
       0.88 + Math.cos(angle) * innerY - Math.sin(angle) * innerZ,
       -0.31 + Math.sin(angle) * innerY + Math.cos(angle) * innerZ,
     ];
@@ -172,7 +185,7 @@ export function retailStockLandingLocalPosition(productId: ProductId, ordinalInp
   const innerY = row * 0.035;
   const innerZ = (row - 2) * 0.1;
   return [
-    (productColumn - 1) * 0.53 + (raisedOrdinal % 4 - 1.5) * 0.12,
+    (productColumn - 1.5) * 0.42 + (raisedOrdinal % 4 - 1.5) * 0.09,
     1.27 + Math.cos(angle) * innerY - Math.sin(angle) * innerZ,
     0.29 + Math.sin(angle) * innerY + Math.cos(angle) * innerZ,
   ];

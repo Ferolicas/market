@@ -62,6 +62,10 @@ export const HarvestBasket = forwardRef<THREE.Group, { carry: CarryState }>(func
 });
 
 export function BasketProduct({ productId, position = [0, 0, 0], rotation = [0, 0, 0], scale = 1 }: { productId: ProductId; position?: [number, number, number]; rotation?: [number, number, number]; scale?: number }) {
+  if (productId === "oranges") return <mesh castShadow position={position} rotation={rotation} scale={scale}>
+    <icosahedronGeometry args={[0.085, 1]} />
+    <meshStandardMaterial color="#D58236" roughness={0.58} />
+  </mesh>;
   if (productId === "tomatoes" || productId === "apples") {
     const tomato = productId === "tomatoes";
     return <group position={position} rotation={rotation} scale={scale}>

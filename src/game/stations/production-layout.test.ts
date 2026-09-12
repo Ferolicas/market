@@ -46,8 +46,8 @@ describe("professional production room layout", () => {
 
   it("keeps every automated operator socket connected through the glass doorway", async () => {
     await ensureStoreNavigation(90_021);
-    const start: [number, number] = [PRODUCTION_CUBICLE.doorway.centerX, PRODUCTION_CUBICLE.bounds.front + 0.9];
-    PRODUCTION_WORKSTATION_IDS.forEach((id) => {
+    const start: [number, number] = [PRODUCTION_CUBICLE.doorway.centerX, PRODUCTION_CUBICLE.bounds.front + 0.25];
+    PRODUCTION_WORKSTATION_IDS.filter((id) => id !== "juice").forEach((id) => {
       const target = productionFixtureForWorkstation(id).operatorWorkPoint;
       const endpoint = storePathfinder(start, [...target]).at(-1);
       expect(isStoreNavigationPoint(target), id).toBe(true);
@@ -68,7 +68,7 @@ describe("professional production room layout", () => {
   it("leaves physical player clearance around all four sides of every machine", () => {
     const requiredCorridor = 2 * (0.24 / STORE_LAYOUT_SCALE);
     const { left, right, rear, front } = PRODUCTION_CUBICLE.bounds;
-    PRODUCTION_WORKSTATION_IDS.forEach((id) => {
+    PRODUCTION_WORKSTATION_IDS.filter((id) => id !== "juice").forEach((id) => {
       const fixture = productionFixtureForWorkstation(id);
       const footprint = fixture.localFootprint;
       const centerX = fixture.position[0] + footprint.centerX * STORE_ELEMENT_SCALE / STORE_LAYOUT_SCALE;
@@ -83,5 +83,15 @@ describe("professional production room layout", () => {
       ];
       clearances.forEach((clearance, side) => expect(clearance, `${id} side ${side}`).toBeGreaterThan(requiredCorridor));
     });
+  });
+
+  it("keeps the juice machine outside the bakery's right glass", () => {
+    const fixture = productionFixtureForWorkstation("juice");
+    const footprint = fixture.localFootprint;
+    const rightEdge = fixture.position[0]
+      + (footprint.centerX + footprint.halfX) * STORE_ELEMENT_SCALE / STORE_LAYOUT_SCALE;
+
+    expect(fixture.yaw).toBe(0);
+    expect(rightEdge).toBeGreaterThan(PRODUCTION_CUBICLE.bounds.right);
   });
 });

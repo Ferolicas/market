@@ -34,7 +34,7 @@ export const STOREFRONT_LAYOUT = {
  */
 export const STORE_REAR_DOOR = {
   x: 7.5,
-  z: -8.45,
+  z: -8.55,
   wallCenterZ: -8.55,
   wallHalfWidth: 11.5,
   wallDepth: 0.32,
@@ -42,7 +42,8 @@ export const STORE_REAR_DOOR = {
   outsideApproach: [7.5, -9.35] as const,
   /** Clear interior aisle from the central sales floor to the threshold. */
   interiorCorridor: [
-    [2.2, 0.45],
+    [-2.2, 0.25],
+    [2.2, 0.25],
     [2.2, -3.2],
     [2.7, -3.65],
     [6.8, -6.35],
@@ -52,20 +53,20 @@ export const STORE_REAR_DOOR = {
   // footprint invaded the new passage after navigation clearance was added.
   adjacentRackPosition: [9.65, 0, -7.85] as const,
   door: {
-    leafWidth: 1.28,
-    leafHeight: 3.35,
-    leafDepth: 0.07,
-    closedCenterOffset: 0.64,
-    openTravel: 1.37,
-    outerPostOffset: 1.36,
-    postWidth: 0.12,
-    frameDepth: 0.2,
+    leafWidth: STOREFRONT_LAYOUT.door.leafWidth,
+    leafHeight: STOREFRONT_LAYOUT.door.leafHeight,
+    leafDepth: STOREFRONT_LAYOUT.door.leafDepth,
+    closedCenterOffset: STOREFRONT_LAYOUT.door.closedCenterOffset,
+    openTravel: STOREFRONT_LAYOUT.door.openTravel,
+    outerPostOffset: STOREFRONT_LAYOUT.door.outerPostX,
+    postWidth: STOREFRONT_LAYOUT.door.postWidth,
+    frameDepth: STOREFRONT_LAYOUT.door.frameDepth,
   },
   sensor: {
-    enterRadius: 2.25,
+    enterRadius: 2.35,
     exitRadius: 2.65,
-    actorHalfWidth: 2.2,
-    actorHalfDepth: 2.45,
+    actorHalfWidth: STOREFRONT_LAYOUT.sensor.actorHalfWidth,
+    actorHalfDepth: STOREFRONT_LAYOUT.sensor.actorHalfDepth,
   },
   motion: {
     openMs: 310,

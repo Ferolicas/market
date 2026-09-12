@@ -17,6 +17,7 @@ const PRODUCT_IDS: readonly ProductId[] = [
   "cheese",
   "apples",
   "tomatoes",
+  "oranges",
   "coffee",
   "juice",
 ];
@@ -29,6 +30,7 @@ export interface FurniturePresentationProps {
   returnsBin: Inventory;
   returnedCartCount: number;
   lightsOn: boolean;
+  dynamicCeilingLights: boolean;
   unlockedAreas: string[];
 }
 
@@ -49,7 +51,7 @@ export function sameFurniturePresentation(
   previous: Readonly<FurniturePresentationProps>,
   next: Readonly<FurniturePresentationProps>,
 ) {
-  if (previous.returnedCartCount !== next.returnedCartCount || previous.lightsOn !== next.lightsOn) return false;
+  if (previous.returnedCartCount !== next.returnedCartCount || previous.lightsOn !== next.lightsOn || previous.dynamicCeilingLights !== next.dynamicCeilingLights) return false;
   if (!sameStringList(previous.unlockedAreas, next.unlockedAreas)) return false;
   if (!sameInventory(previous.shelves, next.shelves) || !sameInventory(previous.returnsBin, next.returnsBin)) return false;
   if (!sameMachinePresentation(previous.machines, next.machines)) return false;

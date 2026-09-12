@@ -11,7 +11,7 @@ import { CHECKOUT_LANES, activeCheckoutForLane, checkoutBagLocation, checkoutHan
 import { cropVisualSlotIndices } from "@/game/stations/crop-visual";
 import { FARM_ANIMAL_STATIONS, FARM_FACILITIES, FARM_FIELD, FARM_GATE, FARM_PLOTS, farmGateOpenLeafTerminalPost } from "@/game/stations/farm-layout";
 import { STORE_REAR_DOOR } from "@/game/stations/storefront-layout";
-import { RETAIL_DEPARTMENTS, RETAIL_FIXTURE_LEVELS, RETAIL_VISUAL_CAPACITY, retailDisplayPosition, retailStockLandingLocalPosition } from "@/game/stations/retail-layout";
+import { PANTRY_DISPLAY_POSITIONS, PRODUCE_DISPLAY_POSITIONS, RETAIL_DEPARTMENTS, RETAIL_FIXTURE_LEVELS, RETAIL_VISUAL_CAPACITY, retailDisplayPosition, retailStockLandingLocalPosition } from "@/game/stations/retail-layout";
 import { STORE_SERVICE_FIXTURES } from "@/game/stations/store-service-layout";
 import { PRODUCTION_CUBICLE, STORE_PRODUCTION_FIXTURES, type ProductionFixtureLayout } from "@/game/stations/production-layout";
 import { marketAsset } from "@/game/assets/AssetRegistry";
@@ -135,6 +135,9 @@ function DepartmentSign({ label, color, position = [0, 1.82, 0.03], width = 1.72
 }
 
 function RetailProduct({ productId, position, scale = 1 }: { productId: ProductId; position: Position; scale?: number }) {
+  if (productId === "oranges") return <mesh name={`retail-product:${productId}`} castShadow position={position} scale={scale}>
+    <icosahedronGeometry args={[0.09, 1]} /><meshStandardMaterial color="#D58236" roughness={0.58} />
+  </mesh>;
   if (productId === "tomatoes") return <group name={`retail-product:${productId}`} position={position} scale={scale}>
     <mesh castShadow scale={[1, 0.86, 1]}><sphereGeometry args={[0.09, 14, 10]} /><meshStandardMaterial color="#d94838" roughness={0.78} /></mesh>
     <mesh position={[0, 0.078, 0]} rotation={[0, 0, Math.PI]}><coneGeometry args={[0.052, 0.045, 5]} /><meshStandardMaterial color="#37743e" roughness={0.9} /></mesh>
@@ -168,6 +171,7 @@ function RetailProduct({ productId, position, scale = 1 }: { productId: ProductI
 }
 
 const TOMATO_BODY: InstanceTransform = { position: [0, 0, 0], scale: [1, 0.86, 1] };
+const ORANGE_BODY: InstanceTransform = { position: [0, 0, 0] };
 const TOMATO_CROWN: InstanceTransform = { position: [0, 0.078, 0], rotation: [0, 0, Math.PI] };
 const APPLE_BODY: InstanceTransform = { position: [0, 0, 0], scale: [0.92, 1, 0.92] };
 const APPLE_STEM: InstanceTransform = { position: [0, 0.102, 0] };
@@ -200,6 +204,10 @@ function RetailProductBatch({ productId, transforms, capacity }: { productId: Pr
     {anchors}
     <StaticInstances transforms={transforms} capacity={capacity} component={TOMATO_BODY} castShadow><sphereGeometry args={[0.09, 14, 10]} /><meshStandardMaterial color="#d94838" roughness={0.78} /></StaticInstances>
     <StaticInstances transforms={transforms} capacity={capacity} component={TOMATO_CROWN}><coneGeometry args={[0.052, 0.045, 5]} /><meshStandardMaterial color="#37743e" roughness={0.9} /></StaticInstances>
+  </group>;
+  if (productId === "oranges") return <group name={`retail-stock:${productId}`}>
+    {anchors}
+    <StaticInstances transforms={transforms} capacity={capacity} component={ORANGE_BODY} castShadow><icosahedronGeometry args={[0.09, 1]} /><meshStandardMaterial color="#D58236" roughness={0.58} /></StaticInstances>
   </group>;
   if (productId === "apples") return <group name={`retail-stock:${productId}`}>
     {anchors}
@@ -248,10 +256,10 @@ function RetailProductBatch({ productId, transforms, capacity }: { productId: Pr
 
 function AuthoritativeRetailStock({ productId, count }: { productId: ProductId; count: number }) {
   const visualCount = Math.min(RETAIL_VISUAL_CAPACITY[productId], Math.max(0, Math.floor(Number.isFinite(count) ? count : 0)));
-  const scale = productId === "eggs" || productId === "tomatoes" || productId === "apples" || productId === "corn" ? 0.9 : 0.92;
+  const scale = productId === "eggs" || productId === "tomatoes" || productId === "oranges" || productId === "apples" || productId === "corn" ? 0.9 : 0.92;
   const transforms = useMemo<InstanceTransform[]>(() => Array.from({ length: visualCount }, (_, ordinal) => ({
     position: retailStockLandingLocalPosition(productId, ordinal, visualCount),
-    rotation: productId === "tomatoes" || productId === "apples" || productId === "corn" ? [ordinal < 9 ? 0.17 : 0.08, 0, 0] : undefined,
+    rotation: productId === "tomatoes" || productId === "oranges" || productId === "apples" || productId === "corn" ? [ordinal < 9 ? 0.17 : 0.08, 0, 0] : undefined,
     scale: [scale, scale, scale],
   })), [productId, scale, visualCount]);
   return <RetailProductBatch productId={productId} transforms={transforms} capacity={RETAIL_VISUAL_CAPACITY[productId]} />;
@@ -259,6 +267,10 @@ function AuthoritativeRetailStock({ productId, count }: { productId: ProductId; 
 
 function StoreElement({ position, yaw = 0, children }: { position: Position; yaw?: number; children: ReactNode }) {
   return <group position={scaleStorePosition(position)} rotation={[0, THREE.MathUtils.degToRad(yaw), 0]} scale={STORE_ELEMENT_SCALE}>{children}</group>;
+}
+
+function distributedQuantity(total: number, index: number, fixtureCount: number) {
+  return Math.max(0, Math.floor((Math.max(0, total) + fixtureCount - 1 - index) / fixtureCount));
 }
 
 type EnvironmentFrameHandler = (model: THREE.Group, delta: number, elapsed: number) => void;
@@ -298,7 +310,7 @@ function EnvironmentFrameDriver({ model, onFrame }: { model: THREE.Group; onFram
   return null;
 }
 
-export const KitFurniture = memo(function KitFurniture({ shelves, machines, customers, checkoutTransactions, returnsBin, returnedCartCount, lightsOn, unlockedAreas }: FurniturePresentationProps) {
+export const KitFurniture = memo(function KitFurniture({ shelves, machines, customers, checkoutTransactions, returnsBin, returnedCartCount, lightsOn, dynamicCeilingLights, unlockedAreas }: FurniturePresentationProps) {
   const root = useRef<THREE.Group>(null);
   const structureRevision = unlockedAreas.join("|");
   const machine = (id: string) => machines.find((candidate) => candidate.id === id);
@@ -318,18 +330,13 @@ export const KitFurniture = memo(function KitFurniture({ shelves, machines, cust
   return <group ref={root}>
     <StaticBatchOptimizer rootRef={root} structureRevision={structureRevision} />
     <StoreElement position={[-1.6, 0, -8.05]}><OperationsWall /></StoreElement>
-    <StoreElement position={[5.25, 0, -8.0]}><BackroomColdStorage position={[0, 0, 0]} /></StoreElement>
-    <StoreElement position={[...STORE_REAR_DOOR.adjacentRackPosition]}><MetalRack position={[0, 0, 0]} /></StoreElement>
 
-    <StoreElement position={retailDisplayPosition("bakery")}><BakeryDisplay bread={shelves.bread} flour={shelves.flour} wheat={shelves.wheat} /></StoreElement>
-    <StoreElement position={retailDisplayPosition("pantry")}><Gondola position={[0, 0, 0]} count={shelves.coffee} /></StoreElement>
-    <StoreElement position={retailDisplayPosition("eggs")}><EggDisplay count={shelves.eggs} /></StoreElement>
-    <StoreElement position={retailDisplayPosition("produce")}><ProduceTable position={[0, 0, 0]} tomatoes={shelves.tomatoes} apples={shelves.apples} corn={shelves.corn} /></StoreElement>
+    <StoreElement position={retailDisplayPosition("bakery")} yaw={RETAIL_DEPARTMENTS.bakery.yaw}><BakeryDisplay bread={shelves.bread} flour={shelves.flour} wheat={shelves.wheat} /></StoreElement>
+    {PANTRY_DISPLAY_POSITIONS.map((position, index) => <StoreElement key={`pantry-${index}`} position={[...position]} yaw={RETAIL_DEPARTMENTS.pantry.yaw}><Gondola position={[0, 0, 0]} count={distributedQuantity(shelves.coffee, index, PANTRY_DISPLAY_POSITIONS.length)} /></StoreElement>)}
+    <StoreElement position={retailDisplayPosition("eggs")} yaw={RETAIL_DEPARTMENTS.eggs.yaw}><EggDisplay count={shelves.eggs} /></StoreElement>
+    {PRODUCE_DISPLAY_POSITIONS.map((position, index) => <StoreElement key={`produce-${index}`} position={[...position]} yaw={RETAIL_DEPARTMENTS.produce.yaw}><ProduceTable position={[0, 0, 0]} tomatoes={distributedQuantity(shelves.tomatoes, index, PRODUCE_DISPLAY_POSITIONS.length)} apples={distributedQuantity(shelves.apples, index, PRODUCE_DISPLAY_POSITIONS.length)} oranges={distributedQuantity(shelves.oranges, index, PRODUCE_DISPLAY_POSITIONS.length)} corn={distributedQuantity(shelves.corn, index, PRODUCE_DISPLAY_POSITIONS.length)} /></StoreElement>)}
     <StoreElement position={retailDisplayPosition("dairy")} yaw={RETAIL_DEPARTMENTS.dairy.yaw}><ChilledDisplay position={[0, 0, 0]} milk={shelves.milk} cheese={shelves.cheese} open={coldDoorActive} /></StoreElement>
     <StoreElement position={retailDisplayPosition("drinks")} yaw={RETAIL_DEPARTMENTS.drinks.yaw}><DrinksDisplay position={[0, 0, 0]} count={shelves.juice} /></StoreElement>
-    <StoreElement position={[-7.0, 0, 3.15]}><SeasonalDisplay position={[0, 0, 0]} /></StoreElement>
-    <StoreElement position={[...STORE_SERVICE_FIXTURES.promotionalEndcap.position]}><PromotionalEndcap unlocked={unlockedAreas.includes("endcap-display")} /></StoreElement>
-
     <StoreElement position={[...CHECKOUT_LANES[0].counter]}><CheckoutKit position={[0, 0, 0]} lane={0} transaction={activeCheckouts[0]} handoffTransaction={checkoutHandoffs[0]} handoffBagAtCounter={checkoutHandoffLocations[0] === "counter"} /></StoreElement>
     <StoreElement position={[...CHECKOUT_LANES[0].cashierWork]}><CashierWorkArea /></StoreElement>
     {unlockedAreas.includes("checkout-2")
@@ -344,13 +351,14 @@ export const KitFurniture = memo(function KitFurniture({ shelves, machines, cust
     <StoreElement position={[...STORE_PRODUCTION_FIXTURES.juiceMachine.position]}><ProcessMachine kind="juice" machine={machine("juice-machine-1")} /></StoreElement>
     <StoreElement position={[8.8, 0, -2.15]}><SupplierCorner position={[0, 0, 0]} /></StoreElement>
     <StoreElement position={[8.8, 0, -5.35]}><TerminalModel position={[0, 0, 0]} label="MAPA" /></StoreElement>
-    <StoreUtilities lightsOn={lightsOn} />
+    <StoreUtilities lightsOn={lightsOn} dynamicCeilingLights={dynamicCeilingLights} />
   </group>;
 }, sameFurniturePresentation);
 
 const PRODUCTS_LABELS: Record<ProductId, string> = {
   tomatoes: "TOMATES",
   apples: "MANZANAS",
+  oranges: "NARANJAS",
   corn: "MAÍZ",
   eggs: "HUEVOS",
   milk: "LECHE",
@@ -478,8 +486,8 @@ function BakeryDisplay({ bread, flour, wheat }: { bread: number; flour: number; 
   </group>;
 }
 
-function ProduceTable({ position, tomatoes, apples, corn }: { position: Position; tomatoes: number; apples: number; corn: number }) {
-  const productIds: ProductId[] = ["tomatoes", "apples", "corn"];
+function ProduceTable({ position, tomatoes, apples, oranges, corn }: { position: Position; tomatoes: number; apples: number; oranges: number; corn: number }) {
+  const productIds: ProductId[] = ["tomatoes", "apples", "oranges", "corn"];
   const legs = useMemo<InstanceTransform[]>(() => [-1.08, 1.08].flatMap((x) => [-0.58, 0.58].map((z) => ({ position: [x, 0.39, z], scale: [0.09, 0.7, 0.09] }))), []);
   const dividers = useMemo<InstanceTransform[]>(() => [-0.92, -0.46, 0, 0.46, 0.92].map((x) => ({ position: [x, 0.44, 0], scale: [0.035, 0.46, 1.37] })), []);
   const binDecks = useMemo<InstanceTransform[]>(() => [-0.76, 0, 0.76].map((x) => ({ position: [x, 0.78, -0.29], rotation: [0.17, 0, 0], scale: [0.7, 0.095, 0.68] })), []);
@@ -500,6 +508,7 @@ function ProduceTable({ position, tomatoes, apples, corn }: { position: Position
     <Box args={[1.65, 0.11, 0.58]} position={[0, 1.16, 0.3]} rotation={[-0.1, 0, 0]} color={palette.fixtureSteel} radius={0.025} />
     <AuthoritativeRetailStock productId="tomatoes" count={tomatoes} />
     <AuthoritativeRetailStock productId="apples" count={apples} />
+    <AuthoritativeRetailStock productId="oranges" count={oranges} />
     <AuthoritativeRetailStock productId="corn" count={corn} />
     <StaticInstances transforms={signPosts} castShadow><RoundedBoxGeometry args={[1, 1, 1]} radius={0.08} smoothness={2} /><meshStandardMaterial color={palette.fixtureSteel} metalness={0.34} roughness={0.42} /></StaticInstances>
     <Box args={[2.02, 0.12, 0.08]} position={[0, 2.16, 0.46]} color={palette.fixtureSteel} radius={0.025} />
@@ -937,14 +946,14 @@ function Parcel({ position, small = false }: { position: Position; small?: boole
   return <group position={position} scale={small ? 0.72 : 1}><Box args={[0.52, 0.44, 0.46]} position={[0, 0.22, 0]} color="#ba8050" radius={0.025} /><Box args={[0.08, 0.45, 0.47]} position={[0, 0.23, 0]} color="#d5ad70" radius={0.01} /></group>;
 }
 
-function StoreUtilities({ lightsOn }: { lightsOn: boolean }) {
+function StoreUtilities({ lightsOn, dynamicCeilingLights }: { lightsOn: boolean; dynamicCeilingLights: boolean }) {
   return <group>
     <StoreElement position={[STORE_REAR_DOOR.adjacentRackPosition[0], 2.2, -8.34]}><WallClock position={[0, 0, 0]} /></StoreElement>
     <StoreElement position={[-10.75, 2.55, -8.05]}><SecurityCamera position={[0, 0, 0]} /></StoreElement>
     <StoreElement position={[10.65, 2.55, 7.2]}><SecurityCamera position={[0, 0, 0]} rotationY={Math.PI} /></StoreElement>
     <StoreElement position={[7.25, 2.45, 1.65]}><HangingSign position={[0, 0, 0]} label="CAJAS" /></StoreElement>
     <StoreElement position={[-3.8, 2.45, -3.35]}><HangingSign position={[0, 0, 0]} label="DESPENSA" /></StoreElement>
-    {[-7.2, -2.4, 2.4, 7.2].map((x) => <StoreElement key={x} position={[x, 2.85, -0.6]}><CeilingLamp position={[0, 0, 0]} on={lightsOn} /></StoreElement>)}
+    {[-7.2, -2.4, 2.4, 7.2].map((x) => <StoreElement key={x} position={[x, 2.85, -0.6]}><CeilingLamp position={[0, 0, 0]} on={lightsOn} dynamicLight={dynamicCeilingLights} /></StoreElement>)}
   </group>;
 }
 
@@ -965,16 +974,16 @@ function HangingSign({ position, label }: { position: Position; label: string })
   </group>;
 }
 
-function CeilingLamp({ position, on }: { position: Position; on: boolean }) {
+function CeilingLamp({ position, on, dynamicLight }: { position: Position; on: boolean; dynamicLight: boolean }) {
   const updateMaterials = useCallback((model: THREE.Group) => model.traverse((node) => {
     if (!(node instanceof THREE.Mesh) || !(node.material instanceof THREE.MeshStandardMaterial)) return;
     node.material.emissive.set(on ? "#fff0b8" : "#000000");
     node.material.emissiveIntensity = on ? 1.1 : 0;
   }), [on]);
-  return <group name="dynamic:ceiling-lamp" position={position}><EnvironmentModel id="equipment_ceiling_light" isolateMaterials onUpdate={updateMaterials} />{on && <pointLight position={[0, -0.15, 0]} intensity={0.18} distance={4} color="#fff2c9" />}</group>;
+  return <group name="dynamic:ceiling-lamp" position={position}><EnvironmentModel id="equipment_ceiling_light" isolateMaterials onUpdate={updateMaterials} />{on && dynamicLight && <pointLight position={[0, -0.15, 0]} intensity={0.18} distance={4} color="#fff2c9" />}</group>;
 }
 
-type FarmCropKind = "tomato" | "wheat" | "corn";
+type FarmCropKind = "tomato" | "orange" | "wheat" | "corn";
 
 const FARM_LOCAL_LAYOUT_SCALE = STORE_LAYOUT_SCALE / STORE_ELEMENT_SCALE;
 const FARM_LOCAL_HALF_WIDTH = FARM_FIELD.size[0] * FARM_LOCAL_LAYOUT_SCALE * 0.5;
@@ -1124,6 +1133,7 @@ function DormantCropPlot() {
 }
 
 function farmCropKind(productId: CropState["productId"]): FarmCropKind {
+  if (productId === "oranges") return "orange";
   if (productId === "wheat") return "wheat";
   if (productId === "corn") return "corn";
   return "tomato";
@@ -1229,7 +1239,7 @@ function CropCanopy({ crop, growth, ready, available, yieldCapacity }: { crop: F
   const fruitGrowth = Math.max(0, Math.min(1, (growth - 0.52) / 0.48));
   const fruits = useMemo<InstanceTransform[]>(() => {
     if (fruitGrowth <= 0) return [];
-    const authored = crop === "tomato"
+    const authored = crop === "tomato" || crop === "orange"
       ? grid.flatMap(([x, z], index) => [-1, 1].map((side): InstanceTransform => ({
           position: [x + side * 0.075, 0.31 + height * (0.56 + (index % 2) * 0.13), z + (index % 3 - 1) * 0.025],
           scale: [fruitGrowth, fruitGrowth * 0.88, fruitGrowth],
@@ -1242,12 +1252,12 @@ function CropCanopy({ crop, growth, ready, available, yieldCapacity }: { crop: F
     if (!ready) return authored;
     return cropVisualSlotIndices(available, yieldCapacity, authored.length).map((index) => authored[index]);
   }, [available, crop, fruitGrowth, grid, height, ready, yieldCapacity]);
-  const fruitColor = crop === "tomato" ? (ready ? "#df4035" : growth > 0.78 ? "#d98339" : "#79a24b") : crop === "wheat" ? (ready ? "#e8bd4c" : "#a4b15b") : (ready ? "#f2c53f" : "#83a950");
+  const fruitColor = crop === "orange" ? (ready ? "#D58236" : growth > 0.78 ? "#b78b3e" : "#79a24b") : crop === "tomato" ? (ready ? "#df4035" : growth > 0.78 ? "#d98339" : "#79a24b") : crop === "wheat" ? (ready ? "#e8bd4c" : "#a4b15b") : (ready ? "#f2c53f" : "#83a950");
   return <group>
     <StaticInstances transforms={stems} castShadow><cylinderGeometry args={[crop === "wheat" ? 0.01 : 0.018, crop === "wheat" ? 0.015 : 0.024, 1, 6]} /><meshStandardMaterial color={crop === "wheat" && ready ? "#b89337" : "#4d7d3d"} roughness={0.94} /></StaticInstances>
     <StaticInstances transforms={leaves} castShadow><sphereGeometry args={[0.115, 7, 5]} /><meshStandardMaterial color={crop === "corn" ? "#4f8a43" : crop === "wheat" ? "#729348" : "#438345"} roughness={0.96} /></StaticInstances>
     {fruits.length > 0 && <StaticInstances transforms={fruits} castShadow>
-      {crop === "tomato" ? <dodecahedronGeometry args={[0.068, 0]} /> : crop === "wheat" ? <coneGeometry args={[0.045, 0.17, 6]} /> : <sphereGeometry args={[0.075, 8, 6]} />}
+      {crop === "orange" ? <icosahedronGeometry args={[0.068, 1]} /> : crop === "tomato" ? <dodecahedronGeometry args={[0.068, 0]} /> : crop === "wheat" ? <coneGeometry args={[0.045, 0.17, 6]} /> : <sphereGeometry args={[0.075, 8, 6]} />}
       <meshStandardMaterial color={fruitColor} emissive={ready ? fruitColor : "#000000"} emissiveIntensity={ready ? 0.14 : 0} roughness={0.84} />
     </StaticInstances>}
   </group>;

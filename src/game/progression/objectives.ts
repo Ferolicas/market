@@ -21,6 +21,7 @@ const CUSTOMER_PRODUCT_UNLOCKS: readonly (readonly [ProductId, number])[] = [
   ["corn", 11],
   ["milk", 13],
   ["cheese", 16],
+  ["oranges", 20],
   ["juice", 21],
 ];
 

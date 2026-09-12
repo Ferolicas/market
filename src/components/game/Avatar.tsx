@@ -5,7 +5,7 @@ import { useFrame } from "@react-three/fiber";
 import { Suspense, useEffect, useMemo, useRef, type ReactNode, type RefObject } from "react";
 import * as THREE from "three";
 import type { AvatarHatId, CharacterId, HairId } from "@/game/types";
-import { CharacterHair, CharacterHat } from "./CharacterAccessories";
+import { CharacterHat } from "./CharacterAccessories";
 import { locomotionGroundingSupport, LocomotionController } from "@/game/animation/LocomotionController";
 import { FacialController, type FaceExpression } from "@/game/animation/FacialController";
 import { feedbackBus, type FeedbackSource } from "@/game/feedback/FeedbackBus";
@@ -48,10 +48,10 @@ const LOD2_MODEL_PATHS = Object.fromEntries(
   Object.entries(MODEL_PATHS).map(([body, path]) => [body, characterModelPathForTier(path, 2)]),
 ) as Record<CharacterId, string>;
 const BODY_SCALE: Record<CharacterId, number> = {
-  "adult-man": 1.32,
-  "adult-woman": 1.36,
-  boy: 1.38,
-  girl: 1.32,
+  "adult-man": 1.264,
+  "adult-woman": 1.302,
+  boy: 1.322,
+  girl: 1.264,
 };
 
 export function Avatar(props: AvatarProps) {
@@ -64,7 +64,6 @@ function RiggedAvatar({
   shirt,
   hat,
   body = "adult-man",
-  hair = "side-part",
   hairColor = "#332b27",
   walking = false,
   carrying = false,
@@ -113,6 +112,7 @@ function RiggedAvatar({
   const leftHand = model.getObjectByName("Hand_L");
   const rightHand = model.getObjectByName("Hand_R");
   const hasCarryAccessory = carrying && Boolean(carryAccessory);
+  const hasHeadAccessory = Boolean(head && hat !== "none");
   const feet = useMemo(() => [model.getObjectByName("Foot_L"), model.getObjectByName("Foot_R")].filter((foot): foot is THREE.Object3D => Boolean(foot)), [model]);
   const morphMeshes = useMemo(() => {
     const meshes: THREE.Mesh[] = [];
@@ -139,7 +139,7 @@ function RiggedAvatar({
       const rootScale = avatarRoot.current.getWorldScale(avatarWorldScale.current).y;
       groundingRoot.current.position.y = THREE.MathUtils.lerp(groundingRoot.current.position.y, correctionWorld / Math.max(0.001, rootScale), 0.24);
     }
-    if (avatarRoot.current && appearanceRoot.current && head) {
+    if (hasHeadAccessory && avatarRoot.current && appearanceRoot.current && head) {
       avatarRoot.current.updateWorldMatrix(true, false);
       head.updateWorldMatrix(true, false);
       relativeHeadMatrix.current.copy(avatarRoot.current.matrixWorld).invert().multiply(head.matrixWorld);
@@ -248,9 +248,8 @@ function RiggedAvatar({
     <group ref={avatarRoot} scale={scale * BODY_SCALE[body]}>
       <GroundingShadow />
       <group ref={groundingRoot}><primitive object={model} dispose={null} /></group>
-      {head && <group ref={appearanceRoot} matrixAutoUpdate={false}>
+      {hasHeadAccessory && <group ref={appearanceRoot} matrixAutoUpdate={false}>
         <Suspense fallback={null}>
-          {hat === "none" && <CharacterHair key={`${body}-hair-${hair}`} body={body} style={hair} color={hairColor} />}
           {hat !== "none" && <CharacterHat key={`${body}-hat-${hat}`} body={body} hat={hat} />}
         </Suspense>
       </group>}

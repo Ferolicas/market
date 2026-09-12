@@ -12,10 +12,11 @@ import { FacialController, type FaceExpression } from "@/game/animation/FacialCo
 import { CHARACTER_FACE_UPDATE_INTERVAL, characterIsInView, characterModelPathForTier, createCharacterVisibilityScratch, disposeCharacterMaterials, prepareCharacterModel, useCharacterModelTier } from "@/game/animation/CharacterPresentation";
 import { captureCustomerMotion, projectCustomerMotion } from "@/game/animation/CustomerVisualMotion";
 import { marketQaQueryEnabled } from "@/game/debug/QaAccess";
-import { CUSTOMER_CART_WHEEL_RADIUS, CUSTOMER_CHECKOUT_ITEM_CYCLE_MS, CUSTOMER_PICKUP_DURATION_MS, CustomerCartGripSolver, assignCartGripTargets, cartSteeringAngle, checkoutCartInventory, checkoutLoadingPresentation, easedMotionProgress, motionProgress, productTransferPoint, shortestHeadingDelta, wheelRollDelta, type CartGripChain } from "@/game/animation/CustomerCartMotion";
+import { CUSTOMER_CART_WHEEL_RADIUS, CUSTOMER_CHECKOUT_ITEM_CYCLE_MS, CUSTOMER_PICKUP_DURATION_MS, assignCartGripTargets, cartSteeringAngle, checkoutCartInventory, checkoutLoadingPresentation, easedMotionProgress, motionProgress, productTransferPoint, shortestHeadingDelta, wheelRollDelta } from "@/game/animation/CustomerCartMotion";
 import { PRODUCT_RETAIL_DEPARTMENT, retailDisplayPosition } from "@/game/stations/retail-layout";
 import { CART_BAY_POINT } from "@/game/stations/store-service-layout";
 import { checkoutCustomerFacingYaw } from "@/game/stations/checkout-layout";
+import { composeRuntimeAnimationAliases } from "@/game/animation/CarrySocket";
 import { BasketProduct } from "./HarvestBasket";
 
 export type CustomerId = 1 | 2 | 3 | 4 | 5 | 6;
@@ -32,14 +33,18 @@ const MODEL_PATHS: Record<CustomerId, string> = {
 
 const LOD1_PATHS = Object.fromEntries(Object.entries(MODEL_PATHS).map(([id, path]) => [id, characterModelPathForTier(path, 1)])) as Record<CustomerId, string>;
 const LOD2_PATHS = Object.fromEntries(Object.entries(MODEL_PATHS).map(([id, path]) => [id, characterModelPathForTier(path, 2)])) as Record<CustomerId, string>;
-const CUSTOMER_SCALE: Record<CustomerId, number> = { 1: 1.29, 2: 1.28, 3: 1.32, 4: 1.32, 5: 1.32, 6: 1.27 };
+// Preserve the proven in-store height after replacing the former cast with
+// the delivered two-metre FBX bodies. Identity 2 intentionally reuses the one
+// approved male customer body.
+const CUSTOMER_SCALE: Record<CustomerId, number> = { 1: 1.236, 2: 1.226, 3: 1.291, 4: 1.265, 5: 1.265, 6: 1.216 };
 const CART_SCALE = 0.92;
 const CART_HANDLE_Z = -0.43;
 const CART_HANDLE_Y = 0.82;
-const CART_HANDLE_BASE_WIDTH = 0.78;
+// Calibrated to the palm span of the delivered Mixamo customer cast.
+const CART_HANDLE_BASE_WIDTH = 0.44;
 const CART_MAX_FOLLOW_LAG = 0.075;
 const CART_BAY_POSITION = scaleStorePoint([...CART_BAY_POINT]);
-const PICKUP_HEIGHT: Record<ProductId, number> = { tomatoes: 0.86, apples: 0.86, corn: 0.92, eggs: 0.92, milk: 1.02, cheese: 1.02, juice: 1.02, bread: 0.9, flour: 0.9, wheat: 0.9, coffee: 0.9 };
+const PICKUP_HEIGHT: Record<ProductId, number> = { tomatoes: 0.86, apples: 0.86, oranges: 0.86, corn: 0.92, eggs: 0.92, milk: 1.02, cheese: 1.02, juice: 1.02, bread: 0.9, flour: 0.9, wheat: 0.9, coffee: 0.9 };
 
 export function Customer({ customer, checkoutTransaction, simulationTimeMs }: { customer: CustomerRuntimeState; checkoutTransaction?: CheckoutTransaction; simulationTimeMs: number }) {
   const id = customer.identity;
@@ -105,14 +110,12 @@ export function Customer({ customer, checkoutTransaction, simulationTimeMs }: { 
   const modelPath = modelTier === 2 ? LOD2_PATHS[id] : modelTier === 1 ? LOD1_PATHS[id] : MODEL_PATHS[id];
   const gltf = useGLTF(modelPath);
   const model = useMemo(() => prepareCharacterModel(gltf.scene, { crowd: true, reducedDetail: modelTier > 0 }), [gltf.scene, modelTier]);
-  const { actions, mixer } = useAnimations(gltf.animations, model);
+  const animations = useMemo(() => composeRuntimeAnimationAliases(gltf.animations), [gltf.animations]);
+  const { actions, mixer } = useAnimations(animations, model);
   const mixerRef = useRef(mixer);
   const morphMeshes = useMemo(() => collectMorphMeshes(model), [model]);
   const leftHand = useMemo(() => model.getObjectByName("Hand_L"), [model]);
   const rightHand = useMemo(() => model.getObjectByName("Hand_R"), [model]);
-  const leftGripChain = useMemo(() => collectCartGripChain(model, "L"), [model]);
-  const rightGripChain = useMemo(() => collectCartGripChain(model, "R"), [model]);
-  const cartGripSolver = useMemo(() => new CustomerCartGripSolver(), []);
   const head = useMemo(() => model.getObjectByName("Head"), [model]);
   const currentProduct = customer.shoppingList[customer.currentLine]?.productId ?? null;
   const productDisplay = currentProduct ? retailDisplayPosition(PRODUCT_RETAIL_DEPARTMENT[currentProduct]) : null;
@@ -305,6 +308,17 @@ export function Customer({ customer, checkoutTransaction, simulationTimeMs }: { 
       cartGroup.rotation.y = THREE.MathUtils.lerp(cartGroup.rotation.y, 0, dampFactor(14, delta));
       cartGroup.updateWorldMatrix(true, false);
 
+      // Animation sampling happens independently of the customer's world
+      // interpolation. Close that one-frame offset by placing the rigid
+      // handle centre on the current palm midpoint without deforming the cart.
+      cartHandle.current.updateWorldMatrix(true, false);
+      cartHandle.current.getWorldPosition(cartHandleWorldPosition.current);
+      carryObjectWorldPosition.current.copy(leftHandWorldPosition.current).add(rightHandWorldPosition.current).multiplyScalar(0.5);
+      group.worldToLocal(carryObjectWorldPosition.current);
+      group.worldToLocal(pickupSourceLocalPosition.current.copy(cartHandleWorldPosition.current));
+      cartGroup.position.add(carryObjectWorldPosition.current.sub(pickupSourceLocalPosition.current));
+      cartGroup.updateWorldMatrix(true, false);
+
       const headingDelta = shortestHeadingDelta(previousHeading.current, group.rotation.y);
       const targetSteering = cartSteeringAngle(headingDelta, frameDelta(delta));
       cartSteering.current = THREE.MathUtils.lerp(cartSteering.current, targetSteering, dampFactor(10, delta));
@@ -337,8 +351,10 @@ export function Customer({ customer, checkoutTransaction, simulationTimeMs }: { 
         rightGripTarget.current,
       );
       if (cartVisible) {
-        if (!singleRightGrip && leftGripChain) cartGripSolver.solve(leftGripChain, leftGripTarget.current);
-        if (!singleLeftGrip && rightGripChain) cartGripSolver.solve(rightGripChain, rightGripTarget.current);
+        // The approved Mixamo delivery already authors the CarryBasket arm
+        // pose. The former cast needed corrective IK, but applying that solver
+        // to these differently oriented bones pulls the wrists away from the
+        // handle. Keep the delivered pose and align the rigid cart to it.
         leftHand.updateWorldMatrix(true, false);
         rightHand.updateWorldMatrix(true, false);
         leftHand.getWorldPosition(leftHandWorldPosition.current);
@@ -431,6 +447,11 @@ export function Customer({ customer, checkoutTransaction, simulationTimeMs }: { 
         cartGripDistance: handleGripDistance,
         cartLeftGripDistance: leftGripDistance,
         cartRightGripDistance: rightGripDistance,
+        cartLeftHand: leftHandWorldPosition.current.toArray(),
+        cartRightHand: rightHandWorldPosition.current.toArray(),
+        cartLeftTarget: leftGripTarget.current.toArray(),
+        cartRightTarget: rightGripTarget.current.toArray(),
+        cartHandlePosition: cartHandleWorldPosition.current.toArray(),
         cartSteering: cartSteering.current,
         cartWheelRotation: cartWheelRotation.current,
         cartProductUnits: basketUnits,
@@ -477,13 +498,6 @@ function collectMorphMeshes(model: THREE.Group) {
     if (object instanceof THREE.Mesh && object.morphTargetDictionary && object.morphTargetInfluences) meshes.push(object);
   });
   return meshes;
-}
-
-function collectCartGripChain(model: THREE.Group, side: "L" | "R"): CartGripChain | null {
-  const upperArm = model.getObjectByName(`Rig_Arm_${side}`);
-  const forearm = model.getObjectByName(`Forearm_${side}`);
-  const hand = model.getObjectByName(`Hand_${side}`);
-  return upperArm && forearm && hand ? { upperArm, forearm, hand } : null;
 }
 
 function customerAnimation(customer: CustomerRuntimeState, elapsed = 0, checkoutLoading = false): CustomerAnimation {

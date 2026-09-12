@@ -115,22 +115,48 @@ function placeCylinder(object: THREE.Object3D | undefined, start: THREE.Vector3,
  * currently leaves both carry locomotion hands at the hips, so attaching an
  * object to those bones alone still looks like a floating prop. */
 export function composeCarryAnimations(animations: readonly THREE.AnimationClip[]) {
-  const carryPose = animations.find((clip) => clip.name === "CarryBox");
-  if (!carryPose) return [...animations];
+  const runtimeAnimations = composeRuntimeAnimationAliases(animations);
+  const carryPose = runtimeAnimations.find((clip) => clip.name === "CarryBox");
+  if (!carryPose) return runtimeAnimations;
   const armPoseTracks = carryPose.tracks.filter(isCarryArmTrack);
-  const composed = animations.map((clip) => {
+  const composed = runtimeAnimations.map((clip) => {
     if (!CARRY_LOCOMOTION_CLIPS.has(clip.name)) return clip;
     return new THREE.AnimationClip(clip.name, clip.duration, [
       ...clip.tracks.filter((track) => !isCarryArmTrack(track)),
       ...armPoseTracks.map((track) => constantTrackAt(track, 0.5, clip.duration)),
     ], clip.blendMode);
   });
-  const run = animations.find((clip) => clip.name === "Run");
-  if (run && !animations.some((clip) => clip.name === "CarryRun")) {
+  const run = runtimeAnimations.find((clip) => clip.name === "Run");
+  if (run && !runtimeAnimations.some((clip) => clip.name === "CarryRun")) {
     composed.push(new THREE.AnimationClip("CarryRun", run.duration, [
       ...run.tracks.filter((track) => !isCarryArmTrack(track)),
       ...armPoseTracks.map((track) => constantTrackAt(track, 0.5, run.duration)),
     ], run.blendMode));
+  }
+  return composed;
+}
+
+const RUNTIME_ANIMATION_ALIASES = {
+  TurnLeft: "Walk",
+  TurnRight: "Walk",
+  Phone: "Wait",
+} as const;
+
+/** Keeps the gameplay state machine compatible with the approved delivered
+ * cast. The source pack has no dedicated stationary turns or phone gesture,
+ * so those states reuse an existing delivered performance instead of falling
+ * back to an unanimated pose. */
+export function composeRuntimeAnimationAliases(animations: readonly THREE.AnimationClip[]) {
+  const composed = [...animations];
+  const names = new Set(composed.map((clip) => clip.name));
+  for (const [alias, sourceName] of Object.entries(RUNTIME_ANIMATION_ALIASES)) {
+    if (names.has(alias)) continue;
+    const source = composed.find((clip) => clip.name === sourceName);
+    if (!source) continue;
+    const clone = source.clone();
+    clone.name = alias;
+    composed.push(clone);
+    names.add(alias);
   }
   return composed;
 }

@@ -25,19 +25,35 @@ export function GameRuntime() {
     // The real-browser persistence audit reloads once with simulation paused so
     // it can compare the restored snapshot byte-for-byte before the first tick.
     if (marketQaFreezeEnabled(window.location.search, sessionStorage.getItem("mini-market-qa-freeze"))) return;
-    const worldTimer = window.setInterval(() => tickWorld(WORLD_TICK_INTERVAL_MS), WORLD_TICK_INTERVAL_MS);
-    const simulationTimer = window.setInterval(() => simulate(1), 5000);
-    const saveTimer = window.setInterval(() => void saveGame(), 15000);
-    const online = () => void saveGame();
-    const hidden = () => { if (document.visibilityState === "hidden") void saveGame(); };
-    window.addEventListener("online", online);
-    document.addEventListener("visibilitychange", hidden);
-    return () => {
+    let worldTimer = 0;
+    let simulationTimer = 0;
+    let saveTimer = 0;
+    const stopTimers = () => {
       window.clearInterval(worldTimer);
       window.clearInterval(simulationTimer);
       window.clearInterval(saveTimer);
+      worldTimer = simulationTimer = saveTimer = 0;
+    };
+    const startTimers = () => {
+      if (worldTimer || document.visibilityState !== "visible") return;
+      worldTimer = window.setInterval(() => tickWorld(WORLD_TICK_INTERVAL_MS), WORLD_TICK_INTERVAL_MS);
+      simulationTimer = window.setInterval(() => simulate(1), 5000);
+      saveTimer = window.setInterval(() => void saveGame(), 15000);
+    };
+    const online = () => void saveGame();
+    const visibility = () => {
+      if (document.visibilityState === "hidden") {
+        stopTimers();
+        void saveGame();
+      } else startTimers();
+    };
+    startTimers();
+    window.addEventListener("online", online);
+    document.addEventListener("visibilitychange", visibility);
+    return () => {
+      stopTimers();
       window.removeEventListener("online", online);
-      document.removeEventListener("visibilitychange", hidden);
+      document.removeEventListener("visibilitychange", visibility);
       void saveGame();
     };
   }, [saveGame, simulate, tickWorld]);

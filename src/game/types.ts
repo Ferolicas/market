@@ -4,7 +4,7 @@ export type HatId = "red-panda" | "red-fox" | "chicken" | "frog" | "elephant" | 
 export type AvatarHatId = HatId | "none";
 export type CharacterId = "adult-man" | "adult-woman" | "boy" | "girl";
 export type HairId = "side-part" | "fade" | "waves" | "swept" | "bob" | "ponytail" | "long-wavy" | "bun" | "messy" | "curls" | "short-fringe" | "quiff" | "blunt-bob" | "pigtails" | "braid" | "high-ponytail";
-export type ProductId = "wheat" | "flour" | "bread" | "corn" | "milk" | "eggs" | "cheese" | "apples" | "tomatoes" | "coffee" | "juice";
+export type ProductId = "wheat" | "flour" | "bread" | "corn" | "milk" | "eggs" | "cheese" | "apples" | "tomatoes" | "oranges" | "coffee" | "juice";
 export type PaymentMethod = "cash" | "card";
 
 export interface AvatarConfig {
@@ -70,7 +70,7 @@ export interface CarryState {
 
 export interface CropState {
   id: string;
-  productId: "tomatoes" | "wheat" | "corn";
+  productId: "tomatoes" | "oranges" | "wheat" | "corn";
   status: "LOCKED" | "EMPTY" | "GROWING" | "READY" | "HARVESTING";
   plantedAt: number;
   readyAt: number;
@@ -259,8 +259,8 @@ export type GameAction =
   | { type: "SET_COUNTRY"; countryCode: CountryCode }
   | { type: "SET_AVATAR"; body?: CharacterId; hair?: HairId; hairColor?: string; skin?: string; shirt?: string; hat?: AvatarHatId }
   | { type: "TOGGLE_STORE" }
-  | { type: "TEND_CROP"; cropId?: string; productId?: "tomatoes" | "wheat" | "corn" }
-  | { type: "HARVEST"; cropId?: string; productId?: "tomatoes" | "wheat" | "corn"; quantity?: number }
+  | { type: "TEND_CROP"; cropId?: string; productId?: "tomatoes" | "oranges" | "wheat" | "corn" }
+  | { type: "HARVEST"; cropId?: string; productId?: "tomatoes" | "oranges" | "wheat" | "corn"; quantity?: number }
   | { type: "LOAD_FLOUR_MILL" }
   | { type: "BAKE_BREAD" }
   | { type: "OPERATE_MACHINE"; machineId: string }

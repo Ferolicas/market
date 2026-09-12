@@ -56,13 +56,9 @@ export const CART_BAY_POINT = [STORE_SERVICE_FIXTURES.cartBay.position[0], STORE
  */
 export const RETURNS_TO_CART_FALLBACK = [
   [10.25, 4.3],
-  [10.25, 2.75],
-  [10.25, 0],
-  [9.85, -0.3],
-  [5.2, -0.3],
-  [2.6, 1.05],
-  [2.25, 1.4],
-  [2.25, 3.55],
+  [10.8, 4.3],
+  [10.8, 6.5],
+  [5, 6.5],
   [4.5, 5.2],
   [...CART_RETURN_POINT],
 ] as const satisfies readonly (readonly [x: number, z: number])[];

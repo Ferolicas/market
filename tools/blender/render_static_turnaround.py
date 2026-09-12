@@ -101,6 +101,7 @@ def main() -> None:
         raise RuntimeError(f"No mesh found in {source}")
 
     preserve_materials = cli_value("preserve-materials", "0") == "1"
+    preserve_shading = cli_value("preserve-shading", "0") == "1"
     if preserve_materials:
         restore_glb_vertex_colors(source, meshes)
     neutral = material("QA Neutral", (0.47, 0.52, 0.58, 1.0), 0.72)
@@ -108,8 +109,9 @@ def main() -> None:
         if not preserve_materials:
             mesh.data.materials.clear()
             mesh.data.materials.append(neutral)
-        for polygon in mesh.data.polygons:
-            polygon.use_smooth = True
+        if not preserve_shading:
+            for polygon in mesh.data.polygons:
+                polygon.use_smooth = True
 
     root = bpy.data.objects.new("Subject", None)
     bpy.context.collection.objects.link(root)

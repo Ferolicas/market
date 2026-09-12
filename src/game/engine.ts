@@ -23,7 +23,7 @@ import { CART_RETURN_POINT, RETURNS_POINT, RETURNS_TO_CART_FALLBACK, STORE_SERVI
 import { storefrontDoorActorPresent, STORE_REAR_DOOR, STOREFRONT_LAYOUT } from "./stations/storefront-layout";
 import { PRODUCTION_MACHINE_POINTS } from "./stations/production-layout";
 
-const EMPTY_INVENTORY = (): Inventory => ({ wheat: 0, flour: 0, bread: 0, corn: 0, milk: 0, eggs: 0, cheese: 0, apples: 0, tomatoes: 0, coffee: 0, juice: 0 });
+const EMPTY_INVENTORY = (): Inventory => ({ wheat: 0, flour: 0, bread: 0, corn: 0, milk: 0, eggs: 0, cheese: 0, apples: 0, tomatoes: 0, oranges: 0, coffee: 0, juice: 0 });
 export const CHECKOUT_PATIENCE_MS = 5 * 60_000;
 export const CHECKOUT_LOAD_UNIT_MS = 900;
 export const CHECKOUT_SCAN_UNIT_MS = 700;
@@ -56,7 +56,7 @@ export function createInitialGame(countryCode: CountryCode = "ES"): GameState {
     shelves: { ...EMPTY_INVENTORY(), milk: index === 0 ? 8 : 0, eggs: index === 0 ? 6 : 0, apples: index === 0 ? 8 : 0 },
     machines: { flourMillLevel: 1, bakeryLevel: 1, flourQueue: 0, breadQueue: 0 },
     carry: { capacity: 3, items: {} },
-    crops: [createCrop("crop-tomato-1", "tomatoes", 0, 1, 1), { ...createEmptyCrop("crop-wheat-1", "wheat"), status: "LOCKED" }, { ...createEmptyCrop("crop-corn-1", "corn"), status: "LOCKED" }],
+    crops: [createCrop("crop-tomato-1", "tomatoes", 0, 1, 1), { ...createEmptyCrop("crop-wheat-1", "wheat"), status: "LOCKED" }, { ...createEmptyCrop("crop-corn-1", "corn"), status: "LOCKED" }, { ...createEmptyCrop("crop-orange-1", "oranges"), status: "LOCKED" }],
     productionMachines: [{ ...createMachine("flour-mill-1", "flour"), status: "LOCKED" }, { ...createMachine("bread-oven-1", "bread"), status: "LOCKED" }, { ...createMachine("cheese-maker-1", "cheese"), status: "LOCKED" }, { ...createMachine("juice-machine-1", "juice"), status: "LOCKED" }, { ...createMachine("chicken-coop-1", "eggs"), status: "LOCKED" }, { ...createMachine("cow-station-1", "milk"), status: "LOCKED" }],
     buildProjects: [{ id: "level-2", level: 2, costMinor: Math.round(LEVELS[1].costMinor * moneyScale), contributedMinor: 0, completed: false }],
     checkoutTransactions: [],
@@ -136,7 +136,8 @@ export function normalizeGameState(input: unknown): GameState {
     franchise.warehouse = normalizeInventory(franchise.warehouse);
     franchise.shelves = normalizeInventory(franchise.shelves);
     franchise.carry = normalizeCarry(franchise.carry, 3);
-    franchise.crops ??= [createCrop("crop-tomato-1", "tomatoes", state.simulationTimeMs, 1, state.level), { ...createEmptyCrop("crop-wheat-1", "wheat"), status: "LOCKED" }, { ...createEmptyCrop("crop-corn-1", "corn"), status: "LOCKED" }];
+    franchise.crops ??= [createCrop("crop-tomato-1", "tomatoes", state.simulationTimeMs, 1, state.level), { ...createEmptyCrop("crop-wheat-1", "wheat"), status: "LOCKED" }, { ...createEmptyCrop("crop-corn-1", "corn"), status: "LOCKED" }, { ...createEmptyCrop("crop-orange-1", "oranges"), status: "LOCKED" }];
+    if (!franchise.crops.some((crop) => crop.id === "crop-orange-1")) franchise.crops.push({ ...createEmptyCrop("crop-orange-1", "oranges"), status: "LOCKED" });
     franchise.crops = franchise.crops.map((crop) => crop.status === "EMPTY"
       ? createCrop(crop.id, crop.productId, state.simulationTimeMs, crop.tier, state.level)
       : normalizeCropClock(crop, state.simulationTimeMs, state.lastServerTime, state.level));
@@ -1863,6 +1864,10 @@ function applyLevelUnlock(state: GameState, franchise: FranchiseState, level: nu
     franchise.storeRank = Math.max(3, franchise.storeRank);
     if (!franchise.unlockedAreas.includes("expansion-rear")) franchise.structureRevision += 1;
     unlockArea("expansion-rear");
+    unlockArea("farm-orange");
+    if (!franchise.crops.some((crop) => crop.id === "crop-orange-1")) franchise.crops.push({ ...createEmptyCrop("crop-orange-1", "oranges"), status: "LOCKED" });
+    unlockCrop(franchise, "crop-orange-1", state.simulationTimeMs, level);
+    franchise.stationTiers["crop-orange-1"] ??= 1;
   }
   if (level === 21) { unlockArea("juice-machine"); unlockMachine(franchise, "juice-machine-1"); franchise.stationTiers["juice-machine-1"] ??= 1; }
   if (level === 22) hireUnlockedEmployee(franchise, "farmer", state.countryCode, state.simulationTimeMs);
