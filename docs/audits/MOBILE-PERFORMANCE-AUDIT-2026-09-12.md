@@ -3,6 +3,25 @@
 Fecha: 2026-09-12  
 Alcance: cliente Three.js/React Three Fiber, simulación, física, UI, carga de GLB y comportamiento en segundo plano.
 
+## Actualización de fluidez y nitidez móvil
+
+Después de validar la primera versión en un iPhone real, el perfil de ahorro puro resultó visualmente demasiado blando y el límite fijo de 30 FPS hacía perceptible la cadencia durante locomoción. Esta actualización sustituye ese compromiso por un perfil híbrido:
+
+- 30 FPS exactos cuando el jugador está quieto y 60 FPS solicitados únicamente mientras se desplaza;
+- DPR 1,25 con MSAA en móvil (419 × 907 en el viewport de prueba 390 × 844), con regresión adaptativa mínima de 1,0 ante presión sostenida;
+- cámara ortográfica con `zoom` 1,3×, sin cambiar posición relativa, ángulo ni orientación;
+- tick autoritativo del mundo de 10 a 5 Hz, conservando física/presentación a 60 Hz y todas las reglas basadas en `deltaTime`;
+- batching adicional exclusivamente para suelo y ciudad estáticos: 333 meshes fuente en 57 lotes, 276 draws teóricos ahorrados; puertas, productos y objetos interactivos siguen separados.
+
+Build de producción con QA, Chrome móvil 390 × 844 y CPU 4×:
+
+| Escenario | FPS mediano | frame mediano / p95 | tareas largas | draws mediana / máx. | triángulos mediana / máx. |
+|---|---:|---:|---:|---:|---:|
+| quieto | 30 | 33,33 / 33,4 ms | 0 | 286,5 / 322 | 299.658 / 308.990 |
+| caminando | 43 | 23,49 / 50 ms | 1 (50 ms) | 347 / 363 | 339.793 / 353.852 |
+
+El inventario visible típico bajó de 558 meshes en la auditoría inicial a 446–448, sin pérdida de contenido. Esta sección reemplaza los parámetros finales 30 FPS/DPR 0,9/sin MSAA descritos más abajo; las tablas posteriores se conservan como historial A/B de la primera fase de ahorro energético.
+
 ## Resumen ejecutivo
 
 La causa dominante del consumo no era una sola malla defectuosa: el móvil presentaba la escena continuamente a unos 60 FPS, con MSAA, preferencia `high-performance`, un framebuffer de 469 × 1016 y sombras dinámicas. El teléfono podía sostener esa carga, por lo que el navegador continuaba usando GPU/CPU aunque el jugador estuviera quieto.

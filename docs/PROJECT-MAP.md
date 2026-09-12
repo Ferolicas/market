@@ -56,7 +56,7 @@ activa forma parte del Caddy central del VPS y debe validarse antes de recargar.
 
 ## Escena y gameplay
 
-- El vendedor se mueve con teclado, mando o arrastre táctil y usa una cámara ortográfica isométrica.
+- El vendedor se mueve con teclado, mando o arrastre táctil y usa una cámara ortográfica isométrica. El encuadre general conserva orientación y ángulo, con un `zoom` 1,3× más próximo; en una cámara ortográfica moverla sobre su eje no cambia el tamaño aparente.
 - Cultivos, máquinas, estantes, almacén y cajas se activan por proximidad mediante imanes; la transferencia visible no bloquea al actor.
 - Clientes: entrada, carro, selección de productos, fila, descarga, pago, bolsa, devolución del carro y salida.
 - Empleados: granja, producción, reposición y caja según demanda y rol.
@@ -91,14 +91,16 @@ El suelo se monta fuera de los límites `Suspense` de edificio, mobiliario y gra
 
 `src/game/render/AdaptiveQuality.ts` decide el perfil antes de crear el renderer:
 
-- 30 FPS de presentación en móvil y 60 FPS en escritorio;
-- DPR máximo 0,9 en móvil y 1,4 en escritorio;
-- sin MSAA, preferencia de GPU de bajo consumo y atlas de sombra 512 en móvil;
+- 30 FPS de presentación en móvil cuando el jugador está quieto y 60 FPS durante locomoción; escritorio permanece a 60 FPS;
+- DPR máximo 1,25 en móvil y 1,4 en escritorio;
+- MSAA activo para recuperar bordes nítidos, preferencia de GPU de bajo consumo y atlas de sombra 512 en móvil;
 - transmisión de cristales a media resolución y luminarias emisivas sin cuatro PointLights redundantes en móvil;
 - sombra principal estática después del calentamiento;
 - render bajo demanda: no hay frames 3D cuando la pestaña está oculta;
 - timers de mundo, simulación y autosave periódico detenidos en segundo plano;
-- nueva reducción de DPR sólo si los frames de 30 FPS exceden 40 ms de forma sostenida.
+- reducción adaptativa de DPR a un mínimo de 1,0 sólo ante presión sostenida (40 ms en reposo o 24 ms durante locomoción);
+- tick autoritativo de IA/economía a 5 Hz con `deltaTime`, desacoplado de la física y presentación del jugador a 60 Hz, para evitar clonar/reconciliar todo el mundo 10 veces por segundo;
+- suelo y perímetro urbano estáticos fusionados por material/geometría compatible, preservando por separado puertas, productos e interacción dinámica.
 
 Estas medidas no cambian reglas, dinero, inventario, IA ni tiempos autoritativos; reducen píxeles, pases GPU y trabajo de presentación.
 
@@ -121,6 +123,6 @@ Pruebas de navegador relevantes:
 - `pnpm qa:workers`;
 - `pnpm qa:production-surface`.
 
-`scripts/qa-mobile-render-budget.mjs` valida el perfil de 30 FPS, DPR, MSAA, draw calls, triángulos, texturas, input táctil y errores de consola/red. Una prueba física prolongada en el teléfono sigue siendo la autoridad final para batería y temperatura.
+`scripts/qa-mobile-render-budget.mjs` valida el perfil móvil de 30 FPS en reposo/60 FPS en movimiento, DPR, MSAA, draw calls, triángulos, texturas, input táctil y errores de consola/red. Una prueba física prolongada en el teléfono sigue siendo la autoridad final para batería y temperatura.
 
 La auditoría, baseline A/B, inventario de escena, riesgos pendientes y protocolo Android están en `docs/audits/MOBILE-PERFORMANCE-AUDIT-2026-09-12.md`.

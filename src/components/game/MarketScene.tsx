@@ -45,7 +45,7 @@ import {
 import { STORE_SERVICE_FIXTURE_IDS, STORE_SERVICE_FIXTURES } from "@/game/stations/store-service-layout";
 import { WAREHOUSE_PICKUP_STATION } from "@/game/stations/warehouse-layout";
 import { isProductionWorkstationId, productionMachineMagnet, PRODUCTION_WORKSTATION_IDS } from "@/game/stations/production-layout";
-import { advanceAdaptiveQuality, INITIAL_ADAPTIVE_QUALITY_STATE, legacyMobileRenderProfile, marketRenderProfileForCapabilities, type MarketRenderProfile } from "@/game/render/AdaptiveQuality";
+import { advanceAdaptiveQuality, INITIAL_ADAPTIVE_QUALITY_STATE, legacyMobileRenderProfile, marketRenderProfileForCapabilities, MOBILE_ADAPTIVE_QUALITY, MOBILE_MOTION_ADAPTIVE_QUALITY, type MarketRenderProfile } from "@/game/render/AdaptiveQuality";
 import { createStaticMeshBatch } from "@/game/render/StaticMeshBatch";
 
 export type InteractionId = Exclude<WorkstationId, "shelf"> | StockingInteractionId | FarmInteractionId | "supplier" | "door";
@@ -65,10 +65,17 @@ export interface InteractionVisualEvent {
 const PLAYER_START = scaleStorePosition([0, 0, 6.25]);
 const PLAYER_SCALE = 1.1;
 const CAMERA_DISTANCE_FACTOR = 1.15;
+const CAMERA_PROXIMITY_FACTOR = 1.3;
 const OVERVIEW_CAMERA_OFFSET = { x: 16, y: 23, z: 25.75 } as const;
 const OVERVIEW_CAMERA_GROUND_FORWARD = { x: -OVERVIEW_CAMERA_OFFSET.x, y: -OVERVIEW_CAMERA_OFFSET.z } as const;
 const MAX_VISUAL_TRANSFER_DELTA = 0.25;
-const StaticCityPerimeter = memo(CityPerimeter);
+const StaticCityPerimeter = memo(function StaticCityPerimeterBatched() {
+  const root = useRef<THREE.Group>(null);
+  return <group ref={root}>
+    <SceneStaticBatch rootRef={root} />
+    <CityPerimeter />
+  </group>;
+});
 // Drei keeps its `frames` counter in component scope. Parent world snapshots
 // arrive at 10 Hz, so a normal rerender would reset frames=1 and render the
 // whole scene into the contact atlas again. These authored props are static.
@@ -135,6 +142,7 @@ interface MarketSceneProps {
 
 export const MarketScene = memo(function MarketScene({ avatar, carry, visualCarry, warehousePickupEnabled, customers, checkoutTransactions, returnsBin, returnedCartCount, crops, visualCrops, productionMachines, shelves, visualShelves, shelfTier, unlockedAreas, lightsOn, simulationTimeMs, employees, onPrompt, onInteract, onDistance, onDoorPresence, onSceneReady, lastInteraction, transferEvents, onTransferProgress, open, doorProgress, checkoutLevel, playerSpeedTier, debug = false }: MarketSceneProps) {
   const playerFocus = useRef(new THREE.Vector3(...PLAYER_START));
+  const playerMotionActiveRef = useRef(false);
   const basketTarget = useRef(new THREE.Vector3(...PLAYER_START));
   const [checkoutFocused, setCheckoutFocused] = useState(false);
   const [renderProfile] = useState(initialMarketRenderProfile);
@@ -226,8 +234,8 @@ export const MarketScene = memo(function MarketScene({ avatar, carry, visualCarr
   }, [debug, stockableByDepartment, stockableProduct, warehousePickupEnabled]);
   return (
     <Canvas dpr={canvasDpr} events={safeCanvasEvents} frameloop={renderProfile.mobile && renderProfile.targetFps < 60 ? "never" : "always"} shadows="percentage" performance={MARKET_CANVAS_PERFORMANCE} gl={canvasGl} onCreated={({ gl }) => configureRendererPolicy(gl, renderProfile)}>
-      <CappedFrameScheduler profile={renderProfile} publishDiagnostics={performanceProbe} />
-      <AdaptiveQualityController canvasDpr={canvasDpr} profile={renderProfile} onDprChange={setCanvasDpr} publishDiagnostics={performanceProbe} />
+      <CappedFrameScheduler profile={renderProfile} playerMotionActiveRef={playerMotionActiveRef} publishDiagnostics={performanceProbe} />
+      <AdaptiveQualityController canvasDpr={canvasDpr} profile={renderProfile} playerMotionActiveRef={playerMotionActiveRef} onDprChange={setCanvasDpr} publishDiagnostics={performanceProbe} />
       <OverviewCamera playerFocus={playerFocus} checkoutFocused={checkoutFocused} />
       <color attach="background" args={["#b8dfce"]} />
       <fog attach="fog" args={["#b8dfce", 62 * WORLD_SCALE, 105 * WORLD_SCALE]} />
@@ -263,7 +271,7 @@ export const MarketScene = memo(function MarketScene({ avatar, carry, visualCarr
         <StoreColliders doorProgress={doorProgress} />
         <RearDoorAssembly playerFocus={playerFocus} employees={employees} />
         <InteractionSensors checkoutLevel={checkoutLevel} unlockedAreas={unlockedAreas} crops={crops} warehousePickupEnabled={warehousePickupEnabled} />
-        <group name="perf:player"><Suspense fallback={null}><Player avatar={avatar} carry={visualCarry} crops={crops} checkoutLevel={checkoutLevel} playerSpeedTier={playerSpeedTier} unlockedAreas={unlockedAreas} warehousePickupEnabled={warehousePickupEnabled} debug={debug} onPrompt={onPrompt} onInteract={onInteract} onDistance={onDistance} onDoorPresence={onDoorPresence} onCheckoutFocus={setCheckoutFocused} lastInteraction={lastInteraction} playerFocus={playerFocus} basketTarget={basketTarget} interactionLabels={interactionLabels} /></Suspense></group>
+        <group name="perf:player"><Suspense fallback={null}><Player avatar={avatar} carry={visualCarry} crops={crops} checkoutLevel={checkoutLevel} playerSpeedTier={playerSpeedTier} unlockedAreas={unlockedAreas} warehousePickupEnabled={warehousePickupEnabled} debug={debug} onPrompt={onPrompt} onInteract={onInteract} onDistance={onDistance} onDoorPresence={onDoorPresence} onCheckoutFocus={setCheckoutFocused} lastInteraction={lastInteraction} playerFocus={playerFocus} playerMotionActiveRef={playerMotionActiveRef} basketTarget={basketTarget} interactionLabels={interactionLabels} /></Suspense></group>
       </Physics>
       <LocalEnvironment />
       <SceneReadinessProbe onReady={onSceneReady} />
@@ -315,16 +323,14 @@ function initialMarketRenderProfile(): MarketRenderProfile {
     : marketRenderProfileForCapabilities(capabilities);
 }
 
-/** R3F's manual loop is authoritative on touch/mobile hardware. Calling
- * advance at 30 Hz prevents unrelated component invalidations from silently
- * restoring a 60 Hz render loop, and it stops all animation/physics callbacks
- * while the page is hidden. */
-function CappedFrameScheduler({ profile, publishDiagnostics }: { profile: MarketRenderProfile; publishDiagnostics: boolean }) {
+/** R3F's manual loop is authoritative on touch/mobile hardware. It presents
+ * locomotion at 60 Hz and falls back to 30 Hz when the player is still, while
+ * unrelated React invalidations cannot bypass the cap. */
+function CappedFrameScheduler({ profile, playerMotionActiveRef, publishDiagnostics }: { profile: MarketRenderProfile; playerMotionActiveRef: RefObject<boolean>; publishDiagnostics: boolean }) {
   const advance = useThree((state) => state.advance);
   useEffect(() => {
     if (publishDiagnostics) window.dispatchEvent(new CustomEvent("market-render-profile", { detail: profile }));
     if (!profile.mobile || profile.targetFps >= 60) return;
-    const intervalMs = 1_000 / profile.targetFps;
     let frameRequest = 0;
     let nextFrameAt = performance.now();
     const schedule = (now: number) => {
@@ -333,6 +339,8 @@ function CappedFrameScheduler({ profile, publishDiagnostics }: { profile: Market
         // R3F's manual frameloop receives seconds (its clock's elapsedTime
         // unit), while requestAnimationFrame supplies milliseconds.
         advance(now / 1_000, true);
+        const targetFps = playerMotionActiveRef.current ? profile.motionFps : profile.targetFps;
+        const intervalMs = 1_000 / targetFps;
         nextFrameAt += intervalMs;
         // Never replay frames missed while the main thread was occupied.
         if (nextFrameAt < now) nextFrameAt = now + intervalMs;
@@ -352,7 +360,7 @@ function CappedFrameScheduler({ profile, publishDiagnostics }: { profile: Market
       window.cancelAnimationFrame(frameRequest);
       document.removeEventListener("visibilitychange", visibility);
     };
-  }, [advance, profile, publishDiagnostics]);
+  }, [advance, playerMotionActiveRef, profile, publishDiagnostics]);
   return null;
 }
 
@@ -420,17 +428,21 @@ function SceneReadinessProbe({ onReady }: { onReady?: () => void }) {
   return null;
 }
 
-function AdaptiveQualityController({ canvasDpr, profile, onDprChange, publishDiagnostics }: { canvasDpr: number; profile: MarketRenderProfile; onDprChange: (dpr: number) => void; publishDiagnostics: boolean }) {
+function AdaptiveQualityController({ canvasDpr, profile, playerMotionActiveRef, onDprChange, publishDiagnostics }: { canvasDpr: number; profile: MarketRenderProfile; playerMotionActiveRef: RefObject<boolean>; onDprChange: (dpr: number) => void; publishDiagnostics: boolean }) {
   const quality = useRef({ ...INITIAL_ADAPTIVE_QUALITY_STATE });
   const degraded = useRef(false);
   useFrame((state, delta) => {
-    const result = advanceAdaptiveQuality(quality.current, delta * 1_000);
+    const result = advanceAdaptiveQuality(
+      quality.current,
+      delta * 1_000,
+      playerMotionActiveRef.current ? MOBILE_MOTION_ADAPTIVE_QUALITY : MOBILE_ADAPTIVE_QUALITY,
+    );
     quality.current = result.state;
     if (result.regress) state.performance.regress();
     if (!result.regress || degraded.current) return;
     degraded.current = true;
     const performanceFactor = state.performance.min;
-    const desiredDpr = Math.max(profile.mobile ? 0.75 : 0.85, canvasDpr * performanceFactor);
+    const desiredDpr = Math.max(profile.mobile ? 1 : 0.85, canvasDpr * performanceFactor);
     if (Math.abs(canvasDpr - desiredDpr) > 0.001) onDprChange(desiredDpr);
     if (publishDiagnostics) {
       window.dispatchEvent(new CustomEvent("market-quality-regress", { detail: {
@@ -852,15 +864,15 @@ function OverviewCamera({ playerFocus, checkoutFocused }: { playerFocus: RefObje
     camera.current.position.lerp(desiredPosition.current, response);
     lookAt.current.lerp(desiredLookAt.current, response);
     camera.current.lookAt(lookAt.current);
-    const overviewZoom = Math.min(size.width / 32, size.height / 28.5) / CAMERA_DISTANCE_FACTOR;
-    const checkoutZoom = Math.min(size.width / CHECKOUT_CAMERA_FRAME.width, size.height / CHECKOUT_CAMERA_FRAME.height);
+    const overviewZoom = Math.min(size.width / 32, size.height / 28.5) / CAMERA_DISTANCE_FACTOR * CAMERA_PROXIMITY_FACTOR;
+    const checkoutZoom = Math.min(size.width / CHECKOUT_CAMERA_FRAME.width, size.height / CHECKOUT_CAMERA_FRAME.height) * CAMERA_PROXIMITY_FACTOR;
     camera.current.zoom = THREE.MathUtils.lerp(camera.current.zoom, THREE.MathUtils.lerp(overviewZoom, checkoutZoom, checkoutBlend.current), dampFactor(5, delta));
     camera.current.updateProjectionMatrix();
   });
   return <OrthographicCamera ref={camera} makeDefault position={[(PLAYER_START[0] + OVERVIEW_CAMERA_OFFSET.x) * WORLD_SCALE, 23.9 * WORLD_SCALE, (PLAYER_START[2] + OVERVIEW_CAMERA_OFFSET.z) * WORLD_SCALE]} near={0.1 * WORLD_SCALE} far={120 * WORLD_SCALE} />;
 }
 
-function Player({ avatar, carry, crops, checkoutLevel, playerSpeedTier, unlockedAreas, warehousePickupEnabled, debug, onPrompt, onInteract, onDistance, onDoorPresence, onCheckoutFocus, lastInteraction, playerFocus, basketTarget, interactionLabels }: { avatar: AvatarConfig; carry: CarryState; crops: CropState[]; checkoutLevel: number; playerSpeedTier: number; unlockedAreas: readonly string[]; warehousePickupEnabled: boolean; debug: boolean; onPrompt: (prompt: InteractionPrompt | null) => void; onInteract: (id: InteractionId) => void; onDistance: (meters: number) => void; onDoorPresence: (active: boolean) => void; onCheckoutFocus: (active: boolean) => void; lastInteraction: InteractionVisualEvent | null; playerFocus: RefObject<THREE.Vector3>; basketTarget: RefObject<THREE.Vector3>; interactionLabels: Partial<Record<InteractionId, string>> }) {
+function Player({ avatar, carry, crops, checkoutLevel, playerSpeedTier, unlockedAreas, warehousePickupEnabled, debug, onPrompt, onInteract, onDistance, onDoorPresence, onCheckoutFocus, lastInteraction, playerFocus, playerMotionActiveRef, basketTarget, interactionLabels }: { avatar: AvatarConfig; carry: CarryState; crops: CropState[]; checkoutLevel: number; playerSpeedTier: number; unlockedAreas: readonly string[]; warehousePickupEnabled: boolean; debug: boolean; onPrompt: (prompt: InteractionPrompt | null) => void; onInteract: (id: InteractionId) => void; onDistance: (meters: number) => void; onDoorPresence: (active: boolean) => void; onCheckoutFocus: (active: boolean) => void; lastInteraction: InteractionVisualEvent | null; playerFocus: RefObject<THREE.Vector3>; playerMotionActiveRef: RefObject<boolean>; basketTarget: RefObject<THREE.Vector3>; interactionLabels: Partial<Record<InteractionId, string>> }) {
   const body = useRef<RapierRigidBody>(null);
   const collider = useRef<RapierCollider>(null);
   const visual = useRef<THREE.Group>(null);
@@ -1016,6 +1028,7 @@ function Player({ avatar, carry, crops, checkoutLevel, playerSpeedTier, unlocked
       }
     });
     const isMoving = velocity.current.length() > 0.12;
+    playerMotionActiveRef.current = isMoving;
     avatarMotion.current.speed = velocity.current.length();
     avatarMotion.current.locomotionSpeed = velocity.current.length() / WORLD_SCALE;
     if (isMoving !== moving.current) { moving.current = isMoving; setWalking(isMoving); }
@@ -1295,7 +1308,9 @@ function SceneStaticBatch({ rootRef }: { rootRef: { current: THREE.Group | null 
 }
 
 const MarketGround = memo(function MarketGround() {
-  return <group>
+  const root = useRef<THREE.Group>(null);
+  return <group ref={root}>
+    <SceneStaticBatch rootRef={root} />
     <mesh receiveShadow position={[0, -0.08, -0.35]}><boxGeometry args={[23, 0.16, 17]} /><meshStandardMaterial color="#eee8dc" roughness={0.82} /></mesh>
     {[-7.6, -3.8, 0, 3.8, 7.6].map((x) => <mesh key={`floor-seam-x-${x}`} position={[x, 0.012, -0.35]}><boxGeometry args={[0.018, 0.008, 16.7]} /><meshStandardMaterial color="#d9d2c5" roughness={0.95} /></mesh>)}
     {[-6.8, -3.4, 0, 3.4, 6.8].map((z) => <mesh key={`floor-seam-z-${z}`} position={[0, 0.013, z - 0.35]}><boxGeometry args={[22.7, 0.008, 0.018]} /><meshStandardMaterial color="#d9d2c5" roughness={0.95} /></mesh>)}

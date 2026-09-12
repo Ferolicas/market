@@ -20,6 +20,7 @@ export interface MarketRenderProfile {
   mobile: boolean;
   dpr: number;
   targetFps: 30 | 60;
+  motionFps: 30 | 60;
   antialias: boolean;
   shadowMapSize: 512 | 1024;
   transmissionResolutionScale: 0.5 | 1;
@@ -36,9 +37,17 @@ export const MOBILE_ADAPTIVE_QUALITY: AdaptiveQualityConfig = {
   recoveryRate: 2,
 };
 
-/** Battery-first renderer policy. Mobile uses half as many presentation frames,
- * no multisample buffer and less than one physical pixel per CSS pixel.
- * Simulation rules remain independent and authoritative. */
+export const MOBILE_MOTION_ADAPTIVE_QUALITY: AdaptiveQualityConfig = {
+  ...MOBILE_ADAPTIVE_QUALITY,
+  // At 60 Hz, sustained 24 ms presentation frames indicate that resolution
+  // should step down before uneven cadence becomes visible.
+  slowFrameMs: 24,
+  sustainedSlowMs: 650,
+};
+
+/** Balanced mobile renderer policy. Mobile keeps a low-power 30 FPS idle loop,
+ * but locomotion can present at 60 FPS. A modest DPR cap plus MSAA restores
+ * readable character silhouettes without returning to native DPR 2/3. */
 export function marketRenderProfileForCapabilities(capabilities: MarketRenderCapabilities): MarketRenderProfile {
   const mobile = capabilities.coarsePointer || capabilities.width <= 820;
   const deviceDpr = Number.isFinite(capabilities.devicePixelRatio)
@@ -47,12 +56,13 @@ export function marketRenderProfileForCapabilities(capabilities: MarketRenderCap
   if (mobile) {
     return {
       mobile: true,
-      // Rendering below the panel's native DPR is the largest predictable GPU
-      // and battery saving on high-density phones. R3F may regress it further
-      // under sustained pressure.
-      dpr: Math.max(0.8, Math.min(0.9, deviceDpr)),
+      // Native DPR 2/3 is wasteful for this scene, while DPR 0.9 visibly
+      // pixelates the player. 1.25 is the measured compromise and can regress
+      // once to 1.075 under sustained frame pressure.
+      dpr: Math.max(1, Math.min(1.25, deviceDpr)),
       targetFps: 30,
-      antialias: false,
+      motionFps: 60,
+      antialias: true,
       shadowMapSize: 512,
       transmissionResolutionScale: 0.5,
       powerPreference: "low-power",
@@ -62,6 +72,7 @@ export function marketRenderProfileForCapabilities(capabilities: MarketRenderCap
     mobile: false,
     dpr: Math.max(0.85, Math.min(1.4, deviceDpr)),
     targetFps: 60,
+    motionFps: 60,
     antialias: true,
     shadowMapSize: 1024,
     transmissionResolutionScale: 1,
@@ -80,6 +91,7 @@ export function legacyMobileRenderProfile(capabilities: MarketRenderCapabilities
     mobile: true,
     dpr: Math.max(0.85, Math.min(1.4, deviceDpr)) * 0.86,
     targetFps: 60,
+    motionFps: 60,
     antialias: true,
     shadowMapSize: 1024,
     transmissionResolutionScale: 1,

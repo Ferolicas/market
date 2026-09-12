@@ -181,7 +181,7 @@ if (!webgl || webgl.contextLost) throw new Error(`WebGL inestable: ${JSON.string
 if (!renderProfile) throw new Error("No se recibió el perfil de render.");
 if (baseline) {
   if (renderProfile.targetFps !== 60 || renderProfile.dpr < 1.2 || renderProfile.antialias !== true || renderProfile.transmissionResolutionScale !== 1 || renderProfile.powerPreference !== "high-performance") throw new Error(`Baseline histórico incorrecto: ${JSON.stringify(renderProfile)}`);
-} else if (renderProfile.targetFps !== 30 || renderProfile.dpr > 0.9 || renderProfile.antialias !== false || renderProfile.transmissionResolutionScale !== 0.5 || renderProfile.powerPreference !== "low-power") throw new Error(`Perfil móvil no está en modo batería: ${JSON.stringify(renderProfile)}`);
+} else if (renderProfile.targetFps !== 30 || renderProfile.motionFps !== 60 || renderProfile.dpr !== 1.25 || renderProfile.antialias !== true || renderProfile.transmissionResolutionScale !== 0.5 || renderProfile.powerPreference !== "low-power") throw new Error(`Perfil móvil equilibrado incorrecto: ${JSON.stringify(renderProfile)}`);
 if (profile.softwareGpu && !/swiftshader/i.test(webgl.renderer)) throw new Error(`El proxy GPU software no quedó activo: ${webgl.renderer}`);
 if (!touchEvents.some((event) => event.pointerType === "touch")) throw new Error(`El canvas no recibió input táctil real: ${JSON.stringify(touchEvents)}`);
 if (consoleErrors.length || pageErrors.length || failedResponses.length) throw new Error(`Errores durante QA: ${JSON.stringify({ consoleErrors, pageErrors, failedResponses })}`);

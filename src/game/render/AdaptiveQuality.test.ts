@@ -28,12 +28,13 @@ describe("adaptive render quality", () => {
     expect(result.state.slowForMs).toBeCloseTo(233.2);
   });
 
-  it("selects a battery-first mobile renderer without reducing desktop quality", () => {
+  it("selects a sharp motion-aware mobile renderer without reducing desktop quality", () => {
     expect(marketRenderProfileForCapabilities({ width: 390, coarsePointer: true, devicePixelRatio: 3 })).toEqual({
       mobile: true,
-      dpr: 0.9,
+      dpr: 1.25,
       targetFps: 30,
-      antialias: false,
+      motionFps: 60,
+      antialias: true,
       shadowMapSize: 512,
       transmissionResolutionScale: 0.5,
       powerPreference: "low-power",
@@ -42,6 +43,7 @@ describe("adaptive render quality", () => {
       mobile: false,
       dpr: 1.4,
       targetFps: 60,
+      motionFps: 60,
       antialias: true,
       shadowMapSize: 1024,
       transmissionResolutionScale: 1,
@@ -54,6 +56,7 @@ describe("adaptive render quality", () => {
       mobile: true,
       dpr: 1.204,
       targetFps: 60,
+      motionFps: 60,
       antialias: true,
       shadowMapSize: 1024,
       transmissionResolutionScale: 1,
