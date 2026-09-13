@@ -4,7 +4,7 @@ import { stationTierModifiers } from "../progression/levels";
 import { InteractionZoneState } from "../interaction/InteractionZone";
 import { overlapsStoreObstacle, scaleStorePoint, STORE_ELEMENT_SCALE, STORE_LAYOUT_SCALE } from "../world-scale";
 import type { ProductId } from "../types";
-import { isStockingInteractionId, PRODUCT_RETAIL_DEPARTMENT, retailDepartmentFromStockingInteraction, retailStockingMagnet, retailStockLandingLocalPosition, RETAIL_DEPARTMENTS, RETAIL_DEPARTMENT_IDS, RETAIL_VISUAL_CAPACITY, stockingInteractionId } from "./retail-layout";
+import { distributedFixtureQuantity, isStockingInteractionId, PRODUCE_BIN_COLUMNS, PRODUCE_DECK, PRODUCE_DISPLAY_POSITIONS, produceBinColumn, PRODUCT_RETAIL_DEPARTMENT, retailDepartmentFromStockingInteraction, retailFixtureDisplayPositions, retailStockFixtureSlot, retailStockingMagnet, retailStockLandingLocalPosition, RETAIL_DEPARTMENTS, RETAIL_DEPARTMENT_IDS, RETAIL_VISUAL_CAPACITY, stockingInteractionId } from "./retail-layout";
 
 const NAVMESH_FURNITURE_PADDING = 0.31 * STORE_LAYOUT_SCALE;
 
@@ -97,7 +97,42 @@ describe("retail service points", () => {
     expect(retailStockLandingLocalPosition("eggs", 6, 7)[1]).toBeCloseTo(0.885);
     expect(retailStockLandingLocalPosition("milk", 5, 6)[1]).toBeCloseTo(0.86);
     expect(retailStockLandingLocalPosition("juice", 9, 10)[1]).toBeCloseTo(0.84);
-    expect(retailStockLandingLocalPosition("tomatoes", 9, 10)[1]).toBeGreaterThan(1.27);
+    // Produce fills its bin back to front; the second layer only starts once
+    // the deck is covered, and stays above the first layer.
+    expect(retailStockLandingLocalPosition("tomatoes", 3, 4)[2]).toBeGreaterThan(retailStockLandingLocalPosition("tomatoes", 0, 1)[2]);
+    expect(retailStockLandingLocalPosition("tomatoes", 15, 16)[1]).toBeGreaterThan(retailStockLandingLocalPosition("tomatoes", 14, 15)[1] + 0.1);
+  });
+
+  it("keeps every produce unit inside the bin owned by its SKU", () => {
+    const halfBin = PRODUCE_DECK.width / 2;
+    RETAIL_DEPARTMENTS.produce.products.forEach((productId, index) => {
+      expect(produceBinColumn(productId)).toBe(PRODUCE_BIN_COLUMNS[index]);
+      for (let ordinal = 0; ordinal < RETAIL_VISUAL_CAPACITY[productId]; ordinal += 1) {
+        const [x, y, z] = retailStockLandingLocalPosition(productId, ordinal, RETAIL_VISUAL_CAPACITY[productId]);
+        expect(Math.abs(x - PRODUCE_BIN_COLUMNS[index]), `${productId}:${ordinal} x`).toBeLessThan(halfBin);
+        expect(Math.abs(z - PRODUCE_DECK.center[2]), `${productId}:${ordinal} z`).toBeLessThan(PRODUCE_DECK.depth / 2);
+        expect(y, `${productId}:${ordinal} y`).toBeGreaterThan(PRODUCE_DECK.center[1] - PRODUCE_DECK.depth / 2 * Math.sin(PRODUCE_DECK.tilt));
+      }
+    });
+    expect(new Set(PRODUCE_BIN_COLUMNS).size).toBe(RETAIL_DEPARTMENTS.produce.products.length);
+  });
+
+  it("deals units and capacity round-robin across the fixtures of a department", () => {
+    expect(retailFixtureDisplayPositions("produce")).toBe(PRODUCE_DISPLAY_POSITIONS);
+    expect(retailFixtureDisplayPositions("dairy")).toEqual([RETAIL_DEPARTMENTS.dairy.display]);
+    expect([0, 1].map((fixture) => distributedFixtureQuantity(7, fixture, 2))).toEqual([4, 3]);
+    expect([0, 1].map((fixture) => distributedFixtureQuantity(12, fixture, 2))).toEqual([6, 6]);
+    expect([0, 1, 2].map((fixture) => distributedFixtureQuantity(0, fixture, 3))).toEqual([0, 0, 0]);
+
+    // The seventh unit of a produce SKU is the fourth unit of the first table.
+    expect(retailStockFixtureSlot("produce", 6, 7)).toEqual({ fixtureIndex: 0, localOrdinal: 3, localEnd: 4 });
+    expect(retailStockFixtureSlot("produce", 7, 8)).toEqual({ fixtureIndex: 1, localOrdinal: 3, localEnd: 4 });
+    expect(retailStockFixtureSlot("dairy", 5, 6)).toEqual({ fixtureIndex: 0, localOrdinal: 5, localEnd: 6 });
+    for (let total = 0; total <= 26; total += 1) {
+      const perFixture = [0, 0];
+      for (let ordinal = 0; ordinal < total; ordinal += 1) perFixture[retailStockFixtureSlot("produce", ordinal, total).fixtureIndex] += 1;
+      expect(perFixture).toEqual([distributedFixtureQuantity(total, 0, 2), distributedFixtureQuantity(total, 1, 2)]);
+    }
   });
 
   it("provides a finite visible slot for every possible tier-ten shelf unit", () => {

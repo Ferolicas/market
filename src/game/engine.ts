@@ -1151,9 +1151,14 @@ function shelfFill(franchise: FranchiseState, productId: ProductId) {
   return franchise.shelves[productId] / shelfCapacity(franchise, productId);
 }
 
-function shelfCapacity(franchise: FranchiseState, productId: ProductId) {
-  const tier = franchise.stationTiers["shelves-1"] ?? franchise.shelvesLevel;
+/** Authoritative units one retail shelf holds for a product at a display tier.
+ * Exported so presentation (slot signs, fill meters) reads the same rule. */
+export function shelfCapacityForTier(tier: number, productId: ProductId) {
   return Math.max(1, Math.round((PRODUCT_CONFIG[productId]?.shelfCapacity ?? 12) * stationTierModifiers(tier).capacity));
+}
+
+function shelfCapacity(franchise: FranchiseState, productId: ProductId) {
+  return shelfCapacityForTier(franchise.stationTiers["shelves-1"] ?? franchise.shelvesLevel, productId);
 }
 
 function setEmployeePath(runtime: EmployeeRuntimeState, path: [number, number][]) {

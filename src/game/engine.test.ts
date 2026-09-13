@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { advanceWorld, applyGameAction, canOperateMachine, canProcessCheckoutUnit, CHECKOUT_SCAN_UNIT_MS, countryMoneyScale, createInitialGame, employeeHiringQuote, normalizeGameState, unlockedCustomerProducts, upgradeQuote } from "./engine";
+import { advanceWorld, applyGameAction, canOperateMachine, canProcessCheckoutUnit, CHECKOUT_SCAN_UNIT_MS, countryMoneyScale, createInitialGame, employeeHiringQuote, normalizeGameState, shelfCapacityForTier, unlockedCustomerProducts, upgradeQuote } from "./engine";
 import type { CheckoutTransaction, CustomerRuntimeState, GameState, PaymentMethod } from "./types";
 import { CHECKOUT_LANES, checkoutQueueArrival } from "./stations/checkout-layout";
 import { createCustomerMind } from "./ai/CustomerBrain";
@@ -23,6 +23,19 @@ function addReadyCheckout(state: GameState, id: string, paymentMethod: PaymentMe
 }
 
 describe("motor económico", () => {
+  it("expone la capacidad de estante por nivel con la misma regla que aplica al reponer", () => {
+    expect(shelfCapacityForTier(1, "tomatoes")).toBe(12);
+    expect(shelfCapacityForTier(10, "tomatoes")).toBe(26);
+    expect(shelfCapacityForTier(1, "bread")).toBe(8);
+    expect(shelfCapacityForTier(10, "bread")).toBe(18);
+
+    const state = createInitialGame("ES");
+    const franchise = state.franchises[0];
+    franchise.carry = { capacity: 40, items: { tomatoes: 40 } };
+    const stocked = applyGameAction(state, { type: "STOCK", productId: "tomatoes", quantity: 40, source: "carry" }).state;
+    expect(stocked.franchises[0].shelves.tomatoes).toBe(shelfCapacityForTier(franchise.stationTiers["shelves-1"] ?? franchise.shelvesLevel, "tomatoes"));
+  });
+
   it("integra la distancia del jugador dentro del tick mundial sin una acción global adicional", () => {
     const state = createInitialGame("ES");
     const next = advanceWorld(state, 100, undefined, { playerDistanceMeters: 1.25 }).state;

@@ -24,6 +24,7 @@ describe("market presentation reconciliation", () => {
     const moved = { ...customer, x: 7, z: -4, pathIndex: 3, patienceMs: 12_000 };
     const base = {
       shelves: franchise.shelves,
+      shelfTier: 1,
       machines: franchise.productionMachines,
       customers: [customer],
       checkoutTransactions: franchise.checkoutTransactions,
@@ -34,6 +35,7 @@ describe("market presentation reconciliation", () => {
       unlockedAreas: franchise.unlockedAreas,
     };
     expect(sameFurniturePresentation(base, { ...base, customers: [moved] })).toBe(true);
+    expect(sameFurniturePresentation(base, { ...base, shelfTier: 2 })).toBe(false);
   });
 
   it("invalidates furniture for cold-door and checkout unit transitions", () => {
@@ -55,6 +57,7 @@ describe("market presentation reconciliation", () => {
     } as CheckoutTransaction;
     const base = {
       shelves: franchise.shelves,
+      shelfTier: 1,
       machines: franchise.productionMachines,
       customers: [customer],
       checkoutTransactions: [transaction],

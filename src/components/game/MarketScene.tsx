@@ -28,7 +28,7 @@ import { createWalkableStoreGeometry, storePathfinder } from "@/game/navigation/
 import { captureEmployeeMotion, projectCustomerMotion, type CustomerMotionSnapshot } from "@/game/animation/CustomerVisualMotion";
 import { ADULT_CHARACTER_SCENE_SCALE, characterSceneScale, CHILD_CHARACTER_SCENE_SCALE } from "@/game/animation/CharacterScale";
 import { CHECKOUT_CAMERA_FRAME, CHECKOUT_CAMERA_POSITION as CHECKOUT_CAMERA_POSITION_COORDS, CHECKOUT_CAMERA_TARGET as CHECKOUT_CAMERA_TARGET_COORDS, checkoutQueuePosition } from "@/game/stations/checkout-layout";
-import { isStockingInteractionId, PRODUCT_RETAIL_DEPARTMENT, retailDepartmentFromStockingInteraction, retailDisplayPosition, retailStockingMagnet, retailStockLandingLocalPosition, RETAIL_DEPARTMENT_IDS, RETAIL_DEPARTMENTS, stockingInteractionId, type StockingInteractionId } from "@/game/stations/retail-layout";
+import { isStockingInteractionId, PRODUCT_RETAIL_DEPARTMENT, retailDepartmentFromStockingInteraction, retailDisplayPosition, retailFixtureDisplayPositions, retailStockingMagnet, retailStockFixtureSlot, retailStockLandingLocalPosition, RETAIL_DEPARTMENT_IDS, RETAIL_DEPARTMENTS, stockingInteractionId, type StockingInteractionId } from "@/game/stations/retail-layout";
 import { isWorkstationId, isWorkstationUnlocked, WORKSTATIONS, WORKSTATION_IDS, type WorkstationId } from "@/game/stations/workstation-layout";
 import { PRODUCTS } from "@/game/catalog";
 import { farmInteractionId, farmPlotById, FARM_ACCESS_WAYPOINTS, FARM_GATE, FARM_PLOTS, FARM_WORKER_HOME, scaledFarmHarvestSensor, type FarmInteractionId } from "@/game/stations/farm-layout";
@@ -287,7 +287,7 @@ export const MarketScene = memo(function MarketScene({ avatar, carry, visualCarr
           <group name="perf:building" scale={[STORE_LAYOUT_SCALE, 1, STORE_LAYOUT_SCALE]}><MarketBuilding open={open} doorMotion={doorMotion} /></group>
         </Suspense>
         <Suspense fallback={null}>
-          <group name="perf:furniture"><KitFurniture shelves={visualShelves} machines={productionMachines} customers={customers} checkoutTransactions={checkoutTransactions} returnsBin={returnsBin} returnedCartCount={returnedCartCount} lightsOn={lightsOn} dynamicCeilingLights={!renderProfile.mobile || Boolean(renderProfile.baseline)} unlockedAreas={unlockedAreas} /></group>
+          <group name="perf:furniture"><KitFurniture shelves={visualShelves} shelfTier={shelfTier} machines={productionMachines} customers={customers} checkoutTransactions={checkoutTransactions} returnsBin={returnsBin} returnedCartCount={returnedCartCount} lightsOn={lightsOn} dynamicCeilingLights={!renderProfile.mobile || Boolean(renderProfile.baseline)} unlockedAreas={unlockedAreas} /></group>
         </Suspense>
         <Suspense fallback={null}>
           <group name="perf:farm"><KitFarm crops={visualCrops} machines={productionMachines} nowMs={simulationTimeMs} unlockedAreas={unlockedAreas} /></group>
@@ -648,10 +648,13 @@ function StockMagnetBurst({ sequence, productId, quantity, shelfStart, basketTar
   const publishedRemaining = useRef(particleCount);
   const completionPublished = useRef(false);
   const departmentId = PRODUCT_RETAIL_DEPARTMENT[productId];
-  const displayPosition = retailDisplayPosition(departmentId);
   const displayYaw = THREE.MathUtils.degToRad(RETAIL_DEPARTMENTS[departmentId].yaw ?? 0);
+  // Departments with several fixtures deal units round-robin across them, so
+  // each flight lands on the fixture and slot where its unit will be drawn.
   const particleTargets = useMemo(() => Array.from({ length: particleCount }, (_, index): [number, number, number] => {
-    const landing = retailStockLandingLocalPosition(productId, shelfStart + index, shelfStart + particleCount);
+    const slot = retailStockFixtureSlot(departmentId, shelfStart + index, shelfStart + particleCount);
+    const displayPosition = retailFixtureDisplayPositions(departmentId)[slot.fixtureIndex];
+    const landing = retailStockLandingLocalPosition(productId, slot.localOrdinal, slot.localEnd);
     const localX = landing[0] * Math.cos(displayYaw) + landing[2] * Math.sin(displayYaw);
     const localZ = -landing[0] * Math.sin(displayYaw) + landing[2] * Math.cos(displayYaw);
     return [
@@ -659,7 +662,7 @@ function StockMagnetBurst({ sequence, productId, quantity, shelfStart, basketTar
       landing[1] * STORE_ELEMENT_SCALE,
       displayPosition[2] * STORE_LAYOUT_SCALE + localZ * STORE_ELEMENT_SCALE,
     ];
-  }), [displayPosition, displayYaw, particleCount, productId, shelfStart]);
+  }), [departmentId, displayYaw, particleCount, productId, shelfStart]);
   const targetPosition = particleTargets[0];
   const [targetX, targetY, targetZ] = targetPosition;
 

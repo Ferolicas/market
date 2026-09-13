@@ -43,6 +43,57 @@ export const RETAIL_DEPARTMENTS: Record<RetailDepartmentId, RetailDepartment> = 
 
 export const RETAIL_DEPARTMENT_IDS = Object.keys(RETAIL_DEPARTMENTS) as RetailDepartmentId[];
 
+/** Every visible fixture of a department, in the order units are dealt to them. */
+export function retailFixtureDisplayPositions(departmentId: RetailDepartmentId): readonly (readonly [number, number, number])[] {
+  if (departmentId === "pantry") return PANTRY_DISPLAY_POSITIONS;
+  if (departmentId === "produce") return PRODUCE_DISPLAY_POSITIONS;
+  return [RETAIL_DEPARTMENTS[departmentId].display];
+}
+
+/** Units of one SKU are dealt round-robin across a department's fixtures:
+ * shelf ordinal `k` lives on fixture `k % count`, so fixture `fixtureIndex`
+ * shows this many of `total`. Fixture capacity splits the same way. */
+export function distributedFixtureQuantity(total: number, fixtureIndex: number, fixtureCount: number) {
+  return Math.max(0, Math.floor((Math.max(0, total) + fixtureCount - 1 - fixtureIndex) / fixtureCount));
+}
+
+/** Fixture and fixture-local ordinal of one authoritative shelf ordinal, so a
+ * stocking flight lands exactly where the rendered unit will appear. */
+export function retailStockFixtureSlot(departmentId: RetailDepartmentId, ordinalInput: number, shelfEndInput: number) {
+  const fixtureCount = retailFixtureDisplayPositions(departmentId).length;
+  const ordinal = Math.max(0, Math.floor(Number.isFinite(ordinalInput) ? ordinalInput : 0));
+  const shelfEnd = Math.max(ordinal + 1, Math.floor(Number.isFinite(shelfEndInput) ? shelfEndInput : ordinal + 1));
+  const fixtureIndex = ordinal % fixtureCount;
+  const localOrdinal = Math.floor(ordinal / fixtureCount);
+  return { fixtureIndex, localOrdinal, localEnd: Math.max(localOrdinal + 1, distributedFixtureQuantity(shelfEnd, fixtureIndex, fixtureCount)) };
+}
+
+/** Produce table: one tilted bin per SKU, centred on these local x values
+ * (before STORE_ELEMENT_SCALE) in the order of RETAIL_DEPARTMENTS.produce.products. */
+export const PRODUCE_BIN_PITCH = 0.57;
+export const PRODUCE_BIN_COLUMNS: readonly number[] = [-1.5, -0.5, 0.5, 1.5].map((slot) => slot * PRODUCE_BIN_PITCH);
+/** Deck shared by every produce bin: centre, forward tilt in radians (the +z
+ * edge drops towards the camera) and box size, all in local units. */
+export const PRODUCE_DECK = { center: [0, 0.83, -0.03], tilt: 0.17, width: 0.5, thickness: 0.06, depth: 1.16 } as const;
+/** Unit slots inside one bin: three across, five deep, then a second layer. */
+export const PRODUCE_SLOT_GRID = { columns: 3, rows: 5, columnPitch: 0.15, rowPitch: 0.19, unitLift: 0.11, layerLift: 0.14 } as const;
+
+/** Local point on or above a produce deck: `innerY` along the deck normal and
+ * `innerZ` along its tilted depth, both measured from the deck centre. */
+export function produceDeckLocalPoint(x: number, innerY: number, innerZ: number): [number, number, number] {
+  const tilt = PRODUCE_DECK.tilt;
+  return [
+    x,
+    PRODUCE_DECK.center[1] + Math.cos(tilt) * innerY - Math.sin(tilt) * innerZ,
+    PRODUCE_DECK.center[2] + Math.sin(tilt) * innerY + Math.cos(tilt) * innerZ,
+  ];
+}
+
+/** Bin centre of one produce SKU; unknown ids fall back to the first bin. */
+export function produceBinColumn(productId: ProductId): number {
+  return PRODUCE_BIN_COLUMNS[Math.max(0, RETAIL_DEPARTMENTS.produce.products.indexOf(productId))];
+}
+
 /** Physical shelf levels shared by the fixture renderer and stocking flights.
  * Values are local StoreElement coordinates before STORE_ELEMENT_SCALE. */
 export const RETAIL_FIXTURE_LEVELS = {
@@ -167,28 +218,19 @@ export function retailStockLandingLocalPosition(productId: ProductId, ordinalInp
     return [centeredSlot(ordinal % perRow, count, 0.2), RETAIL_FIXTURE_LEVELS.drinks[row] + 0.14, 0.21];
   }
 
-  const productColumn = productId === "tomatoes" ? 0 : productId === "apples" ? 1 : productId === "oranges" ? 2 : 3;
-  if (ordinal < 9) {
-    const row = Math.floor(ordinal / 3);
-    const angle = 0.17;
-    const innerY = row * 0.055;
-    const innerZ = (row - 1) * 0.17;
-    return [
-      [-0.82, -0.28, 0.28, 0.82][productColumn] + (ordinal % 3 - 1) * 0.13,
-      0.88 + Math.cos(angle) * innerY - Math.sin(angle) * innerZ,
-      -0.31 + Math.sin(angle) * innerY + Math.cos(angle) * innerZ,
-    ];
-  }
-  const raisedOrdinal = ordinal - 9;
-  const row = Math.floor(raisedOrdinal / 4);
-  const angle = 0.08;
-  const innerY = row * 0.035;
-  const innerZ = (row - 2) * 0.1;
-  return [
-    (productColumn - 1.5) * 0.42 + (raisedOrdinal % 4 - 1.5) * 0.09,
-    1.27 + Math.cos(angle) * innerY - Math.sin(angle) * innerZ,
-    0.29 + Math.sin(angle) * innerY + Math.cos(angle) * innerZ,
-  ];
+  // Produce: every SKU owns one bin. Units fill it back to front, three
+  // across, and only stack a second layer once the deck is covered.
+  const { columns, rows, columnPitch, rowPitch, unitLift, layerLift } = PRODUCE_SLOT_GRID;
+  const layerCapacity = columns * rows;
+  const layer = ordinal < layerCapacity ? 0 : 1;
+  const layerOrdinal = ordinal - layer * layerCapacity;
+  const layerRows = layer === 0 ? rows : rows - 1;
+  const row = Math.min(layerRows - 1, Math.floor(layerOrdinal / columns));
+  return produceDeckLocalPoint(
+    produceBinColumn(productId) + (layerOrdinal % columns - (columns - 1) / 2) * columnPitch,
+    unitLift + layer * layerLift,
+    (row - (layerRows - 1) / 2) * rowPitch,
+  );
 }
 
 export function stockingInteractionId(departmentId: RetailDepartmentId): StockingInteractionId {

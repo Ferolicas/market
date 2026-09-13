@@ -24,6 +24,8 @@ const PRODUCT_IDS: readonly ProductId[] = [
 
 export interface FurniturePresentationProps {
   shelves: Inventory;
+  /** Display tier of `shelves-1`; slot signs derive their capacity from it. */
+  shelfTier: number;
   machines: ProductionMachineState[];
   customers: CustomerRuntimeState[];
   checkoutTransactions: CheckoutTransaction[];
@@ -51,7 +53,7 @@ export function sameFurniturePresentation(
   previous: Readonly<FurniturePresentationProps>,
   next: Readonly<FurniturePresentationProps>,
 ) {
-  if (previous.returnedCartCount !== next.returnedCartCount || previous.lightsOn !== next.lightsOn || previous.dynamicCeilingLights !== next.dynamicCeilingLights) return false;
+  if (previous.returnedCartCount !== next.returnedCartCount || previous.shelfTier !== next.shelfTier || previous.lightsOn !== next.lightsOn || previous.dynamicCeilingLights !== next.dynamicCeilingLights) return false;
   if (!sameStringList(previous.unlockedAreas, next.unlockedAreas)) return false;
   if (!sameInventory(previous.shelves, next.shelves) || !sameInventory(previous.returnsBin, next.returnsBin)) return false;
   if (!sameMachinePresentation(previous.machines, next.machines)) return false;
