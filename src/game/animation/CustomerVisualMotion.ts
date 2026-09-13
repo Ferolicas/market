@@ -15,6 +15,7 @@ const MOVING_STATES = new Set<CustomerRuntimeState["state"]>([
 const MOVING_EMPLOYEE_STATES = new Set<EmployeeRuntimeState["state"]>([
   "NAVIGATE_PICKUP",
   "NAVIGATE_DROPOFF",
+  "NAVIGATE_RETURN",
   "NAVIGATE_CHECKOUT",
 ]);
 

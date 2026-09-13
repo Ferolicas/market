@@ -33,7 +33,7 @@ export const SUPPLIERS = [
 ] as const;
 
 export const ROLE_INFO: Record<EmployeeRole, { name: string; salaryMinor: number; unlockLevel: number; description: string }> = {
-  farmer: { name: "Granjero", salaryMinor: 2800, unlockLevel: 2, description: "Cultiva trigo y lleva materia prima." },
+  farmer: { name: "Granjero", salaryMinor: 2800, unlockLevel: 2, description: "Cultiva y lleva la materia prima que más hace falta." },
   operator: { name: "Operario", salaryMinor: 3200, unlockLevel: 4, description: "Carga molinos y hornos." },
   stocker: { name: "Reponedor", salaryMinor: 3000, unlockLevel: 3, description: "Surte todas las estanterías." },
   cashier: { name: "Cajero", salaryMinor: 3400, unlockLevel: 5, description: "Atiende cobros y métodos de pago." },

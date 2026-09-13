@@ -45,4 +45,17 @@ describe("customer visual motion", () => {
     expect(snapshot.speed).toBe(1.82);
     expect(projectCustomerMotion(snapshot, 1_100).x).toBeCloseTo(0.182);
   });
+
+  it("keeps rendering a stocker in motion while they carry overflow to returns", () => {
+    const employee: EmployeeRuntimeState = {
+      state: "NAVIGATE_RETURN", assignedProduct: "apples", assignedStationId: "fixture:warehouse-return",
+      carry: { capacity: 4, items: { apples: 2 } }, x: 0, z: 0, targetX: 2, targetZ: 0,
+      path: [[2, 0]], pathIndex: 0, speed: 1.5, currentSpeed: 1.5, stateSince: 0,
+    };
+
+    const snapshot = captureEmployeeMotion(employee, 1_000);
+
+    expect(snapshot.moving).toBe(true);
+    expect(projectCustomerMotion(snapshot, 1_100).x).toBeCloseTo(0.15);
+  });
 });

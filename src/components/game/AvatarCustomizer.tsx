@@ -1,8 +1,8 @@
 "use client";
 
 import { Canvas } from "@react-three/fiber";
-import { ContactShadows, Environment, OrbitControls } from "@react-three/drei";
-import { Suspense, type CSSProperties, type ReactNode } from "react";
+import { ContactShadows, Environment, Lightformer, OrbitControls } from "@react-three/drei";
+import { Component, Suspense, type CSSProperties, type ErrorInfo, type ReactNode } from "react";
 import { CHARACTERS, HAIRSTYLES, HATS } from "@/game/catalog";
 import type { AvatarConfig, AvatarHatId } from "@/game/types";
 import { Avatar } from "./Avatar";
@@ -11,16 +11,18 @@ import { safeCanvasEvents } from "./safeCanvasEvents";
 export function AvatarCustomizer({ avatar, onChange, compact = false }: { avatar: AvatarConfig; onChange: (change: Partial<AvatarConfig>) => void; compact?: boolean }) {
   return <div className={`avatar-customizer ${compact ? "compact" : ""}`}>
     <div className="avatar-preview-3d" aria-label="Vista previa tridimensional del personaje">
-      <Canvas events={safeCanvasEvents} shadows="percentage" dpr={[1, 1.5]} camera={{ position: [0, 1.42, 6.3], fov: 34 }} gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}>
-        <ambientLight intensity={1.45} />
-        <directionalLight position={[3, 5, 4]} intensity={2.2} castShadow />
-        <Suspense fallback={null}>
-          <Avatar {...avatar} />
-          <Environment preset="studio" environmentIntensity={0.42} />
-        </Suspense>
-        <ContactShadows position={[0, 0.01, 0]} opacity={0.34} scale={3.5} blur={2.4} far={3} />
-        <OrbitControls target={[0, 1.12, 0]} enablePan={false} enableZoom={false} minPolarAngle={Math.PI / 2.5} maxPolarAngle={Math.PI / 1.85} />
-      </Canvas>
+      <PreviewErrorBoundary>
+        <Canvas events={safeCanvasEvents} shadows="percentage" dpr={[1, 1.5]} camera={{ position: [0, 1.42, 6.3], fov: 34 }} gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}>
+          <ambientLight intensity={1.45} />
+          <directionalLight position={[3, 5, 4]} intensity={2.2} castShadow />
+          <Suspense fallback={null}>
+            <Avatar {...avatar} />
+            <StudioEnvironment />
+          </Suspense>
+          <ContactShadows position={[0, 0.01, 0]} opacity={0.34} scale={3.5} blur={2.4} far={3} />
+          <OrbitControls target={[0, 1.12, 0]} enablePan={false} enableZoom={false} minPolarAngle={Math.PI / 2.5} maxPolarAngle={Math.PI / 1.85} />
+        </Canvas>
+      </PreviewErrorBoundary>
       <span className="preview-hint">Arrastra para verlo en 360°</span>
     </div>
 
@@ -59,6 +61,41 @@ export function AvatarCustomizer({ avatar, onChange, compact = false }: { avatar
       </CustomizerSection>
     </div>
   </div>;
+}
+
+/**
+ * Self-contained studio lighting. The former `preset="studio"` fetched an HDR
+ * from a public CDN; the production CSP (`connect-src 'self' blob:`) blocks
+ * that request, the loader rejects inside Suspense and, without a boundary,
+ * React unmounted the entire game the moment the avatar panel opened.
+ */
+function StudioEnvironment() {
+  return <Environment resolution={64} frames={1} environmentIntensity={0.42}>
+    <Lightformer form="rect" intensity={3.2} color="#fff6e6" position={[0, 4.5, 2]} rotation={[Math.PI / 2, 0, 0]} scale={[6, 6]} />
+    <Lightformer form="rect" intensity={1.6} color="#dfe9ff" position={[4, 2, 2]} rotation={[0, -Math.PI / 2, 0]} scale={[4, 3]} />
+    <Lightformer form="rect" intensity={1.2} color="#ffe6cf" position={[-4, 2, 1]} rotation={[0, Math.PI / 2, 0]} scale={[4, 3]} />
+    <Lightformer form="rect" intensity={0.8} color="#cfd8d3" position={[0, 1.5, -4]} rotation={[0, Math.PI, 0]} scale={[6, 3]} />
+  </Environment>;
+}
+
+/** A failed preview asset must never take the game down with it. */
+class PreviewErrorBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error("Avatar preview failed", error, info.componentStack);
+  }
+
+  render() {
+    if (this.state.failed) {
+      return <div className="avatar-preview-fallback" role="status">La vista previa no está disponible en este dispositivo. Tus cambios se aplican igualmente.</div>;
+    }
+    return this.props.children;
+  }
 }
 
 function CustomizerSection({ title, note, children }: { title: string; note: string; children: ReactNode }) {

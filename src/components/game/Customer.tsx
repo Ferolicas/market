@@ -18,6 +18,7 @@ import { PRODUCT_RETAIL_DEPARTMENT, retailDisplayPosition } from "@/game/station
 import { CART_BAY_POINT } from "@/game/stations/store-service-layout";
 import { checkoutCustomerFacingYaw } from "@/game/stations/checkout-layout";
 import { composeRuntimeAnimationAliases } from "@/game/animation/CarrySocket";
+import { adultCustomerSceneScale } from "@/game/animation/CharacterScale";
 import { BasketProduct } from "./HarvestBasket";
 
 export type CustomerId = 1 | 2 | 3 | 4 | 5 | 6;
@@ -37,7 +38,14 @@ const LOD2_PATHS = Object.fromEntries(Object.entries(MODEL_PATHS).map(([id, path
 // Preserve the proven in-store height after replacing the former cast with
 // the delivered two-metre FBX bodies. Identity 2 intentionally reuses the one
 // approved male customer body.
-const CUSTOMER_SCALE: Record<CustomerId, number> = { 1: 1.236, 2: 1.226, 3: 1.291, 4: 1.265, 5: 1.265, 6: 1.216 };
+const CUSTOMER_SCALE: Record<CustomerId, number> = {
+  1: adultCustomerSceneScale(1.236),
+  2: adultCustomerSceneScale(1.226),
+  3: adultCustomerSceneScale(1.291),
+  4: adultCustomerSceneScale(1.265),
+  5: adultCustomerSceneScale(1.265),
+  6: adultCustomerSceneScale(1.216),
+};
 const CART_SCALE = 0.92;
 const CART_HANDLE_Z = -0.43;
 const CART_HANDLE_Y = 0.82;

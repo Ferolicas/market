@@ -41,7 +41,7 @@ export interface Employee {
 }
 
 export interface EmployeeRuntimeState {
-  state: "IDLE" | "NAVIGATE_PICKUP" | "PICKUP" | "NAVIGATE_DROPOFF" | "DROPOFF" | "NAVIGATE_CHECKOUT" | "OPERATE_CHECKOUT";
+  state: "IDLE" | "NAVIGATE_PICKUP" | "PICKUP" | "NAVIGATE_DROPOFF" | "DROPOFF" | "NAVIGATE_RETURN" | "RETURN_TO_WAREHOUSE" | "NAVIGATE_CHECKOUT" | "OPERATE_CHECKOUT";
   assignedProduct: ProductId | null;
   assignedStationId: string | null;
   carry: CarryState;
@@ -265,6 +265,7 @@ export type GameAction =
   | { type: "BAKE_BREAD" }
   | { type: "OPERATE_MACHINE"; machineId: string }
   | { type: "PICKUP_WAREHOUSE"; productId?: ProductId; quantity?: number }
+  | { type: "RETURN_TO_WAREHOUSE" }
   | { type: "STOCK"; productId: ProductId; quantity?: number; source?: "warehouse" | "carry" }
   | { type: "CHECKOUT"; paymentMethod: PaymentMethod }
   | { type: "ORDER"; supplierId: string; productId: ProductId; quantity: number }
@@ -286,6 +287,7 @@ export type WorldInteractionAction = Extract<GameAction, { type:
   | "BAKE_BREAD"
   | "OPERATE_MACHINE"
   | "PICKUP_WAREHOUSE"
+  | "RETURN_TO_WAREHOUSE"
   | "STOCK"
   | "CHECKOUT"
   | "CONTRIBUTE_BUILD"

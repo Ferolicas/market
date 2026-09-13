@@ -13,6 +13,7 @@
     "qa:accessories": "node scripts/qa-accessory-runtime.mjs",
     "qa:customers": "node scripts/qa-customer-runtime.mjs",
     "qa:character-performance": "node scripts/qa-character-lod-cart.mjs",
+    "qa:avatar-panel": "node scripts/qa-avatar-panel.mjs",
     "qa:workers": "node scripts/qa-worker-runtime.mjs",
     "qa:mobile-render": "node scripts/qa-mobile-render-budget.mjs",
     "qa:production-surface": "node scripts/qa-production-surface.mjs",

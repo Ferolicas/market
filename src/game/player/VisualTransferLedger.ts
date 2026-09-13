@@ -72,6 +72,10 @@ function authoritativeMutationIsVisible(
       && inventoryQuantity(carry.items, entry.productId) >= nonNegativeInteger(entry.carryStart) + quantity;
     return Boolean(cropCommitted || carryCommitted);
   }
+  if (entry.kind === "return") {
+    return entry.carryStart !== undefined
+      && inventoryQuantity(carry.items, entry.productId) <= Math.max(0, nonNegativeInteger(entry.carryStart) - quantity);
+  }
   return false;
 }
 
@@ -92,7 +96,7 @@ export function deriveVisualTransferPresentation(
   entries: readonly VisualTransferLedgerEntry[],
 ): VisualTransferPresentation {
   const active = entries.filter((entry) => transferRemaining(entry) > 0
-    && (entry.kind === "harvest" || entry.kind === "stock")
+    && (entry.kind === "harvest" || entry.kind === "stock" || entry.kind === "return")
     && entry.productId
     && authoritativeMutationIsVisible(entry, carry, crops, shelves));
   if (!active.length) return { carry, crops: crops as CropState[], shelves };
@@ -107,6 +111,10 @@ export function deriveVisualTransferPresentation(
     if (entry.kind === "stock") {
       visualCarry.items[productId] = inventoryQuantity(visualCarry.items, productId) + remaining;
       visualShelves[productId] = Math.max(0, inventoryQuantity(visualShelves, productId) - remaining);
+      continue;
+    }
+    if (entry.kind === "return") {
+      visualCarry.items[productId] = inventoryQuantity(visualCarry.items, productId) + remaining;
       continue;
     }
 

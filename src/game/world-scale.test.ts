@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { CART_RETURN_POINT, RETURNS_POINT, RETURNS_TO_CART_FALLBACK, STORE_SERVICE_FIXTURE_IDS, STORE_SERVICE_FIXTURES } from "./stations/store-service-layout";
 import { FARM_GATE } from "./stations/farm-layout";
 import { PRODUCTION_CUBICLE } from "./stations/production-layout";
+import { WAREHOUSE_RETURN_STATION } from "./stations/warehouse-layout";
 import { overlapsStoreObstacle, scaleStorePoint, scaleStorePosition, STORE_ELEMENT_SCALE, STORE_LAYOUT_SCALE, STORE_OBSTACLES, STORE_PRODUCTION_FIXTURES, WORLD_SCALE } from "./world-scale";
 
 describe("store scale system", () => {
@@ -89,6 +90,18 @@ describe("store scale system", () => {
       expect(obstacle?.halfZ).toBeCloseTo(wall.halfZ * STORE_LAYOUT_SCALE);
       expect(overlapsStoreObstacle(scaleStorePoint([wall.position[0], wall.position[2]]), 0)).toBe(true);
     }
+  });
+
+  it("shares the visible warehouse return crate with physics and navigation", () => {
+    const obstacle = STORE_OBSTACLES.find((candidate) => candidate.id === WAREHOUSE_RETURN_STATION.obstacleId);
+    const center = scaleStorePoint([WAREHOUSE_RETURN_STATION.position[0], WAREHOUSE_RETURN_STATION.position[2]]);
+
+    expect(obstacle).toBeDefined();
+    expect(obstacle?.x).toBeCloseTo(center[0]);
+    expect(obstacle?.z).toBeCloseTo(center[1]);
+    expect(obstacle?.halfX).toBeCloseTo(WAREHOUSE_RETURN_STATION.footprint.halfX * STORE_ELEMENT_SCALE);
+    expect(obstacle?.halfZ).toBeCloseTo(WAREHOUSE_RETURN_STATION.footprint.halfZ * STORE_ELEMENT_SCALE);
+    expect(overlapsStoreObstacle(center, 0)).toBe(true);
   });
 
   it("keeps the pre-Recast returns route outside every padded fixture", () => {

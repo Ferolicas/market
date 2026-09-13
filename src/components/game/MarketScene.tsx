@@ -26,6 +26,7 @@ import { PerformanceMonitor } from "@/game/debug/PerformanceMonitor";
 import { marketPerformanceBaselineEnabled, marketPerformanceProbeEnabled } from "@/game/debug/QaAccess";
 import { createWalkableStoreGeometry, storePathfinder } from "@/game/navigation/NavMeshService";
 import { captureEmployeeMotion, projectCustomerMotion, type CustomerMotionSnapshot } from "@/game/animation/CustomerVisualMotion";
+import { ADULT_CHARACTER_SCENE_SCALE, characterSceneScale, CHILD_CHARACTER_SCENE_SCALE } from "@/game/animation/CharacterScale";
 import { CHECKOUT_CAMERA_FRAME, CHECKOUT_CAMERA_POSITION as CHECKOUT_CAMERA_POSITION_COORDS, CHECKOUT_CAMERA_TARGET as CHECKOUT_CAMERA_TARGET_COORDS, checkoutQueuePosition } from "@/game/stations/checkout-layout";
 import { isStockingInteractionId, PRODUCT_RETAIL_DEPARTMENT, retailDepartmentFromStockingInteraction, retailDisplayPosition, retailStockingMagnet, retailStockLandingLocalPosition, RETAIL_DEPARTMENT_IDS, RETAIL_DEPARTMENTS, stockingInteractionId, type StockingInteractionId } from "@/game/stations/retail-layout";
 import { isWorkstationId, isWorkstationUnlocked, WORKSTATIONS, WORKSTATION_IDS, type WorkstationId } from "@/game/stations/workstation-layout";
@@ -45,18 +46,19 @@ import {
   storefrontDoorProgress,
 } from "@/game/stations/storefront-layout";
 import { STORE_SERVICE_FIXTURE_IDS, STORE_SERVICE_FIXTURES } from "@/game/stations/store-service-layout";
-import { WAREHOUSE_PICKUP_STATION } from "@/game/stations/warehouse-layout";
+import { WAREHOUSE_PICKUP_STATION, WAREHOUSE_RETURN_STATION } from "@/game/stations/warehouse-layout";
 import { isProductionWorkstationId, productionMachineMagnet, PRODUCTION_WORKSTATION_IDS } from "@/game/stations/production-layout";
 import { ADAPTIVE_QUALITY_GRACE_MS, advanceAdaptiveQuality, DisplayCadenceEstimator, INITIAL_ADAPTIVE_QUALITY_STATE, legacyMobileRenderProfile, marketRenderProfileForCapabilities, MOBILE_ADAPTIVE_QUALITY, MOBILE_MOTION_ADAPTIVE_QUALITY, presentationDivisor, recoveredDpr, regressedDpr, type MarketRenderProfile } from "@/game/render/AdaptiveQuality";
 import { createStaticMeshBatch } from "@/game/render/StaticMeshBatch";
 import { customerPresentationKey, employeePresentationKey, liveActors, publishLiveActors } from "@/game/render/LiveActors";
+import { daylightPresentation } from "@/game/time/BusinessDay";
 
-export type InteractionId = Exclude<WorkstationId, "shelf"> | StockingInteractionId | FarmInteractionId | "supplier" | "door";
+export type InteractionId = Exclude<WorkstationId, "shelf"> | StockingInteractionId | FarmInteractionId | "supplier" | "warehouseReturn" | "door";
 export interface InteractionPrompt { id: InteractionId; label: string; }
 export interface InteractionVisualEvent {
   id: InteractionId;
   sequence: number;
-  kind: "work" | "harvest" | "stock";
+  kind: "work" | "harvest" | "stock" | "return";
   cropId?: string;
   productId?: ProductId;
   quantity?: number;
@@ -66,9 +68,9 @@ export interface InteractionVisualEvent {
   shelfStart?: number;
 }
 const PLAYER_START = scaleStorePosition([0, 0, 6.25]);
-// Visual size of the owner. Requested at 1.5× the former 1.1; the capsule
-// collider keeps its footprint so corridors stay passable.
-const PLAYER_SCALE = 1.65;
+// The approved child is the minimum character height. Camera framing follows
+// that stable baseline while adults render ten percent taller.
+const PLAYER_SCALE = CHILD_CHARACTER_SCENE_SCALE;
 const CAMERA_DISTANCE_FACTOR = 1.15;
 const CAMERA_PROXIMITY_FACTOR = 1.3;
 const OVERVIEW_CAMERA_OFFSET = { x: 16, y: 23, z: 25.75 } as const;
@@ -109,6 +111,7 @@ const ZONES: { id: InteractionId; label: string; position: [number, number, numb
     return { id: stockingInteractionId(departmentId), label: `Surtir ${department.label.toLowerCase()}`, position: [department.service[0], 0, department.service[1]] as [number, number, number] };
   }),
   { id: WAREHOUSE_PICKUP_STATION.interactionId, label: WAREHOUSE_PICKUP_STATION.label, position: [...WAREHOUSE_PICKUP_STATION.position] },
+  { id: WAREHOUSE_RETURN_STATION.interactionId, label: WAREHOUSE_RETURN_STATION.label, position: [...WAREHOUSE_RETURN_STATION.position] },
   { id: "door", label: "Sensor de entrada", position: [STOREFRONT_LAYOUT.sensor.centerX, 0, STOREFRONT_LAYOUT.sensor.centerZ] },
 ] satisfies { id: InteractionId; label: string; position: [number, number, number]; facing?: number }[]).map((zone) => ({ ...zone, position: scaleStorePosition(zone.position) }));
 
@@ -131,6 +134,7 @@ interface MarketSceneProps {
   shelfTier: number;
   unlockedAreas: string[];
   lightsOn: boolean;
+  minuteOfDay: number;
   simulationTimeMs: number;
   employees: Employee[];
   lastInteraction: InteractionVisualEvent | null;
@@ -147,7 +151,7 @@ interface MarketSceneProps {
   debug?: boolean;
 }
 
-export const MarketScene = memo(function MarketScene({ avatar, carry, visualCarry, warehousePickupEnabled, customers, checkoutTransactions, returnsBin, returnedCartCount, crops, visualCrops, productionMachines, shelves, visualShelves, shelfTier, unlockedAreas, lightsOn, simulationTimeMs, employees, onPrompt, onInteract, onDistance, onDoorPresence, onSceneReady, lastInteraction, transferEvents, onTransferProgress, open, doorState, doorProgress, checkoutLevel, playerSpeedTier, debug = false }: MarketSceneProps) {
+export const MarketScene = memo(function MarketScene({ avatar, carry, visualCarry, warehousePickupEnabled, customers, checkoutTransactions, returnsBin, returnedCartCount, crops, visualCrops, productionMachines, shelves, visualShelves, shelfTier, unlockedAreas, lightsOn, minuteOfDay, simulationTimeMs, employees, onPrompt, onInteract, onDistance, onDoorPresence, onSceneReady, lastInteraction, transferEvents, onTransferProgress, open, doorState, doorProgress, checkoutLevel, playerSpeedTier, debug = false }: MarketSceneProps) {
   const playerFocus = useRef(new THREE.Vector3(...PLAYER_START));
   const playerMotionActiveRef = useRef(false);
   const sceneSettledRef = useRef(false);
@@ -161,6 +165,7 @@ export const MarketScene = memo(function MarketScene({ avatar, carry, visualCarr
   const [canvasDpr, setCanvasDpr] = useState(renderProfile.dpr);
   const canvasGl = useMemo(() => ({ antialias: renderProfile.antialias, powerPreference: renderProfile.powerPreference }), [renderProfile]);
   const [performanceProbe] = useState(() => typeof window !== "undefined" && marketPerformanceProbeEnabled(window.location.search));
+  const daylight = daylightPresentation(minuteOfDay);
   const stockableByDepartment = Object.fromEntries(RETAIL_DEPARTMENT_IDS.map((departmentId) => [
     departmentId,
     preferredStockingProduct(carry, shelves, shelfTier, RETAIL_DEPARTMENTS[departmentId].products),
@@ -170,6 +175,7 @@ export const MarketScene = memo(function MarketScene({ avatar, carry, visualCarr
     return productId ? [[stockingInteractionId(departmentId), `Surtir ${PRODUCTS[productId].name.toLowerCase()}`]] : [];
   })) as Partial<Record<InteractionId, string>>;
   if (warehousePickupEnabled) interactionLabels.supplier = WAREHOUSE_PICKUP_STATION.label;
+  if (carryTotal(carry) > 0) interactionLabels.warehouseReturn = WAREHOUSE_RETURN_STATION.label;
   const stockableProduct = preferredStockingProduct(carry, shelves, shelfTier);
   publishLiveActors(customers, checkoutTransactions, employees, simulationTimeMs);
   // Authoritative ticks structured-clone the whole save, so array identity
@@ -213,6 +219,16 @@ export const MarketScene = memo(function MarketScene({ avatar, carry, visualCarr
       sensorEnabled: warehousePickupEnabled,
       x: warehouseX,
       z: warehouseZ,
+    };
+    const [returnX, returnZ] = scaleStorePoint([WAREHOUSE_RETURN_STATION.position[0], WAREHOUSE_RETURN_STATION.position[2]]);
+    qaWindow.__MARKET_QA__.warehouseReturnTarget = {
+      id: WAREHOUSE_RETURN_STATION.interactionId,
+      label: WAREHOUSE_RETURN_STATION.label,
+      obstacleId: WAREHOUSE_RETURN_STATION.obstacleId,
+      x: returnX,
+      z: returnZ,
+      workerX: WAREHOUSE_RETURN_STATION.workerPosition[0] * STORE_LAYOUT_SCALE,
+      workerZ: WAREHOUSE_RETURN_STATION.workerPosition[1] * STORE_LAYOUT_SCALE,
     };
     qaWindow.__MARKET_QA__.farmTargets = FARM_PLOTS.map((plot) => {
       const [x, z] = scaleStorePoint([plot.position[0], plot.position[2]]);
@@ -258,10 +274,10 @@ export const MarketScene = memo(function MarketScene({ avatar, carry, visualCarr
       <AdaptiveQualityController canvasDpr={canvasDpr} profile={renderProfile} playerMotionActiveRef={playerMotionActiveRef} sceneSettledRef={sceneSettledRef} onDprChange={setCanvasDpr} publishDiagnostics={performanceProbe} />
       <OverviewCamera playerFocus={playerFocus} checkoutFocused={checkoutFocused} />
       <StorefrontDoorMotion doorState={doorState} doorProgress={doorProgress} motionRef={doorMotion} />
-      <color attach="background" args={["#b8dfce"]} />
-      <fog attach="fog" args={["#b8dfce", 62 * WORLD_SCALE, 105 * WORLD_SCALE]} />
-      <ambientLight intensity={1.15} />
-      <MarketKeyLight shadowMapSize={renderProfile.shadowMapSize} publishDiagnostics={performanceProbe} />
+      <color attach="background" args={[daylight.background]} />
+      <fog attach="fog" args={[daylight.fog, 62 * WORLD_SCALE, 105 * WORLD_SCALE]} />
+      <ambientLight intensity={daylight.ambientIntensity} />
+      <MarketKeyLight shadowMapSize={renderProfile.shadowMapSize} publishDiagnostics={performanceProbe} intensity={daylight.keyIntensity} color={daylight.keyColor} />
       <group scale={WORLD_SCALE}>
         <group name="perf:ground" scale={[STORE_LAYOUT_SCALE, 1, STORE_LAYOUT_SCALE]}><MarketGround /></group>
         <Suspense fallback={null}>
@@ -281,7 +297,9 @@ export const MarketScene = memo(function MarketScene({ avatar, carry, visualCarr
             ? <HarvestMagnetBurst key={event.sequence} sequence={event.sequence} cropId={event.cropId} productId={event.productId} quantity={event.quantity ?? 1} basketTarget={basketTarget} onProgress={onTransferProgress} />
             : event.kind === "stock" && event.productId
               ? <StockMagnetBurst key={event.sequence} sequence={event.sequence} productId={event.productId} quantity={event.quantity ?? 1} shelfStart={event.shelfStart ?? 0} basketTarget={basketTarget} onProgress={onTransferProgress} />
-              : null)}
+              : event.kind === "return" && event.productId
+                ? <ReturnMagnetBurst key={event.sequence} sequence={event.sequence} productId={event.productId} quantity={event.quantity ?? 1} basketTarget={basketTarget} onProgress={onTransferProgress} />
+                : null)}
           {debug && <DebugWorld customers={customers} crops={crops} />}
         </Suspense>
         <group name="perf:employees"><Suspense fallback={null}><Employees employees={employees} /></Suspense></group>
@@ -307,7 +325,7 @@ export const MarketScene = memo(function MarketScene({ avatar, carry, visualCarr
 
 function sameMarketSceneProps(previous: MarketSceneProps, next: MarketSceneProps) {
   if (previous.debug !== next.debug || previous.onSceneReady !== next.onSceneReady || previous.warehousePickupEnabled !== next.warehousePickupEnabled || previous.checkoutLevel !== next.checkoutLevel || previous.playerSpeedTier !== next.playerSpeedTier || previous.shelfTier !== next.shelfTier || previous.open !== next.open || previous.doorState !== next.doorState || previous.doorProgress !== next.doorProgress) return false;
-  if (previous.crops !== next.crops || previous.visualCrops !== next.visualCrops || previous.productionMachines !== next.productionMachines || previous.shelves !== next.shelves || previous.visualShelves !== next.visualShelves || previous.unlockedAreas !== next.unlockedAreas || previous.lightsOn !== next.lightsOn || previous.simulationTimeMs !== next.simulationTimeMs) return false;
+  if (previous.crops !== next.crops || previous.visualCrops !== next.visualCrops || previous.productionMachines !== next.productionMachines || previous.shelves !== next.shelves || previous.visualShelves !== next.visualShelves || previous.unlockedAreas !== next.unlockedAreas || previous.lightsOn !== next.lightsOn || previous.minuteOfDay !== next.minuteOfDay || previous.simulationTimeMs !== next.simulationTimeMs) return false;
   if (previous.customers !== next.customers || previous.checkoutTransactions !== next.checkoutTransactions || previous.returnsBin !== next.returnsBin || previous.returnedCartCount !== next.returnedCartCount) return false;
   if (previous.lastInteraction !== next.lastInteraction || previous.transferEvents !== next.transferEvents || previous.onTransferProgress !== next.onTransferProgress || previous.onInteract !== next.onInteract || previous.onPrompt !== next.onPrompt || previous.onDistance !== next.onDistance || previous.onDoorPresence !== next.onDoorPresence) return false;
   const avatarKeys = ["body", "hair", "hairColor", "skin", "shirt", "hat"] as const;
@@ -525,7 +543,7 @@ function AdaptiveQualityController({ canvasDpr, profile, playerMotionActiveRef, 
   return null;
 }
 
-function MarketKeyLight({ shadowMapSize, publishDiagnostics }: { shadowMapSize: 512 | 1024; publishDiagnostics: boolean }) {
+function MarketKeyLight({ shadowMapSize, publishDiagnostics, intensity, color }: { shadowMapSize: 512 | 1024; publishDiagnostics: boolean; intensity: number; color: string }) {
   const light = useRef<THREE.DirectionalLight>(null);
   const [freezeStaticShadow] = useState(() => typeof window !== "undefined" && (
     window.matchMedia("(pointer: coarse)").matches || window.innerWidth <= 820
@@ -546,7 +564,7 @@ function MarketKeyLight({ shadowMapSize, publishDiagnostics }: { shadowMapSize: 
       shadow.needsUpdate = true;
     };
   }, [freezeStaticShadow, publishDiagnostics]);
-  return <directionalLight ref={light} position={[8 * WORLD_SCALE, 13 * WORLD_SCALE, 7 * WORLD_SCALE]} intensity={2.3} castShadow shadow-mapSize={[shadowMapSize, shadowMapSize]} shadow-camera-far={30 * WORLD_SCALE} />;
+  return <directionalLight ref={light} position={[8 * WORLD_SCALE, 13 * WORLD_SCALE, 7 * WORLD_SCALE]} intensity={intensity} color={color} castShadow shadow-mapSize={[shadowMapSize, shadowMapSize]} shadow-camera-far={30 * WORLD_SCALE} />;
 }
 
 function HarvestMagnetBurst({ sequence, cropId, productId, quantity, basketTarget, onProgress }: { sequence: number; cropId: string; productId: ProductId; quantity: number; basketTarget: RefObject<THREE.Vector3>; onProgress: (sequence: number, remainingQuantity: number) => void }) {
@@ -690,6 +708,58 @@ function StockMagnetBurst({ sequence, productId, quantity, shelfStart, basketTar
         qaWindow.__MARKET_QA__.stockBurstCompletions = [...completions, { sequence, productId, departmentId, quantity: particleCount }].slice(-24);
       }
     }
+    onProgress(sequence, remaining);
+  });
+
+  return <group>{Array.from({ length: particleCount }, (_, index) => <group key={index} ref={(node) => { particles.current[index] = node; }}>
+    <BasketProduct productId={productId} scale={1.16} />
+    <mesh position={[0, 0.1, 0]}><octahedronGeometry args={[0.03, 0]} /><meshBasicMaterial color="#fff1a6" transparent opacity={0.82} depthWrite={false} /></mesh>
+  </group>)}</group>;
+}
+
+const WAREHOUSE_RETURN_LANDING: readonly [number, number, number] = [
+  WAREHOUSE_RETURN_STATION.position[0] * STORE_LAYOUT_SCALE,
+  0.3 * STORE_ELEMENT_SCALE,
+  WAREHOUSE_RETURN_STATION.position[2] * STORE_LAYOUT_SCALE,
+];
+
+/** Every carried unit flies from the owner's basket into the return crate. */
+function ReturnMagnetBurst({ sequence, productId, quantity, basketTarget, onProgress }: { sequence: number; productId: ProductId; quantity: number; basketTarget: RefObject<THREE.Vector3>; onProgress: (sequence: number, remainingQuantity: number) => void }) {
+  const particleCount = Math.min(20, Math.max(1, Math.floor(quantity)));
+  const particles = useRef<Array<THREE.Group | null>>([]);
+  const sources = useRef<Array<THREE.Vector3 | null>>([]);
+  const landed = useRef<boolean[]>([]);
+  const elapsed = useRef(0);
+  const publishedRemaining = useRef(particleCount);
+
+  useFrame((_, delta) => {
+    elapsed.current += visualTransferDelta(delta);
+    let landedCount = 0;
+    for (let index = 0; index < particleCount; index += 1) {
+      const started = elapsed.current >= index * 0.065;
+      if (started && !sources.current[index]) sources.current[index] = basketTarget.current.clone();
+      const t = THREE.MathUtils.clamp((elapsed.current - index * 0.065) / 0.5, 0, 1);
+      if (t >= 1) landed.current[index] = true;
+      if (landed.current[index]) landedCount += 1;
+      const particle = particles.current[index];
+      if (!particle) continue;
+      particle.visible = t < 1 && started;
+      if (!particle.visible) continue;
+      const eased = t * t * (3 - 2 * t);
+      const source = sources.current[index] ?? basketTarget.current;
+      const slot = (index % 4 - 1.5) * 0.09 * STORE_ELEMENT_SCALE;
+      particle.position.set(
+        THREE.MathUtils.lerp(source.x, WAREHOUSE_RETURN_LANDING[0] + slot, eased),
+        THREE.MathUtils.lerp(source.y, WAREHOUSE_RETURN_LANDING[1], eased) + Math.sin(Math.PI * t) * 0.82,
+        THREE.MathUtils.lerp(source.z, WAREHOUSE_RETURN_LANDING[2], eased),
+      );
+      particle.rotation.x += delta * (3.5 + index * 0.3);
+      particle.rotation.y += delta * (5.2 + index * 0.45);
+      particle.scale.setScalar(0.94 + Math.sin(Math.PI * t) * 0.18);
+    }
+    const remaining = particleCount - landedCount;
+    if (remaining === publishedRemaining.current) return;
+    publishedRemaining.current = remaining;
     onProgress(sequence, remaining);
   });
 
@@ -1032,7 +1102,7 @@ function Player({ avatar, carry, cropSignature, checkoutLevel, playerSpeedTier, 
   const { world, rapier } = useRapier();
   const [walking, setWalking] = useState(false);
   const [performingWorkstation, setPerformingWorkstation] = useState<WorkstationId | null>(null);
-  const interactionAnimation: Partial<Record<InteractionId, CharacterAnimation>> = { mill: "LiftBox", bakery: "StockHigh", chicken: "PickupLow", cow: "PickupLow", cheese: "LiftBox", juice: "LiftBox", checkout: "ScanItem", supplier: "ReceiveOrder", door: "Enter" };
+  const interactionAnimation: Partial<Record<InteractionId, CharacterAnimation>> = { mill: "LiftBox", bakery: "StockHigh", chicken: "PickupLow", cow: "PickupLow", cheese: "LiftBox", juice: "LiftBox", checkout: "ScanItem", supplier: "ReceiveOrder", warehouseReturn: "StockLow", door: "Enter" };
   const publishWorkstation = (id: WorkstationId | null) => {
     if (publishedWorkstation.current === id) return;
     publishedWorkstation.current = id;
@@ -1223,7 +1293,7 @@ function Player({ avatar, carry, cropSignature, checkoutLevel, playerSpeedTier, 
       if (qaWindow.__MARKET_QA__) qaWindow.__MARKET_QA__.activeZones = active;
     }
     const foundZone = ZONES.find((zone) => active.includes(zone.id)
-      && (!(isStockingInteractionId(zone.id) || zone.id === "supplier") || interactionLabels[zone.id]));
+      && (!(isStockingInteractionId(zone.id) || zone.id === "supplier" || zone.id === "warehouseReturn") || interactionLabels[zone.id]));
     const found = foundZone ? { id: foundZone.id, label: interactionLabels[foundZone.id] ?? foundZone.label } : null;
     if (found?.id !== nearest.current?.id || found?.label !== nearest.current?.label) { nearest.current = found; onPrompt(found); }
   });
@@ -1231,7 +1301,7 @@ function Player({ avatar, carry, cropSignature, checkoutLevel, playerSpeedTier, 
   const worldStart = PLAYER_START.map((value) => value * WORLD_SCALE) as [number, number, number];
   return <RigidBody ref={body} type="kinematicPosition" colliders={false} position={worldStart} enabledRotations={[false, false, false]} canSleep={false} userData={{ actor: "player" }}>
     <CapsuleCollider ref={collider} args={[0.45 * WORLD_SCALE, 0.24 * WORLD_SCALE]} position={[0, 0.69 * WORLD_SCALE, 0]} friction={0} />
-    <group ref={visual}><Avatar {...avatar} scale={PLAYER_SCALE * WORLD_SCALE} walking={walking} carrying={carryTotal(carry) > 0} carryAccessory={<HarvestBasket ref={basketVisual} carry={carry} />} motion={avatarMotion} animation={!walking && lastInteraction?.kind === "work" && lastInteraction.id === performingWorkstation ? interactionAnimation[lastInteraction.id] : undefined} idleAnimationSpeed={0} feedbackSource="player" feedbackActorId="player" /></group>
+    <group ref={visual}><Avatar {...avatar} scale={characterSceneScale(avatar.body) * WORLD_SCALE} walking={walking} carrying={carryTotal(carry) > 0} carryAccessory={<HarvestBasket ref={basketVisual} carry={carry} />} motion={avatarMotion} animation={!walking && lastInteraction?.kind === "work" && lastInteraction.id === performingWorkstation ? interactionAnimation[lastInteraction.id] : undefined} idleAnimationSpeed={0} feedbackSource="player" feedbackActorId="player" /></group>
   </RigidBody>;
 }
 
@@ -1480,15 +1550,23 @@ function interactionZoneConfigs(checkoutLevel = 1, unlockedAreas: readonly strin
       // rounded corner. Hands-on stations retain a radial service socket.
       enterRadius: magnet?.enterRadius ?? (doorSensor
         ? doorSensor.enterMargin * STORE_LAYOUT_SCALE
-        : (zone.id === "supplier" ? WAREHOUSE_PICKUP_STATION.enterRadius : isWorkstationId(zone.id) ? 0.44 : 0.75) * STORE_ELEMENT_SCALE),
+        : (zone.id === "supplier"
+            ? WAREHOUSE_PICKUP_STATION.enterRadius
+            : zone.id === "warehouseReturn"
+              ? WAREHOUSE_RETURN_STATION.enterRadius
+              : isWorkstationId(zone.id) ? 0.44 : 0.75) * STORE_ELEMENT_SCALE),
       exitRadius: magnet?.exitRadius ?? (doorSensor
         ? doorSensor.exitMargin * STORE_LAYOUT_SCALE
-        : (zone.id === "supplier" ? WAREHOUSE_PICKUP_STATION.exitRadius : isWorkstationId(zone.id) ? 0.58 : 0.9) * STORE_ELEMENT_SCALE),
+        : (zone.id === "supplier"
+            ? WAREHOUSE_PICKUP_STATION.exitRadius
+            : zone.id === "warehouseReturn"
+              ? WAREHOUSE_RETURN_STATION.exitRadius
+              : isWorkstationId(zone.id) ? 0.58 : 0.9) * STORE_ELEMENT_SCALE),
       actorMask: ["player"],
-      priority: isStockingInteractionId(zone.id) ? 80 : ({ checkout: 100, mill: 70, bakery: 70, cheese: 70, juice: 70, chicken: 65, cow: 65, door: 20, supplier: 5 } as Partial<Record<InteractionId, number>>)[zone.id] ?? 10,
-      dwellMs: zone.id === "supplier" ? WAREHOUSE_PICKUP_STATION.dwellMs : zone.id === "checkout" ? 180 : zone.id === "door" || isStockingInteractionId(zone.id) || isProductionWorkstationId(zone.id) ? 0 : 80,
-      repeatEveryMs: zone.id === "supplier" ? WAREHOUSE_PICKUP_STATION.repeatEveryMs : isStockingInteractionId(zone.id) || isProductionWorkstationId(zone.id) ? 180 : zone.id === "checkout" ? (checkoutLevel >= 2 ? 340 : 450) : zone.id === "door" ? 60_000 : 220,
-      exitGraceMs: zone.id === "supplier" ? WAREHOUSE_PICKUP_STATION.exitGraceMs : 120,
+      priority: isStockingInteractionId(zone.id) ? 80 : ({ checkout: 100, mill: 70, bakery: 70, cheese: 70, juice: 70, chicken: 65, cow: 65, door: 20, warehouseReturn: 6, supplier: 5 } as Partial<Record<InteractionId, number>>)[zone.id] ?? 10,
+      dwellMs: zone.id === "supplier" ? WAREHOUSE_PICKUP_STATION.dwellMs : zone.id === "warehouseReturn" ? WAREHOUSE_RETURN_STATION.dwellMs : zone.id === "checkout" ? 180 : zone.id === "door" || isStockingInteractionId(zone.id) || isProductionWorkstationId(zone.id) ? 0 : 80,
+      repeatEveryMs: zone.id === "supplier" ? WAREHOUSE_PICKUP_STATION.repeatEveryMs : zone.id === "warehouseReturn" ? WAREHOUSE_RETURN_STATION.repeatEveryMs : isStockingInteractionId(zone.id) || isProductionWorkstationId(zone.id) ? 180 : zone.id === "checkout" ? (checkoutLevel >= 2 ? 340 : 450) : zone.id === "door" ? 60_000 : 220,
+      exitGraceMs: zone.id === "supplier" ? WAREHOUSE_PICKUP_STATION.exitGraceMs : zone.id === "warehouseReturn" ? WAREHOUSE_RETURN_STATION.exitGraceMs : 120,
       channel: zone.id === "door" || zone.id === "supplier" ? "passive" : zone.id === "checkout" ? "hands" : "transfer",
     };
   });
@@ -1627,7 +1705,7 @@ const Npc = memo(function Npc({ employee, position, color, body = "adult-man", h
   const snapshotSource = useRef<EmployeeRuntimeState | undefined>(employee.runtime);
   const motion = useRef({ speed: 0, locomotionSpeed: 0, yawDelta: 0 });
   const roleAnimation: Record<EmployeeRole, CharacterAnimation> = { farmer: "Harvest", operator: "LiftBox", stocker: "StockHigh", cashier: "ScanItem", builder: "CarryBox", manager: "Wave" };
-  const moving = employee.runtime?.state === "NAVIGATE_PICKUP" || employee.runtime?.state === "NAVIGATE_DROPOFF" || employee.runtime?.state === "NAVIGATE_CHECKOUT";
+  const moving = employee.runtime?.state === "NAVIGATE_PICKUP" || employee.runtime?.state === "NAVIGATE_DROPOFF" || employee.runtime?.state === "NAVIGATE_RETURN" || employee.runtime?.state === "NAVIGATE_CHECKOUT";
   useEffect(() => {
     return () => {
       const qaWindow = window as typeof window & { __MARKET_QA__?: Record<string, unknown> };
@@ -1676,9 +1754,10 @@ const Npc = memo(function Npc({ employee, position, color, body = "adult-man", h
       };
     }
   });
-  const interaction = employee.runtime?.state === "PICKUP" || employee.runtime?.state === "DROPOFF" || employee.runtime?.state === "OPERATE_CHECKOUT";
+  const interaction = employee.runtime?.state === "PICKUP" || employee.runtime?.state === "DROPOFF" || employee.runtime?.state === "RETURN_TO_WAREHOUSE" || employee.runtime?.state === "OPERATE_CHECKOUT";
+  const interactionAnimation = employee.runtime?.state === "RETURN_TO_WAREHOUSE" ? "StockLow" : roleAnimation[employee.role];
   const carried = employee.runtime?.carry;
-  return <group ref={ref} position={position}><Avatar skin="#a96f50" shirt={color} hairColor="#3b2820" hat={employee.hat} body={body} hair={hair} scale={0.86} walking={moving} carrying={Boolean(carried && carryTotal(carried) > 0)} carryAccessory={carried && carryTotal(carried) > 0 ? <HarvestBasket carry={carried} /> : undefined} motion={motion} animation={interaction ? roleAnimation[employee.role] : undefined} feedbackSource="npc" feedbackActorId={employee.id} /></group>;
+  return <group ref={ref} position={position}><Avatar skin="#a96f50" shirt={color} hairColor="#3b2820" hat={employee.hat} body={body} hair={hair} scale={ADULT_CHARACTER_SCENE_SCALE} walking={moving} carrying={Boolean(carried && carryTotal(carried) > 0)} carryAccessory={carried && carryTotal(carried) > 0 ? <HarvestBasket carry={carried} /> : undefined} motion={motion} animation={interaction ? interactionAnimation : undefined} feedbackSource="npc" feedbackActorId={employee.id} /></group>;
 }, (previous, next) => previous.presentationKey === next.presentationKey
   && previous.color === next.color
   && previous.body === next.body

@@ -21,6 +21,7 @@ import { cropIdFromFarmInteraction, isFarmInteractionId } from "@/game/stations/
 import { isStockingInteractionId, retailDepartmentFromStockingInteraction, RETAIL_DEPARTMENTS } from "@/game/stations/retail-layout";
 import { marketQaQueryEnabled } from "@/game/debug/QaAccess";
 import { clearRecoverySnapshot } from "@/game/persistence/RecoveryStorage";
+import { businessDayIsClosing } from "@/game/time/BusinessDay";
 
 type Panel = "stock" | "suppliers" | "team" | "map" | "finance" | "build" | "avatar" | "help" | null;
 
@@ -191,11 +192,27 @@ export function GameShell({ playerName }: { playerName: string }) {
         queueInteraction({ type: "PICKUP_WAREHOUSE" });
       } else performed = false;
     }
+    if (id === "warehouseReturn") {
+      const current = useMarketStore.getState().game;
+      const currentFranchise = current?.franchises.find((item) => item.id === current.currentFranchiseId);
+      const productIds = currentFranchise ? carriedProductIds(currentFranchise.carry) : [];
+      if (currentFranchise && productIds.length) {
+        queueInteraction({ type: "RETURN_TO_WAREHOUSE" });
+        visualEvents = productIds.map((productId) => ({
+          id,
+          kind: "return" as const,
+          productId,
+          quantity: carryQuantity(currentFranchise.carry, productId),
+          remainingQuantity: carryQuantity(currentFranchise.carry, productId),
+          carryStart: carryQuantity(currentFranchise.carry, productId),
+        }));
+      } else performed = false;
+    }
     if (id === "door") performed = false;
     // Keep a work gesture active only when a real station action was queued.
     // Locomotion owns the body again as soon as the player leaves its pad.
     if (performed) {
-      const transferVisuals = visualEvents.filter((event) => event.kind === "harvest" || event.kind === "stock");
+      const transferVisuals = visualEvents.filter((event) => event.kind === "harvest" || event.kind === "stock" || event.kind === "return");
       if (transferVisuals.length || activeInteractionId.current !== id) {
         activeInteractionId.current = id;
         const sequencedEvents = visualEvents.map((event): InteractionVisualEvent => ({
@@ -203,7 +220,7 @@ export function GameShell({ playerName }: { playerName: string }) {
           sequence: ++interactionSequence.current,
         }));
         setLastInteraction(sequencedEvents[sequencedEvents.length - 1] ?? null);
-        const sequencedTransfers = sequencedEvents.filter((event) => event.kind === "harvest" || event.kind === "stock");
+        const sequencedTransfers = sequencedEvents.filter((event) => event.kind === "harvest" || event.kind === "stock" || event.kind === "return");
         if (sequencedTransfers.length) {
           // Proximity pulses are intentionally faster than one flight. Keep
           // every transfer alive independently so no tomato, egg or bottle is
@@ -219,7 +236,7 @@ export function GameShell({ playerName }: { playerName: string }) {
     }
     const cue: Partial<Record<InteractionId, FeedbackCue>> = { mill: "machine", bakery: "machine", chicken: "pickup", cow: "pickup", cheese: "machine", juice: "machine", checkout: "scanner", supplier: "pickup", door: "door" };
     if (performed && visualEvents.some((event) => event.kind === "harvest")) feedbackBus.emit("harvest", { source: "player", actorId: "player" });
-    else if (performed && visualEvents.some((event) => event.kind === "stock")) feedbackBus.emit("stock", { source: "player", actorId: "player" });
+    else if (performed && visualEvents.some((event) => event.kind === "stock" || event.kind === "return")) feedbackBus.emit("stock", { source: "player", actorId: "player" });
     else if (cue[id] && performed) feedbackBus.emit(cue[id], { source: "player", actorId: "player" });
   }, [queueInteraction]);
   // Product flights report each landing from inside the frame loop. Coalesce
@@ -273,7 +290,9 @@ export function GameShell({ playerName }: { playerName: string }) {
   const franchise = game.franchises.find((item) => item.id === game.currentFranchiseId) ?? game.franchises[0];
   const warehousePickupEnabled = canPickupWarehouse(franchise.warehouse, franchise.carry);
   const visualTransfer = deriveVisualTransferPresentation(franchise.carry, franchise.crops, franchise.shelves, transferEvents);
-  const hour = `${String(Math.floor(game.minuteOfDay / 60) % 24).padStart(2, "0")}:${String(game.minuteOfDay % 60).padStart(2, "0")}`;
+  const displayMinuteOfDay = Math.floor(game.minuteOfDay);
+  const hour = `${String(Math.floor(displayMinuteOfDay / 60) % 24).padStart(2, "0")}:${String(displayMinuteOfDay % 60).padStart(2, "0")}`;
+  const dayClosing = businessDayIsClosing(game.minuteOfDay);
   const avatarHat = HATS.find((item) => item.id === game.avatar.hat);
   const carriedProducts = carriedProductIds(visualTransfer.carry);
   const carriedQuantity = carryTotal(visualTransfer.carry);
@@ -302,14 +321,14 @@ export function GameShell({ playerName }: { playerName: string }) {
   return (<>
     <GameRuntime />
     <main className="game-shell">
-      {worldReady && <div className={`world${sceneReady ? " scene-ready" : " scene-preparing"}`} aria-hidden={!sceneReady}><MarketScene avatar={game.avatar} carry={franchise.carry} visualCarry={visualTransfer.carry} warehousePickupEnabled={warehousePickupEnabled} checkoutLevel={franchise.checkoutLevel} playerSpeedTier={franchise.playerSpeedTier} customers={franchise.customers} checkoutTransactions={franchise.checkoutTransactions} returnsBin={franchise.returnsBin} returnedCartCount={franchise.returnedCartCount} crops={franchise.crops} visualCrops={visualTransfer.crops} productionMachines={franchise.productionMachines} shelves={franchise.shelves} visualShelves={visualTransfer.shelves} shelfTier={franchise.stationTiers["shelves-1"] ?? franchise.shelvesLevel} unlockedAreas={franchise.unlockedAreas} lightsOn={franchise.lightsOn} simulationTimeMs={game.simulationTimeMs} employees={franchise.employees} open={franchise.open} doorState={franchise.doorState} doorProgress={franchise.doorProgress} onPrompt={setPrompt} onInteract={interact} onDistance={recordDistance} onDoorPresence={setDoorPresence} onSceneReady={revealScene} lastInteraction={lastInteraction} transferEvents={transferEvents} onTransferProgress={updateTransferProgress} debug={debug} />{sceneReady && <GameInputSurface />}</div>}
+      {worldReady && <div className={`world${sceneReady ? " scene-ready" : " scene-preparing"}`} aria-hidden={!sceneReady}><MarketScene avatar={game.avatar} carry={franchise.carry} visualCarry={visualTransfer.carry} warehousePickupEnabled={warehousePickupEnabled} checkoutLevel={franchise.checkoutLevel} playerSpeedTier={franchise.playerSpeedTier} customers={franchise.customers} checkoutTransactions={franchise.checkoutTransactions} returnsBin={franchise.returnsBin} returnedCartCount={franchise.returnedCartCount} crops={franchise.crops} visualCrops={visualTransfer.crops} productionMachines={franchise.productionMachines} shelves={franchise.shelves} visualShelves={visualTransfer.shelves} shelfTier={franchise.stationTiers["shelves-1"] ?? franchise.shelvesLevel} unlockedAreas={franchise.unlockedAreas} lightsOn={franchise.lightsOn} minuteOfDay={game.minuteOfDay} simulationTimeMs={game.simulationTimeMs} employees={franchise.employees} open={franchise.open} doorState={franchise.doorState} doorProgress={franchise.doorProgress} onPrompt={setPrompt} onInteract={interact} onDistance={recordDistance} onDoorPresence={setDoorPresence} onSceneReady={revealScene} lastInteraction={lastInteraction} transferEvents={transferEvents} onTransferProgress={updateTransferProgress} debug={debug} />{sceneReady && <GameInputSurface />}</div>}
       {worldReady && !sceneReady && <div className="game-loading world-preparing" role="status" aria-live="polite"><div className="loading-shop">🏪</div><strong>Preparando la tienda…</strong><span>Cargando personajes y maquinaria sin interrupciones</span></div>}
       <header className="hud-top glass-panel" data-game-ui-interactive="true" aria-label="Estado de la tienda">
         <div className="hud-brand"><span><GameIcon name="store" /></span><div><strong>{franchise.name}</strong><small>{franchise.city}</small></div></div>
         <div className="hud-stat money"><small>Caja global</small><strong>{formatMoney(game.balanceMinor, game)}</strong></div>
         <div className="hud-stat earnings"><small>Ventas hoy</small><strong>{formatMoney(franchise.revenueTodayMinor, game)}</strong><small>Día {game.day} · {hour}</small></div>
         <div className="hud-stat level"><small>Nivel {game.level}</small><div className="xp-track" role="progressbar" aria-label={`Progreso real para superar el nivel ${game.level}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(Math.min(100, levelProgress))}><i style={{ width: `${Math.min(100, levelProgress)}%` }}/></div></div>
-        <button className={`store-status ${franchise.open ? "open" : "closed"}`} aria-pressed={franchise.open} aria-label={franchise.open ? "Cerrar el supermercado" : "Abrir el supermercado"} onClick={() => dispatch({ type: "TOGGLE_STORE" })}><i/>{franchise.open ? "ABIERTO" : "CERRADO"}</button>
+        <button className={`store-status ${franchise.open ? "open" : "closed"}`} disabled={dayClosing} aria-pressed={franchise.open} aria-label={dayClosing ? "Cierre de caja en curso" : franchise.open ? "Cerrar el supermercado y terminar el día" : "Abrir el supermercado"} onClick={() => dispatch({ type: "TOGGLE_STORE" })}><i/>{dayClosing ? "CERRANDO" : franchise.open ? "ABIERTO" : "CERRADO"}</button>
       </header>
 
       <details className={`mission-card glass-panel${claimableMissions ? " has-reward" : ""}`} data-game-ui-interactive="true">
@@ -491,6 +510,7 @@ function SetupPanel({ gameCountry, gameAvatar, onComplete }: { gameCountry: Coun
 
 function ManagementPanel({ panel, close }: { panel: Exclude<Panel, null>; close: () => void }) {
   const game = useMarketStore((state) => state.game)!; const dispatch = useMarketStore((state) => state.dispatch); const franchise = game.franchises.find((item) => item.id === game.currentFranchiseId)!;
+  const dayClosing = businessDayIsClosing(game.minuteOfDay);
   const project = franchise.buildProjects.find((candidate) => candidate.level === game.level + 1);
   const projectFunding = project ? buildFundingQuote(game.balanceMinor, project) : null;
   const stationQuote = upgradeQuote(game, "station");
@@ -516,7 +536,7 @@ function ManagementPanel({ panel, close }: { panel: Exclude<Panel, null>; close:
       {panel === "avatar" && <AvatarCustomizer avatar={game.avatar} onChange={(change) => dispatch({ type: "SET_AVATAR", ...change })} />}
       {panel === "help" && <div className="help-grid"><article><kbd>ARRASTRA</kbd><kbd>WASD</kbd><strong>Moverse</strong><p>Arrastra desde cualquier punto libre con ratón, dedo o lápiz. El teclado sigue disponible.</p></article><article><kbd>🧺</kbd><strong>Cosecha magnética</strong><p>Cruza un bancal maduro sin detenerte. Cada verdura vuela a la cesta y la parcela vuelve a crecer automáticamente.</p></article><article><kbd>◎</kbd><strong>Trabajo por proximidad</strong><p>Acércate al mueble correcto para cargar máquinas, colocar mercancía o atender la caja.</p></article><article><kbd>📦</kbd><strong>Pedidos y gestión</strong><p>Compra a proveedores, contrata personal y mejora mobiliario desde este tablet; no hay botones de compra en el suelo.</p></article><article><kbd>🎮</kbd><strong>Mando</strong><p>El stick izquierdo controla el movimiento; las actividades se activan por proximidad.</p></article><div className="tutorial-flow"><b>1. Cosecha</b><span>→</span><b>2. Surte</b><span>→</span><b>3. Abre</b><span>→</span><b>4. Atiende</b><span>→</span><b>5. Crece</b></div></div>}
     </div>
-    <footer className="panel-footer"><span>Empresa: {COUNTRIES[game.countryCode].name} · {game.currency}</span><div className="panel-actions"><button className="danger-soft" onClick={() => dispatch({ type: "CLOSE_DAY" })}>Cerrar jornada y contabilizar</button><button className="danger-soft" onClick={async () => { localStorage.removeItem("mini-market-offline-player-v1"); await clearRecoverySnapshot(); navigator.serviceWorker?.controller?.postMessage({ type: "CLEAR_PRIVATE_CACHE" }); await authClient.signOut(); window.location.reload(); }}>Cerrar sesión</button></div></footer>
+    <footer className="panel-footer"><span>Empresa: {COUNTRIES[game.countryCode].name} · {game.currency}</span><div className="panel-actions"><button className="danger-soft" disabled={!franchise.open || dayClosing} onClick={() => dispatch({ type: "CLOSE_DAY" })}>Cerrar tienda y jornada</button><button className="danger-soft" onClick={async () => { localStorage.removeItem("mini-market-offline-player-v1"); await clearRecoverySnapshot(); navigator.serviceWorker?.controller?.postMessage({ type: "CLEAR_PRIVATE_CACHE" }); await authClient.signOut(); window.location.reload(); }}>Cerrar sesión</button></div></footer>
   </section></div>;
 }
 

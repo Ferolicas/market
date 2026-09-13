@@ -13,6 +13,7 @@ import { FARM_ANIMAL_STATIONS, FARM_FACILITIES, FARM_FIELD, FARM_GATE, FARM_PLOT
 import { STORE_REAR_DOOR } from "@/game/stations/storefront-layout";
 import { PANTRY_DISPLAY_POSITIONS, PRODUCE_DISPLAY_POSITIONS, RETAIL_DEPARTMENTS, RETAIL_FIXTURE_LEVELS, RETAIL_VISUAL_CAPACITY, retailDisplayPosition, retailStockLandingLocalPosition } from "@/game/stations/retail-layout";
 import { STORE_SERVICE_FIXTURES } from "@/game/stations/store-service-layout";
+import { WAREHOUSE_RETURN_STATION } from "@/game/stations/warehouse-layout";
 import { PRODUCTION_CUBICLE, STORE_PRODUCTION_FIXTURES, type ProductionFixtureLayout } from "@/game/stations/production-layout";
 import { marketAsset } from "@/game/assets/AssetRegistry";
 import { sameFarmPresentation, sameFurniturePresentation, type FarmPresentationProps, type FurniturePresentationProps } from "@/game/render/MarketPresentation";
@@ -351,6 +352,7 @@ export const KitFurniture = memo(function KitFurniture({ shelves, machines, cust
     <StoreElement position={[...STORE_PRODUCTION_FIXTURES.cheeseMaker.position]}><MemoProcessMachine kind="cheese" machine={machine("cheese-maker-1")} /></StoreElement>
     <StoreElement position={[...STORE_PRODUCTION_FIXTURES.juiceMachine.position]}><MemoProcessMachine kind="juice" machine={machine("juice-machine-1")} /></StoreElement>
     <StoreElement position={[8.8, 0, -2.15]}><MemoSupplierCorner position={[0, 0, 0]} /></StoreElement>
+    <StoreElement position={[...WAREHOUSE_RETURN_STATION.position]}><MemoWarehouseReturnBasket /></StoreElement>
     <StoreElement position={[8.8, 0, -5.35]}><MemoTerminalModel position={[0, 0, 0]} label="MAPA" /></StoreElement>
     <MemoStoreUtilities lightsOn={lightsOn} dynamicCeilingLights={dynamicCeilingLights} />
     {/* Last child: its effect runs after every sibling placed its instances. */}
@@ -403,6 +405,7 @@ const MemoProcessMachine = memo(ProcessMachine, sameFixtureProps);
 const MemoSupplierCorner = memo(SupplierCorner, sameFixtureProps);
 const MemoTerminalModel = memo(TerminalModel, sameFixtureProps);
 const MemoStoreUtilities = memo(StoreUtilities, sameFixtureProps);
+const MemoWarehouseReturnBasket = memo(WarehouseReturnBasket, sameFixtureProps);
 // Farm: a harvest changes one plot; the other plots, paddocks and props keep
 // their trees instead of reconciling the whole garden in the same task.
 const MemoGardenFloor = memo(GardenFloor, sameFixtureProps);
@@ -986,6 +989,26 @@ function SupplierCorner({ position }: { position: Position }) {
     <Parcel position={[-0.3, 0.34, -1.3]} />
     <Parcel position={[0.25, 0.34, -1.3]} small />
     <Parcel position={[0.05, 0.73, -1.3]} />
+  </group>;
+}
+
+/**
+ * Worker return crate beside the farm door. The owner/player empties their
+ * complete basket through its proximity magnet, and automated stockers use it
+ * for shelf overflow. Customers never interact with it. Authored in element
+ * units; the group scales to the station footprint of 0.84 × 0.64.
+ */
+function WarehouseReturnBasket() {
+  return <group name={WAREHOUSE_RETURN_STATION.obstacleId}>
+    <Box args={[0.52, 0.06, 0.4]} position={[0, 0.03, 0]} color={palette.wood} radius={0.018} />
+    {([-1, 1] as const).map((side) => <Box key={`side-${side}`} args={[0.045, 0.3, 0.4]} position={[side * 0.24, 0.21, 0]} color={palette.wood} radius={0.012} />)}
+    {([-1, 1] as const).map((side) => <Box key={`end-${side}`} args={[0.52, 0.3, 0.045]} position={[0, 0.21, side * 0.18]} color={palette.wood} radius={0.012} />)}
+    {[0.1, 0.2, 0.3].map((y) => <Box key={`rail-${y}`} args={[0.54, 0.03, 0.42]} position={[0, y, 0]} color="#c9955b" radius={0.01} />)}
+    <Box args={[0.46, 0.02, 0.34]} position={[0, 0.08, 0]} color="#8c6a3f" radius={0.006} />
+    <Box args={[0.035, 0.72, 0.035]} position={[-0.31, 0.36, -0.14]} color={palette.frame} radius={0.008} />
+    <Box args={[0.42, 0.19, 0.03]} position={[-0.31, 0.76, -0.14]} color="#173f35" radius={0.02} />
+    <Text position={[-0.31, 0.79, -0.122]} fontSize={0.052} color="#fff3ce" anchorX="center" anchorY="middle" fontWeight={800}>DEVOLVER</Text>
+    <Text position={[-0.31, 0.73, -0.122]} fontSize={0.04} color="#9fd8c0" anchorX="center" anchorY="middle" fontWeight={800}>AL ALMACÉN</Text>
   </group>;
 }
 

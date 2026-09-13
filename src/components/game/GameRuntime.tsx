@@ -13,7 +13,6 @@ const REMOTE_SYNC_INTERVAL_MS = 30_000;
 export function GameRuntime() {
   const loadGame = useMarketStore((state) => state.loadGame);
   const saveGame = useMarketStore((state) => state.saveGame);
-  const simulate = useMarketStore((state) => state.simulate);
   const tickWorld = useMarketStore((state) => state.tickWorld);
 
   useEffect(() => { void loadGame(); }, [loadGame]);
@@ -29,9 +28,9 @@ export function GameRuntime() {
     // it can compare the restored snapshot byte-for-byte before the first tick.
     if (marketQaFreezeEnabled(window.location.search, sessionStorage.getItem("mini-market-qa-freeze"))) return;
     let worldTimer = 0;
-    let simulationTimer = 0;
     let saveTimer = 0;
     let saveIdleCallback = 0;
+    let lastWorldTickAt = performance.now();
     const cancelBackgroundSave = () => {
       if (saveIdleCallback && typeof window.cancelIdleCallback === "function") window.cancelIdleCallback(saveIdleCallback);
       saveIdleCallback = 0;
@@ -49,15 +48,19 @@ export function GameRuntime() {
     };
     const stopTimers = () => {
       window.clearInterval(worldTimer);
-      window.clearInterval(simulationTimer);
       window.clearInterval(saveTimer);
       cancelBackgroundSave();
-      worldTimer = simulationTimer = saveTimer = 0;
+      worldTimer = saveTimer = 0;
     };
     const startTimers = () => {
       if (worldTimer || document.visibilityState !== "visible") return;
-      worldTimer = window.setInterval(() => tickWorld(WORLD_TICK_INTERVAL_MS), WORLD_TICK_INTERVAL_MS);
-      simulationTimer = window.setInterval(() => simulate(1), 5000);
+      lastWorldTickAt = performance.now();
+      worldTimer = window.setInterval(() => {
+        const now = performance.now();
+        const elapsedMs = Math.min(1_000, Math.max(0, now - lastWorldTickAt));
+        lastWorldTickAt = now;
+        tickWorld(elapsedMs);
+      }, WORLD_TICK_INTERVAL_MS);
       saveTimer = window.setInterval(scheduleBackgroundSave, REMOTE_SYNC_INTERVAL_MS);
     };
     const online = () => void saveGame();
@@ -85,7 +88,7 @@ export function GameRuntime() {
       void flushRecoverySnapshot();
       void saveGame();
     };
-  }, [saveGame, simulate, tickWorld]);
+  }, [saveGame, tickWorld]);
 
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return;

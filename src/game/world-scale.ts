@@ -3,6 +3,7 @@ import { FARM_OBSTACLES } from "./stations/farm-layout";
 import { PANTRY_DISPLAY_POSITIONS, PRODUCE_DISPLAY_POSITIONS, RETAIL_DEPARTMENT_IDS, RETAIL_DEPARTMENTS } from "./stations/retail-layout";
 import { STORE_SERVICE_FIXTURE_IDS, STORE_SERVICE_FIXTURES } from "./stations/store-service-layout";
 import { PRODUCTION_CUBICLE, STORE_PRODUCTION_FIXTURES } from "./stations/production-layout";
+import { WAREHOUSE_RETURN_STATION } from "./stations/warehouse-layout";
 
 export { STORE_PRODUCTION_FIXTURES } from "./stations/production-layout";
 
@@ -65,6 +66,13 @@ const BASE_STORE_OBSTACLES: StoreObstacle[] = [
   ...productionCubicleObstacles,
   { x: 8.8, z: -2.65, halfX: 0.95, halfZ: 1.55 },
   { x: 8.8, z: -5.35, halfX: 0.95, halfZ: 0.7 },
+  {
+    id: WAREHOUSE_RETURN_STATION.obstacleId,
+    x: WAREHOUSE_RETURN_STATION.position[0],
+    z: WAREHOUSE_RETURN_STATION.position[2],
+    halfX: WAREHOUSE_RETURN_STATION.footprint.halfX,
+    halfZ: WAREHOUSE_RETURN_STATION.footprint.halfZ,
+  },
   ...STORE_SERVICE_FIXTURE_IDS.map((fixtureId) => {
     const fixture = STORE_SERVICE_FIXTURES[fixtureId];
     return {

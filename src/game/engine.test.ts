@@ -4,6 +4,8 @@ import type { CheckoutTransaction, CustomerRuntimeState, GameState, PaymentMetho
 import { CHECKOUT_LANES, checkoutQueueArrival } from "./stations/checkout-layout";
 import { createCustomerMind } from "./ai/CustomerBrain";
 import { ensureStoreNavigation, storePathfinder } from "./navigation/NavMeshService";
+import { WAREHOUSE_RETURN_STATION } from "./stations/warehouse-layout";
+import { BUSINESS_DAY_NIGHT_MINUTE, BUSINESS_DAY_OPEN_MINUTE, businessMinutesForRealMs } from "./time/BusinessDay";
 
 function addReadyCheckout(state: GameState, id: string, paymentMethod: PaymentMethod) {
   const customer = {
@@ -87,6 +89,39 @@ describe("motor económico", () => {
     expect(result.state.progression.counters["pickup:milk"]).toBe(2);
     expect(state.franchises[0].carry).toEqual({ capacity: 5, items: { tomatoes: 1 } });
     expect(state.franchises[0].warehouse).toMatchObject({ milk: 2, eggs: 2, apples: 2 });
+  });
+
+  it("devuelve junta toda la cesta mixta del jugador al almacén sin alterar dinero ni ventas", () => {
+    const state = createInitialGame("ES");
+    const franchise = state.franchises[0];
+    franchise.carry = { capacity: 20, items: { tomatoes: 2, milk: 1 } };
+    franchise.warehouse.tomatoes = 4;
+    franchise.warehouse.milk = 3;
+    const balanceBefore = state.balanceMinor;
+    const salesBefore = franchise.revenueTodayMinor;
+
+    const result = advanceWorld(state, 100, undefined, {
+      interactions: [{ type: "RETURN_TO_WAREHOUSE" }],
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.state.franchises[0].carry).toEqual({ capacity: 20, items: {} });
+    expect(result.state.franchises[0].warehouse).toMatchObject({ tomatoes: 6, milk: 4 });
+    expect(result.state.balanceMinor).toBe(balanceBefore);
+    expect(result.state.franchises[0].revenueTodayMinor).toBe(salesBefore);
+    expect(result.state.progression.counters["return:warehouse"]).toBe(3);
+    expect(result.state.progression.counters["return:tomatoes"]).toBe(2);
+    expect(result.state.progression.counters["return:milk"]).toBe(1);
+    expect(state.franchises[0].carry.items).toEqual({ tomatoes: 2, milk: 1 });
+  });
+
+  it("rechaza una devolución del jugador si la cesta está vacía", () => {
+    const state = createInitialGame("ES");
+    const result = applyGameAction(state, { type: "RETURN_TO_WAREHOUSE" });
+
+    expect(result.ok).toBe(false);
+    expect(result.message).toBe("La cesta está vacía.");
+    expect(result.state).toBe(state);
   });
 
   it("recorta una cesta persistida corrupta al máximo visual y operativo de veinte", () => {
@@ -377,6 +412,63 @@ describe("motor económico", () => {
     expect(next.crops[0]).toMatchObject({ status: "READY", available: 5 });
     expect(runtime.state).toBe("NAVIGATE_DROPOFF");
     expect(runtime.path.at(-1)).toEqual([7.35, -5.2]);
+  });
+
+  it("el agricultor prioriza trigo cuando falta materia prima para el molino", () => {
+    const state = createInitialGame("ES");
+    const franchise = state.franchises[0];
+    franchise.lastCustomerSpawnAt = 999_999;
+    franchise.crops = franchise.crops.map((crop) => ({ ...crop, status: "READY", available: 3 }));
+    franchise.shelves.tomatoes = 99;
+    franchise.warehouse.tomatoes = 99;
+    franchise.shelves.corn = 99;
+    franchise.warehouse.corn = 99;
+    franchise.shelves.oranges = 99;
+    franchise.warehouse.oranges = 99;
+    franchise.shelves.wheat = 0;
+    franchise.warehouse.wheat = 0;
+    const mill = franchise.productionMachines.find((machine) => machine.id === "flour-mill-1")!;
+    Object.assign(mill, { status: "WAITING_INPUT", output: 0, input: {} });
+    franchise.employees = [{
+      id: "versatile-farmer", name: "Luna", role: "farmer", level: 1, salaryMinor: 3_000, energy: 100, hat: "frog",
+      runtime: {
+        state: "IDLE", assignedProduct: null, assignedStationId: null,
+        carry: { capacity: 3, items: {} }, x: 0, z: 0, targetX: 0, targetZ: 0,
+        path: [], pathIndex: 0, speed: 1.5, currentSpeed: 0, stateSince: 0,
+      },
+    }];
+    const directPathfinder = (_start: [number, number], target: [number, number]) => [target];
+
+    const next = advanceWorld(state, 1_000, directPathfinder).state;
+    const runtime = next.franchises[0].employees[0].runtime!;
+
+    expect(runtime.state).toBe("NAVIGATE_PICKUP");
+    expect(runtime.assignedProduct).toBe("wheat");
+    expect(runtime.assignedStationId).toBe("crop-wheat-1");
+  });
+
+  it.each(["tomatoes", "wheat", "corn", "oranges"] as const)("puede priorizar el cultivo necesario: %s", (neededProduct) => {
+    const state = createInitialGame("ES");
+    const franchise = state.franchises[0];
+    franchise.lastCustomerSpawnAt = 999_999;
+    franchise.crops = franchise.crops.map((crop) => ({ ...crop, status: "READY", available: 3 }));
+    for (const productId of ["tomatoes", "wheat", "corn", "oranges"] as const) {
+      franchise.shelves[productId] = productId === neededProduct ? 0 : 99;
+      franchise.warehouse[productId] = productId === neededProduct ? 0 : 99;
+    }
+    franchise.productionMachines.forEach((machine) => { machine.status = "LOCKED"; });
+    franchise.employees = [{
+      id: `farmer-${neededProduct}`, name: "Luna", role: "farmer", level: 1, salaryMinor: 3_000, energy: 100, hat: "frog",
+      runtime: {
+        state: "IDLE", assignedProduct: null, assignedStationId: null,
+        carry: { capacity: 3, items: {} }, x: 0, z: 0, targetX: 0, targetZ: 0,
+        path: [], pathIndex: 0, speed: 1.5, currentSpeed: 0, stateSince: 0,
+      },
+    }];
+
+    const next = advanceWorld(state, 1_000, (_start, target) => [target]).state;
+
+    expect(next.franchises[0].employees[0].runtime?.assignedProduct).toBe(neededProduct);
   });
 
   it("el jugador recoge un lote de máquina hasta el hueco libre sin perder salida", () => {
@@ -712,10 +804,66 @@ describe("motor económico", () => {
 
   it("contabiliza impuestos solamente sobre beneficio positivo", () => {
     const state = createInitialGame("CO");
+    state.franchises[0].open = true;
     state.franchises[0].revenueTodayMinor = state.balanceMinor * 3;
     const result = applyGameAction(state, { type: "CLOSE_DAY" });
     expect(result.state.finances.taxesMinor).toBeGreaterThan(0);
     expect(result.state.day).toBe(2);
+  });
+
+  it("pausa el reloj de jornada mientras la tienda está cerrada", () => {
+    const state = createInitialGame("ES");
+    const next = advanceWorld(state, 1_000).state;
+
+    expect(next.minuteOfDay).toBe(BUSINESS_DAY_OPEN_MINUTE);
+    expect(next.day).toBe(1);
+  });
+
+  it("cierra y contabiliza automáticamente al completar tres horas reales abiertas", () => {
+    const state = createInitialGame("ES");
+    state.franchises[0].open = true;
+    state.franchises[0].lastCustomerSpawnAt = Number.MAX_SAFE_INTEGER;
+    state.minuteOfDay = BUSINESS_DAY_NIGHT_MINUTE - businessMinutesForRealMs(500);
+
+    const result = advanceWorld(state, 1_000);
+
+    expect(result.state.day).toBe(2);
+    expect(result.state.minuteOfDay).toBe(BUSINESS_DAY_OPEN_MINUTE);
+    expect(result.state.franchises[0].open).toBe(false);
+    expect(result.message).toContain("cerrado automáticamente");
+  });
+
+  it("cierra la entrada a las 21:00 pero cobra automáticamente a quienes ya estaban dentro", () => {
+    let state = createInitialGame("ES");
+    state.franchises[0].open = true;
+    state.franchises[0].lastCustomerSpawnAt = Number.MAX_SAFE_INTEGER;
+    state.minuteOfDay = BUSINESS_DAY_NIGHT_MINUTE - businessMinutesForRealMs(500);
+    addReadyCheckout(state, "last-customer", "card");
+    const balanceBefore = state.balanceMinor;
+
+    state = advanceWorld(state, 1_000).state;
+    expect(state.day).toBe(1);
+    expect(state.minuteOfDay).toBe(BUSINESS_DAY_NIGHT_MINUTE);
+    expect(state.franchises[0].open).toBe(false);
+    expect(state.franchises[0].lightsOn).toBe(true);
+
+    for (let second = 0; second < 6; second += 1) state = advanceWorld(state, 1_000).state;
+    const transaction = state.franchises[0].checkoutTransactions.find((candidate) => candidate.customerId === "last-customer");
+    expect(transaction?.paymentCommitted).toBe(true);
+    expect(state.balanceMinor).toBeGreaterThan(balanceBefore);
+  });
+
+  it("el botón de cerrar inicia el cierre del día y no permite saltar jornadas cerradas", () => {
+    const closed = createInitialGame("ES");
+    const rejected = applyGameAction(closed, { type: "CLOSE_DAY" });
+    expect(rejected.ok).toBe(false);
+    expect(rejected.state.day).toBe(1);
+
+    closed.franchises[0].open = true;
+    const completed = applyGameAction(closed, { type: "TOGGLE_STORE" });
+    expect(completed.ok).toBe(true);
+    expect(completed.state.day).toBe(2);
+    expect(completed.state.franchises[0].open).toBe(false);
   });
 
   it("escala toda la economía a la moneda del país", () => {
@@ -728,7 +876,10 @@ describe("motor económico", () => {
 
   it("ofrece tareas diarias alcanzables en nivel 1 aunque pasen varias jornadas", () => {
     let state = createInitialGame("ES");
-    for (let day = 1; day < 6; day += 1) state = applyGameAction(state, { type: "CLOSE_DAY" }).state;
+    for (let day = 1; day < 6; day += 1) {
+      state.franchises[0].open = true;
+      state = applyGameAction(state, { type: "CLOSE_DAY" }).state;
+    }
 
     expect(state).toMatchObject({ level: 1, day: 6 });
     expect(state.missions).toHaveLength(3);
@@ -835,6 +986,7 @@ describe("motor económico", () => {
 
     expect(recovered.missions.find((mission) => mission.kind === "harvest")).toMatchObject({ progress: 2, target: 3 });
     expect(recovered.missions.some((mission) => mission.kind === "production")).toBe(false);
+    recovered.franchises[0].open = true;
     const nextDay = applyGameAction(recovered, { type: "CLOSE_DAY" }).state;
     expect(nextDay.missions.some((mission) => mission.kind === "production")).toBe(true);
   });
@@ -842,6 +994,7 @@ describe("motor económico", () => {
   it("habilita producción desde nivel 5 y cuenta solo ciclos realmente terminados", () => {
     let state = createInitialGame("ES");
     state.level = 5;
+    state.franchises[0].open = true;
     state = applyGameAction(state, { type: "CLOSE_DAY" }).state;
     const franchise = state.franchises[0];
     const mill = franchise.productionMachines.find((machine) => machine.id === "flour-mill-1")!;
@@ -957,5 +1110,73 @@ describe("motor económico", () => {
 
     expect(migrated.avatar.hat).toBe("none");
     expect(migrated.franchises[0].employees[0].hat).toBe("red-panda");
+  });
+});
+
+describe("cesta de devolución de empleados", () => {
+  it("envía al reponedor a la cesta si el estante se llenó mientras caminaba", () => {
+    const state = createInitialGame("ES");
+    const franchise = state.franchises[0];
+    franchise.shelves.apples = 12;
+    franchise.warehouse.apples = 0;
+    franchise.employees = [{
+      id: "return-stocker", name: "Luna", role: "stocker", level: 1, salaryMinor: 3_000, energy: 100, hat: "frog",
+      runtime: {
+        state: "NAVIGATE_DROPOFF", assignedProduct: "apples", assignedStationId: "stockroom",
+        carry: { capacity: 3, items: { apples: 2 } }, x: 0, z: 0, targetX: 1, targetZ: 0,
+        path: [[1, 0]], pathIndex: 0, speed: 1.5, currentSpeed: 1.5, stateSince: 0,
+      },
+    }];
+    const directPathfinder = (_start: [number, number], target: [number, number]) => [target];
+
+    const next = advanceWorld(state, 100, directPathfinder).state;
+    const runtime = next.franchises[0].employees[0].runtime!;
+
+    expect(runtime.state).toBe("NAVIGATE_RETURN");
+    expect(runtime.path.at(-1)).toEqual([...WAREHOUSE_RETURN_STATION.workerPosition]);
+    expect(runtime.carry.items).toEqual({ apples: 2 });
+    expect(next.franchises[0].warehouse.apples).toBe(0);
+    expect(next.franchises[0].carry.items).toEqual({});
+  });
+
+  it("coloca lo que cabe y devuelve junta toda la carga restante sin perder ni duplicar productos", () => {
+    let state = createInitialGame("ES");
+    const franchise = state.franchises[0];
+    franchise.shelves.apples = 11;
+    franchise.warehouse.apples = 0;
+    franchise.warehouse.milk = 0;
+    franchise.employees = [{
+      id: "partial-return-stocker", name: "Luna", role: "stocker", level: 1, salaryMinor: 3_000, energy: 100, hat: "frog",
+      runtime: {
+        state: "DROPOFF", assignedProduct: "apples", assignedStationId: "stockroom",
+        carry: { capacity: 4, items: { apples: 3, milk: 1 } }, x: 0, z: 0, targetX: 0, targetZ: 0,
+        path: [], pathIndex: 0, speed: 1.5, currentSpeed: 0, stateSince: 0,
+      },
+    }];
+    const directPathfinder = (_start: [number, number], target: [number, number]) => [target];
+
+    state = advanceWorld(state, 500, directPathfinder).state;
+    let runtime = state.franchises[0].employees[0].runtime!;
+    expect(state.franchises[0].shelves.apples).toBe(12);
+    expect(runtime.state).toBe("NAVIGATE_RETURN");
+    expect(runtime.carry.items).toEqual({ apples: 2, milk: 1 });
+
+    for (let tick = 0; tick < 20 && runtime.state !== "RETURN_TO_WAREHOUSE"; tick += 1) {
+      state = advanceWorld(state, 1_000, directPathfinder).state;
+      runtime = state.franchises[0].employees[0].runtime!;
+    }
+    expect(runtime.state).toBe("RETURN_TO_WAREHOUSE");
+    expect([runtime.x, runtime.z]).toEqual([...WAREHOUSE_RETURN_STATION.workerPosition]);
+
+    state = advanceWorld(state, 500, directPathfinder).state;
+    runtime = state.franchises[0].employees[0].runtime!;
+    expect(runtime.state).toBe("IDLE");
+    expect(runtime.carry.items).toEqual({});
+    expect(state.franchises[0].warehouse.apples).toBe(2);
+    expect(state.franchises[0].warehouse.milk).toBe(1);
+    expect(state.progression.counters["employee-return:warehouse"]).toBe(3);
+    expect(state.progression.counters["employee-return:apples"]).toBe(2);
+    expect(state.progression.counters["employee-return:milk"]).toBe(1);
+    expect(state.franchises[0].shelves.apples + state.franchises[0].warehouse.apples).toBe(14);
   });
 });

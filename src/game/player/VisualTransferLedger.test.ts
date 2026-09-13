@@ -75,4 +75,34 @@ describe("VisualTransferLedger", () => {
     expect(complete.map((entry) => entry.sequence)).toEqual([1]);
     expect(entries[1].remainingQuantity).toBe(3);
   });
+
+  it("keeps every returned product in the visible basket until its flight lands", () => {
+    const authoritativeCarry: CarryState = { capacity: 20, items: {} };
+    const entries: VisualTransferLedgerEntry[] = [
+      { sequence: 5, kind: "return", productId: "milk", quantity: 2, remainingQuantity: 2, carryStart: 2 },
+      { sequence: 6, kind: "return", productId: "eggs", quantity: 1, remainingQuantity: 1, carryStart: 1 },
+    ];
+
+    const justCommitted = deriveVisualTransferPresentation(authoritativeCarry, [harvestedCrop], shelves, entries);
+    expect(justCommitted.carry.items).toEqual({ milk: 2, eggs: 1 });
+
+    const partiallyLanded = deriveVisualTransferPresentation(authoritativeCarry, [harvestedCrop], shelves, [
+      { ...entries[0], remainingQuantity: 1 },
+      entries[1],
+    ]);
+    expect(partiallyLanded.carry.items).toEqual({ milk: 1, eggs: 1 });
+  });
+
+  it("does not duplicate a return queued before the authoritative world tick", () => {
+    const preCommitCarry: CarryState = { capacity: 20, items: { milk: 2, eggs: 1 } };
+    const entries: VisualTransferLedgerEntry[] = [
+      { sequence: 7, kind: "return", productId: "milk", quantity: 2, remainingQuantity: 2, carryStart: 2 },
+      { sequence: 8, kind: "return", productId: "eggs", quantity: 1, remainingQuantity: 1, carryStart: 1 },
+    ];
+
+    const presentation = deriveVisualTransferPresentation(preCommitCarry, [harvestedCrop], shelves, entries);
+
+    expect(presentation.carry).toBe(preCommitCarry);
+    expect(presentation.shelves).toBe(shelves);
+  });
 });

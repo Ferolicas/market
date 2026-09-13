@@ -57,9 +57,13 @@ activa forma parte del Caddy central del VPS y debe validarse antes de recargar.
 ## Escena y gameplay
 
 - El vendedor se mueve con teclado, mando o arrastre táctil y usa una cámara ortográfica isométrica. El encuadre general conserva orientación y ángulo, con un `zoom` 1,3× más próximo; en una cámara ortográfica moverla sobre su eje no cambia el tamaño aparente.
+- `BusinessDay.ts` define la jornada autoritativa 07:30–21:00: 810 minutos de juego equivalen exactamente a 3 horas reales con la tienda abierta. El tick visible avanza el reloj solo mientras la tienda está abierta; al ocultar/cerrar la aplicación los timers se detienen y no existe avance offline. Desde las 18:00 `daylightPresentation` interpola día, atardecer y noche. A las 21:00 (o al cerrar manualmente) se bloquean nuevos clientes, se cobra automáticamente a quienes ya estaban dentro, se mantienen encendidas las luces interiores y, cuando salen, se ejecuta una sola vez el cierre contable y se prepara el día siguiente a las 07:30.
 - Cultivos, máquinas, estantes, almacén y cajas se activan por proximidad mediante imanes; la transferencia visible no bloquea al actor.
+- Junto al poste izquierdo de la puerta de la granja hay una caja de devolución para todos los trabajadores y nunca para clientes (`WAREHOUSE_RETURN_STATION`, `fixture:warehouse-return`, x = 4,75 · z = −7,72 en unidades de diseño). Al pasar cerca, el jugador/propietario devuelve de una vez toda su cesta mediante un imán sin bloquearse. Si otro actor llena el estante mientras un reponedor lleva mercancía, el empleado entra en `NAVIGATE_RETURN`, camina al punto accesible delante de la caja y devuelve junta toda la carga restante antes de aceptar otra tarea. La caja es obstáculo de NavMesh y de física. Con QA privada, `__MARKET_QA__.warehouseReturnTarget` publica su centro y punto de trabajo.
+- El personalizador de avatar (`AvatarCustomizer.tsx`) ilumina la vista previa con `Lightformer`s locales: el antiguo `Environment preset="studio"` descargaba un HDR de un CDN que la CSP de producción bloquea, y el fallo dentro de `Suspense` desmontaba el juego entero al abrir el panel. Un `PreviewErrorBoundary` limita cualquier fallo futuro de la vista previa a un aviso.
+- `CharacterScale.ts` unifica la escala visible del reparto: el tamaño aprobado del niño (`1,65`) es el mínimo, todos los adultos (propietario, empleados y clientes) comparten una altura objetivo un 10 % mayor, y las calibraciones particulares de los GLB de clientes se conservan.
 - Clientes: entrada, carro, selección de productos, fila, descarga, pago, bolsa, devolución del carro y salida.
-- Empleados: granja, producción, reposición y caja según demanda y rol.
+- Empleados: granja, producción, reposición y caja según demanda y rol. El granjero puntúa todos los cultivos habilitados por escasez directa y por demanda de recetas (trigo/harina/pan, naranja/zumo, además de tomate y maíz), evita reservar el mismo bancal que otro granjero y lleva siempre la materia prima más necesaria; el operario conserva la carga y descarga de máquinas.
 - Rapier resuelve al jugador y colliders; Recast calcula caminos de clientes y empleados.
 - Las posiciones físicas y visuales comparten los módulos de `src/game/stations/` y `src/game/world-scale.ts`.
 
@@ -135,6 +139,7 @@ Pruebas de navegador relevantes:
 
 - `pnpm qa:mobile-render`;
 - `pnpm qa:character-performance`;
+- `pnpm qa:avatar-panel`;
 - `pnpm qa:customers`;
 - `pnpm qa:workers`;
 - `pnpm qa:production-surface`.

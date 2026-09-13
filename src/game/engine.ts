@@ -22,6 +22,8 @@ import { addToCarry, CAPACITY_TIERS, carryQuantity, carryTotal, MAX_WAREHOUSE_PI
 import { CART_RETURN_POINT, RETURNS_POINT, RETURNS_TO_CART_FALLBACK, STORE_SERVICE_FIXTURES } from "./stations/store-service-layout";
 import { storefrontDoorActorPresent, STORE_REAR_DOOR, STOREFRONT_LAYOUT } from "./stations/storefront-layout";
 import { PRODUCTION_MACHINE_POINTS } from "./stations/production-layout";
+import { WAREHOUSE_RETURN_STATION } from "./stations/warehouse-layout";
+import { BUSINESS_DAY_NIGHT_MINUTE, BUSINESS_DAY_OPEN_MINUTE, businessDayIsClosing, businessMinutesForRealMs } from "./time/BusinessDay";
 
 const EMPTY_INVENTORY = (): Inventory => ({ wheat: 0, flour: 0, bread: 0, corn: 0, milk: 0, eggs: 0, cheese: 0, apples: 0, tomatoes: 0, oranges: 0, coffee: 0, juice: 0 });
 export const CHECKOUT_PATIENCE_MS = 5 * 60_000;
@@ -95,7 +97,7 @@ export function createInitialGame(countryCode: CountryCode = "ES"): GameState {
     xp: 0,
     reputation: 0,
     day: 1,
-    minuteOfDay: 7 * 60 + 30,
+    minuteOfDay: BUSINESS_DAY_OPEN_MINUTE,
     currentFranchiseId: franchises[0].id,
     avatar: { ...DEFAULT_AVATAR },
     franchises,
@@ -268,8 +270,11 @@ function applyGameActionInternal(input: GameState, action: GameAction, cloneInpu
     }
     case "TOGGLE_STORE":
       if (!franchise.licenseActive) return fail("Necesitas una licencia comercial activa.");
-      franchise.open = !franchise.open;
-      return success(franchise.open ? "Tienda abierta: ¡a trabajar!" : "Tienda cerrada al público.");
+      if (franchise.open) return success(beginBusinessDayClosure(state, events));
+      if (businessDayIsClosing(state.minuteOfDay)) return fail("La jornada está cerrando; primero deben salir los últimos clientes.");
+      franchise.open = true;
+      franchise.lightsOn = true;
+      return success("Tienda abierta: ¡a trabajar!");
     case "TEND_CROP":
     case "HARVEST":
       {
@@ -350,6 +355,22 @@ function applyGameActionInternal(input: GameState, action: GameAction, cloneInpu
         if (quantity > 0) recordDomain(state, `pickup:${productId}`, quantity);
       }
       return success(`Cargaste ${summary} desde el almacén.`);
+    }
+    case "RETURN_TO_WAREHOUSE": {
+      const carried = (Object.entries(franchise.carry.items) as [ProductId, number | undefined][])
+        .map(([productId, rawQuantity]) => [productId, Number.isFinite(rawQuantity) ? Math.max(0, Math.floor(rawQuantity ?? 0)) : 0] as const)
+        .filter(([, quantity]) => quantity > 0);
+      if (!carried.length) return fail("La cesta está vacía.");
+      let returned = 0;
+      for (const [productId, quantity] of carried) {
+        franchise.warehouse[productId] += quantity;
+        returned += quantity;
+        recordDomain(state, `return:${productId}`, quantity);
+      }
+      recordDomain(state, "return:warehouse", returned);
+      franchise.carry = { capacity: franchise.carry.capacity, items: {} };
+      const summary = carried.map(([productId, quantity]) => `${quantity} × ${PRODUCTS[productId].name.toLowerCase()}`).join(", ");
+      return success(`Devolviste al almacén: ${summary}.`);
     }
     case "STOCK": {
       const capacity = shelfCapacity(franchise, action.productId);
@@ -506,7 +527,8 @@ function applyGameActionInternal(input: GameState, action: GameAction, cloneInpu
       return success("Recompensa ingresada en la caja global.");
     }
     case "CLOSE_DAY":
-      return closeBusinessDay(state, events);
+      if (!state.franchises.some((candidate) => candidate.owned && candidate.open)) return fail("La tienda ya está cerrada.");
+      return success(beginBusinessDayClosure(state, events));
   }
 }
 
@@ -544,6 +566,19 @@ export function advanceWorld(input: GameState, deltaMs = 250, pathfinder?: World
   }
   const elapsedMs = Math.min(1_000, Math.max(0, deltaMs));
   state.simulationTimeMs += elapsedMs;
+  const openFranchises = state.franchises.filter((candidate) => candidate.owned && candidate.open);
+  if (openFranchises.length && businessDayIsClosing(state.minuteOfDay)) {
+    interactionMessage = beginBusinessDayClosure(state, events, true);
+  } else if (openFranchises.length) {
+    const elapsedBusinessMinutes = businessMinutesForRealMs(elapsedMs);
+    state.minuteOfDay = Math.min(BUSINESS_DAY_NIGHT_MINUTE, state.minuteOfDay + elapsedBusinessMinutes);
+    state.lastServerTime += elapsedBusinessMinutes * 60_000;
+    for (const openFranchise of openFranchises) {
+      openFranchise.employees.forEach((employee) => { employee.energy = Math.max(15, employee.energy - 0.15 * elapsedBusinessMinutes); });
+    }
+    deliverOrders(state);
+    if (businessDayIsClosing(state.minuteOfDay)) interactionMessage = beginBusinessDayClosure(state, events, true);
+  }
   const playerDistanceMeters = Math.max(0, Math.min(100, worldInput.playerDistanceMeters ?? 0));
   if (playerDistanceMeters > 0) recordDomain(state, "distance:player", playerDistanceMeters);
 
@@ -555,7 +590,7 @@ export function advanceWorld(input: GameState, deltaMs = 250, pathfinder?: World
       return loadMachine(machine, EMPTY_INVENTORY(), state.simulationTimeMs).machine;
     });
     updateAutomaticDoor(franchise, state.simulationTimeMs, elapsedMs);
-    franchise.lightsOn = franchise.open;
+    franchise.lightsOn = franchise.open || (businessDayIsClosing(state.minuteOfDay) && hasCustomersInStore(franchise));
     if (franchise.open) spawnCustomerIfNeeded(state, franchise, pathfinder);
     franchise.employees.forEach((employee, index) => {
       employee.runtime ??= createEmployeeRuntime(employee.role, index, state.simulationTimeMs);
@@ -563,6 +598,12 @@ export function advanceWorld(input: GameState, deltaMs = 250, pathfinder?: World
     });
     updateCustomerQueue(franchise, pathfinder);
     for (const customer of franchise.customers) updateCustomer(state, franchise, customer, elapsedMs, events, pathfinder);
+    if (businessDayIsClosing(state.minuteOfDay)) {
+      // Once the doors close, the remaining customers must be allowed to pay
+      // even if the owner is no longer standing at the till and no cashier was
+      // hired yet. This drains only transactions already created inside.
+      for (const transaction of franchise.checkoutTransactions) processCheckoutUnit(state, franchise, transaction, events);
+    }
     updateCheckoutTransactions(state, franchise, events, pathfinder);
     applyCustomerAvoidance(franchise.customers);
     updateCustomerQueue(franchise, pathfinder);
@@ -573,13 +614,18 @@ export function advanceWorld(input: GameState, deltaMs = 250, pathfinder?: World
       return customerStillCollecting || state.simulationTimeMs - transaction.updatedAt < 2_000;
     });
   }
+  if (businessDayIsClosing(state.minuteOfDay)
+    && state.franchises.filter((candidate) => candidate.owned).every((candidate) => !hasActiveCustomers(candidate))) {
+    settleBusinessDay(state, events);
+    interactionMessage = `Día ${state.day - 1} cerrado automáticamente. Nóminas, operación e impuestos contabilizados.`;
+  }
   state.revision += 1;
   normalizeLevel(state);
   stampEvents(state, events);
   return { state, ok: true, message: interactionMessage ?? "Mundo actualizado.", events };
 }
 
-function closeBusinessDay(state: GameState, events: GameEvent[]): ActionResult {
+function settleBusinessDay(state: GameState, events: GameEvent[]) {
   const country = COUNTRIES[state.countryCode];
   const moneyScale = countryMoneyScale(state.countryCode);
   let payroll = 0;
@@ -611,11 +657,48 @@ function closeBusinessDay(state: GameState, events: GameEvent[]): ActionResult {
   state.finances.netProfitMinor = state.finances.grossRevenueMinor - state.finances.costOfGoodsMinor - state.finances.payrollMinor - state.finances.operatingCostsMinor - state.finances.taxesMinor;
   if (tax > 0) events.push({ franchiseId: globalEventFranchiseId(state), category: "tax", description: `Provisión fiscal ${Math.round(country.corporateTaxRate * 100)}%`, amountMinor: -tax, payload: { scope: "global" } });
   state.day++;
-  state.minuteOfDay = 7 * 60 + 30;
+  state.minuteOfDay = BUSINESS_DAY_OPEN_MINUTE;
   state.missions = missionsForDay(state.day, moneyScale, state.level);
-  state.revision++;
-  stampEvents(state, events);
-  return { state, ok: true, message: `Día ${state.day - 1} cerrado. Nóminas, operación e impuestos contabilizados.`, events };
+}
+
+function beginBusinessDayClosure(state: GameState, events: GameEvent[], automatic = false) {
+  state.minuteOfDay = BUSINESS_DAY_NIGHT_MINUTE;
+  for (const franchise of state.franchises.filter((candidate) => candidate.owned)) {
+    franchise.open = false;
+    removeCustomersWhoNeverEntered(franchise, state.simulationTimeMs);
+    franchise.lightsOn = hasCustomersInStore(franchise);
+  }
+  if (!state.franchises.filter((candidate) => candidate.owned).some((candidate) => hasActiveCustomers(candidate))) {
+    const closedDay = state.day;
+    settleBusinessDay(state, events);
+    return `Día ${closedDay} cerrado${automatic ? " automáticamente" : ""}. Nóminas, operación e impuestos contabilizados.`;
+  }
+  return `${automatic ? "Son las 21:00: entrada cerrada automáticamente" : "Entrada cerrada"}. Atendiendo a los últimos clientes antes del cierre de caja.`;
+}
+
+function hasActiveCustomers(franchise: FranchiseState) {
+  return franchise.customers.some((customer) => customer.state !== "DESPAWN");
+}
+
+function hasCustomersInStore(franchise: FranchiseState) {
+  return franchise.customers.some((customer) => customer.state !== "DESPAWN" && customer.z <= DOOR_PASSAGE_Z);
+}
+
+function removeCustomersWhoNeverEntered(franchise: FranchiseState, now: number) {
+  const admittedIds = new Set(franchise.customers
+    .filter((customer) => customer.state !== "DESPAWN" && customer.z <= DOOR_PASSAGE_Z)
+    .map((customer) => customer.id));
+  for (const customer of franchise.customers) {
+    if (admittedIds.has(customer.id) || customer.state === "DESPAWN") continue;
+    if (customer.hasCart) franchise.returnedCartCount += 1;
+    customer.hasCart = false;
+    customer.queueSlot = null;
+    customer.queueJoinedAt = null;
+    customer.reservedSocketId = null;
+    customer.state = "DESPAWN";
+    customer.stateSince = now;
+  }
+  franchise.queueCustomerIds = franchise.queueCustomerIds.filter((customerId) => admittedIds.has(customerId));
 }
 
 function updateAutomaticDoor(franchise: FranchiseState, now: number, deltaMs: number) {
@@ -801,11 +884,28 @@ function updateEmployee(state: GameState, franchise: FranchiseState, employee: E
       employeePickup(state, franchise, employee, pathfinder);
       break;
     case "NAVIGATE_DROPOFF":
+      if (employee.role === "stocker") {
+        const productId = primaryCarryProduct(runtime.carry);
+        if (productId && franchise.shelves[productId] >= shelfCapacity(franchise, productId)) {
+          routeEmployeeToReturns(runtime, state.simulationTimeMs, pathfinder);
+          break;
+        }
+      }
       if (walkEmployeeThroughAutomaticDoor(runtime, franchise, deltaMs)) { runtime.state = "DROPOFF"; runtime.stateSince = state.simulationTimeMs; }
       break;
     case "DROPOFF":
       if (state.simulationTimeMs - runtime.stateSince < 320) return;
-      employeeDropoff(state, franchise, employee);
+      employeeDropoff(state, franchise, employee, pathfinder);
+      break;
+    case "NAVIGATE_RETURN":
+      if (walkEmployeeThroughAutomaticDoor(runtime, franchise, deltaMs)) {
+        runtime.state = "RETURN_TO_WAREHOUSE";
+        runtime.stateSince = state.simulationTimeMs;
+      }
+      break;
+    case "RETURN_TO_WAREHOUSE":
+      if (state.simulationTimeMs - runtime.stateSince < 320) return;
+      employeeReturnCarry(state, franchise, employee);
       break;
   }
 }
@@ -889,8 +989,18 @@ function assignEmployeeTask(franchise: FranchiseState, employee: Employee, pathf
     return true;
   }
   if (employee.role === "farmer") {
-    const crop = franchise.crops.find((candidate) => candidate.status === "READY" && candidate.available > 0)
-      ?? franchise.crops.find((candidate) => candidate.status === "EMPTY");
+    const reservedCropIds = new Set(franchise.employees
+      .filter((candidate) => candidate.id !== employee.id && candidate.role === "farmer")
+      .map((candidate) => candidate.runtime?.assignedStationId)
+      .filter((stationId): stationId is string => Boolean(stationId)));
+    const crop = franchise.crops
+      .map((candidate, index) => ({ candidate, index, need: farmerCropNeed(franchise, candidate.productId) }))
+      .filter(({ candidate }) => !reservedCropIds.has(candidate.id)
+        && (candidate.status === "EMPTY" || (candidate.status === "READY" && candidate.available > 0)))
+      .sort((a, b) => b.need - a.need
+        || Number(b.candidate.status === "READY") - Number(a.candidate.status === "READY")
+        || b.candidate.available - a.candidate.available
+        || a.index - b.index)[0]?.candidate;
     if (!crop) return false;
     runtime.assignedProduct = crop.productId; runtime.assignedStationId = crop.id;
     setEmployeePath(runtime, navigatePath(pathfinder, [runtime.x, runtime.z], CROP_POINTS[crop.id] ?? CROP_POINTS[FARM_PLOTS[0].id]));
@@ -916,6 +1026,29 @@ function assignEmployeeTask(franchise: FranchiseState, employee: Employee, pathf
     return true;
   }
   return false;
+}
+
+/** Scores all harvestable raw materials by real downstream shortage. */
+function farmerCropNeed(franchise: FranchiseState, productId: ProductId) {
+  const directCapacity = shelfCapacity(franchise, productId);
+  const directAvailable = franchise.shelves[productId] + franchise.warehouse[productId];
+  const directNeed = Math.max(0, directCapacity - directAvailable) / directCapacity;
+  let productionNeed = 0;
+
+  for (const machine of franchise.productionMachines) {
+    if (machine.status === "LOCKED") continue;
+    const requiredPerCycle = Number(PRODUCT_CONFIG[machine.productId]?.recipe?.[productId] ?? 0);
+    if (requiredPerCycle < 1) continue;
+    const outputCapacity = shelfCapacity(franchise, machine.productId);
+    const downstreamAvailable = franchise.shelves[machine.productId]
+      + franchise.warehouse[machine.productId]
+      + machine.output;
+    const desiredCycles = Math.max(0, outputCapacity - downstreamAvailable);
+    const rawAvailable = franchise.warehouse[productId] + Number(machine.input[productId] ?? 0);
+    productionNeed += Math.max(0, desiredCycles * requiredPerCycle - rawAvailable) / requiredPerCycle;
+  }
+
+  return directNeed + productionNeed * 3;
 }
 
 function employeePickup(state: GameState, franchise: FranchiseState, employee: Employee, pathfinder?: WorldPathfinder) {
@@ -961,7 +1094,7 @@ function employeePickup(state: GameState, franchise: FranchiseState, employee: E
   setEmployeePath(runtime, navigatePath(pathfinder, [runtime.x, runtime.z], target));
 }
 
-function employeeDropoff(state: GameState, franchise: FranchiseState, employee: Employee) {
+function employeeDropoff(state: GameState, franchise: FranchiseState, employee: Employee, pathfinder?: WorldPathfinder) {
   const runtime = employee.runtime!;
   const productId = primaryCarryProduct(runtime.carry);
   if (!productId) return resetEmployee(employee, state.simulationTimeMs);
@@ -970,8 +1103,11 @@ function employeeDropoff(state: GameState, franchise: FranchiseState, employee: 
     const capacity = shelfCapacity(franchise, productId);
     const moved = Math.min(quantity, Math.max(0, capacity - franchise.shelves[productId]));
     franchise.shelves[productId] += moved;
-    quantity -= moved;
-    if (quantity > 0) franchise.warehouse[productId] += quantity;
+    runtime.carry = removeFromCarry(runtime.carry, productId, moved).container;
+    if (carryTotal(runtime.carry) > 0) {
+      routeEmployeeToReturns(runtime, state.simulationTimeMs, pathfinder);
+      return;
+    }
   } else if (employee.role === "operator" && franchise.productionMachines.find((machine) => machine.id === runtime.assignedStationId)?.productId !== productId) {
     const index = franchise.productionMachines.findIndex((machine) => machine.id === runtime.assignedStationId);
     if (index >= 0) {
@@ -982,6 +1118,27 @@ function employeeDropoff(state: GameState, franchise: FranchiseState, employee: 
       if (quantity > 0) franchise.warehouse[productId] += quantity;
     }
   } else franchise.warehouse[productId] += quantity;
+  resetEmployee(employee, state.simulationTimeMs);
+}
+
+function routeEmployeeToReturns(runtime: EmployeeRuntimeState, now: number, pathfinder?: WorldPathfinder) {
+  runtime.state = "NAVIGATE_RETURN";
+  runtime.stateSince = now;
+  runtime.assignedStationId = WAREHOUSE_RETURN_STATION.obstacleId;
+  setEmployeePath(runtime, navigatePath(pathfinder, [runtime.x, runtime.z], [...WAREHOUSE_RETURN_STATION.workerPosition]));
+}
+
+function employeeReturnCarry(state: GameState, franchise: FranchiseState, employee: Employee) {
+  const runtime = employee.runtime!;
+  let returned = 0;
+  for (const [productId, rawQuantity] of Object.entries(runtime.carry.items) as [ProductId, number | undefined][]) {
+    const quantity = Number.isFinite(rawQuantity) ? Math.max(0, Math.floor(rawQuantity ?? 0)) : 0;
+    if (quantity < 1) continue;
+    franchise.warehouse[productId] += quantity;
+    returned += quantity;
+    recordDomain(state, `employee-return:${productId}`, quantity);
+  }
+  if (returned > 0) recordDomain(state, "employee-return:warehouse", returned);
   resetEmployee(employee, state.simulationTimeMs);
 }
 
