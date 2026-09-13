@@ -65,7 +65,6 @@ async function accessor(glb, index) {
   return out;
 }
 // column-major 4x4 helpers
-const I4 = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
 function mul(a, b) { const o = new Array(16).fill(0); for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++) for (let k = 0; k < 4; k++) o[c * 4 + r] += a[k * 4 + r] * b[c * 4 + k]; return o; }
 function trs(t = [0, 0, 0], q = [0, 0, 0, 1], s = [1, 1, 1]) {
   const [x, y, z, w] = q; const [sx, sy, sz] = s;
@@ -134,7 +133,7 @@ async function measure(file) {
     clips[anim.name] = { duration, channels };
   }
   const poseAt = (clip, time) => {
-    const locals = bindLocals.map((m, i) => ({ t: nodes[i].translation ?? [0, 0, 0], r: nodes[i].rotation ?? [0, 0, 0, 1], s: nodes[i].scale ?? [1, 1, 1] }));
+    const locals = nodes.map((n) => ({ t: n.translation ?? [0, 0, 0], r: n.rotation ?? [0, 0, 0, 1], s: n.scale ?? [1, 1, 1] }));
     for (const ch of clip.channels) {
       const { times, values } = ch;
       let i = 0; while (i < times.length - 2 && times[i + 1] <= time) i++;
@@ -146,7 +145,7 @@ async function measure(file) {
     }
     return worldOf(locals.map((l) => trs(l.t, l.r, l.s)));
   };
-  const footL = byName("Foot_L"), footR = byName("Foot_R"), handL = byName("Hand_L"), handR = byName("Hand_R"), chest2 = byName("Chest2"), hips = byName("Hips"), root = parent[hips];
+  const footL = byName("Foot_L"), footR = byName("Foot_R"), handL = byName("Hand_L"), handR = byName("Hand_R"), chest2 = byName("Chest2"), hips = byName("Hips");
   out.clips = {};
   for (const name of ["Walk", "Run", "CarryWalk", "CarryRun", "CarryBasket", "BasketWalk", "Enter", "Exit", "CarryIdle", "Idle"]) {
     const clip = clips[name];
@@ -199,7 +198,7 @@ async function measure(file) {
         for (let k = 0; k <= 60; k++) {
           const t = (k / 60) * walk.duration;
           // Rebuild: walk pose, then override arm (and optionally clavicle) locals with the CarryBox pose.
-          const locals = bindLocals.map((m, i) => ({ t: nodes[i].translation ?? [0, 0, 0], r: nodes[i].rotation ?? [0, 0, 0, 1], s: nodes[i].scale ?? [1, 1, 1] }));
+          const locals = nodes.map((n) => ({ t: n.translation ?? [0, 0, 0], r: n.rotation ?? [0, 0, 0, 1], s: n.scale ?? [1, 1, 1] }));
           const applyClip = (clip, time, filter) => {
             for (const ch of clip.channels) {
               if (!filter(ch.node)) continue;
@@ -311,7 +310,7 @@ export async function scanCarryBox(file) {
   const rows = [];
   for (let k = 0; k <= 60; k++) {
     const t = (k / 60) * duration;
-    const locals = nodes.map((n, i) => ({ t: n.translation ?? [0, 0, 0], r: n.rotation ?? [0, 0, 0, 1], s: n.scale ?? [1, 1, 1] }));
+    const locals = nodes.map((n) => ({ t: n.translation ?? [0, 0, 0], r: n.rotation ?? [0, 0, 0, 1], s: n.scale ?? [1, 1, 1] }));
     for (const ch of channels) {
       const { times, values } = ch;
       let i = 0; while (i < times.length - 2 && times[i + 1] <= t) i++;

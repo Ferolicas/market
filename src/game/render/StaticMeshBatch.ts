@@ -32,7 +32,6 @@ const DYNAMIC_PREFIXES = [
   "retail-cold-door:",
   "fixture:returns",
   "fixture:cart-bay",
-  "fixture:promotional-endcap",
 ] as const;
 
 /** Keep exact product/debug/landing anchors mounted while excluding their

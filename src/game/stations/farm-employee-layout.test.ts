@@ -4,6 +4,7 @@ import type { Employee, GameState } from "../types";
 import { STORE_LAYOUT_SCALE, STORE_OBSTACLES } from "../world-scale";
 import { FARM_ACCESS_WAYPOINTS, FARM_ANIMAL_STATIONS, FARM_FIELD, FARM_PLOTS, FARM_WORKER_HOME, farmInteriorRouteBetween, isRetiredFrontFarmPoint } from "./farm-layout";
 import { PRODUCTION_MACHINE_POINTS } from "./production-layout";
+import { STOCKROOM_POINT } from "./warehouse-layout";
 
 function employee(role: Employee["role"]): Employee {
   return { id: `${role}-farm-layout`, name: "Luna", role, level: 1, salaryMinor: 3_000, energy: 100, hat: "frog" };
@@ -222,7 +223,7 @@ describe("farm employee destinations", () => {
       ...employee("farmer"),
       runtime: {
         state: "IDLE", assignedProduct: null, assignedStationId: null, carry: { capacity: 2, items: {} },
-        x: 7.35, z: -5.2, targetX: 7.35, targetZ: -5.2, path: [], pathIndex: 0, speed: 1.5, currentSpeed: 0, stateSince: 0,
+        x: STOCKROOM_POINT[0], z: STOCKROOM_POINT[1], targetX: STOCKROOM_POINT[0], targetZ: STOCKROOM_POINT[1], path: [], pathIndex: 0, speed: 1.5, currentSpeed: 0, stateSince: 0,
       },
     }];
 
@@ -340,7 +341,7 @@ describe("farm employee destinations", () => {
     expect(runtime.currentSpeed).toBe(0);
     expect(runtime.carry).toEqual({ capacity: 2, items: { [productId]: 1 } });
     FARM_ACCESS_WAYPOINTS.forEach((waypoint) => expect(runtime.path).toContainEqual([...waypoint]));
-    expect(runtime.path.at(-1)).toEqual([7.35, -5.2]);
+    expect(runtime.path.at(-1)).toEqual([...STOCKROOM_POINT]);
     expect(runtime.path.some((point) => isRetiredFrontFarmPoint(point))).toBe(false);
   });
 
@@ -362,7 +363,7 @@ describe("farm employee destinations", () => {
     expect([runtime.x, runtime.z]).toEqual([-7, 7]);
     expect(runtime.carry.items).toEqual({ tomatoes: 1 });
     expect(runtime.path.some((point) => isRetiredFrontFarmPoint(point))).toBe(false);
-    expect(runtime.path.at(-1)).toEqual([7.35, -5.2]);
+    expect(runtime.path.at(-1)).toEqual([...STOCKROOM_POINT]);
   });
 
   it("repaths a persisted animal operator from the retired exterior lane through the rear door", () => {
@@ -389,7 +390,7 @@ describe("farm employee destinations", () => {
     expect(path).toContainEqual([...FARM_ACCESS_WAYPOINTS[1]]);
     expect(path).toContainEqual([...FARM_ACCESS_WAYPOINTS[0]]);
     expect(path.some(([, z]) => z >= 7.25)).toBe(false);
-    expect(path.at(-1)).toEqual([7.35, -5.2]);
+    expect(path.at(-1)).toEqual([...STOCKROOM_POINT]);
   });
 
   it("restores a farmer saved in the retired lane inside the sealed estate", () => {
@@ -435,6 +436,6 @@ describe("farm employee destinations", () => {
     expect(runtime.path).toContainEqual([...FARM_ACCESS_WAYPOINTS[2]]);
     expect(runtime.path).toContainEqual([...FARM_ACCESS_WAYPOINTS[1]]);
     expect(runtime.path).toContainEqual([...FARM_ACCESS_WAYPOINTS[0]]);
-    expect(runtime.path.at(-1)).toEqual([7.35, -5.2]);
+    expect(runtime.path.at(-1)).toEqual([...STOCKROOM_POINT]);
   });
 });

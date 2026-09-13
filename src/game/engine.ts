@@ -22,7 +22,8 @@ import { addToCarry, CAPACITY_TIERS, carryQuantity, carryTotal, MAX_WAREHOUSE_PI
 import { CART_RETURN_POINT, RETURNS_POINT, RETURNS_TO_CART_FALLBACK, STORE_SERVICE_FIXTURES } from "./stations/store-service-layout";
 import { storefrontDoorActorPresent, STORE_REAR_DOOR, STOREFRONT_LAYOUT } from "./stations/storefront-layout";
 import { PRODUCTION_MACHINE_POINTS } from "./stations/production-layout";
-import { WAREHOUSE_RETURN_STATION } from "./stations/warehouse-layout";
+import { STOCKROOM_POINT, WAREHOUSE_RETURN_STATION } from "./stations/warehouse-layout";
+import { storeSegmentIsClear } from "./world-scale";
 import { BUSINESS_DAY_NIGHT_MINUTE, BUSINESS_DAY_OPEN_MINUTE, businessDayIsClosing, businessMinutesForRealMs } from "./time/BusinessDay";
 
 const EMPTY_INVENTORY = (): Inventory => ({ wheat: 0, flour: 0, bread: 0, corn: 0, milk: 0, eggs: 0, cheese: 0, apples: 0, tomatoes: 0, oranges: 0, coffee: 0, juice: 0 });
@@ -199,6 +200,7 @@ export function normalizeGameState(input: unknown): GameState {
     franchise.playerCapacityTier = carryCapacityTier(franchise.carry.capacity);
     franchise.storeRank ??= 1;
     franchise.structureRevision ??= 1;
+    ensureSecondCheckoutForCashiers(franchise);
     franchise.doorState ??= "CLOSED";
     franchise.doorProgress ??= franchise.doorState === "OPEN" ? 1 : 0;
     // Player position is intentionally not persisted. A saved sensor flag can
@@ -435,6 +437,7 @@ function applyGameActionInternal(input: GameState, action: GameAction, cloneInpu
       franchise.expensesTodayMinor += signingCost;
       const employee: Employee = { id: crypto.randomUUID(), name: EMPLOYEE_NAMES[franchise.employees.length % EMPLOYEE_NAMES.length], role: action.role, level: 1, salaryMinor: scaledSalary, energy: 100, hat: HATS[(franchise.employees.length + 1) % HATS.length].id, runtime: createEmployeeRuntime(action.role, franchise.employees.length, state.simulationTimeMs) };
       franchise.employees.push(employee);
+      ensureSecondCheckoutForCashiers(franchise);
       events.push({ franchiseId: franchise.id, category: "payroll", description: `Alta de ${employee.name} (${info.name})`, amountMinor: -signingCost });
       gain(state, 55, "stock", 0);
       return success(`${employee.name} se incorporó como ${info.name.toLowerCase()}.`);
@@ -747,7 +750,6 @@ const CASHIER_WORK_POINTS: Record<CheckoutLane, [number, number]> = {
   0: [CHECKOUT_LANES[0].cashierWork[0], CHECKOUT_LANES[0].cashierWork[2]],
   1: [CHECKOUT_LANES[1].cashierWork[0], CHECKOUT_LANES[1].cashierWork[2]],
 };
-const STOCKROOM_POINT: [number, number] = [7.35, -5.2];
 const CROP_POINTS: Record<string, [number, number]> = Object.fromEntries(FARM_PLOTS.map((plot) => [plot.id, [plot.position[0], plot.position[2]]]));
 const MACHINE_POINTS: Record<string, [number, number]> = {
   ...PRODUCTION_MACHINE_POINTS,
@@ -1700,7 +1702,10 @@ function walkPathActor(actor: PathActor, deltaMs: number) {
   return arrived;
 }
 
-function laneFor(target: [number, number]) { return target[0] < -1 ? -2.2 : target[0] > 1 ? 2.2 : 2.15; }
+/** Pre-Recast fallback lane: the only full-height north–south aisle runs at
+ * x ≈ 3.1, between the pantry row and the drinks display (see
+ * STORE_REAR_DOOR.interiorCorridor). */
+function laneFor() { return 3.1; }
 
 function customerPath(start: [number, number], target: [number, number]): [number, number][] {
   if (sameStorePoint(target, RETURNS_POINT)) {
@@ -1721,7 +1726,10 @@ function customerPath(start: [number, number], target: [number, number]): [numbe
     const doorwayX = Math.max(-0.82, Math.min(0.82, target[0]));
     return compactPath(start, [[start[0], 5.6], [doorwayX, 5.6], [doorwayX, 9], target]);
   }
-  const lane = laneFor(target); const path: [number, number][] = [];
+  // A clear straight walk needs no lane: the fallback used to send a customer
+  // round the whole aisle to reach the neighbouring slot of the same shelf.
+  if (!startsOutside && !endsOutside && storeSegmentIsClear(start, target)) return compactPath(start, [target]);
+  const lane = laneFor(); const path: [number, number][] = [];
   if (start[1] > 5.6) path.push([start[0], 5.6]);
   path.push([lane, Math.min(5.6, Math.max(0.45, start[1]))]);
   if (target[1] < 0.45) path.push([lane, 0.45]);
@@ -1750,8 +1758,10 @@ function isLegacyFarmServiceLanePoint(point: readonly [number, number]) {
     && point[1] <= 9.15;
 }
 
+/** The open apron in front of the orders block on the rear wall, from which
+ * the rear door is reached in a straight segment. */
 function isRearStockroomPoint(point: readonly [number, number]) {
-  return point[0] >= 6.1 && point[1] <= -4 && point[1] > -8.2;
+  return point[0] >= STOCKROOM_POINT[0] - 1.5 && point[0] <= STOCKROOM_POINT[0] + 1.7 && point[1] <= -4.2 && point[1] > -6.6;
 }
 
 function storeInteriorRouteToRearDoor(start: [number, number]) {
@@ -2104,6 +2114,16 @@ function unlockCrop(franchise: FranchiseState, id: string, now: number, gameLeve
 function unlockMachine(franchise: FranchiseState, id: string) {
   const machine = franchise.productionMachines.find((candidate) => candidate.id === id);
   if (machine?.status === "LOCKED") machine.status = "WAITING_INPUT";
+}
+
+/** A second cashier needs a second real checkout: opening it on hire (or on
+ * load for older saves) instead of waiting for the level-17 unlock. */
+function ensureSecondCheckoutForCashiers(franchise: FranchiseState) {
+  const cashiers = franchise.employees.filter((employee) => employee.role === "cashier").length;
+  if (cashiers < 2 || franchise.unlockedAreas.includes("checkout-2")) return;
+  franchise.unlockedAreas.push("checkout-2");
+  franchise.stationTiers["checkout-2"] ??= 1;
+  franchise.structureRevision += 1;
 }
 
 function hireUnlockedEmployee(franchise: FranchiseState, role: Employee["role"], countryCode: CountryCode, now: number) {

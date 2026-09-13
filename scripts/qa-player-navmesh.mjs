@@ -101,7 +101,7 @@ let failure = null;
 try {
   await page.waitForFunction(() => {
     const presentation = window.__MARKET_QA__?.serviceFixturePresentation;
-    return Boolean(presentation?.promotionalEndcap?.fixtureVisible && presentation?.returns?.fixtureVisible && presentation?.cartBay?.fixtureVisible);
+    return Boolean(presentation?.orders?.fixtureVisible && presentation?.returns?.fixtureVisible && presentation?.cartBay?.fixtureVisible);
   }, null, { timeout: 30_000 });
   const published = await qa();
   const farmTarget = published.farmTargets?.find((candidate) => candidate.id === "crop-tomato-1");
@@ -137,8 +137,8 @@ try {
   if (directFarmPath.some(([x]) => x > 23.1) || !crossing || Math.abs(crossing.x - rearDoor.x) >= rearDoor.clearHalfWidth) throw new Error(`La ruta store→finca no usa el hueco trasero directo: ${JSON.stringify(rearDoorEvidence)}`);
   const serviceFixtures = Object.fromEntries((published.serviceFixtureTargets ?? []).map((fixture) => [fixture.id, fixture]));
   const fixturePresentation = published.serviceFixturePresentation ?? {};
-  if (!serviceFixtures.promotionalEndcap || !serviceFixtures.returns || !serviceFixtures.cartBay) throw new Error(`Fixtures de servicio no publicadas: ${JSON.stringify(serviceFixtures)}`);
-  if (!fixturePresentation.promotionalEndcap?.fixtureVisible || !fixturePresentation.returns?.fixtureVisible || !fixturePresentation.cartBay?.fixtureVisible) throw new Error(`Fixture sólido sin presentación visible: ${JSON.stringify(fixturePresentation)}`);
+  if (!serviceFixtures.orders || !serviceFixtures.returns || !serviceFixtures.cartBay) throw new Error(`Fixtures de servicio no publicadas: ${JSON.stringify(serviceFixtures)}`);
+  if (!fixturePresentation.orders?.fixtureVisible || !fixturePresentation.returns?.fixtureVisible || !fixturePresentation.cartBay?.fixtureVisible) throw new Error(`Fixture sólido sin presentación visible: ${JSON.stringify(fixturePresentation)}`);
   if (![serviceFixtures.returns.serviceX, serviceFixtures.returns.serviceZ, serviceFixtures.cartBay.serviceX, serviceFixtures.cartBay.serviceZ].every(Number.isFinite)) throw new Error(`Sockets de servicio inválidos: ${JSON.stringify(serviceFixtures)}`);
   const serviceCheckpoints = [
     [14, 5.7],

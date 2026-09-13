@@ -1,6 +1,6 @@
 "use client";
 
-import { RoundedBox, RoundedBoxGeometry, useGLTF, useTexture } from "@react-three/drei";
+import { PerspectiveCamera, RenderTexture, RoundedBox, RoundedBoxGeometry, useGLTF, useTexture } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { memo, useCallback, useEffect, useMemo, useRef, type ReactNode } from "react";
 import * as THREE from "three";
@@ -25,10 +25,7 @@ import { useGlassTransmission } from "./MarketRenderProfile";
 
 type Position = [number, number, number];
 
-const WALL_SHELF_LOW_LEVELS = [0.32, 0.78] as const;
-const WALL_SHELF_TALL_LEVELS = [0.26, 0.7, 1.14, 1.58, 2.02] as const;
 const SEASONAL_DISPLAY_LEVELS = [0.36, 0.86, 1.36] as const;
-const PROMOTIONAL_ENDCAP_LEVELS = [0.28, 0.68, 1.08, 1.48] as const;
 
 interface InstanceTransform {
   position: Position;
@@ -145,23 +142,50 @@ const CAMERA_AZIMUTH = Math.atan2(16, 25.75);
 
 type StockCounts = Readonly<Partial<Record<ProductId, number>>>;
 
-/** Compact stock tag of one SKU on a shelf fixture: replica, name, exact units
- * on this fixture over its share of the shelf capacity and what is missing.
- * Mounted beside the fixture on the camera side so it hides no product. */
-function ShelfTag({ productId, count, capacity, position, fixtureYaw = 0 }: { productId: ProductId; count: number; capacity: number; position: Position; fixtureYaw?: number }) {
+/**
+ * Live stock screen of one SKU, mounted above its fixture: a rendered photo
+ * of the product, its name, the exact units on this fixture over the
+ * fixture's share of the shelf capacity, and what is still missing. The photo
+ * is rendered once into a small texture (RenderTexture frames={1}); only the
+ * two counter texts change while playing.
+ */
+function StockScreen({ productId, count, capacity, position, fixtureYaw = 0 }: { productId: ProductId; count: number; capacity: number; position: Position; fixtureYaw?: number }) {
   const missing = Math.max(0, capacity - count);
   const full = capacity > 0 && missing === 0;
-  const color = RETAIL_DEPARTMENTS[PRODUCT_RETAIL_DEPARTMENT[productId]].color;
-  return <group name={`retail-shelf-tag:${productId}`} position={position} rotation={[-0.3, CAMERA_AZIMUTH - THREE.MathUtils.degToRad(fixtureYaw), 0, "YXZ"]}>
-    <Box args={[0.66, 0.36, 0.035]} position={[0, 0, -0.018]} color={palette.frame} radius={0.03} />
-    <Box args={[0.62, 0.32, 0.04]} color={color} radius={0.025} />
-    <Box args={[0.36, 0.19, 0.016]} position={[0.1, -0.055, 0.026]} color="#fbf5e6" radius={0.015} />
-    <group name={`retail-product:${productId}`} position={[-0.2, -0.01, 0.05]}><BasketProduct productId={productId} scale={0.85} /></group>
-    <Text position={[0.1, 0.11, 0.028]} fontSize={0.05} color="#fffaf0" anchorX="center" anchorY="middle" fontWeight={800}>{PRODUCTS_LABELS[productId]}</Text>
-    <group name="dynamic:shelf-tag">
-      <Text position={[0.1, -0.015, 0.04]} fontSize={0.078} color="#24323a" anchorX="center" anchorY="middle" fontWeight={800}>{`${count}/${capacity}`}</Text>
-      <Text position={[0.1, -0.11, 0.04]} fontSize={0.046} color={full ? "#2f7d3a" : "#b8641a"} anchorX="center" anchorY="middle" fontWeight={800}>{full ? "LLENO" : `faltan ${missing}`}</Text>
+  const accent = RETAIL_DEPARTMENTS[PRODUCT_RETAIL_DEPARTMENT[productId]].color;
+  return <group name={`retail-stock-screen:${productId}`} position={position} rotation={[-0.35, CAMERA_AZIMUTH - THREE.MathUtils.degToRad(fixtureYaw), 0, "YXZ"]}>
+    <Box args={[0.06, 0.16, 0.06]} position={[0, -0.5, -0.03]} color={palette.frame} radius={0.01} />
+    <Box args={[0.76, 0.86, 0.06]} position={[0, 0, -0.03]} color="#1a2325" radius={0.04} />
+    <mesh position={[0, 0, 0.004]}><planeGeometry args={[0.68, 0.78]} /><meshStandardMaterial color="#0f1e23" emissive="#12303a" emissiveIntensity={0.55} roughness={0.35} /></mesh>
+    <mesh position={[0, 0.405, 0.006]}><planeGeometry args={[0.68, 0.06]} /><meshStandardMaterial color={accent} emissive={accent} emissiveIntensity={0.35} roughness={0.5} /></mesh>
+    <mesh position={[0, 0.13, 0.008]}>
+      <planeGeometry args={[0.4, 0.4]} />
+      <meshBasicMaterial transparent toneMapped={false}>
+        <RenderTexture attach="map" width={160} height={160} frames={1}>
+          <PerspectiveCamera makeDefault position={[0, 0.05, 0.46]} fov={30} near={0.05} far={5} />
+          <ambientLight intensity={1.4} />
+          <directionalLight position={[1.2, 2, 1.6]} intensity={2.2} />
+          <directionalLight position={[-1.4, 0.6, -0.8]} intensity={0.7} />
+          <group rotation={[0.28, -0.7, 0]}><BasketProduct productId={productId} scale={1} /></group>
+        </RenderTexture>
+      </meshBasicMaterial>
+    </mesh>
+    <Text position={[0, 0.34, 0.01]} fontSize={0.07} color="#e9f6f2" anchorX="center" anchorY="middle" fontWeight={800}>{PRODUCTS_LABELS[productId]}</Text>
+    <group name="dynamic:stock-screen">
+      <Text position={[0, -0.16, 0.01]} fontSize={0.15} color="#ffffff" anchorX="center" anchorY="middle" fontWeight={800}>{`${count}/${capacity}`}</Text>
+      <Text position={[0, -0.325, 0.01]} fontSize={0.082} color={full ? "#8ce6a1" : "#ffcf6b"} anchorX="center" anchorY="middle" fontWeight={800}>{full ? "LLENO" : `faltan ${missing}`}</Text>
     </group>
+    <mesh position={[0.29, 0.405, 0.012]}><circleGeometry args={[0.014, 10]} /><meshBasicMaterial color="#5bf08a" toneMapped={false} /></mesh>
+  </group>;
+}
+
+/** Rail above a fixture's department sign that carries its stock screens:
+ * two posts rise from the top bar beside the sign and a bar joins them. */
+function ScreenRail({ barY, railY, halfWidth, z }: { barY: number; railY: number; halfWidth: number; z: number }) {
+  const posts = useMemo<InstanceTransform[]>(() => [-halfWidth, halfWidth].map((x) => ({ position: [x, (barY + railY) / 2, z], scale: [0.05, railY - barY, 0.05] })), [barY, halfWidth, railY, z]);
+  return <group>
+    <StaticInstances transforms={posts}><boxGeometry args={[1, 1, 1]} /><meshStandardMaterial color={palette.fixtureSteel} metalness={0.4} roughness={0.4} /></StaticInstances>
+    <Box args={[halfWidth * 2 + 0.05, 0.05, 0.05]} position={[0, railY, z]} color={palette.fixtureSteel} radius={0.01} />
   </group>;
 }
 
@@ -369,8 +393,6 @@ export const KitFurniture = memo(function KitFurniture({ shelves, shelfTier, mac
     }
   }, [activeCheckouts, checkoutHandoffs, checkoutHandoffLocations, coldDoorActive]);
   return <group ref={root}>
-    <StoreElement position={[-1.6, 0, -8.05]}><MemoOperationsWall /></StoreElement>
-
     <StoreElement position={retailDisplayPosition("bakery")} yaw={RETAIL_DEPARTMENTS.bakery.yaw}><MemoBakeryDisplay stock={{ bread: shelves.bread, flour: shelves.flour, wheat: shelves.wheat }} capacity={{ bread: fixtureCapacity("bread"), flour: fixtureCapacity("flour"), wheat: fixtureCapacity("wheat") }} /></StoreElement>
     {PANTRY_DISPLAY_POSITIONS.map((position, index) => <StoreElement key={`pantry-${index}`} position={[...position]} yaw={RETAIL_DEPARTMENTS.pantry.yaw}><MemoGondola position={[0, 0, 0]} count={distributedFixtureQuantity(shelves.coffee, index, PANTRY_DISPLAY_POSITIONS.length)} capacity={fixtureCapacity("coffee", index)} /></StoreElement>)}
     <StoreElement position={retailDisplayPosition("eggs")} yaw={RETAIL_DEPARTMENTS.eggs.yaw}><MemoEggDisplay count={shelves.eggs} capacity={fixtureCapacity("eggs")} /></StoreElement>
@@ -389,9 +411,8 @@ export const KitFurniture = memo(function KitFurniture({ shelves, shelfTier, mac
     <StoreElement position={[...STORE_PRODUCTION_FIXTURES.flourMill.position]}><MemoMillMachine position={[0, 0, 0]} machine={machine("flour-mill-1")} /></StoreElement>
     <StoreElement position={[...STORE_PRODUCTION_FIXTURES.cheeseMaker.position]}><MemoProcessMachine kind="cheese" machine={machine("cheese-maker-1")} /></StoreElement>
     <StoreElement position={[...STORE_PRODUCTION_FIXTURES.juiceMachine.position]}><MemoProcessMachine kind="juice" machine={machine("juice-machine-1")} /></StoreElement>
-    <StoreElement position={[8.8, 0, -2.15]}><MemoSupplierCorner position={[0, 0, 0]} /></StoreElement>
+    <StoreElement position={[...STORE_SERVICE_FIXTURES.orders.position]}><MemoSupplierCorner position={[0, 0, 0]} /></StoreElement>
     <StoreElement position={[...WAREHOUSE_RETURN_STATION.position]}><MemoWarehouseReturnBasket /></StoreElement>
-    <StoreElement position={[8.8, 0, -5.35]}><MemoTerminalModel position={[0, 0, 0]} label="MAPA" /></StoreElement>
     <MemoStoreUtilities lightsOn={lightsOn} dynamicCeilingLights={dynamicCeilingLights} />
     {/* Last child: its effect runs after every sibling placed its instances. */}
     <StaticBatchOptimizer rootRef={root} structureRevision={structureRevision} />
@@ -424,7 +445,6 @@ function sameFixtureValue(left: unknown, right: unknown): boolean {
   return false;
 }
 
-const MemoOperationsWall = memo(OperationsWall, sameFixtureProps);
 const MemoBakeryDisplay = memo(BakeryDisplay, sameFixtureProps);
 const MemoGondola = memo(Gondola, sameFixtureProps);
 const MemoEggDisplay = memo(EggDisplay, sameFixtureProps);
@@ -507,53 +527,6 @@ function CommercialBackPanel({ width, height, z, color = "#c5cac7" }: { width: n
   </group>;
 }
 
-function OperationsWall() {
-  const bays = useMemo(() => [-3.6, -1.2, 1.2, 3.6].map((x, index) => ({
-    x,
-    height: index === 0 ? 1.12 : 2.27,
-    levels: index === 0 ? WALL_SHELF_LOW_LEVELS : WALL_SHELF_TALL_LEVELS,
-  })), []);
-  const bases = useMemo<InstanceTransform[]>(() => bays.map((bay) => ({ position: [bay.x, 0.08, 0], scale: [2.17, 0.16, 0.8] })), [bays]);
-  const backs = useMemo<InstanceTransform[]>(() => bays.map((bay) => ({ position: [bay.x, bay.height / 2, -0.34], scale: [2.05, bay.height, 0.075] })), [bays]);
-  const slats = useMemo<InstanceTransform[]>(() => bays.flatMap((bay) => Array.from({ length: 7 }, (_, index) => ({
-    position: [bay.x, 0.22 + index * Math.max(0.2, (bay.height - 0.34) / 6), -0.298],
-    scale: [1.76, 0.012, 0.012],
-  }))), [bays]);
-  const uprights = useMemo<InstanceTransform[]>(() => bays.flatMap((bay) => [-1, 1].flatMap((side) => [-0.37, -0.25].map((z) => ({
-    position: [bay.x + side * 1.01, (bay.height + 0.08) / 2, z],
-    scale: [0.07, bay.height + 0.08, 0.07],
-  })))), [bays]);
-  const decks = useMemo<InstanceTransform[]>(() => bays.flatMap((bay) => bay.levels.map((y) => ({ position: [bay.x, y, 0], scale: [1.97, 0.065, 0.68] }))), [bays]);
-  const lips = useMemo<InstanceTransform[]>(() => bays.flatMap((bay) => bay.levels.map((y) => ({ position: [bay.x, y + 0.025, 0.334], scale: [2.005, 0.105, 0.035] }))), [bays]);
-  const accents = useMemo<InstanceTransform[]>(() => bays.flatMap((bay) => bay.levels.map((y) => ({ position: [bay.x, y + 0.075, 0.357], scale: [1.81, 0.062, 0.018] }))), [bays]);
-  const tags = useMemo<InstanceTransform[]>(() => bays.flatMap((bay) => bay.levels.flatMap((y) => [-0.61, 0, 0.61].map((offset) => ({ position: [bay.x + offset, y + 0.075, 0.369], scale: [0.25, 0.055, 0.012] })))), [bays]);
-  const storageBins = useMemo<InstanceTransform[]>(() => bays.flatMap((bay) => bay.levels.flatMap((y, row) => [-0.62, 0, 0.62].map((offset, column) => ({
-    position: [bay.x + offset, y + 0.16, 0.17],
-    rotation: [0, (column - 1) * 0.035, 0],
-    scale: [0.48, row % 2 ? 0.24 : 0.28, 0.38],
-  })))), [bays]);
-  const storageBands = useMemo<InstanceTransform[]>(() => storageBins.map((bin) => ({
-    position: [bin.position[0], bin.position[1] + 0.015, bin.position[2] + 0.194],
-    rotation: bin.rotation,
-    scale: [0.29, 0.065, 0.018],
-  })), [storageBins]);
-  const tops = useMemo<InstanceTransform[]>(() => bays.map((bay) => ({ position: [bay.x, bay.height + 0.04, -0.01], scale: [2.21, 0.14, 0.78] })), [bays]);
-  return <group name="decor:operations-wall">
-    <StaticInstances transforms={bases} receiveShadow><RoundedBoxGeometry args={[1, 1, 1]} radius={0.08} smoothness={2} /><meshStandardMaterial color={palette.fixtureSteel} metalness={0.34} roughness={0.42} /></StaticInstances>
-    <StaticInstances transforms={backs} receiveShadow><boxGeometry args={[1, 1, 1]} /><meshStandardMaterial color="#c6cbc8" roughness={0.76} /></StaticInstances>
-    <StaticInstances transforms={slats}><boxGeometry args={[1, 1, 1]} /><meshStandardMaterial color="#747d79" metalness={0.38} roughness={0.42} /></StaticInstances>
-    <StaticInstances transforms={uprights} castShadow receiveShadow><boxGeometry args={[1, 1, 1]} /><meshStandardMaterial color={palette.fixtureSteel} metalness={0.58} roughness={0.34} /></StaticInstances>
-    <StaticInstances transforms={decks} receiveShadow><boxGeometry args={[1, 1, 1]} /><meshStandardMaterial color={palette.shelf} roughness={0.66} /></StaticInstances>
-    <StaticInstances transforms={lips} castShadow><boxGeometry args={[1, 1, 1]} /><meshStandardMaterial color={palette.fixtureSteel} metalness={0.45} roughness={0.36} /></StaticInstances>
-    <StaticInstances transforms={accents}><boxGeometry args={[1, 1, 1]} /><meshStandardMaterial color="#65756e" roughness={0.5} /></StaticInstances>
-    <StaticInstances transforms={tags}><boxGeometry args={[1, 1, 1]} /><meshStandardMaterial color="#fff8e7" roughness={0.78} /></StaticInstances>
-    <StaticInstances transforms={storageBins} castShadow><RoundedBoxGeometry args={[1, 1, 1]} radius={0.08} smoothness={1} /><meshStandardMaterial color="#a8835d" roughness={0.88} /></StaticInstances>
-    <StaticInstances transforms={storageBands}><boxGeometry args={[1, 1, 1]} /><meshStandardMaterial color="#eee2bd" roughness={0.8} /></StaticInstances>
-    <StaticInstances transforms={tops} castShadow><RoundedBoxGeometry args={[1, 1, 1]} radius={0.08} smoothness={2} /><meshStandardMaterial color={palette.fixtureSteel} metalness={0.34} roughness={0.42} /></StaticInstances>
-    <DepartmentSign label="OPERACIONES Y RESERVA" color="#526b61" position={[0, 2.52, 0.1]} width={4.4} />
-  </group>;
-}
-
 function Gondola({ position, count, capacity }: { position: Position; count: number; capacity: number }) {
   const accent = RETAIL_DEPARTMENTS.pantry.color;
   // Fill the service-facing side first so the visible stock and its proximity
@@ -565,8 +538,9 @@ function Gondola({ position, count, capacity }: { position: Position; count: num
     <FixtureUprights width={2.18} height={1.92} z={0} />
     {sides.map((side) => <CommercialShelfBank key={side} levels={RETAIL_FIXTURE_LEVELS.pantry} width={2.08} depth={0.52} z={side * 0.28} front={side} accent={accent} />)}
     <AuthoritativeRetailStock productId="coffee" count={count} />
-    <ShelfTag productId="coffee" count={count} capacity={capacity} position={[1.3, RETAIL_FIXTURE_LEVELS.pantry[4] + 0.2, 0.62]} fixtureYaw={RETAIL_DEPARTMENTS.pantry.yaw} />
     <Box args={[2.3, 0.14, 1.08]} position={[0, 1.88, 0]} color={palette.fixtureSteel} radius={0.03} />
+    <ScreenRail barY={1.95} railY={2.43} halfWidth={1.1} z={0.12} />
+    <StockScreen productId="coffee" count={count} capacity={capacity} position={[0, 2.9, 0.12]} fixtureYaw={RETAIL_DEPARTMENTS.pantry.yaw} />
     <DepartmentSign label={RETAIL_DEPARTMENTS.pantry.label} color={accent} position={[0, 2.15, 0]} width={2.02} />
   </group>;
 }
@@ -582,11 +556,10 @@ function BakeryDisplay({ stock, capacity }: { stock: StockCounts; capacity: Stoc
     <AuthoritativeRetailStock productId="bread" count={stock.bread ?? 0} />
     <AuthoritativeRetailStock productId="flour" count={stock.flour ?? 0} />
     <AuthoritativeRetailStock productId="wheat" count={stock.wheat ?? 0} />
-    {/* Tags at the first shelf of each SKU on the local +x corner: the near
-        corner sits behind the stockroom wall sign from the camera's view. */}
-    <ShelfTag productId="bread" count={stock.bread ?? 0} capacity={capacity.bread ?? 0} position={[1.3, levels[0] + 0.2, 0.36]} fixtureYaw={yaw} />
-    <ShelfTag productId="flour" count={stock.flour ?? 0} capacity={capacity.flour ?? 0} position={[1.3, levels[2] + 0.2, 0.36]} fixtureYaw={yaw} />
-    <ShelfTag productId="wheat" count={stock.wheat ?? 0} capacity={capacity.wheat ?? 0} position={[1.3, levels[3] + 0.2, 0.36]} fixtureYaw={yaw} />
+    <ScreenRail barY={2.05} railY={2.52} halfWidth={1.12} z={0.1} />
+    <StockScreen productId="bread" count={stock.bread ?? 0} capacity={capacity.bread ?? 0} position={[-0.78, 2.99, 0.1]} fixtureYaw={yaw} />
+    <StockScreen productId="flour" count={stock.flour ?? 0} capacity={capacity.flour ?? 0} position={[0, 2.99, 0.1]} fixtureYaw={yaw} />
+    <StockScreen productId="wheat" count={stock.wheat ?? 0} capacity={capacity.wheat ?? 0} position={[0.78, 2.99, 0.1]} fixtureYaw={yaw} />
     <Box args={[2.3, 0.14, 0.78]} position={[0, 1.98, -0.1]} color={palette.fixtureSteel} radius={0.03} />
     <DepartmentSign label={RETAIL_DEPARTMENTS.bakery.label} color={RETAIL_DEPARTMENTS.bakery.color} position={[0, 2.25, 0.08]} width={2.02} />
   </group>;
@@ -601,8 +574,8 @@ function ProduceTable({ position, stock, capacity }: { position: Position; stock
   const legs = useMemo<InstanceTransform[]>(() => [-1.08, 1.08].flatMap((x) => [-0.58, 0.58].map((z) => ({ position: [x, 0.39, z], scale: [0.09, 0.7, 0.09] }))), []);
   const decks = useMemo<InstanceTransform[]>(() => PRODUCE_BIN_COLUMNS.map((x) => ({ position: [x, PRODUCE_DECK.center[1], PRODUCE_DECK.center[2]], rotation: [PRODUCE_DECK.tilt, 0, 0], scale: [PRODUCE_DECK.width, PRODUCE_DECK.thickness, PRODUCE_DECK.depth] })), []);
   const dividers = useMemo<InstanceTransform[]>(() => [-2, -1, 0, 1, 2].map((slot) => ({ position: produceDeckLocalPoint(slot * PRODUCE_BIN_PITCH, 0.1, 0), rotation: [PRODUCE_DECK.tilt, 0, 0], scale: [0.03, 0.2, PRODUCE_DECK.depth + 0.04] })), []);
-  const signPosts = useMemo<InstanceTransform[]>(() => PRODUCE_BIN_COLUMNS.map((x) => ({ position: [x, 1.13, -0.68], scale: [0.045, 0.56, 0.045] })), []);
-  const headerPosts = useMemo<InstanceTransform[]>(() => [-1.1, 1.1].map((x) => ({ position: [x, 1.45, -0.7], scale: [0.055, 1.55, 0.055] })), []);
+  const signPosts = useMemo<InstanceTransform[]>(() => PRODUCE_BIN_COLUMNS.map((x) => ({ position: [x, 1.12, -0.68], scale: [0.045, 0.54, 0.045] })), []);
+  const headerPosts = useMemo<InstanceTransform[]>(() => [-1.1, 1.1].map((x) => ({ position: [x, 1.52, -0.7], scale: [0.055, 1.7, 0.055] })), []);
   return <group name="retail-department:produce" position={position}>
     <Box args={[2.42, 0.12, 1.5]} position={[0, 0.08, 0]} color={palette.fixtureSteel} radius={0.035} />
     <StaticInstances transforms={legs} castShadow><RoundedBoxGeometry args={[1, 1, 1]} radius={0.1} smoothness={2} /><meshStandardMaterial color={palette.fixtureSteel} metalness={0.34} roughness={0.42} /></StaticInstances>
@@ -615,8 +588,8 @@ function ProduceTable({ position, stock, capacity }: { position: Position; stock
     <StaticInstances transforms={signPosts} castShadow><RoundedBoxGeometry args={[1, 1, 1]} radius={0.08} smoothness={2} /><meshStandardMaterial color={palette.fixtureSteel} metalness={0.34} roughness={0.42} /></StaticInstances>
     {PRODUCE_PRODUCTS.map((productId, index) => <ProduceSlotSign key={productId} productId={productId} x={PRODUCE_BIN_COLUMNS[index]} count={stock[productId] ?? 0} capacity={capacity[productId] ?? 0} />)}
     <StaticInstances transforms={headerPosts} castShadow><RoundedBoxGeometry args={[1, 1, 1]} radius={0.08} smoothness={2} /><meshStandardMaterial color={palette.fixtureSteel} metalness={0.34} roughness={0.42} /></StaticInstances>
-    <Box args={[2.3, 0.12, 0.08]} position={[0, 2.22, -0.7]} color={palette.fixtureSteel} radius={0.025} />
-    <DepartmentSign label={RETAIL_DEPARTMENTS.produce.label} color={RETAIL_DEPARTMENTS.produce.color} position={[0, 2.2, -0.64]} width={2.2} />
+    <Box args={[2.3, 0.12, 0.08]} position={[0, 2.36, -0.7]} color={palette.fixtureSteel} radius={0.025} />
+    <DepartmentSign label={RETAIL_DEPARTMENTS.produce.label} color={RETAIL_DEPARTMENTS.produce.color} position={[0, 2.33, -0.64]} width={2.2} />
   </group>;
 }
 
@@ -626,15 +599,15 @@ function ProduceTable({ position, stock, capacity }: { position: Position; stock
 function ProduceSlotSign({ productId, x, count, capacity }: { productId: ProductId; x: number; count: number; capacity: number }) {
   const missing = Math.max(0, capacity - count);
   const full = capacity > 0 && missing === 0;
-  return <group name={`retail-slot-sign:${productId}`} position={[x, 1.65, -0.66]}>
-    <Box args={[0.54, 0.58, 0.05]} position={[0, 0, -0.02]} color={palette.frame} radius={0.04} />
-    <Box args={[0.5, 0.54, 0.06]} color={RETAIL_DEPARTMENTS.produce.color} radius={0.035} />
-    <Box args={[0.42, 0.22, 0.02]} position={[0, -0.12, 0.035]} color="#fbf5e6" radius={0.02} />
-    <group name={`retail-product:${productId}`} position={[0, 0.165, 0.07]}><BasketProduct productId={productId} scale={1.05} /></group>
-    <Text position={[0, 0.02, 0.036]} fontSize={0.056} color="#fffaf0" anchorX="center" anchorY="middle" fontWeight={800}>{PRODUCTS_LABELS[productId]}</Text>
+  return <group name={`retail-slot-sign:${productId}`} position={[x, 1.69, -0.66]}>
+    <Box args={[0.56, 0.7, 0.05]} position={[0, 0, -0.02]} color={palette.frame} radius={0.04} />
+    <Box args={[0.52, 0.66, 0.06]} color={RETAIL_DEPARTMENTS.produce.color} radius={0.035} />
+    <Box args={[0.46, 0.3, 0.02]} position={[0, -0.15, 0.035]} color="#fbf5e6" radius={0.02} />
+    <group name={`retail-product:${productId}`} position={[0, 0.215, 0.07]}><BasketProduct productId={productId} scale={1.05} /></group>
+    <Text position={[0, 0.06, 0.036]} fontSize={0.064} color="#fffaf0" anchorX="center" anchorY="middle" fontWeight={800}>{PRODUCTS_LABELS[productId]}</Text>
     <group name="dynamic:produce-sign">
-      <Text position={[0, -0.075, 0.05]} fontSize={0.09} color="#24402c" anchorX="center" anchorY="middle" fontWeight={800}>{`${count}/${capacity}`}</Text>
-      <Text position={[0, -0.175, 0.05]} fontSize={0.05} color={full ? "#2f7d3a" : "#b8641a"} anchorX="center" anchorY="middle" fontWeight={800}>{full ? "LLENO" : `faltan ${missing}`}</Text>
+      <Text position={[0, -0.09, 0.05]} fontSize={0.12} color="#24402c" anchorX="center" anchorY="middle" fontWeight={800}>{`${count}/${capacity}`}</Text>
+      <Text position={[0, -0.235, 0.05]} fontSize={0.08} color={full ? "#2f7d3a" : "#b8641a"} anchorX="center" anchorY="middle" fontWeight={800}>{full ? "LLENO" : `faltan ${missing}`}</Text>
     </group>
   </group>;
 }
@@ -700,9 +673,9 @@ function ChilledDisplay({ position, stock, capacity, open }: { position: Positio
     <Box args={[2.48, 0.24, 0.92]} position={[0, 2.28, 0]} color={palette.fixtureSteel} radius={0.045} />
     <StaticInstances transforms={vents}><boxGeometry args={[1, 1, 1]} /><meshStandardMaterial color="#7d8b88" metalness={0.28} roughness={0.48} /></StaticInstances>
     <DepartmentSign label={RETAIL_DEPARTMENTS.dairy.label} color={RETAIL_DEPARTMENTS.dairy.color} position={[0, 2.5, 0.08]} width={2.02} />
-    {/* Tags ride the top bar above the doors, each over its half of the cabinet. */}
-    <ShelfTag productId="milk" count={stock.milk ?? 0} capacity={capacity.milk ?? 0} position={[-0.55, 2.28, 0.56]} fixtureYaw={RETAIL_DEPARTMENTS.dairy.yaw} />
-    <ShelfTag productId="cheese" count={stock.cheese ?? 0} capacity={capacity.cheese ?? 0} position={[0.55, 2.28, 0.56]} fixtureYaw={RETAIL_DEPARTMENTS.dairy.yaw} />
+    <ScreenRail barY={2.4} railY={2.78} halfWidth={1.12} z={0.1} />
+    <StockScreen productId="milk" count={stock.milk ?? 0} capacity={capacity.milk ?? 0} position={[-0.55, 3.22, 0.1]} fixtureYaw={RETAIL_DEPARTMENTS.dairy.yaw} />
+    <StockScreen productId="cheese" count={stock.cheese ?? 0} capacity={capacity.cheese ?? 0} position={[0.55, 3.22, 0.1]} fixtureYaw={RETAIL_DEPARTMENTS.dairy.yaw} />
   </group>;
 }
 
@@ -714,8 +687,9 @@ function DrinksDisplay({ position, count, capacity }: { position: Position; coun
     <FixtureUprights width={2.28} height={2.2} z={-0.31} />
     <CommercialShelfBank levels={levels} width={2.13} depth={0.67} front={1} accent={RETAIL_DEPARTMENTS.drinks.color} />
     <AuthoritativeRetailStock productId="juice" count={count} />
-    <ShelfTag productId="juice" count={count} capacity={capacity} position={[-1.33, levels[4] + 0.2, 0.42]} fixtureYaw={RETAIL_DEPARTMENTS.drinks.yaw} />
     <Box args={[2.38, 0.18, 0.92]} position={[0, 2.18, 0]} color={palette.fixtureSteel} radius={0.04} />
+    <ScreenRail barY={2.27} railY={2.7} halfWidth={1.12} z={0.1} />
+    <StockScreen productId="juice" count={count} capacity={capacity} position={[0, 3.14, 0.1]} fixtureYaw={RETAIL_DEPARTMENTS.drinks.yaw} />
     <DepartmentSign label={RETAIL_DEPARTMENTS.drinks.label} color={RETAIL_DEPARTMENTS.drinks.color} position={[0, 2.42, 0.07]} width={2} />
   </group>;
 }
@@ -730,8 +704,9 @@ function EggDisplay({ count, capacity }: { count: number; capacity: number }) {
     <CommercialShelfBank levels={levels} width={2.02} depth={0.68} accent={RETAIL_DEPARTMENTS.eggs.color} />
     <StaticInstances transforms={cartons} receiveShadow><RoundedBoxGeometry args={[1, 1, 1]} radius={0.09} smoothness={2} /><meshStandardMaterial color="#bca47a" roughness={0.88} /></StaticInstances>
     <AuthoritativeRetailStock productId="eggs" count={count} />
-    <ShelfTag productId="eggs" count={count} capacity={capacity} position={[1.27, levels[3] + 0.2, 0.42]} fixtureYaw={RETAIL_DEPARTMENTS.eggs.yaw} />
     <Box args={[2.22, 0.14, 0.84]} position={[0, 1.84, 0]} color={palette.fixtureSteel} radius={0.03} />
+    <ScreenRail barY={1.91} railY={2.36} halfWidth={1.05} z={0.1} />
+    <StockScreen productId="eggs" count={count} capacity={capacity} position={[0, 2.83, 0.1]} fixtureYaw={RETAIL_DEPARTMENTS.eggs.yaw} />
     <DepartmentSign label={RETAIL_DEPARTMENTS.eggs.label} color={RETAIL_DEPARTMENTS.eggs.color} position={[0, 2.08, 0.08]} width={1.88} />
   </group>;
 }
@@ -768,21 +743,6 @@ function MetalRack({ position }: { position: Position }) {
   </group>;
 }
 
-function PromotionalEndcap({ unlocked }: { unlocked: boolean }) {
-  const levels = PROMOTIONAL_ENDCAP_LEVELS;
-  const displayProps = useMemo<InstanceTransform[]>(() => levels.flatMap((y, row) => [-0.3, 0, 0.3].map((x, column) => ({
-    position: [x, y + 0.14, 0.18],
-    rotation: [0, (column - 1) * 0.08, 0],
-    scale: [0.17, 0.22 + (row % 2) * 0.025, 0.13],
-  }))), [levels]);
-  return <group name="fixture:promotional-endcap" rotation={[0, Math.PI / 2, 0]}>
-    <Box args={[1.18, 0.15, 0.78]} position={[0, 0.075, 0]} color={palette.fixtureSteel} radius={0.035} />
-    <CommercialBackPanel width={1.06} height={1.72} z={-0.31} color="#b99a75" />
-    <FixtureUprights width={1.12} height={1.8} z={-0.31} />
-    <CommercialShelfBank levels={levels} width={1.04} depth={0.64} accent="#7a6b8c" />
-    {unlocked && <group name="fixture:promotional-endcap-content"><StaticInstances transforms={displayProps} castShadow><RoundedBoxGeometry args={[1, 1, 1]} radius={0.12} smoothness={2} /><meshStandardMaterial color="#b9a7c7" roughness={0.78} /></StaticInstances><DepartmentSign label="NOVEDADES" color="#7a6b8c" position={[0, 1.98, 0.05]} width={1.02} /></group>}
-  </group>;
-}
 
 function CheckoutKit({ position, lane, transaction, handoffTransaction, handoffBagAtCounter }: { position: Position; lane: 0 | 1; transaction?: CheckoutTransaction; handoffTransaction?: CheckoutTransaction; handoffBagAtCounter: boolean }) {
   const scanning = transaction?.state === "SCANNING" || transaction?.state === "BAGGING";
@@ -1042,14 +1002,19 @@ function ProcessMachine({ kind, machine }: { kind: "cheese" | "juice"; machine?:
   </group>;
 }
 
+/** Orders block on the rear wall: the PEDIDOS terminal faces the sales floor
+ * while the delivery dock and pallet back onto the wall behind it. The group
+ * origin is the shared physics/NavMesh footprint centre. */
 function SupplierCorner({ position }: { position: Position }) {
-  return <group position={position}>
-    <MemoTerminalModel position={[0, 0, 0]} label="PEDIDOS" />
-    <group position={[0, 0, -1.35]} scale={0.72}><EnvironmentModel id="equipment_delivery_dock" /></group>
-    <Pallet position={[-0.05, 0, -1.3]} />
-    <Parcel position={[-0.3, 0.34, -1.3]} />
-    <Parcel position={[0.25, 0.34, -1.3]} small />
-    <Parcel position={[0.05, 0.73, -1.3]} />
+  return <group name={STORE_SERVICE_FIXTURES.orders.obstacleId} position={position}>
+    <MemoTerminalModel position={[0, 0, 0.62]} label="PEDIDOS" />
+    {/* The dock door is a 2.2 × 1.45 panel centred on its origin: lift it onto
+     * the floor and flatten it against the rear wall behind the pallet. */}
+    <group position={[0, 0.52, -0.9]} scale={0.72}><EnvironmentModel id="equipment_delivery_dock" /></group>
+    <Pallet position={[-0.05, 0, -0.68]} />
+    <Parcel position={[-0.3, 0.34, -0.68]} />
+    <Parcel position={[0.25, 0.34, -0.68]} small />
+    <Parcel position={[0.05, 0.73, -0.68]} />
   </group>;
 }
 
@@ -1060,16 +1025,18 @@ function SupplierCorner({ position }: { position: Position }) {
  * units; the group scales to the station footprint of 0.84 × 0.64.
  */
 function WarehouseReturnBasket() {
+  const slats = useMemo<InstanceTransform[]>(() => [0.18, 0.4, 0.62, 0.84].map((y) => ({ position: [0, y, 0], scale: [1.08, 0.03, 0.42] })), []);
   return <group name={WAREHOUSE_RETURN_STATION.obstacleId}>
-    <Box args={[0.52, 0.06, 0.4]} position={[0, 0.03, 0]} color={palette.wood} radius={0.018} />
-    {([-1, 1] as const).map((side) => <Box key={`side-${side}`} args={[0.045, 0.3, 0.4]} position={[side * 0.24, 0.21, 0]} color={palette.wood} radius={0.012} />)}
-    {([-1, 1] as const).map((side) => <Box key={`end-${side}`} args={[0.52, 0.3, 0.045]} position={[0, 0.21, side * 0.18]} color={palette.wood} radius={0.012} />)}
-    {[0.1, 0.2, 0.3].map((y) => <Box key={`rail-${y}`} args={[0.54, 0.03, 0.42]} position={[0, y, 0]} color="#c9955b" radius={0.01} />)}
-    <Box args={[0.46, 0.02, 0.34]} position={[0, 0.08, 0]} color="#8c6a3f" radius={0.006} />
-    <Box args={[0.035, 0.72, 0.035]} position={[-0.31, 0.36, -0.14]} color={palette.frame} radius={0.008} />
-    <Box args={[0.42, 0.19, 0.03]} position={[-0.31, 0.76, -0.14]} color="#173f35" radius={0.02} />
-    <Text position={[-0.31, 0.79, -0.122]} fontSize={0.052} color="#fff3ce" anchorX="center" anchorY="middle" fontWeight={800}>DEVOLVER</Text>
-    <Text position={[-0.31, 0.73, -0.122]} fontSize={0.04} color="#9fd8c0" anchorX="center" anchorY="middle" fontWeight={800}>AL ALMACÉN</Text>
+    <Box args={[1.04, 0.06, 0.4]} position={[0, 0.03, 0]} color={palette.wood} radius={0.018} />
+    {([-1, 1] as const).map((side) => <Box key={`side-${side}`} args={[0.045, 0.9, 0.4]} position={[side * 0.5, 0.51, 0]} color={palette.wood} radius={0.012} />)}
+    {([-1, 1] as const).map((side) => <Box key={`end-${side}`} args={[1.04, 0.9, 0.045]} position={[0, 0.51, side * 0.18]} color={palette.wood} radius={0.012} />)}
+    {[-0.5, 0, 0.5].map((x) => <Box key={`post-${x}`} args={[0.06, 0.96, 0.06]} position={[x, 0.48, 0.2]} color="#7a5230" radius={0.01} />)}
+    <StaticInstances transforms={slats}><boxGeometry args={[1, 1, 1]} /><meshStandardMaterial color="#c9955b" roughness={0.9} /></StaticInstances>
+    <Box args={[0.98, 0.02, 0.34]} position={[0, 0.08, 0]} color="#8c6a3f" radius={0.006} />
+    <Box args={[0.035, 1.34, 0.035]} position={[-0.62, 0.67, -0.14]} color={palette.frame} radius={0.008} />
+    <Box args={[0.62, 0.26, 0.03]} position={[-0.62, 1.42, -0.14]} color="#173f35" radius={0.02} />
+    <Text position={[-0.62, 1.46, -0.122]} fontSize={0.075} color="#fff3ce" anchorX="center" anchorY="middle" fontWeight={800}>DEVOLVER</Text>
+    <Text position={[-0.62, 1.375, -0.122]} fontSize={0.058} color="#9fd8c0" anchorX="center" anchorY="middle" fontWeight={800}>AL ALMACÉN</Text>
   </group>;
 }
 

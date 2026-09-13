@@ -859,10 +859,16 @@ function DebugProbe({ inspectScene, publishInventory }: { inspectScene: boolean;
         const fixture = STORE_SERVICE_FIXTURES[fixtureId];
         return [fixtureId, {
           fixtureVisible: Boolean(state.scene.getObjectByName(fixture.obstacleId)),
-          contentVisible: fixtureId === "promotionalEndcap"
-            ? Boolean(state.scene.getObjectByName("fixture:promotional-endcap-content"))
-            : null,
+          contentVisible: null,
         }];
+      }));
+      // World-space bounds of the solid service furniture, in layout units,
+      // so a QA run can prove a fixture stands on its authored footprint.
+      qaWindow.__MARKET_QA__.fixtureBounds = Object.fromEntries([...STORE_SERVICE_FIXTURE_IDS.map((fixtureId) => STORE_SERVICE_FIXTURES[fixtureId].obstacleId), WAREHOUSE_RETURN_STATION.obstacleId].map((name) => {
+        const object = state.scene.getObjectByName(name);
+        if (!object) return [name, null];
+        const box = new THREE.Box3().setFromObject(object);
+        return [name, { min: [box.min.x / STORE_LAYOUT_SCALE, box.min.y, box.min.z / STORE_LAYOUT_SCALE], max: [box.max.x / STORE_LAYOUT_SCALE, box.max.y, box.max.z / STORE_LAYOUT_SCALE] }];
       }));
     };
     publish();

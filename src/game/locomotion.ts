@@ -47,14 +47,14 @@ export interface VisitorRoute {
 }
 
 export const VISITOR_ROUTES: Record<number, VisitorRoute> = {
-  1: { browse: [-4.1, -0.9], queue: checkoutQueuePosition(0), enterVia: [[-2.2, 5.6], [-2.2, 0.45]], queueVia: [[-4.1, 0.45], [5.35, 0.45], [5.35, 2.07], [7, 2.07]] },
-  // The positive-X entrance lane stays inside the cart-bay fixture rather
-  // than grazing its padded left edge. This is a real route displacement:
-  // the customer/cart clearance in world-scale remains unchanged.
-  2: { browse: [0, 2.75], queue: checkoutQueuePosition(1), enterVia: [[1.5, 5.6], [1.5, 2.75]], queueVia: [[2.15, 2.75], [5.35, 2.75]] },
-  3: { browse: [3.25, -0.9], queue: checkoutQueuePosition(2), enterVia: [[1.5, 5.6], [1.5, 0.45], [3.25, 0.45]], queueVia: [[3.25, 0.8], [5.35, 0.8], [5.35, -0.9]] },
+  // The three pantry gondolas stand side by side at z = 2.5 (x −3.5…2.5), so
+  // every visitor heading south uses the wide aisle east of them (x ≈ 4.7)
+  // between the row and the checkout counters.
+  1: { browse: [-4.55, 0.39], queue: checkoutQueuePosition(0), enterVia: [[0.8, 5.3], [4.7, 5.3], [4.7, 0.5], [-4.55, 0.5]], queueVia: [[4.7, 0.5], [5.35, 0.5], [5.35, 2.07], [7, 2.07]] },
+  2: { browse: [-0.5, 3.9], queue: checkoutQueuePosition(1), enterVia: [[-0.5, 5.6]], queueVia: [[4.7, 3.9], [5.35, 2.75]] },
+  3: { browse: [5.45, -0.9], queue: checkoutQueuePosition(2), enterVia: [[0.8, 5.3], [4.7, 5.3], [4.7, 0.6], [5.4, 0.45]], queueVia: [[5.4, 0.45], [5.35, 0.8]] },
   4: { browse: [-4.0, 4.15], queue: checkoutQueuePosition(3), enterVia: [[-2.2, 5.6]], queueVia: [[5.35, 4.15]] },
-  5: { browse: [0, 4.2], queue: checkoutQueuePosition(4), enterVia: [[0, 5.6]], queueVia: [[5.35, 4.2]] },
+  5: { browse: [0, 4.4], queue: checkoutQueuePosition(4), enterVia: [[0, 5.6]], queueVia: [[5.35, 4.4]] },
   6: { browse: [4.0, 4.15], queue: checkoutQueuePosition(5), enterVia: [[1.5, 5.6]], queueVia: [[5.35, 4.15]] },
 };
 

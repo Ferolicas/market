@@ -148,7 +148,7 @@ describe("retail service points", () => {
     expect(RETAIL_FRONT_CAPACITY.coffee).toBe(40);
     expect(RETAIL_FRONT_CAPACITY.tomatoes).toBe(15);
     expect(retailShelfCapacity("tomatoes")).toBe(30);
-    expect(retailShelfCapacity("coffee")).toBe(120);
+    expect(retailShelfCapacity("coffee")).toBe(200);
     expect(retailShelfCapacity("bread")).toBe(24);
     (Object.keys(RETAIL_SHELF_GRIDS) as (keyof typeof RETAIL_SHELF_GRIDS)[]).forEach((productId) => {
       const grid = RETAIL_SHELF_GRIDS[productId];

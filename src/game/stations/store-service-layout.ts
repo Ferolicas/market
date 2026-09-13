@@ -1,4 +1,4 @@
-export type StoreServiceFixtureId = "promotionalEndcap" | "returns" | "cartBay";
+export type StoreServiceFixtureId = "orders" | "returns" | "cartBay";
 
 export interface StoreServiceFixture {
   id: StoreServiceFixtureId;
@@ -15,13 +15,15 @@ export interface StoreServiceFixture {
  * world-scale layer applies the same element/layout factors as MarketKit.
  */
 export const STORE_SERVICE_FIXTURES = {
-  promotionalEndcap: {
-    id: "promotionalEndcap",
-    obstacleId: "fixture:promotional-endcap",
-    position: [6.4, 0, -2.2],
-    // The fixture is rotated 90 degrees: its 0.78 depth lies on X and its
-    // 1.18 width lies on Z. A small envelope includes uprights and sign.
-    footprint: { halfX: 0.42, halfZ: 0.62 },
+  orders: {
+    id: "orders",
+    obstacleId: "fixture:orders",
+    // Supplier terminal, pallet and delivery dock against the rear wall where
+    // the decorative operations bays stood. The dock backs onto the wall and
+    // the PEDIDOS terminal faces the sales floor; the footprint covers both.
+    position: [0.9, 0, -7.3],
+    footprint: { halfX: 0.95, halfZ: 1.2 },
+    service: [0.9, -5.2],
   },
   returns: {
     id: "returns",

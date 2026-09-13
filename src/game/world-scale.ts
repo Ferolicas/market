@@ -58,14 +58,11 @@ const retailObstacles: StoreObstacle[] = RETAIL_DEPARTMENT_IDS.flatMap((departme
 });
 
 const BASE_STORE_OBSTACLES: StoreObstacle[] = [
-  ...[-5.2, -2.8, -0.4, 2].map((x) => ({ x, z: -8.05, halfX: 1.12, halfZ: 0.5 })),
   ...retailObstacles,
   { x: CHECKOUT_LANES[0].counter[0], z: CHECKOUT_LANES[0].counter[2], halfX: 2.25, halfZ: 0.65 },
   { x: CHECKOUT_LANES[1].counter[0], z: CHECKOUT_LANES[1].counter[2], halfX: 2.25, halfZ: 0.65 },
   ...productionObstacles,
   ...productionCubicleObstacles,
-  { x: 8.8, z: -2.65, halfX: 0.95, halfZ: 1.55 },
-  { x: 8.8, z: -5.35, halfX: 0.95, halfZ: 0.7 },
   {
     id: WAREHOUSE_RETURN_STATION.obstacleId,
     x: WAREHOUSE_RETURN_STATION.position[0],
@@ -100,6 +97,20 @@ export function scaleStorePosition(position: WorldPosition): WorldPosition {
 
 export function scaleStorePoint(point: [number, number]): [number, number] {
   return [point[0] * STORE_LAYOUT_SCALE, point[1] * STORE_LAYOUT_SCALE];
+}
+
+/** True when a straight walk between two layout points stays outside every
+ * padded fixture. Sampled every 0.2 layout units, which is finer than any
+ * fixture footprint or the navigation padding. */
+export function storeSegmentIsClear(start: readonly [number, number], end: readonly [number, number], paddingLayout = 0.31) {
+  const distance = Math.hypot(end[0] - start[0], end[1] - start[1]);
+  const steps = Math.max(1, Math.ceil(distance / 0.2));
+  for (let step = 0; step <= steps; step += 1) {
+    const progress = step / steps;
+    const point: [number, number] = [start[0] + (end[0] - start[0]) * progress, start[1] + (end[1] - start[1]) * progress];
+    if (overlapsStoreObstacle(scaleStorePoint(point), paddingLayout * STORE_LAYOUT_SCALE)) return false;
+  }
+  return true;
 }
 
 export function overlapsStoreObstacle(point: [number, number], radius: number) {

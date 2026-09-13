@@ -4,7 +4,7 @@ import type { CheckoutTransaction, CustomerRuntimeState, GameState, PaymentMetho
 import { CHECKOUT_LANES, checkoutQueueArrival } from "./stations/checkout-layout";
 import { createCustomerMind } from "./ai/CustomerBrain";
 import { ensureStoreNavigation, storePathfinder } from "./navigation/NavMeshService";
-import { WAREHOUSE_RETURN_STATION } from "./stations/warehouse-layout";
+import { STOCKROOM_POINT, WAREHOUSE_RETURN_STATION } from "./stations/warehouse-layout";
 import { BUSINESS_DAY_NIGHT_MINUTE, BUSINESS_DAY_OPEN_MINUTE, businessMinutesForRealMs } from "./time/BusinessDay";
 
 function addReadyCheckout(state: GameState, id: string, paymentMethod: PaymentMethod) {
@@ -46,7 +46,7 @@ describe("motor económico", () => {
     expect(shelfCapacityForTier(10, "tomatoes")).toBe(66);
     expect(shelfCapacityForTier(1, "bread")).toBe(24);
     expect(shelfCapacityForTier(10, "bread")).toBe(53);
-    expect(shelfCapacityForTier(1, "coffee")).toBe(120);
+    expect(shelfCapacityForTier(1, "coffee")).toBe(200);
 
     const state = createInitialGame("ES");
     const franchise = state.franchises[0];
@@ -444,7 +444,7 @@ describe("motor económico", () => {
     expect(runtime.carry).toEqual({ capacity: 3, items: { tomatoes: 3 } });
     expect(next.crops[0]).toMatchObject({ status: "READY", available: 5 });
     expect(runtime.state).toBe("NAVIGATE_DROPOFF");
-    expect(runtime.path.at(-1)).toEqual([7.35, -5.2]);
+    expect(runtime.path.at(-1)).toEqual([...STOCKROOM_POINT]);
   });
 
   it("el agricultor prioriza trigo cuando falta materia prima para el molino", () => {
@@ -640,7 +640,7 @@ describe("motor económico", () => {
     expect(nextMachine).toMatchObject({ status: "OUTPUT_READY", output: 3 });
     expect((runtime.carry.items.flour ?? 0) + nextMachine.output).toBe(6);
     expect(runtime.state).toBe("NAVIGATE_DROPOFF");
-    expect(runtime.path.at(-1)).toEqual([7.35, -5.2]);
+    expect(runtime.path.at(-1)).toEqual([...STOCKROOM_POINT]);
   });
 
   it("no permite gastar más caja de la disponible", () => {
@@ -880,9 +880,15 @@ describe("motor económico", () => {
     expect(state.franchises[0].open).toBe(false);
     expect(state.franchises[0].lightsOn).toBe(true);
 
-    for (let second = 0; second < 6; second += 1) state = advanceWorld(state, 1_000).state;
-    const transaction = state.franchises[0].checkoutTransactions.find((candidate) => candidate.customerId === "last-customer");
-    expect(transaction?.paymentCommitted).toBe(true);
+    // The completed transaction is purged once the customer walks off with
+    // the bag, so capture the payment the moment it commits.
+    let paymentCommitted = false;
+    for (let second = 0; second < 6; second += 1) {
+      state = advanceWorld(state, 1_000).state;
+      const transaction = state.franchises[0].checkoutTransactions.find((candidate) => candidate.customerId === "last-customer");
+      if (transaction?.paymentCommitted) paymentCommitted = true;
+    }
+    expect(paymentCommitted).toBe(true);
     expect(state.balanceMinor).toBeGreaterThan(balanceBefore);
   });
 

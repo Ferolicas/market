@@ -21,10 +21,15 @@ export interface RetailDepartment {
 export const RETAIL_STOCKING_MAGNET_REACH = { enter: 1.1, exit: 1.3 } as const;
 
 const INDIVIDUAL_FLOOR_TILE_LAYOUT = 46 / (12 * 3 * 2);
+/** Three gondolas side by side facing the entrance, then two more against the
+ * rear wall (where the decorative operations bays stood) facing the door.
+ * The first entry carries the department magnet and service point. */
 export const PANTRY_DISPLAY_POSITIONS = [
-  [0, 0, 1.4],
-  [0, 0, -0.9],
-  [0, 0, -3.2],
+  [-0.5, 0, 2.5],
+  [-2.5, 0, 2.5],
+  [1.5, 0, 2.5],
+  [-4, 0, -7.9],
+  [-1.9, 0, -7.9],
 ] as const;
 export const PRODUCE_DISPLAY_POSITIONS = [
   [-4.55, 0, 4.1 - 4 * INDIVIDUAL_FLOOR_TILE_LAYOUT],
@@ -35,7 +40,7 @@ export const RETAIL_DEPARTMENTS: Record<RetailDepartmentId, RetailDepartment> = 
   // Service points remain useful route destinations, but the actual stocking
   // volume wraps the complete fixture footprint so every walkable side works.
   bakery: { id: "bakery", label: "PAN Y HARINAS", color: "#b96d39", display: [-4.3, 0, -5], yaw: 90, fixtureHalfExtents: [1.2, 0.78], service: [-3.05, -5], products: ["bread", "flour", "wheat"] },
-  pantry: { id: "pantry", label: "DESPENSA", color: "#6f4938", display: [...PANTRY_DISPLAY_POSITIONS[0]], yaw: 0, fixtureHalfExtents: [1.2, 0.78], service: [0, 2.75], products: ["coffee"] },
+  pantry: { id: "pantry", label: "DESPENSA", color: "#6f4938", display: [...PANTRY_DISPLAY_POSITIONS[0]], yaw: 0, fixtureHalfExtents: [1.2, 0.78], service: [-0.5, 3.9], products: ["coffee"] },
   eggs: { id: "eggs", label: "HUEVOS", color: "#d49a34", display: [-10.25, 0, -1.75], yaw: 0, fixtureHalfExtents: [1.2, 0.78], service: [-10.25, -0.4], products: ["eggs"] },
   produce: { id: "produce", label: "FRUTAS Y VERDURAS", color: "#3f7b4c", display: [...PRODUCE_DISPLAY_POSITIONS[0]], yaw: 0, fixtureHalfExtents: [1.25, 0.83], service: [-4.55, 4.1 - 4 * INDIVIDUAL_FLOOR_TILE_LAYOUT - 1.35], products: ["tomatoes", "apples", "oranges", "corn"] },
   dairy: { id: "dairy", label: "LÁCTEOS", color: "#4382a1", display: [-10.34, 0, 0.45 + 3 * INDIVIDUAL_FLOOR_TILE_LAYOUT], yaw: 90, fixtureHalfExtents: [1.25, 0.83], service: [-9.24, 0.45 + 3 * INDIVIDUAL_FLOOR_TILE_LAYOUT], products: ["milk", "cheese"] },
