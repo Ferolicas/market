@@ -18,6 +18,7 @@ import { PRODUCT_RETAIL_DEPARTMENT, retailDisplayPosition } from "@/game/station
 import { CART_BAY_POINT } from "@/game/stations/store-service-layout";
 import { checkoutCustomerFacingYaw } from "@/game/stations/checkout-layout";
 import { composeRuntimeAnimationAliases } from "@/game/animation/CarrySocket";
+import { CLIP_NATURAL_SPEED, gaitTimeScale, RUN_GAIT_RATIO } from "@/game/animation/LocomotionController";
 import { adultCustomerSceneScale } from "@/game/animation/CharacterScale";
 import { BasketProduct } from "./HarvestBasket";
 
@@ -173,7 +174,10 @@ export const Customer = memo(function Customer({ customer, checkoutTransaction }
     const stateElapsedMs = frameNow - visualStateStartedAt.current;
     const projected = projectCustomerMotion(motionSnapshot.current, frameNow);
     const [x, z] = scaleStorePoint([projected.x, projected.z]);
-    const animation = customerAnimation(customer, clock.elapsedTime, Boolean(checkoutLoading));
+    // Free-walking entries and exits run when the walk cycle would otherwise
+    // have to spin past a natural cadence to keep the feet planted.
+    const runsFree = motionSnapshot.current.speed * STORE_LAYOUT_SCALE > RUN_GAIT_RATIO.start * CLIP_NATURAL_SPEED.Walk * CUSTOMER_SCALE[id];
+    const animation = customerAnimation(customer, clock.elapsedTime, Boolean(checkoutLoading), runsFree);
 
     group.visible = customer.state !== "DESPAWN";
     const previousX = group.position.x; const previousZ = group.position.z;
@@ -196,7 +200,7 @@ export const Customer = memo(function Customer({ customer, checkoutTransaction }
       group.rotation.y = turnTowards(group.rotation.y, angle, frameDelta(delta) * 3.8);
     }
     const headingStep = shortestHeadingDelta(headingBefore, group.rotation.y);
-    const locomotion = animation === "Enter" || animation === "Exit" || animation === "Walk" || animation === "CarryBasket";
+    const locomotion = animation === "Enter" || animation === "Exit" || animation === "Walk" || animation === "Run" || animation === "BasketWalk";
     if (characterRoot.current) {
       const turnLean = locomotion ? THREE.MathUtils.clamp(-headingStep / Math.max(0.001, frameDelta(delta)) * 0.014, -0.045, 0.045) : 0;
       characterRoot.current.rotation.z = THREE.MathUtils.lerp(characterRoot.current.rotation.z, turnLean, dampFactor(7, delta));
@@ -415,7 +419,9 @@ export const Customer = memo(function Customer({ customer, checkoutTransaction }
       const bagScale = receivingBag ? 0.72 + easedMotionProgress(stateElapsedMs, 520) * 0.28 : 1;
       bag.current.scale.setScalar(bagScale);
     }
-    const targetGaitScale = locomotion ? THREE.MathUtils.clamp(visualSpeed / 1.3, 0.82, 1.5) : 1;
+    // visualSpeed is in layout units; the body moves visualSpeed × layout scale
+    // in this group's space, where the rig covers CLIP_NATURAL_SPEED × scale.
+    const targetGaitScale = locomotion ? gaitTimeScale(animation, visualSpeed * STORE_LAYOUT_SCALE, CUSTOMER_SCALE[id]) ?? 1 : 1;
     visualGaitScale.current = THREE.MathUtils.lerp(visualGaitScale.current, targetGaitScale, dampFactor(9, delta));
     const loadingUnitKey = checkoutLoading ? `${checkoutLoading.transactionId}:${checkoutLoading.unitIndex}` : null;
     const loadingUnitChanged = loadingUnitKey !== null && checkoutLoadingUnitKey.current !== loadingUnitKey;
@@ -453,6 +459,7 @@ export const Customer = memo(function Customer({ customer, checkoutTransaction }
         checkoutFacingYaw: desiredCheckoutYaw,
         checkoutFacingError: desiredCheckoutYaw === null ? null : Math.abs(shortestHeadingDelta(group.rotation.y, desiredCheckoutYaw)),
         speed: motionSnapshot.current.speed,
+        gaitScale: visualGaitScale.current,
         snapshotCapturedAtMs: motionSnapshot.current.capturedAtMs,
         headQuaternion: head?.quaternion.toArray() ?? null,
         cartVisible: cart.current?.visible ?? false,
@@ -513,14 +520,17 @@ function collectMorphMeshes(model: THREE.Group) {
   return meshes;
 }
 
-function customerAnimation(customer: CustomerRuntimeState, elapsed = 0, checkoutLoading = false): CustomerAnimation {
+/** CarryBasket is the delivered standing pose with a basket (its feet barely
+ * move); BasketWalk is the matching walk cycle, so every state that travels
+ * with the cart uses it and only the stationary states keep the pose. */
+function customerAnimation(customer: CustomerRuntimeState, elapsed = 0, checkoutLoading = false, runsFree = false): CustomerAnimation {
   switch (customer.state) {
-    case "ENTER_STORE": return "Enter";
+    case "ENTER_STORE": return runsFree ? "Run" : "Enter";
     case "GET_CART":
     case "BUILD_SHOPPING_LIST": return "CarryBasket";
-    case "NAVIGATE_TO_PRODUCT": return "CarryBasket";
+    case "NAVIGATE_TO_PRODUCT": return "BasketWalk";
     case "NAVIGATE_TO_QUEUE":
-    case "MOVE_QUEUE": return "CarryBasket";
+    case "MOVE_QUEUE": return "BasketWalk";
     case "WAIT_FOR_ACCESS": return "Browse";
     case "PICK_PRODUCT": return "ReachShelf";
     case "QUEUE_WAIT": {
@@ -535,13 +545,13 @@ function customerAnimation(customer: CustomerRuntimeState, elapsed = 0, checkout
     case "UNLOAD": return "CheckoutItem";
     case "WAIT_CHECKOUT": return checkoutLoading ? "CheckoutItem" : customer.identity % 3 === 0 ? "Confused" : customer.identity % 2 ? "Wait" : "Queue";
     case "PAY": return "Pay";
-    case "NAVIGATE_TO_BAG": return "CarryBasket";
+    case "NAVIGATE_TO_BAG": return "BasketWalk";
     case "TAKE_BAG": return "ReceiveBag";
-    case "NAVIGATE_TO_RETURNS": return "CarryBasket";
+    case "NAVIGATE_TO_RETURNS": return "BasketWalk";
     case "LEAVE_RETURNS": return "CheckoutItem";
-    case "NAVIGATE_TO_CART_RETURN": return "CarryBasket";
+    case "NAVIGATE_TO_CART_RETURN": return "BasketWalk";
     case "RETURN_CART": return "CheckoutItem";
-    case "EXIT_STORE": return "Exit";
+    case "EXIT_STORE": return runsFree ? "Run" : "Exit";
     case "WAIT_RESTOCK": return "Confused";
     default: return "Idle";
   }

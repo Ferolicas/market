@@ -1236,7 +1236,7 @@ function spawnCustomerIfNeeded(state: GameState, franchise: FranchiseState, path
     id, identity, state: "ENTER_STORE", shoppingList: mind.shoppingList, currentLine: 0, basket: {}, patienceMs: mind.patienceMs,
     checkoutPatienceMs: CHECKOUT_PATIENCE_MS, waitingSince: null, queueSlot: null, queueLane: 0, queueJoinedAt: null, transactionId: null,
     hasCart: false, hasBag: false, angry: false, x: entryX, z: 15.2, targetX: entryX, targetZ: 5.6,
-    path: navigatePath(pathfinder, [entryX, 15.2], [...CART_RETURN_POINT]), pathIndex: 0, speed: 1.35 + identity * 0.065, currentSpeed: 0, stateSince: state.simulationTimeMs, reservedSocketId: null, blockedSince: null, routeFailures: 0,
+    path: navigatePath(pathfinder, [entryX, 15.2], [...CART_RETURN_POINT]), pathIndex: 0, speed: 1.2 + identity * 0.045, currentSpeed: 0, stateSince: state.simulationTimeMs, reservedSocketId: null, blockedSince: null, routeFailures: 0,
   };
   franchise.customers.push(customer);
   franchise.lastCustomerSpawnAt = state.simulationTimeMs;

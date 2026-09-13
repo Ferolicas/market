@@ -5,14 +5,17 @@ export const HARVEST_BASKET_GRIP_HEIGHT = 0.18;
 export const HARVEST_BASKET_GRIP_REACH = 0.24;
 export const HARVEST_BASKET_GRIP_HALF_WIDTH = 0.25;
 
-// Measured on the four final reconstructed GLBs in their stable CarryBox pose.
-// SkinTokens' predicted Hand nodes are inset from the actual palm geometry, so
-// a generic wrist offset cannot produce visible contact on every body.
+// Where a carried bar rests in each hand, in the Hand bone's local frame.
+// Measured on the delivered Mixamo cast in the bind pose: vertices weighted to
+// the Hand bone (the palm) span local Y 0–0.03 with the fingers continuing to
+// Y ≈ 0.10, so the bar sits just past the palm centre towards the finger
+// bases. The previous offsets (≈0.28 along −X) were calibrated on an older
+// reconstruction and put the bar a forearm's length beyond the wrists.
 export const CHARACTER_PALM_OFFSETS: Readonly<Record<CharacterId, { left: readonly [number, number, number]; right: readonly [number, number, number] }>> = Object.freeze({
-  "adult-man": { left: [-0.285, -0.003, 0.009], right: [0.278, -0.003, 0.009] },
-  "adult-woman": { left: [-0.195, -0.023, 0.008], right: [0.189, -0.015, -0.007] },
-  boy: { left: [-0.203, 0.004, 0.005], right: [0.199, 0.006, 0.005] },
-  girl: { left: [-0.191, 0.025, -0.012], right: [0.187, 0.025, -0.015] },
+  "adult-man": { left: [0.005, 0.04, 0.005], right: [-0.004, 0.04, 0.007] },
+  "adult-woman": { left: [0.003, 0.038, 0.002], right: [0.007, 0.036, 0.001] },
+  boy: { left: [0.001, 0.06, 0.001], right: [-0.001, 0.06, 0.001] },
+  girl: { left: [0.003, 0.042, 0.003], right: [0.008, 0.042, 0.006] },
 });
 
 /** The authored hand mesh starts at the wrist bone and its visible palm lies
@@ -24,7 +27,9 @@ export function handPalmPoint(hand: THREE.Object3D, palmOffset: readonly [number
 }
 
 const CARRY_LOCOMOTION_CLIPS = new Set(["CarryIdle", "CarryWalk"]);
-const CARRY_ARM_BONES = new Set(["Rig_Arm_L", "Forearm_L", "Hand_L", "Rig_Arm_R", "Forearm_R", "Hand_R"]);
+// The clavicles belong to the frozen pose too: the walk cycle sways them,
+// which moved both palms up to 5 cm per step and rocked the carried basket.
+const CARRY_ARM_BONES = new Set(["Clavicle_L", "Rig_Arm_L", "Forearm_L", "Hand_L", "Clavicle_R", "Rig_Arm_R", "Forearm_R", "Hand_R"]);
 
 export interface CarrySocketScratch {
   midpoint: THREE.Vector3;
@@ -73,26 +78,36 @@ const BASKET_HANDLE_ATTACHMENT_REACH = 0.13;
 /** Articulates only the handle around a rigid basket body. Its rear bar follows
  * the palm span, while two diagonal stays remain visibly connected to the
  * basket rim instead of stretching the container itself. */
+/** The bar never shrinks below this half-length: hands closer together than
+ * that simply hold it nearer its middle instead of at its ends. */
+export const HARVEST_BASKET_BAR_MIN_HALF_LENGTH = 0.22;
+
 export function updateHarvestBasketHandle(handle: THREE.Object3D, handleScale: number, scratch: CarrySocketScratch) {
   const halfWidth = HARVEST_BASKET_GRIP_HALF_WIDTH * handleScale;
+  const barHalf = Math.max(halfWidth, HARVEST_BASKET_BAR_MIN_HALF_LENGTH);
   const leftGrip = scratch.segmentStart.set(-halfWidth, HARVEST_BASKET_GRIP_HEIGHT, -HARVEST_BASKET_GRIP_REACH);
   const rightGrip = scratch.segmentEnd.set(halfWidth, HARVEST_BASKET_GRIP_HEIGHT, -HARVEST_BASKET_GRIP_REACH);
-  placeCylinder(handle.getObjectByName("BasketGripBar"), leftGrip, rightGrip, scratch);
   handle.getObjectByName("BasketGripLeft")?.position.copy(leftGrip);
   handle.getObjectByName("BasketGripRight")?.position.copy(rightGrip);
+  placeCylinder(
+    handle.getObjectByName("BasketGripBar"),
+    scratch.segmentStart.set(-barHalf, HARVEST_BASKET_GRIP_HEIGHT, -HARVEST_BASKET_GRIP_REACH),
+    scratch.segmentEnd.set(barHalf, HARVEST_BASKET_GRIP_HEIGHT, -HARVEST_BASKET_GRIP_REACH),
+    scratch,
+  );
 
   const leftStay = handle.getObjectByName("BasketHandleStayLeft");
   const rightStay = handle.getObjectByName("BasketHandleStayRight");
   placeCylinder(
     leftStay,
     scratch.segmentStart.set(-BASKET_HANDLE_ATTACHMENT_HALF_WIDTH, BASKET_HANDLE_ATTACHMENT_HEIGHT, -BASKET_HANDLE_ATTACHMENT_REACH),
-    scratch.segmentEnd.set(-halfWidth, HARVEST_BASKET_GRIP_HEIGHT, -HARVEST_BASKET_GRIP_REACH),
+    scratch.segmentEnd.set(-barHalf, HARVEST_BASKET_GRIP_HEIGHT, -HARVEST_BASKET_GRIP_REACH),
     scratch,
   );
   placeCylinder(
     rightStay,
     scratch.segmentStart.set(BASKET_HANDLE_ATTACHMENT_HALF_WIDTH, BASKET_HANDLE_ATTACHMENT_HEIGHT, -BASKET_HANDLE_ATTACHMENT_REACH),
-    scratch.segmentEnd.set(halfWidth, HARVEST_BASKET_GRIP_HEIGHT, -HARVEST_BASKET_GRIP_REACH),
+    scratch.segmentEnd.set(barHalf, HARVEST_BASKET_GRIP_HEIGHT, -HARVEST_BASKET_GRIP_REACH),
     scratch,
   );
 }
@@ -110,10 +125,23 @@ function placeCylinder(object: THREE.Object3D | undefined, start: THREE.Vector3,
   object.scale.set(1, Math.max(1e-5, length), 1);
 }
 
+/**
+ * Two-handed hold sampled for every carry clip. Measured on the delivered
+ * cast (grip points at Hand +0.04): CheckoutBag around 13.8 s holds both
+ * hands 0.22 in front of the chest, level within 0.01 and 0.17–0.23 apart on
+ * all four bodies, while CarryBox keeps one hand 0.12 higher than the other.
+ * CarryBox stays as the fallback for packs without the checkout clip.
+ */
+export const CARRY_POSE_SOURCES: readonly { clip: string; time: number }[] = [
+  { clip: "CheckoutBag", time: 13.8 },
+  { clip: "CarryBox", time: 0.5 },
+];
+
 /** Builds carry locomotion with the real leg motion from CarryIdle/CarryWalk
- * and a stable two-handed upper-body pose sampled from CarryBox. The source GLB
- * currently leaves both carry locomotion hands at the hips, so attaching an
- * object to those bones alone still looks like a floating prop. */
+ * and a stable two-handed upper-body pose sampled from the first available
+ * CARRY_POSE_SOURCES clip. The source GLB leaves both carry locomotion hands
+ * at the hips, so attaching an object to those bones alone still looks like
+ * a floating prop. */
 const composedCarryAnimations = new WeakMap<readonly THREE.AnimationClip[], THREE.AnimationClip[]>();
 const composedRuntimeAliases = new WeakMap<readonly THREE.AnimationClip[], THREE.AnimationClip[]>();
 
@@ -129,21 +157,24 @@ export function composeCarryAnimations(animations: readonly THREE.AnimationClip[
 
 function buildCarryAnimations(animations: readonly THREE.AnimationClip[]) {
   const runtimeAnimations = composeRuntimeAnimationAliases(animations);
-  const carryPose = runtimeAnimations.find((clip) => clip.name === "CarryBox");
-  if (!carryPose) return runtimeAnimations;
-  const armPoseTracks = carryPose.tracks.filter(isCarryArmTrack);
+  const source = CARRY_POSE_SOURCES
+    .map((candidate) => ({ clip: runtimeAnimations.find((clip) => clip.name === candidate.clip), time: candidate.time }))
+    .find((candidate): candidate is { clip: THREE.AnimationClip; time: number } => Boolean(candidate.clip));
+  if (!source) return runtimeAnimations;
+  const poseTime = Math.min(source.time, source.clip.duration);
+  const armPoseTracks = source.clip.tracks.filter(isCarryArmTrack);
   const composed = runtimeAnimations.map((clip) => {
     if (!CARRY_LOCOMOTION_CLIPS.has(clip.name)) return clip;
     return new THREE.AnimationClip(clip.name, clip.duration, [
       ...clip.tracks.filter((track) => !isCarryArmTrack(track)),
-      ...armPoseTracks.map((track) => constantTrackAt(track, 0.5, clip.duration)),
+      ...armPoseTracks.map((track) => constantTrackAt(track, poseTime, clip.duration)),
     ], clip.blendMode);
   });
   const run = runtimeAnimations.find((clip) => clip.name === "Run");
   if (run && !runtimeAnimations.some((clip) => clip.name === "CarryRun")) {
     composed.push(new THREE.AnimationClip("CarryRun", run.duration, [
       ...run.tracks.filter((track) => !isCarryArmTrack(track)),
-      ...armPoseTracks.map((track) => constantTrackAt(track, 0.5, run.duration)),
+      ...armPoseTracks.map((track) => constantTrackAt(track, poseTime, run.duration)),
     ], run.blendMode));
   }
   return composed;
@@ -220,6 +251,13 @@ function sampleTrack(track: THREE.KeyframeTrack, time: number) {
  * handle-width scale needed to put both grip ends on the animated palms. The
  * basket body itself is never scaled or deformed. Scratch values are owned per
  * avatar so the frame loop does not allocate or share mutable state.
+ *
+ * The basket keeps one posture: level, squarely facing the rig's +Z and
+ * centred on the body axis. Its bar sits at the palms' height and reach, so
+ * it rides the torso bob, while the small sideways swing of the hands as the
+ * spine twists each step only slides them along the bar instead of rocking
+ * or yawing the whole basket. With the arm chain frozen while carrying, the
+ * palms are rigid to the torso and stay on the bar.
  */
 export function placeCarrySocket(
   socket: THREE.Object3D,
@@ -227,32 +265,13 @@ export function placeCarrySocket(
   rightHand: THREE.Vector3,
   scratch: CarrySocketScratch,
 ) {
-  const { midpoint, handSpan, rightAxis, upAxis, forwardAxis, gripOffset, basis } = scratch;
+  const { midpoint, handSpan } = scratch;
   midpoint.copy(leftHand).add(rightHand).multiplyScalar(0.5);
   handSpan.copy(rightHand).sub(leftHand);
   const handDistance = handSpan.length();
-  rightAxis.copy(handSpan);
-  if (handDistance < 1e-5) rightAxis.set(1, 0, 0);
-  else rightAxis.multiplyScalar(1 / handDistance);
 
-  // Preserve the character's local +Z as the front of the basket, projected
-  // perpendicular to the live line between the palms. This produces a proper
-  // orthonormal basis even when one hand is higher or farther forward.
-  forwardAxis.set(0, 0, 1).addScaledVector(rightAxis, -rightAxis.z);
-  if (forwardAxis.lengthSq() < 1e-5) {
-    forwardAxis.set(1, 0, 0).addScaledVector(rightAxis, -rightAxis.x);
-  }
-  forwardAxis.normalize();
-  upAxis.crossVectors(forwardAxis, rightAxis).normalize();
-  if (upAxis.y < 0) {
-    forwardAxis.multiplyScalar(-1);
-    upAxis.multiplyScalar(-1);
-  }
-
-  basis.makeBasis(rightAxis, upAxis, forwardAxis);
-  socket.quaternion.setFromRotationMatrix(basis);
+  socket.quaternion.identity();
   socket.scale.set(1, 1, 1);
-  gripOffset.set(0, HARVEST_BASKET_GRIP_HEIGHT, -HARVEST_BASKET_GRIP_REACH).applyQuaternion(socket.quaternion);
-  socket.position.copy(midpoint).sub(gripOffset);
+  socket.position.set(0, midpoint.y - HARVEST_BASKET_GRIP_HEIGHT, midpoint.z + HARVEST_BASKET_GRIP_REACH);
   return handDistance < 1e-5 ? 1 : handDistance / (HARVEST_BASKET_GRIP_HALF_WIDTH * 2);
 }

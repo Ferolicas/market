@@ -8,8 +8,13 @@ describe("agarre de la cesta de cosecha", () => {
     for (const { left, right } of Object.values(CHARACTER_PALM_OFFSETS)) {
       expect(left.every(Number.isFinite)).toBe(true);
       expect(right.every(Number.isFinite)).toBe(true);
-      expect(left[0]).toBeLessThan(0);
-      expect(right[0]).toBeGreaterThan(0);
+      // Inside the hand: the palm runs along the bone's +Y for about 0.03 and
+      // the fingers reach 0.10, so a grip point lies between them.
+      for (const offset of [left, right]) {
+        expect(offset[1]).toBeGreaterThan(0.02);
+        expect(offset[1]).toBeLessThan(0.08);
+        expect(Math.hypot(offset[0], offset[2])).toBeLessThan(0.02);
+      }
     }
   });
 
@@ -71,7 +76,7 @@ describe("agarre de la cesta de cosecha", () => {
     expect(mountedHarvestBasketHandle(socket)).not.toBe(firstHandle);
   });
 
-  it("keeps both rear grips on asymmetrical animated hands while the basket stays in front", () => {
+  it("puts the bar at the palms' height and reach with the basket centred, level and in front", () => {
     const socket = new THREE.Object3D();
     const left = new THREE.Vector3(-0.253, 0.554, -0.021);
     const right = new THREE.Vector3(0.249, 0.554, 0.092);
@@ -79,27 +84,44 @@ describe("agarre de la cesta de cosecha", () => {
     const handleScale = placeCarrySocket(socket, left, right, createCarrySocketScratch());
     socket.updateMatrixWorld(true);
 
-    const leftGrip = socket.localToWorld(new THREE.Vector3(-HARVEST_BASKET_GRIP_HALF_WIDTH * handleScale, HARVEST_BASKET_GRIP_HEIGHT, -HARVEST_BASKET_GRIP_REACH));
-    const rightGrip = socket.localToWorld(new THREE.Vector3(HARVEST_BASKET_GRIP_HALF_WIDTH * handleScale, HARVEST_BASKET_GRIP_HEIGHT, -HARVEST_BASKET_GRIP_REACH));
-    expect(leftGrip.distanceTo(left)).toBeLessThan(1e-6);
-    expect(rightGrip.distanceTo(right)).toBeLessThan(1e-6);
+    const bar = socket.localToWorld(new THREE.Vector3(0, HARVEST_BASKET_GRIP_HEIGHT, -HARVEST_BASKET_GRIP_REACH));
+    expect(bar.x).toBeCloseTo(0, 6);
+    expect(bar.y).toBeCloseTo(0.554, 6);
+    expect(bar.z).toBeCloseTo((left.z + right.z) / 2, 6);
+    expect(socket.quaternion.angleTo(new THREE.Quaternion())).toBeLessThan(1e-6);
     expect(socket.position.z).toBeGreaterThan(Math.max(left.z, right.z) + 0.15);
+    expect(handleScale).toBeCloseTo(left.distanceTo(right) / (HARVEST_BASKET_GRIP_HALF_WIDTH * 2), 6);
     expect(socket.scale.toArray()).toEqual([1, 1, 1]);
   });
 
-  it("keeps an undeformed basket aligned across a strongly three-dimensional hand span", () => {
+  it("faces the rig's front whichever hand comes first, so the basket never swings behind the body", () => {
+    // The delivered rigs face +Z with Hand_L on +X; the avatar passes the left
+    // palm first, which used to flip the basket through the torso.
+    const socket = new THREE.Object3D();
+    const leftPalm = new THREE.Vector3(0.166, 0.368, 0.195);
+    const rightPalm = new THREE.Vector3(-0.06, 0.371, 0.233);
+
+    placeCarrySocket(socket, leftPalm, rightPalm, createCarrySocketScratch());
+    const front = new THREE.Vector3(0, 0, 1).applyQuaternion(socket.quaternion);
+    expect(front.z).toBeGreaterThan(0.99);
+    expect(socket.position.z).toBeGreaterThan(Math.max(leftPalm.z, rightPalm.z) + 0.15);
+    const mirrored = new THREE.Object3D();
+    placeCarrySocket(mirrored, rightPalm, leftPalm, createCarrySocketScratch());
+    expect(mirrored.quaternion.angleTo(socket.quaternion)).toBeLessThan(1e-6);
+    expect(mirrored.position.distanceTo(socket.position)).toBeLessThan(1e-6);
+  });
+
+  it("stays level and square however the hands twist, so the basket never rocks with the step", () => {
     const socket = new THREE.Object3D();
     const left = new THREE.Vector3(-0.31, 0.48, -0.13);
     const right = new THREE.Vector3(0.22, 0.61, 0.19);
 
-    const handleScale = placeCarrySocket(socket, left, right, createCarrySocketScratch());
-    socket.updateMatrixWorld(true);
-    const leftGrip = socket.localToWorld(new THREE.Vector3(-HARVEST_BASKET_GRIP_HALF_WIDTH * handleScale, HARVEST_BASKET_GRIP_HEIGHT, -HARVEST_BASKET_GRIP_REACH));
-    const rightGrip = socket.localToWorld(new THREE.Vector3(HARVEST_BASKET_GRIP_HALF_WIDTH * handleScale, HARVEST_BASKET_GRIP_HEIGHT, -HARVEST_BASKET_GRIP_REACH));
-
-    expect(leftGrip.distanceTo(left)).toBeLessThan(1e-6);
-    expect(rightGrip.distanceTo(right)).toBeLessThan(1e-6);
-    expect(socket.scale.toArray()).toEqual([1, 1, 1]);
+    placeCarrySocket(socket, left, right, createCarrySocketScratch());
+    const up = new THREE.Vector3(0, 1, 0).applyQuaternion(socket.quaternion);
+    const rightAxis = new THREE.Vector3(1, 0, 0).applyQuaternion(socket.quaternion);
+    expect(up.y).toBeCloseTo(1, 6);
+    expect(rightAxis.x).toBeCloseTo(1, 6);
+    expect(socket.position.x).toBe(0);
   });
 
   it("does not produce an invalid transform when both hands briefly share a point", () => {
@@ -114,6 +136,28 @@ describe("agarre de la cesta de cosecha", () => {
     expect(handleScale).toBe(1);
   });
 
+  it("freezes the clavicles with the arms so the walk cannot sway the carried hands", () => {
+    const carryWalk = new THREE.AnimationClip("CarryWalk", 1, [
+      new THREE.NumberKeyframeTrack("Clavicle_L.rotation[x]", [0, 1], [-0.2, 0.2]),
+      new THREE.NumberKeyframeTrack("Rig_Leg_L.rotation[x]", [0, 1], [-0.4, 0.4]),
+    ]);
+    const checkoutBag = new THREE.AnimationClip("CheckoutBag", 20, [
+      new THREE.NumberKeyframeTrack("Clavicle_L.rotation[x]", [0, 13.8, 20], [0, 0.35, 0]),
+      new THREE.NumberKeyframeTrack("Rig_Arm_L.rotation[x]", [0, 13.8, 20], [0, 0.9, 0]),
+    ]);
+    const carryBox = new THREE.AnimationClip("CarryBox", 1, [
+      new THREE.NumberKeyframeTrack("Rig_Arm_L.rotation[x]", [0, 0.5, 1], [0, 1.2, 0]),
+    ]);
+
+    const composed = composeCarryAnimations([carryWalk, checkoutBag, carryBox]);
+    const nextWalk = composed.find((clip) => clip.name === "CarryWalk")!;
+
+    // CheckoutBag at 13.8 s wins over CarryBox, and the clavicle now follows it too.
+    expect(Array.from(nextWalk.tracks.find((track) => track.name === "Clavicle_L.rotation[x]")!.values)).toEqual([expect.closeTo(0.35), expect.closeTo(0.35)]);
+    expect(Array.from(nextWalk.tracks.find((track) => track.name === "Rig_Arm_L.rotation[x]")!.values)).toEqual([expect.closeTo(0.9), expect.closeTo(0.9)]);
+    expect(nextWalk.tracks.find((track) => track.name === "Rig_Leg_L.rotation[x]")?.values).toEqual(carryWalk.tracks[1].values);
+  });
+
   it("combines carry leg motion with a stable two-handed arm pose", () => {
     const carryWalk = new THREE.AnimationClip("CarryWalk", 1, [
       new THREE.NumberKeyframeTrack("Rig_Leg_L.rotation[x]", [0, 1], [-0.4, 0.4]),
@@ -122,6 +166,7 @@ describe("agarre de la cesta de cosecha", () => {
     const carryIdle = new THREE.AnimationClip("CarryIdle", 3, [
       new THREE.NumberKeyframeTrack("Rig_Arm_L.rotation[x]", [0, 3], [0, 0]),
     ]);
+    // No CheckoutBag in this pack: the composer falls back to CarryBox.
     const carryBox = new THREE.AnimationClip("CarryBox", 1, [
       new THREE.NumberKeyframeTrack("Rig_Arm_L.rotation[x]", [0, 0.5, 1], [0, 1.2, 0]),
       new THREE.NumberKeyframeTrack("Forearm_R.rotation[x]", [0, 0.5, 1], [0, -0.8, 0]),

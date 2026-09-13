@@ -28,7 +28,7 @@ export function travelProgress(progress: number, ramp = 0.14) {
   return (value - edge / 2) / area;
 }
 
-export type VisitorAnimation = "Idle" | "Walk" | "Enter" | "Wait" | "Browse" | "ReachShelf" | "CarryBasket" | "Queue" | "LookAround" | "Phone" | "Impatient" | "Talk" | "CheckoutItem" | "Pay" | "ReceiveBag" | "Confused" | "Happy" | "Exit";
+export type VisitorAnimation = "Idle" | "Walk" | "Run" | "Enter" | "Wait" | "Browse" | "ReachShelf" | "CarryBasket" | "BasketWalk" | "Queue" | "LookAround" | "Phone" | "Impatient" | "Talk" | "CheckoutItem" | "Pay" | "ReceiveBag" | "Confused" | "Happy" | "Exit";
 
 export interface VisitorPose {
   animation: VisitorAnimation;
@@ -87,7 +87,7 @@ export function sampleVisitorJourney(time: number, entryX: number, route: Visito
     const path = [browse, ...route.queueVia, queue];
     position = mixPath(path, progress);
     target = mixPath(path, Math.min(1, progress + 0.025));
-    animation = progress < 0.35 ? "Walk" : "CarryBasket";
+    animation = progress < 0.35 ? "Walk" : "BasketWalk";
   } else if (time < 29) {
     position = queue;
     target = [7.45, 3.95];

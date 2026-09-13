@@ -6,7 +6,7 @@ import { Suspense, useEffect, useMemo, useRef, type ReactNode, type RefObject } 
 import * as THREE from "three";
 import type { AvatarHatId, CharacterId, HairId } from "@/game/types";
 import { CharacterHat } from "./CharacterAccessories";
-import { locomotionGroundingSupport, LocomotionController } from "@/game/animation/LocomotionController";
+import { CLIP_NATURAL_SPEED, gaitTimeScale, locomotionGroundingSupport, LocomotionController } from "@/game/animation/LocomotionController";
 import { FacialController, type FaceExpression } from "@/game/animation/FacialController";
 import { feedbackBus, type FeedbackSource } from "@/game/feedback/FeedbackBus";
 import { FootGroundingController } from "@/game/animation/FootGroundingController";
@@ -53,6 +53,20 @@ const BODY_SCALE: Record<CharacterId, number> = {
   "adult-woman": 1.302,
   boy: 1.322,
   girl: 1.264,
+};
+
+/**
+ * Hood GLBs are authored around the Head bone but their anatomical lining
+ * spans 0.46–0.52 model units while the delivered skulls measure 0.165–0.25
+ * (Head-weighted vertices in the bind pose). Scale each hood about the bone
+ * so its lining wraps the skull with ~18 % clearance and its top clears the
+ * crown by 0.015: adults ≈ 0.49, the larger child heads ≈ 0.64–0.68.
+ */
+const HAT_FIT_SCALE: Record<CharacterId, number> = {
+  "adult-man": 0.49,
+  "adult-woman": 0.49,
+  boy: 0.64,
+  girl: 0.68,
 };
 
 export function Avatar(props: AvatarProps) {
@@ -125,10 +139,15 @@ function RiggedAvatar({
   }, [model]);
 
   useFrame(({ camera, clock }) => {
-    const liveClip: CharacterAnimation = animation ?? locomotion.current.select(motion?.current.locomotionSpeed ?? motion?.current.speed ?? (walking ? 2.2 : 0), motion?.current.yawDelta ?? 0, carrying);
-    const strideWorld = 0.72 * scale * BODY_SCALE[body];
+    // Body speed and the clip's floor speed share the units of `motion.speed`
+    // (the parent group's space): the rig's measured stride × render scale.
+    const rootScale = scale * BODY_SCALE[body];
+    const bodySpeed = motion?.current.speed ?? (walking ? 2.2 * rootScale : 0);
+    const walkFloorSpeed = CLIP_NATURAL_SPEED[carrying ? "CarryWalk" : "Walk"] * rootScale;
+    const liveClip: CharacterAnimation = animation ?? locomotion.current.select(bodySpeed, motion?.current.yawDelta ?? 0, carrying, walkFloorSpeed);
     const authoredSpeed = liveClip === "Idle" ? idleAnimationSpeed ?? animationSpeed : animationSpeed;
-    const gaitScale = motion?.current.speed && ["Walk", "CarryWalk", "Run", "CarryRun"].includes(liveClip) ? THREE.MathUtils.clamp(motion.current.speed / Math.max(0.1, strideWorld), 0.72, 2.8) : authoredSpeed ?? (liveClip === "Walk" || liveClip === "CarryWalk" ? 1.3 : liveClip === "Run" || liveClip === "CarryRun" ? 1.4 : 1);
+    const gaitScale = (motion?.current.speed ? gaitTimeScale(liveClip, motion.current.speed, rootScale) : undefined)
+      ?? authoredSpeed ?? (liveClip === "Walk" || liveClip === "CarryWalk" ? 1.3 : liveClip === "Run" || liveClip === "CarryRun" ? 1.4 : 1);
     locomotion.current.transition(actions, liveClip, gaitScale);
     if (feedbackActorId === "player" && typeof window !== "undefined" && marketQaQueryEnabled(window.location.search)) {
       const qaWindow = window as typeof window & { __MARKET_QA__?: Record<string, unknown> };
@@ -191,13 +210,16 @@ function RiggedAvatar({
         const rootScale = Math.max(1e-5, avatarRoot.current.getWorldScale(avatarWorldScale.current).x);
         const qaWindow = window as typeof window & { __MARKET_QA__?: Record<string, unknown> };
         qaWindow.__MARKET_QA__ ??= {};
+        // The bar is symmetric, so each palm is measured against its nearest
+        // grip sphere regardless of which side of the rig the hand bones sit on.
+        const nearestGrip = (point: THREE.Vector3) => Math.min(point.distanceTo(leftGripWorld.current), point.distanceTo(rightGripWorld.current)) / rootScale;
         qaWindow.__MARKET_QA__.carryGrip = {
           clip: liveClip,
           handleScale,
-          leftPalmToGrip: leftPalmWorld.current.distanceTo(leftGripWorld.current) / rootScale,
-          rightPalmToGrip: rightPalmWorld.current.distanceTo(rightGripWorld.current) / rootScale,
-          leftWristToGrip: leftHandWorld.current.distanceTo(leftGripWorld.current) / rootScale,
-          rightWristToGrip: rightHandWorld.current.distanceTo(rightGripWorld.current) / rootScale,
+          leftPalmToGrip: nearestGrip(leftPalmWorld.current),
+          rightPalmToGrip: nearestGrip(rightPalmWorld.current),
+          leftWristToGrip: nearestGrip(leftHandWorld.current),
+          rightWristToGrip: nearestGrip(rightHandWorld.current),
         };
       }
     }
@@ -262,7 +284,7 @@ function RiggedAvatar({
       <group ref={groundingRoot}><primitive object={model} dispose={null} /></group>
       {hasHeadAccessory && <group ref={appearanceRoot} matrixAutoUpdate={false}>
         <Suspense fallback={null}>
-          {hat !== "none" && <CharacterHat key={`${body}-hat-${hat}`} body={body} hat={hat} />}
+          {hat !== "none" && <group scale={HAT_FIT_SCALE[body]}><CharacterHat key={`${body}-hat-${hat}`} body={body} hat={hat} /></group>}
         </Suspense>
       </group>}
       {hasCarryAccessory && <group ref={carrySocket} name="CarrySocket" position={[0, 0.64, 0.46]}>{carryAccessory}</group>}

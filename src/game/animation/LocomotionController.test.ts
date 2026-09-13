@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { AnimationClip, AnimationMixer, Object3D } from "three";
-import { GAIT_FOOT_CONTACT_PHASES, locomotionGroundingSupport, LocomotionController } from "./LocomotionController";
+import { CLIP_NATURAL_SPEED, GAIT_FOOT_CONTACT_PHASES, gaitTimeScale, locomotionGroundingSupport, LocomotionController, RUN_GAIT_RATIO } from "./LocomotionController";
 
 describe("LocomotionController", () => {
   it("aplica histéresis, carga y giro sobre pies", () => {
@@ -52,6 +52,25 @@ describe("LocomotionController", () => {
     expect(controller.select(3.2, 0, true)).toBe("CarryRun");
     expect(controller.select(2.9, 0, true)).toBe("CarryRun");
     expect(controller.select(2.7, 0, true)).toBe("CarryWalk");
+  });
+
+  it("escala cada clip por su zancada medida para que los pies no patinen", () => {
+    // Un cuerpo a escala 2 que avanza 1,4 u/s necesita Walk (0,35 u/s a escala 1) al doble.
+    expect(gaitTimeScale("Walk", 1.4, 2)).toBeCloseTo(2);
+    expect(gaitTimeScale("Run", 2.14, 2)).toBeCloseTo(1);
+    expect(gaitTimeScale("BasketWalk", 2.6, 2)).toBeCloseTo(2.5);
+    expect(gaitTimeScale("Walk", 40, 2)).toBe(2.8);
+    expect(gaitTimeScale("Walk", 0.01, 2)).toBe(0.6);
+    expect(gaitTimeScale("Browse", 1, 2)).toBeUndefined();
+    expect(CLIP_NATURAL_SPEED.CarryBasket).toBeUndefined();
+  });
+
+  it("decide correr por la relación entre velocidad y zancada del actor", () => {
+    const controller = new LocomotionController();
+    const walkFloor = CLIP_NATURAL_SPEED.Walk * 2;
+    expect(controller.select(walkFloor * (RUN_GAIT_RATIO.start + 0.1), 0, false, walkFloor)).toBe("Run");
+    expect(controller.select(walkFloor * (RUN_GAIT_RATIO.stop + 0.05), 0, false, walkFloor)).toBe("Run");
+    expect(controller.select(walkFloor * (RUN_GAIT_RATIO.stop - 0.05), 0, false, walkFloor)).toBe("Walk");
   });
 
   it("aplica apoyo completo de pies durante CarryRun", () => {
