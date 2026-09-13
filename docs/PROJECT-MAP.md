@@ -107,6 +107,19 @@ El suelo se monta fuera de los límites `Suspense` de edificio, mobiliario y gra
 
 Estas medidas no cambian reglas, dinero, inventario, IA ni tiempos autoritativos; reducen píxeles, pases GPU y trabajo de presentación.
 
+## Fluidez: qué no puede pasar por React a 5 Hz
+
+El tick autoritativo clona el mundo con `structuredClone`, así que cada 200 ms cambia la identidad de todos los objetos. La escena está organizada para que ese tick no reconcilie árboles grandes ni relance trabajos de GPU:
+
+- `src/game/render/LiveActors.ts` publica en cada render de `MarketScene` los snapshots de clientes, transacciones y empleados en mapas por id. `Customer` y `Npc` son `memo` por una clave de presentación (estado, carro, cesta, transacción, rol) y leen la posición y la ruta más recientes dentro de `useFrame`; el snapshot de movimiento se refresca sólo cuando cambia el reloj de simulación o el estado, nunca por identidad del objeto.
+- La puerta del escaparate es estado autoritativo que avanza por tick; `StorefrontDoorMotion` desliza una copia de presentación a la velocidad del motor (450 ms) cada frame y `MarketBuilding` y `StoreColliders` mueven hojas y colisionadores por referencia, sin re-render. La puerta trasera de la granja hace lo mismo con refs en vez de estado por frame.
+- `StoreColliders`, `InteractionSensors`, `RearDoorAssembly` y las piezas de `KitFurniture` son `memo`; los sensores y el jugador reciben firmas de texto (`unlockedSignature`, `cropSignature`) en lugar de arrays. Los componentes de departamento y máquina usan `sameFixtureProps` (igualdad estructural), de modo que un cambio de stock o un escaneo en caja sólo re-renderiza su departamento.
+- `MarketText` es `memo` con comparación por valor: `Text` de drei relanza `troikaMesh.sync()` (worker + subida de geometría) en cada render, aunque el texto no cambie.
+- Los vuelos de producto reportan cada aterrizaje desde el bucle de frames; `GameShell` los agrupa en una única actualización por `requestAnimationFrame`.
+- `CustomerWarmup` monta los tres primeros cuerpos de cliente, minúsculos y dentro del encuadre, mientras la pantalla de carga cubre el lienzo: el GLB se decodifica, el atlas sube a la GPU y el programa físico con skinning se compila antes de `sceneReady`. Los clips compuestos (`composeCarryAnimations`, alias de runtime) se cachean por GLB.
+- Nada que se monte en mitad del juego usa `RoundedBox` de drei: ese componente extruye una forma nueva y recalcula normales suavizadas en un `useLayoutEffect` en cada montaje. La cesta (`HarvestBasket`) y los productos de cesta, vuelo y carro (`BasketProduct`) comparten geometrías y materiales de módulo. `useCharacterModelTier` cachea su snapshot hasta un cambio real de viewport o de puntero.
+- El propietario se presenta a escala 1,65 (×1,5 respecto a 1,1); la cápsula de colisión conserva su huella para no bloquear pasillos.
+
 ## QA y publicación
 
 Control obligatorio antes de publicar:

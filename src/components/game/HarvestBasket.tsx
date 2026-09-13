@@ -1,10 +1,39 @@
 "use client";
 
-import { RoundedBox } from "@react-three/drei";
 import { forwardRef } from "react";
 import * as THREE from "three";
+import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 import type { CarryState, ProductId } from "@/game/types";
 import { carriedProductIds, carryQuantity, carryTotal, MAX_WAREHOUSE_PICKUP_BATCH } from "@/game/player/CarrySystem";
+
+const standard = (color: string, roughness = 1) => new THREE.MeshStandardMaterial({ color, roughness });
+
+/**
+ * Basket geometry is built once and shared by every carried basket. Drei's
+ * <RoundedBox> extrudes a fresh shape and recomputes creased normals in a
+ * layout effect on every mount; fifteen of them mounting together on the
+ * first harvest cost a whole frame of main-thread time on a phone.
+ */
+const rounded = (width: number, height: number, depth: number, radius: number, smoothness: number) => new RoundedBoxGeometry(width, height, depth, smoothness, radius);
+const basketGeometry = {
+  base: rounded(0.62, 0.14, 0.36, 0.055, 3),
+  bed: rounded(0.55, 0.08, 0.29, 0.045, 3),
+  post: rounded(0.055, 0.25, 0.035, 0.014, 2),
+  frontRail: rounded(0.61, 0.035, 0.035, 0.012, 2),
+  sideRail: rounded(0.035, 0.035, 0.35, 0.012, 2),
+  gripBar: new THREE.CylinderGeometry(0.027, 0.027, 1, 12),
+  stay: new THREE.CylinderGeometry(0.022, 0.022, 1, 10),
+  grip: new THREE.SphereGeometry(0.033, 12, 8),
+};
+const basketMaterial = {
+  base: standard("#9b5d2d", 0.9),
+  bed: standard("#d69a4e", 0.94),
+  post: standard("#b97836", 0.92),
+  topRail: standard("#e0a65a", 0.9),
+  rail: standard("#c7853d", 0.9),
+  grip: standard("#8d5228", 0.78),
+  stay: standard("#d99d52", 0.84),
+};
 
 export const HarvestBasket = forwardRef<THREE.Group, { carry: CarryState }>(function HarvestBasket({ carry }, ref) {
   if (!carryTotal(carry)) return null;
@@ -13,35 +42,16 @@ export const HarvestBasket = forwardRef<THREE.Group, { carry: CarryState }>(func
     .slice(0, MAX_WAREHOUSE_PICKUP_BATCH);
 
   return <group ref={ref} name="HarvestBasket">
-    <RoundedBox args={[0.62, 0.14, 0.36]} position={[0, -0.13, 0]} radius={0.055} smoothness={3} castShadow>
-      <meshStandardMaterial color="#9b5d2d" roughness={0.9} />
-    </RoundedBox>
-    <RoundedBox args={[0.55, 0.08, 0.29]} position={[0, -0.045, 0]} radius={0.045} smoothness={3}>
-      <meshStandardMaterial color="#d69a4e" roughness={0.94} />
-    </RoundedBox>
-    {[-0.19, 0, 0.19].map((x) => <RoundedBox key={`front-${x}`} args={[0.055, 0.25, 0.035]} position={[x, -0.025, 0.185]} radius={0.014} smoothness={2} castShadow>
-      <meshStandardMaterial color="#b97836" roughness={0.92} />
-    </RoundedBox>)}
-    {[-0.09, 0.02, 0.13].map((y) => <RoundedBox key={`front-row-${y}`} args={[0.61, 0.035, 0.035]} position={[0, y, 0.19]} radius={0.012} smoothness={2} castShadow>
-      <meshStandardMaterial color={y === 0.13 ? "#e0a65a" : "#c7853d"} roughness={0.9} />
-    </RoundedBox>)}
-    {[-1, 1].flatMap((side) => [-0.09, 0.02, 0.13].map((y) => <RoundedBox key={`side-${side}-${y}`} args={[0.035, 0.035, 0.35]} position={[side * 0.305, y, 0]} radius={0.012} smoothness={2} castShadow>
-      <meshStandardMaterial color={y === 0.13 ? "#e0a65a" : "#c7853d"} roughness={0.9} />
-    </RoundedBox>))}
+    <mesh geometry={basketGeometry.base} material={basketMaterial.base} position={[0, -0.13, 0]} castShadow />
+    <mesh geometry={basketGeometry.bed} material={basketMaterial.bed} position={[0, -0.045, 0]} />
+    {[-0.19, 0, 0.19].map((x) => <mesh key={`front-${x}`} geometry={basketGeometry.post} material={basketMaterial.post} position={[x, -0.025, 0.185]} castShadow />)}
+    {[-0.09, 0.02, 0.13].map((y) => <mesh key={`front-row-${y}`} geometry={basketGeometry.frontRail} material={y === 0.13 ? basketMaterial.topRail : basketMaterial.rail} position={[0, y, 0.19]} castShadow />)}
+    {[-1, 1].flatMap((side) => [-0.09, 0.02, 0.13].map((y) => <mesh key={`side-${side}-${y}`} geometry={basketGeometry.sideRail} material={y === 0.13 ? basketMaterial.topRail : basketMaterial.rail} position={[side * 0.305, y, 0]} castShadow />))}
     <group name="HarvestBasketAdaptiveHandle">
-      <mesh name="BasketGripBar" castShadow>
-        <cylinderGeometry args={[0.027, 0.027, 1, 12]} />
-        <meshStandardMaterial color="#8d5228" roughness={0.78} />
-      </mesh>
+      <mesh name="BasketGripBar" geometry={basketGeometry.gripBar} material={basketMaterial.grip} castShadow />
       {[-1, 1].map((side) => <group key={`grip-${side}`}>
-        <mesh name={side < 0 ? "BasketHandleStayLeft" : "BasketHandleStayRight"} castShadow>
-          <cylinderGeometry args={[0.022, 0.022, 1, 10]} />
-          <meshStandardMaterial color="#d99d52" roughness={0.84} />
-        </mesh>
-        <mesh name={side < 0 ? "BasketGripLeft" : "BasketGripRight"} castShadow>
-          <sphereGeometry args={[0.033, 12, 8]} />
-          <meshStandardMaterial color="#8d5228" roughness={0.78} />
-        </mesh>
+        <mesh name={side < 0 ? "BasketHandleStayLeft" : "BasketHandleStayRight"} geometry={basketGeometry.stay} material={basketMaterial.stay} castShadow />
+        <mesh name={side < 0 ? "BasketGripLeft" : "BasketGripRight"} geometry={basketGeometry.grip} material={basketMaterial.grip} castShadow />
       </group>)}
     </group>
     <group position={[0, 0.08, 0]}>
@@ -61,41 +71,72 @@ export const HarvestBasket = forwardRef<THREE.Group, { carry: CarryState }>(func
   </group>;
 });
 
+// Shared geometry and material per product part. A magnet burst mounts up to
+// twenty units in one commit; sharing keeps that to a few mesh objects per
+// unit instead of new geometry buffers, GPU uploads and material programs.
+const productGeometry = {
+  orange: new THREE.IcosahedronGeometry(0.085, 1),
+  fruit: new THREE.SphereGeometry(0.085, 12, 8),
+  tomatoCrown: new THREE.ConeGeometry(0.045, 0.038, 5),
+  appleCrown: new THREE.ConeGeometry(0.045, 0.055, 5),
+  cornBody: new THREE.SphereGeometry(0.067, 12, 8),
+  cornHusk: new THREE.SphereGeometry(0.075, 8, 6),
+  wheatStem: new THREE.CylinderGeometry(0.009, 0.012, 0.18, 6),
+  wheatHead: new THREE.SphereGeometry(0.035, 8, 6),
+  egg: new THREE.SphereGeometry(0.072, 12, 8),
+  bottle: new THREE.CylinderGeometry(0.045, 0.052, 0.18, 9),
+  bottleCap: new THREE.CylinderGeometry(0.023, 0.027, 0.04, 8),
+  cheese: new THREE.CylinderGeometry(0.085, 0.085, 0.105, 3),
+  bread: rounded(0.17, 0.13, 0.12, 0.05, 3),
+  pack: rounded(0.14, 0.18, 0.1, 0.018, 2),
+};
+const productMaterial = {
+  orange: standard("#D58236", 0.58),
+  tomato: standard("#df4438", 0.76),
+  apple: standard("#bd3432", 0.76),
+  crown: standard("#3f7f3d", 0.9),
+  corn: standard("#f2c43d", 0.82),
+  husk: standard("#639848", 0.95),
+  wheatStem: standard("#d9a733", 0.92),
+  wheatHead: standard("#edbf45", 0.88),
+  egg: standard("#f5ead1", 0.92),
+  milk: standard("#f7f3e9", 0.58),
+  juice: standard("#ed8442", 0.58),
+  milkCap: standard("#4e91bc"),
+  juiceCap: standard("#438653"),
+  cheese: standard("#efbd3d", 0.78),
+  bread: standard("#b87338", 0.9),
+  coffee: standard("#704333", 0.86),
+  flour: standard("#efe3c9", 0.86),
+  pack: standard("#d7af48", 0.86),
+};
+
 export function BasketProduct({ productId, position = [0, 0, 0], rotation = [0, 0, 0], scale = 1 }: { productId: ProductId; position?: [number, number, number]; rotation?: [number, number, number]; scale?: number }) {
-  if (productId === "oranges") return <mesh castShadow position={position} rotation={rotation} scale={scale}>
-    <icosahedronGeometry args={[0.085, 1]} />
-    <meshStandardMaterial color="#D58236" roughness={0.58} />
-  </mesh>;
+  if (productId === "oranges") return <mesh castShadow position={position} rotation={rotation} scale={scale} geometry={productGeometry.orange} material={productMaterial.orange} />;
   if (productId === "tomatoes" || productId === "apples") {
     const tomato = productId === "tomatoes";
     return <group position={position} rotation={rotation} scale={scale}>
-      <mesh castShadow scale={tomato ? [1, 0.86, 1] : [0.9, 1, 0.9]}>
-        <sphereGeometry args={[0.085, 12, 8]} />
-        <meshStandardMaterial color={tomato ? "#df4438" : "#bd3432"} roughness={0.76} />
-      </mesh>
-      <mesh position={[0, 0.075, 0]} rotation={[0, 0, Math.PI]}>
-        <coneGeometry args={[0.045, tomato ? 0.038 : 0.055, 5]} />
-        <meshStandardMaterial color="#3f7f3d" roughness={0.9} />
-      </mesh>
+      <mesh castShadow scale={tomato ? [1, 0.86, 1] : [0.9, 1, 0.9]} geometry={productGeometry.fruit} material={tomato ? productMaterial.tomato : productMaterial.apple} />
+      <mesh position={[0, 0.075, 0]} rotation={[0, 0, Math.PI]} geometry={tomato ? productGeometry.tomatoCrown : productGeometry.appleCrown} material={productMaterial.crown} />
     </group>;
   }
   if (productId === "corn") return <group position={position} rotation={[rotation[0], rotation[1], rotation[2] + 0.16]} scale={scale}>
-    <mesh castShadow scale={[0.68, 1.28, 0.68]}><sphereGeometry args={[0.067, 12, 8]} /><meshStandardMaterial color="#f2c43d" roughness={0.82} /></mesh>
-    {[-1, 1].map((side) => <mesh key={side} position={[side * 0.048, -0.015, 0]} rotation={[0, 0, side * 0.48]} scale={[0.44, 1.1, 0.32]}><sphereGeometry args={[0.075, 8, 6]} /><meshStandardMaterial color="#639848" roughness={0.95} /></mesh>)}
+    <mesh castShadow scale={[0.68, 1.28, 0.68]} geometry={productGeometry.cornBody} material={productMaterial.corn} />
+    {[-1, 1].map((side) => <mesh key={side} position={[side * 0.048, -0.015, 0]} rotation={[0, 0, side * 0.48]} scale={[0.44, 1.1, 0.32]} geometry={productGeometry.cornHusk} material={productMaterial.husk} />)}
   </group>;
   if (productId === "wheat") return <group position={position} rotation={rotation} scale={scale}>
     {[-0.045, 0, 0.045].map((x, index) => <group key={x} position={[x, 0, (index - 1) * 0.012]} rotation={[0, 0, (index - 1) * 0.1]}>
-      <mesh position={[0, 0.04, 0]}><cylinderGeometry args={[0.009, 0.012, 0.18, 6]} /><meshStandardMaterial color="#d9a733" roughness={0.92} /></mesh>
-      <mesh position={[0, 0.145, 0]} scale={[0.65, 1.25, 0.65]}><sphereGeometry args={[0.035, 8, 6]} /><meshStandardMaterial color="#edbf45" roughness={0.88} /></mesh>
+      <mesh position={[0, 0.04, 0]} geometry={productGeometry.wheatStem} material={productMaterial.wheatStem} />
+      <mesh position={[0, 0.145, 0]} scale={[0.65, 1.25, 0.65]} geometry={productGeometry.wheatHead} material={productMaterial.wheatHead} />
     </group>)}
   </group>;
-  if (productId === "eggs") return <mesh castShadow position={position} rotation={rotation} scale={[0.72 * scale, 1.02 * scale, 0.72 * scale]}><sphereGeometry args={[0.072, 12, 8]} /><meshStandardMaterial color="#f5ead1" roughness={0.92} /></mesh>;
+  if (productId === "eggs") return <mesh castShadow position={position} rotation={rotation} scale={[0.72 * scale, 1.02 * scale, 0.72 * scale]} geometry={productGeometry.egg} material={productMaterial.egg} />;
   if (productId === "milk" || productId === "juice") return <group position={position} rotation={rotation} scale={scale}>
-    <mesh castShadow><cylinderGeometry args={[0.045, 0.052, 0.18, 9]} /><meshStandardMaterial color={productId === "milk" ? "#f7f3e9" : "#ed8442"} roughness={0.58} /></mesh>
-    <mesh position={[0, 0.108, 0]}><cylinderGeometry args={[0.023, 0.027, 0.04, 8]} /><meshStandardMaterial color={productId === "milk" ? "#4e91bc" : "#438653"} /></mesh>
+    <mesh castShadow geometry={productGeometry.bottle} material={productId === "milk" ? productMaterial.milk : productMaterial.juice} />
+    <mesh position={[0, 0.108, 0]} geometry={productGeometry.bottleCap} material={productId === "milk" ? productMaterial.milkCap : productMaterial.juiceCap} />
   </group>;
-  if (productId === "cheese") return <mesh castShadow position={position} rotation={[rotation[0], rotation[1], rotation[2] + Math.PI / 2]} scale={scale}><cylinderGeometry args={[0.085, 0.085, 0.105, 3]} /><meshStandardMaterial color="#efbd3d" roughness={0.78} /></mesh>;
-  if (productId === "bread") return <RoundedBox args={[0.17, 0.13, 0.12]} position={position} rotation={rotation} scale={scale} radius={0.05} smoothness={3} castShadow><meshStandardMaterial color="#b87338" roughness={0.9} /></RoundedBox>;
-  const color = productId === "coffee" ? "#704333" : productId === "flour" ? "#efe3c9" : "#d7af48";
-  return <RoundedBox args={[0.14, 0.18, 0.1]} position={position} rotation={rotation} scale={scale} radius={0.018} smoothness={2} castShadow><meshStandardMaterial color={color} roughness={0.86} /></RoundedBox>;
+  if (productId === "cheese") return <mesh castShadow position={position} rotation={[rotation[0], rotation[1], rotation[2] + Math.PI / 2]} scale={scale} geometry={productGeometry.cheese} material={productMaterial.cheese} />;
+  if (productId === "bread") return <mesh castShadow position={position} rotation={rotation} scale={scale} geometry={productGeometry.bread} material={productMaterial.bread} />;
+  const packMaterial = productId === "coffee" ? productMaterial.coffee : productId === "flour" ? productMaterial.flour : productMaterial.pack;
+  return <mesh castShadow position={position} rotation={rotation} scale={scale} geometry={productGeometry.pack} material={packMaterial} />;
 }

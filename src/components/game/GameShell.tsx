@@ -222,8 +222,27 @@ export function GameShell({ playerName }: { playerName: string }) {
     else if (performed && visualEvents.some((event) => event.kind === "stock")) feedbackBus.emit("stock", { source: "player", actorId: "player" });
     else if (cue[id] && performed) feedbackBus.emit(cue[id], { source: "player", actorId: "player" });
   }, [queueInteraction]);
+  // Product flights report each landing from inside the frame loop. Coalesce
+  // them into one state update per animation frame so a twenty-unit burst
+  // cannot re-render the shell and the furniture twenty times in a second.
+  const pendingTransferProgress = useRef(new Map<number, number>());
+  const transferFlushFrame = useRef(0);
+  useEffect(() => () => {
+    if (transferFlushFrame.current) cancelAnimationFrame(transferFlushFrame.current);
+  }, []);
   const updateTransferProgress = useCallback((sequence: number, remainingQuantity: number) => {
-    setTransferEvents((current) => updateVisualTransferRemaining(current, sequence, remainingQuantity));
+    pendingTransferProgress.current.set(sequence, remainingQuantity);
+    if (transferFlushFrame.current) return;
+    transferFlushFrame.current = requestAnimationFrame(() => {
+      transferFlushFrame.current = 0;
+      const pending = pendingTransferProgress.current;
+      pendingTransferProgress.current = new Map();
+      setTransferEvents((current) => {
+        let next = current;
+        for (const [pendingSequence, remaining] of pending) next = updateVisualTransferRemaining(next, pendingSequence, remaining);
+        return next;
+      });
+    });
   }, []);
   const recordDistance = useCallback((meters: number) => { recordPlayerDistance(meters); }, [recordPlayerDistance]);
   const revealScene = useCallback(() => setSceneReady(true), []);

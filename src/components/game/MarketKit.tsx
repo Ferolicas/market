@@ -330,33 +330,91 @@ export const KitFurniture = memo(function KitFurniture({ shelves, machines, cust
     }
   }, [activeCheckouts, checkoutHandoffs, checkoutHandoffLocations, coldDoorActive]);
   return <group ref={root}>
-    <StoreElement position={[-1.6, 0, -8.05]}><OperationsWall /></StoreElement>
+    <StoreElement position={[-1.6, 0, -8.05]}><MemoOperationsWall /></StoreElement>
 
-    <StoreElement position={retailDisplayPosition("bakery")} yaw={RETAIL_DEPARTMENTS.bakery.yaw}><BakeryDisplay bread={shelves.bread} flour={shelves.flour} wheat={shelves.wheat} /></StoreElement>
-    {PANTRY_DISPLAY_POSITIONS.map((position, index) => <StoreElement key={`pantry-${index}`} position={[...position]} yaw={RETAIL_DEPARTMENTS.pantry.yaw}><Gondola position={[0, 0, 0]} count={distributedQuantity(shelves.coffee, index, PANTRY_DISPLAY_POSITIONS.length)} /></StoreElement>)}
-    <StoreElement position={retailDisplayPosition("eggs")} yaw={RETAIL_DEPARTMENTS.eggs.yaw}><EggDisplay count={shelves.eggs} /></StoreElement>
-    {PRODUCE_DISPLAY_POSITIONS.map((position, index) => <StoreElement key={`produce-${index}`} position={[...position]} yaw={RETAIL_DEPARTMENTS.produce.yaw}><ProduceTable position={[0, 0, 0]} tomatoes={distributedQuantity(shelves.tomatoes, index, PRODUCE_DISPLAY_POSITIONS.length)} apples={distributedQuantity(shelves.apples, index, PRODUCE_DISPLAY_POSITIONS.length)} oranges={distributedQuantity(shelves.oranges, index, PRODUCE_DISPLAY_POSITIONS.length)} corn={distributedQuantity(shelves.corn, index, PRODUCE_DISPLAY_POSITIONS.length)} /></StoreElement>)}
-    <StoreElement position={retailDisplayPosition("dairy")} yaw={RETAIL_DEPARTMENTS.dairy.yaw}><ChilledDisplay position={[0, 0, 0]} milk={shelves.milk} cheese={shelves.cheese} open={coldDoorActive} /></StoreElement>
-    <StoreElement position={retailDisplayPosition("drinks")} yaw={RETAIL_DEPARTMENTS.drinks.yaw}><DrinksDisplay position={[0, 0, 0]} count={shelves.juice} /></StoreElement>
-    <StoreElement position={[...CHECKOUT_LANES[0].counter]}><CheckoutKit position={[0, 0, 0]} lane={0} transaction={activeCheckouts[0]} handoffTransaction={checkoutHandoffs[0]} handoffBagAtCounter={checkoutHandoffLocations[0] === "counter"} /></StoreElement>
-    <StoreElement position={[...CHECKOUT_LANES[0].cashierWork]}><CashierWorkArea /></StoreElement>
+    <StoreElement position={retailDisplayPosition("bakery")} yaw={RETAIL_DEPARTMENTS.bakery.yaw}><MemoBakeryDisplay bread={shelves.bread} flour={shelves.flour} wheat={shelves.wheat} /></StoreElement>
+    {PANTRY_DISPLAY_POSITIONS.map((position, index) => <StoreElement key={`pantry-${index}`} position={[...position]} yaw={RETAIL_DEPARTMENTS.pantry.yaw}><MemoGondola position={[0, 0, 0]} count={distributedQuantity(shelves.coffee, index, PANTRY_DISPLAY_POSITIONS.length)} /></StoreElement>)}
+    <StoreElement position={retailDisplayPosition("eggs")} yaw={RETAIL_DEPARTMENTS.eggs.yaw}><MemoEggDisplay count={shelves.eggs} /></StoreElement>
+    {PRODUCE_DISPLAY_POSITIONS.map((position, index) => <StoreElement key={`produce-${index}`} position={[...position]} yaw={RETAIL_DEPARTMENTS.produce.yaw}><MemoProduceTable position={[0, 0, 0]} tomatoes={distributedQuantity(shelves.tomatoes, index, PRODUCE_DISPLAY_POSITIONS.length)} apples={distributedQuantity(shelves.apples, index, PRODUCE_DISPLAY_POSITIONS.length)} oranges={distributedQuantity(shelves.oranges, index, PRODUCE_DISPLAY_POSITIONS.length)} corn={distributedQuantity(shelves.corn, index, PRODUCE_DISPLAY_POSITIONS.length)} /></StoreElement>)}
+    <StoreElement position={retailDisplayPosition("dairy")} yaw={RETAIL_DEPARTMENTS.dairy.yaw}><MemoChilledDisplay position={[0, 0, 0]} milk={shelves.milk} cheese={shelves.cheese} open={coldDoorActive} /></StoreElement>
+    <StoreElement position={retailDisplayPosition("drinks")} yaw={RETAIL_DEPARTMENTS.drinks.yaw}><MemoDrinksDisplay position={[0, 0, 0]} count={shelves.juice} /></StoreElement>
+    <StoreElement position={[...CHECKOUT_LANES[0].counter]}><MemoCheckoutKit position={[0, 0, 0]} lane={0} transaction={activeCheckouts[0]} handoffTransaction={checkoutHandoffs[0]} handoffBagAtCounter={checkoutHandoffLocations[0] === "counter"} /></StoreElement>
+    <StoreElement position={[...CHECKOUT_LANES[0].cashierWork]}><MemoCashierWorkArea /></StoreElement>
     {unlockedAreas.includes("checkout-2")
-      ? <><StoreElement position={[...CHECKOUT_LANES[1].counter]}><CheckoutKit position={[0, 0, 0]} lane={1} transaction={activeCheckouts[1]} handoffTransaction={checkoutHandoffs[1]} handoffBagAtCounter={checkoutHandoffLocations[1] === "counter"} /></StoreElement><StoreElement position={[...CHECKOUT_LANES[1].cashierWork]}><CashierWorkArea /></StoreElement></>
-      : <StoreElement position={[...CHECKOUT_LANES[1].counter]}><ClosedCheckoutKit lane={1} /></StoreElement>}
-    <StoreElement position={[...STORE_SERVICE_FIXTURES.returns.position]}><ReturnsCubicle inventory={returnsBin} /></StoreElement>
-    <StoreElement position={[...STORE_SERVICE_FIXTURES.cartBay.position]}><CartBay position={[0, 0, 0]} count={returnedCartCount} /></StoreElement>
-    <ProductionBakeryCubicle />
-    <StoreElement position={[...STORE_PRODUCTION_FIXTURES.breadOven.position]}><BakeryKit position={[0, 0, 0]} machine={machine("bread-oven-1")} /></StoreElement>
-    <StoreElement position={[...STORE_PRODUCTION_FIXTURES.flourMill.position]}><MillMachine position={[0, 0, 0]} machine={machine("flour-mill-1")} /></StoreElement>
-    <StoreElement position={[...STORE_PRODUCTION_FIXTURES.cheeseMaker.position]}><ProcessMachine kind="cheese" machine={machine("cheese-maker-1")} /></StoreElement>
-    <StoreElement position={[...STORE_PRODUCTION_FIXTURES.juiceMachine.position]}><ProcessMachine kind="juice" machine={machine("juice-machine-1")} /></StoreElement>
-    <StoreElement position={[8.8, 0, -2.15]}><SupplierCorner position={[0, 0, 0]} /></StoreElement>
-    <StoreElement position={[8.8, 0, -5.35]}><TerminalModel position={[0, 0, 0]} label="MAPA" /></StoreElement>
-    <StoreUtilities lightsOn={lightsOn} dynamicCeilingLights={dynamicCeilingLights} />
+      ? <><StoreElement position={[...CHECKOUT_LANES[1].counter]}><MemoCheckoutKit position={[0, 0, 0]} lane={1} transaction={activeCheckouts[1]} handoffTransaction={checkoutHandoffs[1]} handoffBagAtCounter={checkoutHandoffLocations[1] === "counter"} /></StoreElement><StoreElement position={[...CHECKOUT_LANES[1].cashierWork]}><MemoCashierWorkArea /></StoreElement></>
+      : <StoreElement position={[...CHECKOUT_LANES[1].counter]}><MemoClosedCheckoutKit lane={1} /></StoreElement>}
+    <StoreElement position={[...STORE_SERVICE_FIXTURES.returns.position]}><MemoReturnsCubicle inventory={returnsBin} /></StoreElement>
+    <StoreElement position={[...STORE_SERVICE_FIXTURES.cartBay.position]}><MemoCartBay position={[0, 0, 0]} count={returnedCartCount} /></StoreElement>
+    <MemoProductionBakeryCubicle />
+    <StoreElement position={[...STORE_PRODUCTION_FIXTURES.breadOven.position]}><MemoBakeryKit position={[0, 0, 0]} machine={machine("bread-oven-1")} /></StoreElement>
+    <StoreElement position={[...STORE_PRODUCTION_FIXTURES.flourMill.position]}><MemoMillMachine position={[0, 0, 0]} machine={machine("flour-mill-1")} /></StoreElement>
+    <StoreElement position={[...STORE_PRODUCTION_FIXTURES.cheeseMaker.position]}><MemoProcessMachine kind="cheese" machine={machine("cheese-maker-1")} /></StoreElement>
+    <StoreElement position={[...STORE_PRODUCTION_FIXTURES.juiceMachine.position]}><MemoProcessMachine kind="juice" machine={machine("juice-machine-1")} /></StoreElement>
+    <StoreElement position={[8.8, 0, -2.15]}><MemoSupplierCorner position={[0, 0, 0]} /></StoreElement>
+    <StoreElement position={[8.8, 0, -5.35]}><MemoTerminalModel position={[0, 0, 0]} label="MAPA" /></StoreElement>
+    <MemoStoreUtilities lightsOn={lightsOn} dynamicCeilingLights={dynamicCeilingLights} />
     {/* Last child: its effect runs after every sibling placed its instances. */}
     <StaticBatchOptimizer rootRef={root} structureRevision={structureRevision} />
   </group>;
 }, sameFurniturePresentation);
+
+/**
+ * Structural prop equality for fixture components. World ticks structured-
+ * clone the save, so `machine`, `transaction` and `inventory` objects change
+ * identity every 200 ms while their content rarely does, and inline
+ * `position` arrays are recreated on every render. Comparing by value keeps a
+ * stock change or a checkout scan from re-rendering every other department.
+ */
+function sameFixtureProps(previous: Record<string, unknown>, next: Record<string, unknown>) {
+  const keys = Object.keys(previous);
+  if (keys.length !== Object.keys(next).length) return false;
+  return keys.every((key) => sameFixtureValue(previous[key], next[key]));
+}
+
+function sameFixtureValue(left: unknown, right: unknown): boolean {
+  if (Object.is(left, right)) return true;
+  if (Array.isArray(left) && Array.isArray(right)) {
+    return left.length === right.length && left.every((value, index) => sameFixtureValue(value, right[index]));
+  }
+  if (left && right && typeof left === "object" && typeof right === "object") {
+    const leftKeys = Object.keys(left);
+    if (leftKeys.length !== Object.keys(right).length) return false;
+    return leftKeys.every((key) => sameFixtureValue((left as Record<string, unknown>)[key], (right as Record<string, unknown>)[key]));
+  }
+  return false;
+}
+
+const MemoOperationsWall = memo(OperationsWall, sameFixtureProps);
+const MemoBakeryDisplay = memo(BakeryDisplay, sameFixtureProps);
+const MemoGondola = memo(Gondola, sameFixtureProps);
+const MemoEggDisplay = memo(EggDisplay, sameFixtureProps);
+const MemoProduceTable = memo(ProduceTable, sameFixtureProps);
+const MemoChilledDisplay = memo(ChilledDisplay, sameFixtureProps);
+const MemoDrinksDisplay = memo(DrinksDisplay, sameFixtureProps);
+const MemoCheckoutKit = memo(CheckoutKit, sameFixtureProps);
+const MemoCashierWorkArea = memo(CashierWorkArea, sameFixtureProps);
+const MemoClosedCheckoutKit = memo(ClosedCheckoutKit, sameFixtureProps);
+const MemoReturnsCubicle = memo(ReturnsCubicle, sameFixtureProps);
+const MemoCartBay = memo(CartBay, sameFixtureProps);
+const MemoProductionBakeryCubicle = memo(ProductionBakeryCubicle, sameFixtureProps);
+const MemoBakeryKit = memo(BakeryKit, sameFixtureProps);
+const MemoMillMachine = memo(MillMachine, sameFixtureProps);
+const MemoProcessMachine = memo(ProcessMachine, sameFixtureProps);
+const MemoSupplierCorner = memo(SupplierCorner, sameFixtureProps);
+const MemoTerminalModel = memo(TerminalModel, sameFixtureProps);
+const MemoStoreUtilities = memo(StoreUtilities, sameFixtureProps);
+// Farm: a harvest changes one plot; the other plots, paddocks and props keep
+// their trees instead of reconciling the whole garden in the same task.
+const MemoGardenFloor = memo(GardenFloor, sameFixtureProps);
+const MemoDormantCropPlot = memo(DormantCropPlot, sameFixtureProps);
+const MemoCropPlot = memo(CropPlot, sameFixtureProps);
+const MemoFarmTools = memo(FarmTools, sameFixtureProps);
+const MemoCompostBin = memo(CompostBin, sameFixtureProps);
+const MemoMiniGreenhouse = memo(MiniGreenhouse, sameFixtureProps);
+const MemoScarecrow = memo(Scarecrow, sameFixtureProps);
+const MemoFarmWaterTank = memo(FarmWaterTank, sameFixtureProps);
+const MemoAnimalPaddock = memo(AnimalPaddock, sameFixtureProps);
+const MemoAnimalStation = memo(AnimalStation, sameFixtureProps);
 
 const PRODUCTS_LABELS: Record<ProductId, string> = {
   tomatoes: "TOMATES",
@@ -922,7 +980,7 @@ function ProcessMachine({ kind, machine }: { kind: "cheese" | "juice"; machine?:
 
 function SupplierCorner({ position }: { position: Position }) {
   return <group position={position}>
-    <TerminalModel position={[0, 0, 0]} label="PEDIDOS" />
+    <MemoTerminalModel position={[0, 0, 0]} label="PEDIDOS" />
     <group position={[0, 0, -1.35]} scale={0.72}><EnvironmentModel id="equipment_delivery_dock" /></group>
     <Pallet position={[-0.05, 0, -1.3]} />
     <Parcel position={[-0.3, 0.34, -1.3]} />
@@ -1094,13 +1152,13 @@ export const KitFarm = memo(function KitFarm({ crops, machines, nowMs, unlockedA
   const chicken = machines.find((machine) => machine.id === "chicken-coop-1");
   const cow = machines.find((machine) => machine.id === "cow-station-1");
   return <group ref={root}>
-    <StoreElement position={[...FARM_FIELD.center]}><GardenFloor /></StoreElement>
+    <StoreElement position={[...FARM_FIELD.center]}><MemoGardenFloor /></StoreElement>
     {FARM_PLOTS.map((plot) => {
       const crop = cropsById.get(plot.id);
       return <StoreElement key={plot.id} position={[plot.position[0], plot.position[1], plot.position[2]]}>
         {!crop || crop.status === "LOCKED"
-          ? <DormantCropPlot />
-          : <CropPlot
+          ? <MemoDormantCropPlot />
+          : <MemoCropPlot
               position={[0, 0, 0]}
               crop={farmCropKind(crop.productId)}
               status={crop.status}
@@ -1111,18 +1169,18 @@ export const KitFarm = memo(function KitFarm({ crops, machines, nowMs, unlockedA
             />}
       </StoreElement>;
     })}
-    <StoreElement position={[...FARM_FACILITIES.tools.position]}><FarmTools position={[0, 0, 0]} /></StoreElement>
-    <StoreElement position={[...FARM_FACILITIES.compost.position]}><CompostBin position={[0, 0, 0]} /></StoreElement>
-    <StoreElement position={[...FARM_FACILITIES.greenhouse.position]}><MiniGreenhouse position={[0, 0, 0]} /></StoreElement>
-    <StoreElement position={[...FARM_FACILITIES.scarecrow.position]}><Scarecrow position={[0, 0, 0]} /></StoreElement>
-    <StoreElement position={[...FARM_FACILITIES.waterTank.position]}><FarmWaterTank /></StoreElement>
+    <StoreElement position={[...FARM_FACILITIES.tools.position]}><MemoFarmTools position={[0, 0, 0]} /></StoreElement>
+    <StoreElement position={[...FARM_FACILITIES.compost.position]}><MemoCompostBin position={[0, 0, 0]} /></StoreElement>
+    <StoreElement position={[...FARM_FACILITIES.greenhouse.position]}><MemoMiniGreenhouse position={[0, 0, 0]} /></StoreElement>
+    <StoreElement position={[...FARM_FACILITIES.scarecrow.position]}><MemoScarecrow position={[0, 0, 0]} /></StoreElement>
+    <StoreElement position={[...FARM_FACILITIES.waterTank.position]}><MemoFarmWaterTank /></StoreElement>
     <StoreElement position={[...FARM_ANIMAL_STATIONS.chicken.position]}>
-      <AnimalPaddock kind="chicken" />
-      {unlockedAreas.includes("chicken-coop") && chicken && <AnimalStation kind="chicken" machine={chicken} />}
+      <MemoAnimalPaddock kind="chicken" />
+      {unlockedAreas.includes("chicken-coop") && chicken && <MemoAnimalStation kind="chicken" machine={chicken} />}
     </StoreElement>
     <StoreElement position={[...FARM_ANIMAL_STATIONS.cow.position]}>
-      <AnimalPaddock kind="cow" />
-      {unlockedAreas.includes("cow-station") && cow && <AnimalStation kind="cow" machine={cow} />}
+      <MemoAnimalPaddock kind="cow" />
+      {unlockedAreas.includes("cow-station") && cow && <MemoAnimalStation kind="cow" machine={cow} />}
     </StoreElement>
     {/* Last child: its effect runs after every sibling placed its instances. */}
     <StaticBatchOptimizer rootRef={root} structureRevision={structureRevision} />

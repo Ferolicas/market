@@ -2,7 +2,7 @@
 
 import { useAnimations, useGLTF } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
-import { forwardRef, useEffect, useEffectEvent, useMemo, useRef, type RefObject } from "react";
+import { forwardRef, memo, useEffect, useMemo, useRef, type RefObject } from "react";
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { dampFactor, frameDelta, turnTowards, type VisitorAnimation } from "@/game/locomotion";
@@ -11,6 +11,7 @@ import { scaleStorePoint, STORE_ELEMENT_SCALE, STORE_LAYOUT_SCALE, WORLD_SCALE }
 import { FacialController, type FaceExpression } from "@/game/animation/FacialController";
 import { CHARACTER_FACE_UPDATE_INTERVAL, characterIsInView, characterModelPathForTier, createCharacterVisibilityScratch, disposeCharacterMaterials, prepareCharacterModel, useCharacterModelTier } from "@/game/animation/CharacterPresentation";
 import { captureCustomerMotion, projectCustomerMotion } from "@/game/animation/CustomerVisualMotion";
+import { liveActors } from "@/game/render/LiveActors";
 import { marketQaQueryEnabled } from "@/game/debug/QaAccess";
 import { CUSTOMER_CART_WHEEL_RADIUS, CUSTOMER_CHECKOUT_ITEM_CYCLE_MS, CUSTOMER_PICKUP_DURATION_MS, assignCartGripTargets, cartSteeringAngle, checkoutCartInventory, checkoutLoadingPresentation, easedMotionProgress, motionProgress, productTransferPoint, shortestHeadingDelta, wheelRollDelta } from "@/game/animation/CustomerCartMotion";
 import { PRODUCT_RETAIL_DEPARTMENT, retailDisplayPosition } from "@/game/stations/retail-layout";
@@ -46,7 +47,11 @@ const CART_MAX_FOLLOW_LAG = 0.075;
 const CART_BAY_POSITION = scaleStorePoint([...CART_BAY_POINT]);
 const PICKUP_HEIGHT: Record<ProductId, number> = { tomatoes: 0.86, apples: 0.86, oranges: 0.86, corn: 0.92, eggs: 0.92, milk: 1.02, cheese: 1.02, juice: 1.02, bread: 0.9, flour: 0.9, wheat: 0.9, coffee: 0.9 };
 
-export function Customer({ customer, checkoutTransaction, simulationTimeMs }: { customer: CustomerRuntimeState; checkoutTransaction?: CheckoutTransaction; simulationTimeMs: number }) {
+/** One customer body. React re-renders it only when its presentation key
+ * changes (state, cart, basket, transaction); each world tick's fresh
+ * position and path are read inside the frame callback from the live actor
+ * map instead of reconciling the whole tree at 5 Hz. */
+export const Customer = memo(function Customer({ customer, checkoutTransaction }: { customer: CustomerRuntimeState; checkoutTransaction?: CheckoutTransaction; presentationKey: string }) {
   const id = customer.identity;
   const root = useRef<THREE.Group>(null);
   const characterRoot = useRef<THREE.Group>(null);
@@ -101,9 +106,12 @@ export function Customer({ customer, checkoutTransaction, simulationTimeMs }: { 
   const lastFacialUpdate = useRef(Number.NEGATIVE_INFINITY);
   const visibilityScratch = useMemo(() => createCharacterVisibilityScratch(), []);
   const motionSnapshot = useRef(captureCustomerMotion(customer, nowMs()));
-  const refreshMotionSnapshot = useEffectEvent(() => {
-    motionSnapshot.current = captureCustomerMotion(customer, nowMs());
-  });
+  // The simulation clock (plus a real FSM transition) is the authoritative
+  // signal that locomotion may have changed. Intermediate game actions clone
+  // the save without advancing customers; refreshing on object identity alone
+  // would restart extrapolation from the previous tick and pulse the walk.
+  const snapshotTickMs = useRef(liveActors.simulationTimeMs);
+  const snapshotState = useRef(customer.state);
   // Orthographic distance does not change screen size, so select one source by
   // live device capability rather than loading all LODs into GPU memory.
   const modelTier = useCharacterModelTier();
@@ -120,7 +128,6 @@ export function Customer({ customer, checkoutTransaction, simulationTimeMs }: { 
   const currentProduct = customer.shoppingList[customer.currentLine]?.productId ?? null;
   const productDisplay = currentProduct ? retailDisplayPosition(PRODUCT_RETAIL_DEPARTMENT[currentProduct]) : null;
   const cartInventory = checkoutCartInventory(customer.basket, checkoutTransaction);
-  const checkoutLoading = checkoutLoadingPresentation(customer.state, checkoutTransaction, simulationTimeMs);
 
   useEffect(() => {
     mixerRef.current = mixer;
@@ -138,20 +145,18 @@ export function Customer({ customer, checkoutTransaction, simulationTimeMs }: { 
 
   useEffect(() => () => disposeCharacterMaterials(model), [model]);
 
-  useEffect(() => {
-    // Game actions clone the complete save even when they only record player
-    // progression. Refreshing from the customer object identity made every
-    // walked metre restart visual extrapolation from the previous world tick.
-    // The simulation clock (plus a real FSM transition) is the authoritative
-    // signal that customer locomotion may have changed.
-    refreshMotionSnapshot();
-  }, [customer.id, customer.state, simulationTimeMs]);
-
   useFrame(({ camera, clock }, delta) => {
     visualFrame.current += 1;
     const group = root.current;
     if (!group) return;
     const frameNow = nowMs();
+    const live = liveActors.customers.get(customer.id) ?? customer;
+    if (liveActors.simulationTimeMs !== snapshotTickMs.current || live.state !== snapshotState.current) {
+      snapshotTickMs.current = liveActors.simulationTimeMs;
+      snapshotState.current = live.state;
+      motionSnapshot.current = captureCustomerMotion(live, frameNow);
+    }
+    const checkoutLoading = checkoutLoadingPresentation(customer.state, checkoutTransaction, liveActors.simulationTimeMs);
     const previousVisualState = visualState.current;
     if (visualState.current !== customer.state) {
       visualState.current = customer.state;
@@ -490,7 +495,7 @@ export function Customer({ customer, checkoutTransaction, simulationTimeMs }: { 
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.11, 0]}><ringGeometry args={[0.1, 0.16, 18]} /><meshBasicMaterial color="#ffe394" transparent opacity={0.72} depthWrite={false} /></mesh>
     </group>}
   </group>;
-}
+}, (previous, next) => previous.presentationKey === next.presentationKey);
 
 function collectMorphMeshes(model: THREE.Group) {
   const meshes: THREE.Mesh[] = [];

@@ -47,6 +47,29 @@ Caminando de forma continua hacia el fondo de la tienda (sin cristal en cámara)
 
 Lo que queda son lotes que difieren en rugosidad/metalidad/textura (30 en mobiliario, 12 edificio, 10 ciudad), los cultivos y animales dinámicos de la granja (38) y transparentes/textos (27). Reducirlos exigiría atributos de rugosidad por vértice con shader propio o re-agrupar la granja en cada cambio de estado; no compensa con el resultado actual.
 
+## Actualización 2026-09-13 (segunda ronda): tirones al pasar junto a elementos, puerta a tirones, personaje ×1,5
+
+Queja tras la primera ronda: con el personaje ya nítido, el juego daba tirones al pasar junto a estanterías, puertas u otros personajes, "tras unos diez pasos", y la puerta del escaparate se animaba a saltos. Nuevo arnés de juego real (`scratch/perf/gameplay.mjs`, no versionado): crea cuenta, abre la tienda, cosecha en la granja, surte, cruza la puerta del escaparate dos veces y pasea entre clientes, con frames y tareas largas por escenario. Móvil 390 × 844, DPR 3, CPU 4×.
+
+Causas demostradas:
+
+1. **Puerta del escaparate por tick.** `doorProgress` es estado autoritativo que avanza a 5 Hz: dos o tres saltos visibles por cruce, y cada tick re-renderizaba `MarketBuilding` (con dos `Text` de troika que relanzan `sync()` en cada render) y los 40 colisionadores de `StoreColliders`. Ahora `StorefrontDoorMotion` desliza una copia de presentación a 450 ms por frame y hojas y colisionadores se mueven por referencia.
+2. **Reconciliación de todo el mundo cada 200 ms.** `advanceWorld` clona el mundo con `structuredClone`; con identidades nuevas, `Customer`, `Npc`, `InteractionSensors`, `StoreColliders`, `RearDoorAssembly` (que además hacía `setState` a 60 Hz mientras se abría) y todos los `Text` re-renderizaban por tick. Ahora clientes y empleados son `memo` por clave de presentación y leen su snapshot del mapa `liveActors` dentro del frame; sensores y colisionadores son estáticos; `MarketText` compara props por valor.
+3. **Cosecha: 78–97 ms en una sola tarea de React.** Atribuido con trazas de Chrome (muestras del hilo principal): `RoundedBox` de drei ejecuta `center()` + `toCreasedNormals()` en un `useLayoutEffect` al montarse, y la cesta montaba quince de golpe; además cada producto del vuelo creaba geometría y material propios, y `useCharacterModelTier` llamaba a `matchMedia` en cada render de cada cuerpo. Cesta y productos comparten ahora geometrías y materiales de módulo; el nivel de detalle se cachea hasta un cambio real de viewport.
+4. **Cambios de stock y caja re-renderizaban todo el mobiliario.** Departamentos, máquinas, cajas y granja son `memo` con igualdad estructural (`sameFixtureProps`), y los aterrizajes de producto se agrupan en una actualización por frame.
+5. **Primer cliente.** `CustomerWarmup` monta los tres primeros cuerpos detrás de la pantalla de carga para decodificar el GLB, subir el atlas y compilar el programa antes de jugar; los clips compuestos se cachean por GLB.
+
+| Escenario (CPU 4×, `?perf=1`) | Antes: frames > 25 ms | Después | Antes: saltos de cadencia | Después | Tarea larga |
+|---|---:|---:|---:|---:|---|
+| granja + cosecha (20 s) | 9 | 1 | 16 | 2 | 97 ms → ninguna |
+| surtido (17 s) | 4 | 2 | 7 | 2 | — |
+| puerta escaparate ×2 (13 s) | 81 | 0 | 110 | 0 | — |
+| paseo entre clientes (15 s) | 28 | 5 | 49 | 8 | — |
+
+p95 de frame en los cuatro escenarios: 16,7–16,8 ms. Los valores "antes" se midieron con `?debug=1&perf=1`; el modo debug añade textos de depuración que se re-sincronizan por tick, así que la comparación favorece ligeramente al "antes" en granja y surtido y perjudica a puerta y paseo; el arnés final se ejecuta con `?perf=1`, que es lo que ve el jugador.
+
+El propietario se presenta a escala 1,65 (×1,5). La cápsula de colisión no cambia de tamaño para no bloquear pasillos; la puerta del escaparate mide 5,4 unidades de altura, así que hay holgura de sobra.
+
 ## Actualización de fluidez y nitidez móvil
 
 Después de validar la primera versión en un iPhone real, el perfil de ahorro puro resultó visualmente demasiado blando y el límite fijo de 30 FPS hacía perceptible la cadencia durante locomoción. Esta actualización sustituye ese compromiso por un perfil híbrido:

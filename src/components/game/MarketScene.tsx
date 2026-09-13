@@ -1,19 +1,20 @@
 "use client";
 
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { ContactShadows, Environment, Lightformer, Line, OrthographicCamera } from "@react-three/drei";
+import { ContactShadows, Environment, Lightformer, Line, OrthographicCamera, useGLTF } from "@react-three/drei";
 import { BallCollider, CapsuleCollider, CuboidCollider, CylinderCollider, Physics, RigidBody, useBeforePhysicsStep, useRapier, type RapierCollider, type RapierRigidBody } from "@react-three/rapier";
-import { Fragment, memo, Suspense, useEffect, useEffectEvent, useMemo, useRef, useState, type RefObject } from "react";
+import { Fragment, memo, Suspense, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import * as THREE from "three";
 import { Avatar, type CharacterAnimation } from "./Avatar";
 import { MarketRenderProfileContext, useGlassTransmission } from "./MarketRenderProfile";
 import { CityPerimeter } from "./CityPerimeter";
 import { Customer } from "./Customer";
+import { disposeCharacterMaterials, prepareCharacterModel, priorityCustomerModelPathsForTier, useCharacterModelTier } from "@/game/animation/CharacterPresentation";
 import { KitFarm, KitFurniture } from "./MarketKit";
 import { BasketProduct, HarvestBasket } from "./HarvestBasket";
 import { MarketText as Text } from "./MarketText";
 import { dampFactor, frameDelta, turnTowards } from "@/game/locomotion";
-import type { AvatarConfig, CarryState, CharacterId, CheckoutTransaction, CropState, CustomerRuntimeState, Employee, EmployeeRole, HairId, Inventory, ProductId, ProductionMachineState } from "@/game/types";
+import type { AvatarConfig, CarryState, CharacterId, CheckoutTransaction, CropState, CustomerRuntimeState, Employee, EmployeeRole, EmployeeRuntimeState, HairId, Inventory, ProductId, ProductionMachineState } from "@/game/types";
 import { scaleStorePoint, scaleStorePosition, STORE_ELEMENT_SCALE, STORE_LAYOUT_SCALE, STORE_OBSTACLES, WORLD_SCALE } from "@/game/world-scale";
 import { inputManager } from "@/game/input/InputManager";
 import { InteractionDirector } from "@/game/interaction/InteractionDirector";
@@ -41,12 +42,14 @@ import {
   STORE_REAR_DOOR,
   STOREFRONT_LAYOUT,
   storefrontDoorLeafCenter,
+  storefrontDoorProgress,
 } from "@/game/stations/storefront-layout";
 import { STORE_SERVICE_FIXTURE_IDS, STORE_SERVICE_FIXTURES } from "@/game/stations/store-service-layout";
 import { WAREHOUSE_PICKUP_STATION } from "@/game/stations/warehouse-layout";
 import { isProductionWorkstationId, productionMachineMagnet, PRODUCTION_WORKSTATION_IDS } from "@/game/stations/production-layout";
 import { ADAPTIVE_QUALITY_GRACE_MS, advanceAdaptiveQuality, DisplayCadenceEstimator, INITIAL_ADAPTIVE_QUALITY_STATE, legacyMobileRenderProfile, marketRenderProfileForCapabilities, MOBILE_ADAPTIVE_QUALITY, MOBILE_MOTION_ADAPTIVE_QUALITY, presentationDivisor, recoveredDpr, regressedDpr, type MarketRenderProfile } from "@/game/render/AdaptiveQuality";
 import { createStaticMeshBatch } from "@/game/render/StaticMeshBatch";
+import { customerPresentationKey, employeePresentationKey, liveActors, publishLiveActors } from "@/game/render/LiveActors";
 
 export type InteractionId = Exclude<WorkstationId, "shelf"> | StockingInteractionId | FarmInteractionId | "supplier" | "door";
 export interface InteractionPrompt { id: InteractionId; label: string; }
@@ -63,7 +66,9 @@ export interface InteractionVisualEvent {
   shelfStart?: number;
 }
 const PLAYER_START = scaleStorePosition([0, 0, 6.25]);
-const PLAYER_SCALE = 1.1;
+// Visual size of the owner. Requested at 1.5× the former 1.1; the capsule
+// collider keeps its footprint so corridors stay passable.
+const PLAYER_SCALE = 1.65;
 const CAMERA_DISTANCE_FACTOR = 1.15;
 const CAMERA_PROXIMITY_FACTOR = 1.3;
 const OVERVIEW_CAMERA_OFFSET = { x: 16, y: 23, z: 25.75 } as const;
@@ -142,12 +147,16 @@ interface MarketSceneProps {
   debug?: boolean;
 }
 
-export const MarketScene = memo(function MarketScene({ avatar, carry, visualCarry, warehousePickupEnabled, customers, checkoutTransactions, returnsBin, returnedCartCount, crops, visualCrops, productionMachines, shelves, visualShelves, shelfTier, unlockedAreas, lightsOn, simulationTimeMs, employees, onPrompt, onInteract, onDistance, onDoorPresence, onSceneReady, lastInteraction, transferEvents, onTransferProgress, open, doorProgress, checkoutLevel, playerSpeedTier, debug = false }: MarketSceneProps) {
+export const MarketScene = memo(function MarketScene({ avatar, carry, visualCarry, warehousePickupEnabled, customers, checkoutTransactions, returnsBin, returnedCartCount, crops, visualCrops, productionMachines, shelves, visualShelves, shelfTier, unlockedAreas, lightsOn, simulationTimeMs, employees, onPrompt, onInteract, onDistance, onDoorPresence, onSceneReady, lastInteraction, transferEvents, onTransferProgress, open, doorState, doorProgress, checkoutLevel, playerSpeedTier, debug = false }: MarketSceneProps) {
   const playerFocus = useRef(new THREE.Vector3(...PLAYER_START));
   const playerMotionActiveRef = useRef(false);
   const sceneSettledRef = useRef(false);
+  // Presentation-side door progress, advanced every frame at the engine's own
+  // travel rate. The authoritative value only moves on 5 Hz world ticks.
+  const doorMotion = useRef({ progress: storefrontDoorProgress(doorProgress) });
   const basketTarget = useRef(new THREE.Vector3(...PLAYER_START));
   const [checkoutFocused, setCheckoutFocused] = useState(false);
+  const [castWarmed, setCastWarmed] = useState(false);
   const [renderProfile] = useState(initialMarketRenderProfile);
   const [canvasDpr, setCanvasDpr] = useState(renderProfile.dpr);
   const canvasGl = useMemo(() => ({ antialias: renderProfile.antialias, powerPreference: renderProfile.powerPreference }), [renderProfile]);
@@ -162,8 +171,15 @@ export const MarketScene = memo(function MarketScene({ avatar, carry, visualCarr
   })) as Partial<Record<InteractionId, string>>;
   if (warehousePickupEnabled) interactionLabels.supplier = WAREHOUSE_PICKUP_STATION.label;
   const stockableProduct = preferredStockingProduct(carry, shelves, shelfTier);
+  publishLiveActors(customers, checkoutTransactions, employees, simulationTimeMs);
+  // Authoritative ticks structured-clone the whole save, so array identity
+  // changes every 200 ms. Children that only depend on membership compare
+  // these signatures instead of references.
+  const unlockedSignature = unlockedAreas.join("|");
+  const cropSignature = crops.map((crop) => `${crop.id}:${crop.status === "LOCKED" ? 0 : 1}`).join("|");
+  const driveable = debug || performanceProbe;
   useEffect(() => {
-    if (!debug) return;
+    if (!driveable) return;
     const qaWindow = window as typeof window & { __MARKET_QA__?: Record<string, unknown> };
     qaWindow.__MARKET_QA__ ??= {};
     const targets = RETAIL_DEPARTMENT_IDS.map((departmentId) => {
@@ -234,13 +250,14 @@ export const MarketScene = memo(function MarketScene({ avatar, carry, visualCarr
         reach: magnet.enterRadius,
       };
     });
-  }, [debug, stockableByDepartment, stockableProduct, warehousePickupEnabled]);
+  }, [driveable, stockableByDepartment, stockableProduct, warehousePickupEnabled]);
   return (
     <Canvas dpr={canvasDpr} events={safeCanvasEvents} frameloop={renderProfile.mobile && renderProfile.targetFps < 60 ? "never" : "always"} shadows="percentage" performance={MARKET_CANVAS_PERFORMANCE} gl={canvasGl} onCreated={({ gl }) => configureRendererPolicy(gl, renderProfile)}>
       <MarketRenderProfileContext.Provider value={renderProfile}>
       <CappedFrameScheduler profile={renderProfile} playerMotionActiveRef={playerMotionActiveRef} publishDiagnostics={performanceProbe} />
       <AdaptiveQualityController canvasDpr={canvasDpr} profile={renderProfile} playerMotionActiveRef={playerMotionActiveRef} sceneSettledRef={sceneSettledRef} onDprChange={setCanvasDpr} publishDiagnostics={performanceProbe} />
       <OverviewCamera playerFocus={playerFocus} checkoutFocused={checkoutFocused} />
+      <StorefrontDoorMotion doorState={doorState} doorProgress={doorProgress} motionRef={doorMotion} />
       <color attach="background" args={["#b8dfce"]} />
       <fog attach="fog" args={["#b8dfce", 62 * WORLD_SCALE, 105 * WORLD_SCALE]} />
       <ambientLight intensity={1.15} />
@@ -251,7 +268,7 @@ export const MarketScene = memo(function MarketScene({ avatar, carry, visualCarr
           <group name="perf:city" scale={[STORE_LAYOUT_SCALE, 1, STORE_LAYOUT_SCALE]}><StaticCityPerimeter /></group>
         </Suspense>
         <Suspense fallback={null}>
-          <group name="perf:building" scale={[STORE_LAYOUT_SCALE, 1, STORE_LAYOUT_SCALE]}><MarketBuilding open={open} doorProgress={doorProgress} /></group>
+          <group name="perf:building" scale={[STORE_LAYOUT_SCALE, 1, STORE_LAYOUT_SCALE]}><MarketBuilding open={open} doorMotion={doorMotion} /></group>
         </Suspense>
         <Suspense fallback={null}>
           <group name="perf:furniture"><KitFurniture shelves={visualShelves} machines={productionMachines} customers={customers} checkoutTransactions={checkoutTransactions} returnsBin={returnsBin} returnedCartCount={returnedCartCount} lightsOn={lightsOn} dynamicCeilingLights={!renderProfile.mobile || Boolean(renderProfile.baseline)} unlockedAreas={unlockedAreas} /></group>
@@ -267,18 +284,21 @@ export const MarketScene = memo(function MarketScene({ avatar, carry, visualCarr
               : null)}
           {debug && <DebugWorld customers={customers} crops={crops} />}
         </Suspense>
-        <group name="perf:employees"><Suspense fallback={null}><Employees employees={employees} simulationTimeMs={simulationTimeMs} /></Suspense></group>
-        <group name="perf:customers"><Customers customers={customers} checkoutTransactions={checkoutTransactions} simulationTimeMs={simulationTimeMs} /></group>
+        <group name="perf:employees"><Suspense fallback={null}><Employees employees={employees} /></Suspense></group>
+        <group name="perf:customers">
+          {!castWarmed && <CustomerWarmup />}
+          <Customers customers={customers} checkoutTransactions={checkoutTransactions} />
+        </group>
         <group name="perf:contact-shadows"><StaticContactShadows frames={1} position={[0, 0.015, 2 * STORE_LAYOUT_SCALE]} opacity={0.24} scale={34 * STORE_LAYOUT_SCALE} blur={2.6} far={8} /></group>
       </group>
       <Physics timeStep={PHYSICS_STEP_SECONDS} gravity={[0, -9.81, 0]}>
-        <StoreColliders doorProgress={doorProgress} />
-        <RearDoorAssembly playerFocus={playerFocus} employees={employees} />
-        <InteractionSensors checkoutLevel={checkoutLevel} unlockedAreas={unlockedAreas} crops={crops} warehousePickupEnabled={warehousePickupEnabled} />
-        <group name="perf:player"><Suspense fallback={null}><Player avatar={avatar} carry={visualCarry} crops={crops} checkoutLevel={checkoutLevel} playerSpeedTier={playerSpeedTier} unlockedAreas={unlockedAreas} warehousePickupEnabled={warehousePickupEnabled} debug={debug} onPrompt={onPrompt} onInteract={onInteract} onDistance={onDistance} onDoorPresence={onDoorPresence} onCheckoutFocus={setCheckoutFocused} lastInteraction={lastInteraction} playerFocus={playerFocus} playerMotionActiveRef={playerMotionActiveRef} basketTarget={basketTarget} interactionLabels={interactionLabels} /></Suspense></group>
+        <StoreColliders doorMotion={doorMotion} />
+        <RearDoorAssembly playerFocus={playerFocus} />
+        <InteractionSensors checkoutLevel={checkoutLevel} unlockedSignature={unlockedSignature} cropSignature={cropSignature} warehousePickupEnabled={warehousePickupEnabled} />
+        <group name="perf:player"><Suspense fallback={null}><Player avatar={avatar} carry={visualCarry} cropSignature={cropSignature} checkoutLevel={checkoutLevel} playerSpeedTier={playerSpeedTier} unlockedSignature={unlockedSignature} warehousePickupEnabled={warehousePickupEnabled} debug={debug} driveable={driveable} onPrompt={onPrompt} onInteract={onInteract} onDistance={onDistance} onDoorPresence={onDoorPresence} onCheckoutFocus={setCheckoutFocused} lastInteraction={lastInteraction} playerFocus={playerFocus} playerMotionActiveRef={playerMotionActiveRef} basketTarget={basketTarget} interactionLabels={interactionLabels} /></Suspense></group>
       </Physics>
       <LocalEnvironment />
-      <SceneReadinessProbe onReady={onSceneReady} sceneSettledRef={sceneSettledRef} />
+      <SceneReadinessProbe onReady={onSceneReady} onSettled={setCastWarmed} sceneSettledRef={sceneSettledRef} />
       {(debug || performanceProbe) && <DebugProbe inspectScene={debug} publishInventory={performanceProbe} />}
       </MarketRenderProfileContext.Provider>
     </Canvas>
@@ -315,6 +335,30 @@ const LocalEnvironment = memo(function LocalEnvironment() {
     <Lightformer form="rect" intensity={1.1} color="#a8c7e8" position={[-8, 4, -2]} rotation={[0, Math.PI / 2, 0]} scale={[6, 5]} />
   </Environment>;
 });
+
+/** Engine door travel: full open or close in 450 ms of world time. */
+const STOREFRONT_DOOR_TRAVEL_MS = 450;
+
+/**
+ * The storefront door is authoritative game state advanced on 5 Hz ticks,
+ * which read as two or three visible jumps per crossing. Presentation glides
+ * toward the state's direction at the engine's own rate every frame, so the
+ * leaves and their colliders move continuously while staying within one tick
+ * of the authoritative value.
+ */
+function StorefrontDoorMotion({ doorState, doorProgress, motionRef }: { doorState: MarketSceneProps["doorState"]; doorProgress: number; motionRef: RefObject<{ progress: number }> }) {
+  useFrame((_, delta) => {
+    const target = doorState === "OPENING" || doorState === "OPEN"
+      ? 1
+      : doorState === "CLOSING" || doorState === "CLOSED"
+        ? 0
+        : storefrontDoorProgress(doorProgress);
+    const step = frameDelta(delta) * 1_000 / STOREFRONT_DOOR_TRAVEL_MS;
+    const motion = motionRef.current;
+    motion.progress = motion.progress < target ? Math.min(target, motion.progress + step) : Math.max(target, motion.progress - step);
+  });
+  return null;
+}
 
 function initialMarketRenderProfile(): MarketRenderProfile {
   if (typeof window === "undefined") return marketRenderProfileForCapabilities({ width: 1440, coarsePointer: false, devicePixelRatio: 1 });
@@ -378,7 +422,7 @@ function CappedFrameScheduler({ profile, playerMotionActiveRef, publishDiagnosti
  * ready and several consecutive frames are stable. The simulation can warm
  * up behind the loader without exposing a frozen employee or player pose.
  */
-function SceneReadinessProbe({ onReady, sceneSettledRef }: { onReady?: () => void; sceneSettledRef: RefObject<boolean> }) {
+function SceneReadinessProbe({ onReady, onSettled, sceneSettledRef }: { onReady?: () => void; onSettled?: (settled: boolean) => void; sceneSettledRef: RefObject<boolean> }) {
   const { gl, scene, camera } = useThree();
   const compileGeneration = useRef(0);
   const stableFrames = useRef(0);
@@ -393,10 +437,11 @@ function SceneReadinessProbe({ onReady, sceneSettledRef }: { onReady?: () => voi
       if (ready.current) return;
       ready.current = true;
       sceneSettledRef.current = true;
+      onSettled?.(true);
       onReady?.();
     }, 10_000);
     return () => window.clearTimeout(timeout);
-  }, [onReady, sceneSettledRef]);
+  }, [onReady, onSettled, sceneSettledRef]);
 
   useFrame((state, delta) => {
     if (ready.current) return;
@@ -433,6 +478,7 @@ function SceneReadinessProbe({ onReady, sceneSettledRef }: { onReady?: () => voi
     if (stableFrames.current < 30) return;
     ready.current = true;
     sceneSettledRef.current = true;
+    onSettled?.(true);
     onReady?.();
   });
 
@@ -944,7 +990,7 @@ function OverviewCamera({ playerFocus, checkoutFocused }: { playerFocus: RefObje
   return <OrthographicCamera ref={camera} makeDefault position={[(PLAYER_START[0] + OVERVIEW_CAMERA_OFFSET.x) * WORLD_SCALE, 23.9 * WORLD_SCALE, (PLAYER_START[2] + OVERVIEW_CAMERA_OFFSET.z) * WORLD_SCALE]} near={0.1 * WORLD_SCALE} far={120 * WORLD_SCALE} />;
 }
 
-function Player({ avatar, carry, crops, checkoutLevel, playerSpeedTier, unlockedAreas, warehousePickupEnabled, debug, onPrompt, onInteract, onDistance, onDoorPresence, onCheckoutFocus, lastInteraction, playerFocus, playerMotionActiveRef, basketTarget, interactionLabels }: { avatar: AvatarConfig; carry: CarryState; crops: CropState[]; checkoutLevel: number; playerSpeedTier: number; unlockedAreas: readonly string[]; warehousePickupEnabled: boolean; debug: boolean; onPrompt: (prompt: InteractionPrompt | null) => void; onInteract: (id: InteractionId) => void; onDistance: (meters: number) => void; onDoorPresence: (active: boolean) => void; onCheckoutFocus: (active: boolean) => void; lastInteraction: InteractionVisualEvent | null; playerFocus: RefObject<THREE.Vector3>; playerMotionActiveRef: RefObject<boolean>; basketTarget: RefObject<THREE.Vector3>; interactionLabels: Partial<Record<InteractionId, string>> }) {
+function Player({ avatar, carry, cropSignature, checkoutLevel, playerSpeedTier, unlockedSignature, warehousePickupEnabled, debug, driveable, onPrompt, onInteract, onDistance, onDoorPresence, onCheckoutFocus, lastInteraction, playerFocus, playerMotionActiveRef, basketTarget, interactionLabels }: { avatar: AvatarConfig; carry: CarryState; cropSignature: string; checkoutLevel: number; playerSpeedTier: number; unlockedSignature: string; warehousePickupEnabled: boolean; debug: boolean; driveable: boolean; onPrompt: (prompt: InteractionPrompt | null) => void; onInteract: (id: InteractionId) => void; onDistance: (meters: number) => void; onDoorPresence: (active: boolean) => void; onCheckoutFocus: (active: boolean) => void; lastInteraction: InteractionVisualEvent | null; playerFocus: RefObject<THREE.Vector3>; playerMotionActiveRef: RefObject<boolean>; basketTarget: RefObject<THREE.Vector3>; interactionLabels: Partial<Record<InteractionId, string>> }) {
   const body = useRef<RapierRigidBody>(null);
   const collider = useRef<RapierCollider>(null);
   const visual = useRef<THREE.Group>(null);
@@ -967,12 +1013,10 @@ function Player({ avatar, carry, crops, checkoutLevel, playerSpeedTier, unlocked
   const checkoutFocused = useRef(false);
   const workstation = useRef(new WorkstationController());
   const publishedWorkstation = useRef<WorkstationId | null>(null);
-  const unlockedSignature = unlockedAreas.join("|");
-  const cropSignature = crops.map((crop) => `${crop.id}:${crop.status === "LOCKED" ? 0 : 1}`).join("|");
   const director = useMemo(() => new InteractionDirector(interactionZoneConfigs(
     checkoutLevel,
     unlockedSignature ? unlockedSignature.split("|") : [],
-    cropSignature.split("|").filter((entry) => entry.endsWith(":1")).map((entry) => entry.slice(0, -2)),
+    activeCropIdsFromSignature(cropSignature),
     warehousePickupEnabled,
   )), [checkoutLevel, unlockedSignature, cropSignature, warehousePickupEnabled]);
   const playerMotion = useMemo(() => {
@@ -1009,7 +1053,7 @@ function Player({ avatar, carry, crops, checkoutLevel, playerSpeedTier, unlocked
   }, [world]);
 
   useEffect(() => {
-    if (!debug) return;
+    if (!driveable) return;
     const qaWindow = window as typeof window & {
       __MARKET_FIND_PLAYER_PATH__?: (target: [number, number]) => [number, number][];
       __MARKET_SET_PLAYER_INPUT__?: (x: number, y: number) => void;
@@ -1026,7 +1070,7 @@ function Player({ avatar, carry, crops, checkoutLevel, playerSpeedTier, unlocked
       if (qaWindow.__MARKET_SET_PLAYER_INPUT__ === setPlayerInput) delete qaWindow.__MARKET_SET_PLAYER_INPUT__;
       inputManager.clearKeyboard();
     };
-  }, [debug]);
+  }, [driveable]);
 
   // One authoritative locomotion step per Rapier world step. The kinematic
   // target and the physics accumulator used to run as two independent fixed
@@ -1157,6 +1201,14 @@ function Player({ avatar, carry, crops, checkoutLevel, playerSpeedTier, unlocked
       };
       qaWindow.__MARKET_QA__.workstation = workstation.current.snapshot();
       qaWindow.__MARKET_QA__.render = { frame: frameCount.current, elapsed: clock.elapsedTime };
+    } else if (driveable) {
+      // Performance probes drive the player along NavMesh routes without the
+      // per-frame debug telemetry; publish the position into one reused object.
+      const qaWindow = window as typeof window & { __MARKET_QA__?: Record<string, unknown> };
+      qaWindow.__MARKET_QA__ ??= {};
+      const published = (qaWindow.__MARKET_QA__.player ??= { x: 0, z: 0 }) as { x: number; z: number };
+      published.x = logicalPosition.current.x / WORLD_SCALE;
+      published.z = logicalPosition.current.z / WORLD_SCALE;
     }
 
     const active = director.activeZoneIds();
@@ -1183,7 +1235,21 @@ function Player({ avatar, carry, crops, checkoutLevel, playerSpeedTier, unlocked
   </RigidBody>;
 }
 
-function StoreColliders({ doorProgress }: { doorProgress: number }) {
+/** Static store collision. The two storefront leaf colliders follow the
+ * presentation door every frame through the Rapier API, so world ticks never
+ * re-render forty colliders just to move two of them. */
+const StoreColliders = memo(function StoreColliders({ doorMotion }: { doorMotion: RefObject<{ progress: number }> }) {
+  const leafColliders = useRef<(RapierCollider | null)[]>([null, null]);
+  const presentedProgress = useRef(Number.NaN);
+  useFrame(() => {
+    const progress = doorMotion.current.progress;
+    if (progress === presentedProgress.current) return;
+    presentedProgress.current = progress;
+    const leafY = STOREFRONT_LAYOUT.door.leafHeight / 2 * WORLD_SCALE;
+    const leafZ = STOREFRONT_LAYOUT.z * STORE_LAYOUT_SCALE * WORLD_SCALE;
+    leafColliders.current[0]?.setTranslationWrtParent({ x: storefrontDoorLeafCenter(-1, progress) * STORE_LAYOUT_SCALE * WORLD_SCALE, y: leafY, z: leafZ });
+    leafColliders.current[1]?.setTranslationWrtParent({ x: storefrontDoorLeafCenter(1, progress) * STORE_LAYOUT_SCALE * WORLD_SCALE, y: leafY, z: leafZ });
+  });
   const wallHalfHeight = STOREFRONT_LAYOUT.wallHeight / 2;
   const door = STOREFRONT_LAYOUT.door;
   const doorHalfHeight = door.leafHeight / 2;
@@ -1213,18 +1279,23 @@ function StoreColliders({ doorProgress }: { doorProgress: number }) {
     <CuboidCollider args={[4.765 * STORE_LAYOUT_SCALE * WORLD_SCALE, wallHalfHeight * WORLD_SCALE, 0.12 * WORLD_SCALE]} position={[6.585 * STORE_LAYOUT_SCALE * WORLD_SCALE, wallHalfHeight * WORLD_SCALE, (STOREFRONT_LAYOUT.z - 0.02) * STORE_LAYOUT_SCALE * WORLD_SCALE]} />
     {[-1, 1].map((side) => <CuboidCollider key={`storefront-post-${side}`} args={[door.postWidth * 0.5 * STORE_LAYOUT_SCALE * WORLD_SCALE, frameHalfHeight * WORLD_SCALE, door.frameDepth * 0.5 * STORE_LAYOUT_SCALE * WORLD_SCALE]} position={[side * door.outerPostX * STORE_LAYOUT_SCALE * WORLD_SCALE, frameHalfHeight * WORLD_SCALE, STOREFRONT_LAYOUT.z * STORE_LAYOUT_SCALE * WORLD_SCALE]} />)}
     <CuboidCollider args={[(door.outerPostX + door.postWidth * 0.5) * STORE_LAYOUT_SCALE * WORLD_SCALE, 0.07 * WORLD_SCALE, door.frameDepth * 0.55 * STORE_LAYOUT_SCALE * WORLD_SCALE]} position={[0, (door.leafHeight + 0.07) * WORLD_SCALE, STOREFRONT_LAYOUT.z * STORE_LAYOUT_SCALE * WORLD_SCALE]} />
-    {([-1, 1] as const).map((side) => <CuboidCollider key={`door-leaf-${side}`} args={[door.leafWidth * 0.5 * STORE_LAYOUT_SCALE * WORLD_SCALE, doorHalfHeight * WORLD_SCALE, door.leafDepth * 0.5 * STORE_LAYOUT_SCALE * WORLD_SCALE]} position={[storefrontDoorLeafCenter(side, doorProgress) * STORE_LAYOUT_SCALE * WORLD_SCALE, doorHalfHeight * WORLD_SCALE, STOREFRONT_LAYOUT.z * STORE_LAYOUT_SCALE * WORLD_SCALE]} />)}
+    {([-1, 1] as const).map((side) => <CuboidCollider key={`door-leaf-${side}`} ref={(collider) => { leafColliders.current[side < 0 ? 0 : 1] = collider; }} args={[door.leafWidth * 0.5 * STORE_LAYOUT_SCALE * WORLD_SCALE, doorHalfHeight * WORLD_SCALE, door.leafDepth * 0.5 * STORE_LAYOUT_SCALE * WORLD_SCALE]} position={[storefrontDoorLeafCenter(side, doorMotion.current.progress) * STORE_LAYOUT_SCALE * WORLD_SCALE, doorHalfHeight * WORLD_SCALE, STOREFRONT_LAYOUT.z * STORE_LAYOUT_SCALE * WORLD_SCALE]} />)}
   </RigidBody>;
-}
+});
 
 /**
  * The rear door is presentation-local: it has no economic state to persist,
  * but its leaves and Rapier colliders always share the same animated progress.
  * Player and simulation employees both open it before reaching the threshold.
  */
-function RearDoorAssembly({ playerFocus, employees }: { playerFocus: RefObject<THREE.Vector3>; employees: Employee[] }) {
+const RearDoorAssembly = memo(function RearDoorAssembly({ playerFocus }: { playerFocus: RefObject<THREE.Vector3> }) {
   const motion = useRef({ ...CLOSED_REAR_DOOR_MOTION });
-  const [progress, setProgress] = useState(0);
+  const assembly = useRef<THREE.Group>(null);
+  const leaves = useRef<(THREE.Group | null)[]>([null, null]);
+  const leafColliders = useRef<(RapierCollider | null)[]>([null, null]);
+  const indicator = useRef<THREE.MeshStandardMaterial>(null);
+  const presentedProgress = useRef(0);
+  const qaInfo = useRef<Record<string, unknown> | null>(null);
   const door = STORE_REAR_DOOR.door;
   const doorHalfHeight = door.leafHeight / 2;
   const leafTransmission = useGlassTransmission(0.32);
@@ -1232,39 +1303,64 @@ function RearDoorAssembly({ playerFocus, employees }: { playerFocus: RefObject<T
   useEffect(() => {
     const qaWindow = window as typeof window & { __MARKET_QA__?: Record<string, unknown> };
     if (!qaWindow.__MARKET_QA__) return;
-    qaWindow.__MARKET_QA__.rearDoor = {
+    qaInfo.current = {
       x: STORE_REAR_DOOR.x * STORE_LAYOUT_SCALE,
       z: STORE_REAR_DOOR.z * STORE_LAYOUT_SCALE,
       insideApproach: scaleStorePoint([...STORE_REAR_DOOR.insideApproach]),
       outsideApproach: scaleStorePoint([...STORE_REAR_DOOR.outsideApproach]),
       clearHalfWidth: (STORE_REAR_DOOR.door.outerPostOffset - STORE_REAR_DOOR.door.postWidth / 2) * STORE_LAYOUT_SCALE,
-      progress,
+      progress: 0,
     };
-  }, [progress]);
+    qaWindow.__MARKET_QA__.rearDoor = qaInfo.current;
+    return () => { qaInfo.current = null; };
+  }, []);
 
+  // Presentation-local door: leaves, colliders and the indicator are moved
+  // directly every frame, so a crossing never re-renders React state at 60 Hz.
   useFrame((_, delta) => {
     const playerPresent = rearDoorActorPresent([
       playerFocus.current.x / STORE_LAYOUT_SCALE,
       playerFocus.current.z / STORE_LAYOUT_SCALE,
     ]);
-    const employeePresent = employees.some((employee) => employee.runtime && rearDoorActorPresent([
-      employee.runtime.x,
-      employee.runtime.z,
-    ]));
+    let employeePresent = false;
+    for (const runtime of liveActors.employees.values()) {
+      if (rearDoorActorPresent([runtime.x, runtime.z])) { employeePresent = true; break; }
+    }
     const next = advanceRearDoorMotion(motion.current, playerPresent || employeePresent, delta * 1_000);
     motion.current = next;
-    if (Math.abs(next.progress - progress) > 0.001) setProgress(next.progress);
+    if (Math.abs(next.progress - presentedProgress.current) <= 0.0005) return;
+    presentedProgress.current = next.progress;
+    const progress = next.progress;
+    if (assembly.current) assembly.current.userData.progress = progress;
+    if (qaInfo.current) qaInfo.current.progress = progress;
+    for (const [index, side] of ([-1, 1] as const).entries()) {
+      const center = rearDoorLeafCenter(side, progress);
+      const leaf = leaves.current[index];
+      if (leaf) leaf.position.x = center;
+      leafColliders.current[index]?.setTranslationWrtParent({
+        x: center * STORE_LAYOUT_SCALE * WORLD_SCALE,
+        y: doorHalfHeight * WORLD_SCALE,
+        z: STORE_REAR_DOOR.z * STORE_LAYOUT_SCALE * WORLD_SCALE,
+      });
+    }
+    if (indicator.current) {
+      const openIndicator = progress > 0.98;
+      indicator.current.color.set(openIndicator ? "#79ecad" : "#f0bd66");
+      indicator.current.emissive.set(openIndicator ? "#36a878" : "#9d681d");
+    }
   });
 
   return <>
     <group
+      ref={assembly}
       name="dynamic:rear-farm-door"
       scale={[STORE_LAYOUT_SCALE * WORLD_SCALE, WORLD_SCALE, STORE_LAYOUT_SCALE * WORLD_SCALE]}
-      userData={{ progress }}
+      userData={{ progress: 0 }}
     >
       {([-1, 1] as const).map((side) => <group
         key={`rear-door-leaf-visual-${side}`}
-        position={[rearDoorLeafCenter(side, progress), doorHalfHeight, STORE_REAR_DOOR.z]}
+        ref={(node) => { leaves.current[side < 0 ? 0 : 1] = node; }}
+        position={[rearDoorLeafCenter(side, 0), doorHalfHeight, STORE_REAR_DOOR.z]}
       >
         <mesh castShadow receiveShadow>
           <boxGeometry args={[door.leafWidth, door.leafHeight, door.leafDepth]} />
@@ -1281,18 +1377,19 @@ function RearDoorAssembly({ playerFocus, employees }: { playerFocus: RefObject<T
       </group>)}
       <group position={[STORE_REAR_DOOR.x, door.leafHeight + 0.38, STORE_REAR_DOOR.z + 0.035]}>
         <mesh castShadow><boxGeometry args={[0.58, 0.22, 0.18]} /><meshStandardMaterial color="#203a33" metalness={0.5} roughness={0.3} /></mesh>
-        <mesh position={[0, 0, 0.105]}><circleGeometry args={[0.058, 18]} /><meshStandardMaterial color={progress > 0.98 ? "#79ecad" : "#f0bd66"} emissive={progress > 0.98 ? "#36a878" : "#9d681d"} emissiveIntensity={1.15} /></mesh>
+        <mesh position={[0, 0, 0.105]}><circleGeometry args={[0.058, 18]} /><meshStandardMaterial ref={indicator} color="#f0bd66" emissive="#9d681d" emissiveIntensity={1.15} /></mesh>
       </group>
     </group>
     <RigidBody type="fixed" colliders={false}>
       {([-1, 1] as const).map((side) => <CuboidCollider
         key={`rear-door-leaf-collider-${side}`}
+        ref={(collider) => { leafColliders.current[side < 0 ? 0 : 1] = collider; }}
         args={[door.leafWidth * 0.5 * STORE_LAYOUT_SCALE * WORLD_SCALE, doorHalfHeight * WORLD_SCALE, door.leafDepth * 0.5 * STORE_LAYOUT_SCALE * WORLD_SCALE]}
-        position={[rearDoorLeafCenter(side, progress) * STORE_LAYOUT_SCALE * WORLD_SCALE, doorHalfHeight * WORLD_SCALE, STORE_REAR_DOOR.z * STORE_LAYOUT_SCALE * WORLD_SCALE]}
+        position={[rearDoorLeafCenter(side, 0) * STORE_LAYOUT_SCALE * WORLD_SCALE, doorHalfHeight * WORLD_SCALE, STORE_REAR_DOOR.z * STORE_LAYOUT_SCALE * WORLD_SCALE]}
       />)}
     </RigidBody>
   </>;
-}
+});
 
 function highestPriorityWorkstation(activeZoneIds: readonly string[]) {
   return WORKSTATION_IDS.find((id) => id !== "shelf" && !isProductionWorkstationId(id) && activeZoneIds.includes(id)) ?? null;
@@ -1306,10 +1403,42 @@ function workstationFacing(id: WorkstationId) {
   return WORKSTATIONS[id].facing;
 }
 
-function InteractionSensors({ checkoutLevel, unlockedAreas, crops, warehousePickupEnabled }: { checkoutLevel: number; unlockedAreas: readonly string[]; crops: CropState[]; warehousePickupEnabled: boolean }) {
+/** Sensor volumes only change with unlocks, crop plots or checkout level;
+ * signatures keep them out of the 5 Hz reconciliation entirely. */
+const InteractionSensors = memo(function InteractionSensors({ checkoutLevel, unlockedSignature, cropSignature, warehousePickupEnabled }: { checkoutLevel: number; unlockedSignature: string; cropSignature: string; warehousePickupEnabled: boolean }) {
+  const zones = useMemo(
+    () => interactionZoneConfigs(checkoutLevel, unlockedSignature ? unlockedSignature.split("|") : [], activeCropIdsFromSignature(cropSignature), warehousePickupEnabled),
+    [checkoutLevel, unlockedSignature, cropSignature, warehousePickupEnabled],
+  );
   return <RigidBody type="fixed" colliders={false}>
-    {interactionZoneConfigs(checkoutLevel, unlockedAreas, crops.filter((crop) => crop.status !== "LOCKED").map((crop) => crop.id), warehousePickupEnabled).map((zone) => <InteractionSensorCollider key={zone.id} zone={zone} />)}
+    {zones.map((zone) => <InteractionSensorCollider key={zone.id} zone={zone} />)}
   </RigidBody>;
+});
+
+function activeCropIdsFromSignature(cropSignature: string) {
+  return cropSignature.split("|").filter((entry) => entry.endsWith(":1")).map((entry) => entry.slice(0, -2));
+}
+
+/**
+ * Decodes, uploads and compiles the first customer bodies while the loading
+ * screen still covers the canvas. The Suspense cache, GPU textures and shader
+ * programs outlive the unmount, so a spawn during play is a skeleton clone
+ * plus a few material clones instead of a multi-frame stall.
+ */
+function CustomerWarmup() {
+  const modelTier = useCharacterModelTier();
+  return <Suspense fallback={null}>
+    {priorityCustomerModelPathsForTier(modelTier).map((path) => <WarmCustomerBody key={path} path={path} reducedDetail={modelTier > 0} />)}
+  </Suspense>;
+}
+
+function WarmCustomerBody({ path, reducedDetail }: { path: string; reducedDetail: boolean }) {
+  const gltf = useGLTF(path);
+  const model = useMemo(() => prepareCharacterModel(gltf.scene, { crowd: true, reducedDetail }), [gltf.scene, reducedDetail]);
+  useEffect(() => () => disposeCharacterMaterials(model), [model]);
+  // Tiny but inside the opening frustum: the first real draw is what uploads
+  // the atlas and binds the skinned physical program.
+  return <primitive object={model} position={[PLAYER_START[0], 0.2, PLAYER_START[2]]} scale={0.002} dispose={null} />;
 }
 
 function InteractionSensorCollider({ zone }: { zone: InteractionZoneConfig }) {
@@ -1416,8 +1545,16 @@ const MarketGround = memo(function MarketGround() {
   </group>;
 });
 
-const MarketBuilding = memo(function MarketBuilding({ open, doorProgress }: { open: boolean; doorProgress: number }) {
+const MarketBuilding = memo(function MarketBuilding({ open, doorMotion }: { open: boolean; doorMotion: RefObject<{ progress: number }> }) {
   const root = useRef<THREE.Group>(null);
+  const leaves = useRef<(THREE.Group | null)[]>([null, null]);
+  useFrame(() => {
+    const progress = doorMotion.current.progress;
+    const left = leaves.current[0];
+    const right = leaves.current[1];
+    if (left) left.position.x = storefrontDoorLeafCenter(-1, progress);
+    if (right) right.position.x = storefrontDoorLeafCenter(1, progress);
+  });
   const door = STOREFRONT_LAYOUT.door;
   const rearDoor = STORE_REAR_DOOR.door;
   const wallHeight = STOREFRONT_LAYOUT.wallHeight;
@@ -1449,7 +1586,7 @@ const MarketBuilding = memo(function MarketBuilding({ open, doorProgress }: { op
     </group>)}
     <mesh receiveShadow position={[0, 0.035, 7.02]}><boxGeometry args={[3.75, 0.055, 1.05]} /><meshStandardMaterial color="#2b4b43" roughness={0.92} /></mesh>
     <group name="dynamic:storefront-door" position={[0, door.leafHeight / 2, STOREFRONT_LAYOUT.z]}>
-      {([-1, 1] as const).map((side) => <group key={side} position={[storefrontDoorLeafCenter(side, doorProgress), 0, 0]}>
+      {([-1, 1] as const).map((side) => <group key={side} ref={(node) => { leaves.current[side < 0 ? 0 : 1] = node; }} position={[storefrontDoorLeafCenter(side, doorMotion.current.progress), 0, 0]}>
         <mesh><boxGeometry args={[door.leafWidth, door.leafHeight, door.leafDepth]} /><meshPhysicalMaterial color="#c9e9e3" transparent opacity={0.28} transmission={doorLeafTransmission} clearcoat={1} clearcoatRoughness={0.04} roughness={0.06} envMapIntensity={1.9} depthWrite={false} /></mesh>
         {[-door.leafWidth / 2, door.leafWidth / 2].map((edge) => <mesh key={edge} position={[edge, 0, 0.07]}><boxGeometry args={[0.075, door.leafHeight + 0.02, 0.1]} /><meshStandardMaterial color="#294a41" metalness={0.62} roughness={0.25} /></mesh>)}
         <mesh position={[0, 0.9, 0.1]} rotation={[0, 0, -0.2]}><planeGeometry args={[0.075, door.leafHeight * 0.61]} /><meshBasicMaterial color="#ffffff" transparent opacity={0.32} depthWrite={false} /></mesh>
@@ -1465,7 +1602,7 @@ const MarketBuilding = memo(function MarketBuilding({ open, doorProgress }: { op
   </group>;
 });
 
-function Employees({ employees, simulationTimeMs }: { employees: Employee[]; simulationTimeMs: number }) {
+function Employees({ employees }: { employees: Employee[] }) {
   const rolePositions: Record<EmployeeRole, [number, number, number]> = {
     farmer: scaleStorePosition([FARM_WORKER_HOME[0], 0, FARM_WORKER_HOME[1]]),
     operator: scaleStorePosition([-4.8, 0, -0.9]),
@@ -1476,22 +1613,21 @@ function Employees({ employees, simulationTimeMs }: { employees: Employee[]; sim
   };
   const bodies: CharacterId[] = ["adult-woman", "adult-man", "adult-woman", "adult-man"];
   const hair: HairId[] = ["ponytail", "fade", "bun", "waves"];
-  return <>{employees.map((employee, index) => <Npc key={employee.id} employee={employee} simulationTimeMs={simulationTimeMs} position={rolePositions[employee.role]} color={["#e7a959", "#6b9fc8", "#b56fa6", "#70a85d"][index % 4]} body={bodies[index % bodies.length]} hair={hair[index % hair.length]} />)}</>;
+  return <>{employees.map((employee, index) => <Npc key={employee.id} employee={employee} presentationKey={employeePresentationKey(employee)} position={rolePositions[employee.role]} color={["#e7a959", "#6b9fc8", "#b56fa6", "#70a85d"][index % 4]} body={bodies[index % bodies.length]} hair={hair[index % hair.length]} />)}</>;
 }
 
-function Npc({ employee, simulationTimeMs, position, color, body = "adult-man", hair = "side-part" }: { employee: Employee; simulationTimeMs: number; position: [number, number, number]; color: string; body?: CharacterId; hair?: HairId }) {
+/** One employee body. Re-renders only when its presentation key changes;
+ * every world tick's fresh runtime snapshot is picked up inside the frame
+ * callback from the live actor map, so five bodies no longer reconcile their
+ * whole avatar tree at 5 Hz. */
+const Npc = memo(function Npc({ employee, position, color, body = "adult-man", hair = "side-part" }: { employee: Employee; presentationKey: string; position: [number, number, number]; color: string; body?: CharacterId; hair?: HairId }) {
   const ref = useRef<THREE.Group>(null);
   const visualFrame = useRef(0);
   const motionSnapshot = useRef<CustomerMotionSnapshot | null>(employee.runtime ? captureEmployeeMotion(employee.runtime, runtimeNowMs()) : null);
-  const refreshMotionSnapshot = useEffectEvent(() => {
-    motionSnapshot.current = employee.runtime ? captureEmployeeMotion(employee.runtime, runtimeNowMs()) : null;
-  });
+  const snapshotSource = useRef<EmployeeRuntimeState | undefined>(employee.runtime);
   const motion = useRef({ speed: 0, locomotionSpeed: 0, yawDelta: 0 });
   const roleAnimation: Record<EmployeeRole, CharacterAnimation> = { farmer: "Harvest", operator: "LiftBox", stocker: "StockHigh", cashier: "ScanItem", builder: "CarryBox", manager: "Wave" };
   const moving = employee.runtime?.state === "NAVIGATE_PICKUP" || employee.runtime?.state === "NAVIGATE_DROPOFF" || employee.runtime?.state === "NAVIGATE_CHECKOUT";
-  useEffect(() => {
-    refreshMotionSnapshot();
-  }, [employee.id, employee.runtime?.state, simulationTimeMs]);
   useEffect(() => {
     return () => {
       const qaWindow = window as typeof window & { __MARKET_QA__?: Record<string, unknown> };
@@ -1500,7 +1636,12 @@ function Npc({ employee, simulationTimeMs, position, color, body = "adult-man", 
     };
   }, [employee.id]);
   useFrame((_, delta) => {
-    if (!ref.current || !employee.runtime || !motionSnapshot.current) return;
+    const runtime = liveActors.employees.get(employee.id) ?? employee.runtime;
+    if (runtime !== snapshotSource.current) {
+      snapshotSource.current = runtime;
+      motionSnapshot.current = runtime ? captureEmployeeMotion(runtime, runtimeNowMs()) : null;
+    }
+    if (!ref.current || !runtime || !motionSnapshot.current) return;
     visualFrame.current += 1;
     const projected = projectCustomerMotion(motionSnapshot.current, runtimeNowMs());
     const [x, z] = scaleStorePoint([projected.x, projected.z]);
@@ -1516,7 +1657,7 @@ function Npc({ employee, simulationTimeMs, position, color, body = "adult-man", 
       const heading = Math.atan2(projected.headingX, projected.headingZ);
       motion.current.yawDelta = heading - ref.current.rotation.y;
       ref.current.rotation.y = turnTowards(ref.current.rotation.y, heading, frameDelta(delta) * 3);
-    } else if (employee.role === "cashier" && employee.runtime.state === "OPERATE_CHECKOUT") {
+    } else if (employee.role === "cashier" && runtime.state === "OPERATE_CHECKOUT") {
       ref.current.rotation.y = turnTowards(ref.current.rotation.y, Math.PI, frameDelta(delta) * 3.5);
     }
     const qaWindow = window as typeof window & { __MARKET_QA__?: Record<string, unknown> };
@@ -1526,28 +1667,37 @@ function Npc({ employee, simulationTimeMs, position, color, body = "adult-man", 
         visualFrame: visualFrame.current,
         role: employee.role,
         level: employee.level,
-        state: employee.runtime.state,
+        state: runtime.state,
         x: ref.current.position.x,
         z: ref.current.position.z,
         speed: motionSnapshot.current.speed,
         snapshotCapturedAtMs: motionSnapshot.current.capturedAtMs,
-        configuredSpeed: employee.runtime.speed,
+        configuredSpeed: runtime.speed,
       };
     }
   });
   const interaction = employee.runtime?.state === "PICKUP" || employee.runtime?.state === "DROPOFF" || employee.runtime?.state === "OPERATE_CHECKOUT";
   const carried = employee.runtime?.carry;
   return <group ref={ref} position={position}><Avatar skin="#a96f50" shirt={color} hairColor="#3b2820" hat={employee.hat} body={body} hair={hair} scale={0.86} walking={moving} carrying={Boolean(carried && carryTotal(carried) > 0)} carryAccessory={carried && carryTotal(carried) > 0 ? <HarvestBasket carry={carried} /> : undefined} motion={motion} animation={interaction ? roleAnimation[employee.role] : undefined} feedbackSource="npc" feedbackActorId={employee.id} /></group>;
-}
+}, (previous, next) => previous.presentationKey === next.presentationKey
+  && previous.color === next.color
+  && previous.body === next.body
+  && previous.hair === next.hair
+  && previous.position[0] === next.position[0]
+  && previous.position[1] === next.position[1]
+  && previous.position[2] === next.position[2]);
 
-function Customers({ customers, checkoutTransactions, simulationTimeMs }: { customers: CustomerRuntimeState[]; checkoutTransactions: CheckoutTransaction[]; simulationTimeMs: number }) {
-  return <>{customers.map((customer) => <Suspense key={customer.id} fallback={null}>
-    <Customer
-      customer={customer}
-      checkoutTransaction={customer.transactionId ? checkoutTransactions.find((transaction) => transaction.id === customer.transactionId) : undefined}
-      simulationTimeMs={simulationTimeMs}
-    />
-  </Suspense>)}</>;
+function Customers({ customers, checkoutTransactions }: { customers: CustomerRuntimeState[]; checkoutTransactions: CheckoutTransaction[] }) {
+  return <>{customers.map((customer) => {
+    const checkoutTransaction = customer.transactionId ? checkoutTransactions.find((transaction) => transaction.id === customer.transactionId) : undefined;
+    return <Suspense key={customer.id} fallback={null}>
+      <Customer
+        customer={customer}
+        checkoutTransaction={checkoutTransaction}
+        presentationKey={customerPresentationKey(customer, checkoutTransaction)}
+      />
+    </Suspense>;
+  })}</>;
 }
 
 function runtimeNowMs() {

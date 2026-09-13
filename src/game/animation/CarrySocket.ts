@@ -114,7 +114,20 @@ function placeCylinder(object: THREE.Object3D | undefined, start: THREE.Vector3,
  * and a stable two-handed upper-body pose sampled from CarryBox. The source GLB
  * currently leaves both carry locomotion hands at the hips, so attaching an
  * object to those bones alone still looks like a floating prop. */
+const composedCarryAnimations = new WeakMap<readonly THREE.AnimationClip[], THREE.AnimationClip[]>();
+const composedRuntimeAliases = new WeakMap<readonly THREE.AnimationClip[], THREE.AnimationClip[]>();
+
+/** Cached per loaded GLB: every body sharing the same source clips reuses one
+ * composed set instead of rebuilding fifty clips on each spawn. */
 export function composeCarryAnimations(animations: readonly THREE.AnimationClip[]) {
+  const cached = composedCarryAnimations.get(animations);
+  if (cached) return cached;
+  const composed = buildCarryAnimations(animations);
+  composedCarryAnimations.set(animations, composed);
+  return composed;
+}
+
+function buildCarryAnimations(animations: readonly THREE.AnimationClip[]) {
   const runtimeAnimations = composeRuntimeAnimationAliases(animations);
   const carryPose = runtimeAnimations.find((clip) => clip.name === "CarryBox");
   if (!carryPose) return runtimeAnimations;
@@ -147,6 +160,14 @@ const RUNTIME_ANIMATION_ALIASES = {
  * so those states reuse an existing delivered performance instead of falling
  * back to an unanimated pose. */
 export function composeRuntimeAnimationAliases(animations: readonly THREE.AnimationClip[]) {
+  const cached = composedRuntimeAliases.get(animations);
+  if (cached) return cached;
+  const composed = buildRuntimeAnimationAliases(animations);
+  composedRuntimeAliases.set(animations, composed);
+  return composed;
+}
+
+function buildRuntimeAnimationAliases(animations: readonly THREE.AnimationClip[]) {
   const composed = [...animations];
   const names = new Set(composed.map((clip) => clip.name));
   for (const [alias, sourceName] of Object.entries(RUNTIME_ANIMATION_ALIASES)) {

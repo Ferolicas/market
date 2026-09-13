@@ -263,10 +263,16 @@ function serverCharacterModelTier(): CharacterModelTier {
   return 1;
 }
 
+// useSyncExternalStore reads the snapshot on every render of every body;
+// matchMedia allocates a MediaQueryList each call, so the tier is cached
+// until a resize, orientation or pointer-capability change invalidates it.
+let cachedBrowserTier: CharacterModelTier | null = null;
+
 function browserCharacterModelTier(): CharacterModelTier {
   if (typeof window === "undefined") return serverCharacterModelTier();
+  if (cachedBrowserTier !== null) return cachedBrowserTier;
   const browserNavigator = window.navigator as Navigator & { deviceMemory?: number };
-  return characterModelTierForCapabilities({
+  cachedBrowserTier = characterModelTierForCapabilities({
     width: window.innerWidth,
     height: window.innerHeight,
     coarsePointer: window.matchMedia("(any-pointer: coarse)").matches,
@@ -274,18 +280,23 @@ function browserCharacterModelTier(): CharacterModelTier {
     deviceMemory: browserNavigator.deviceMemory,
     devicePixelRatio: window.devicePixelRatio,
   });
+  return cachedBrowserTier;
 }
 
 function subscribeCharacterCapabilities(onStoreChange: () => void) {
   if (typeof window === "undefined") return () => undefined;
+  const invalidate = () => {
+    cachedBrowserTier = null;
+    onStoreChange();
+  };
   const pointerQuery = window.matchMedia("(any-pointer: coarse)");
-  pointerQuery.addEventListener("change", onStoreChange);
-  window.addEventListener("resize", onStoreChange, { passive: true });
-  window.addEventListener("orientationchange", onStoreChange, { passive: true });
+  pointerQuery.addEventListener("change", invalidate);
+  window.addEventListener("resize", invalidate, { passive: true });
+  window.addEventListener("orientationchange", invalidate, { passive: true });
   return () => {
-    pointerQuery.removeEventListener("change", onStoreChange);
-    window.removeEventListener("resize", onStoreChange);
-    window.removeEventListener("orientationchange", onStoreChange);
+    pointerQuery.removeEventListener("change", invalidate);
+    window.removeEventListener("resize", invalidate);
+    window.removeEventListener("orientationchange", invalidate);
   };
 }
 
