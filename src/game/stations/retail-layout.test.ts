@@ -1,10 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { PRODUCT_CONFIG } from "../economy/products";
 import { stationTierModifiers } from "../progression/levels";
 import { InteractionZoneState } from "../interaction/InteractionZone";
 import { overlapsStoreObstacle, scaleStorePoint, STORE_ELEMENT_SCALE, STORE_LAYOUT_SCALE } from "../world-scale";
 import type { ProductId } from "../types";
-import { distributedFixtureQuantity, isStockingInteractionId, PRODUCE_BIN_COLUMNS, PRODUCE_DECK, PRODUCE_DISPLAY_POSITIONS, produceBinColumn, PRODUCT_RETAIL_DEPARTMENT, retailDepartmentFromStockingInteraction, retailFixtureDisplayPositions, retailStockFixtureSlot, retailStockingMagnet, retailStockLandingLocalPosition, RETAIL_DEPARTMENTS, RETAIL_DEPARTMENT_IDS, RETAIL_VISUAL_CAPACITY, stockingInteractionId } from "./retail-layout";
+import { distributedFixtureQuantity, isStockingInteractionId, PRODUCE_BIN_COLUMNS, PRODUCE_DECK, PRODUCE_DISPLAY_POSITIONS, produceBinColumn, PRODUCT_RETAIL_DEPARTMENT, retailDepartmentFromStockingInteraction, retailFixtureDisplayPositions, retailShelfCapacity, retailStockFixtureSlot, retailStockingMagnet, retailStockLandingLocalPosition, RETAIL_DEPARTMENTS, RETAIL_DEPARTMENT_IDS, RETAIL_FRONT_CAPACITY, RETAIL_SHELF_GRIDS, RETAIL_VISUAL_CAPACITY, stockingInteractionId } from "./retail-layout";
 
 const NAVMESH_FURNITURE_PADDING = 0.31 * STORE_LAYOUT_SCALE;
 
@@ -81,22 +80,31 @@ describe("retail service points", () => {
     expect(retailStockLandingLocalPosition("bread", 0, 1)[1]).toBeCloseTo(0.42);
     expect(retailStockLandingLocalPosition("flour", 0, 1)[1]).toBeCloseTo(1.12);
     expect(retailStockLandingLocalPosition("wheat", 0, 1)[1]).toBeCloseTo(1.47);
-    expect(retailStockLandingLocalPosition("coffee", 0, 1)).toEqual([0, 0.38, 0.26]);
+    expect(retailStockLandingLocalPosition("coffee", 0, 1)).toEqual([0, 0.38, 0.45]);
     expect(retailStockLandingLocalPosition("eggs", 0, 1)[1]).toBeCloseTo(0.485);
-    expect(retailStockLandingLocalPosition("milk", 0, 1)).toEqual([-0.55, 0.46, 0.2]);
-    expect(retailStockLandingLocalPosition("cheese", 0, 1)).toEqual([0.55, 0.46, 0.2]);
-    expect(retailStockLandingLocalPosition("juice", 0, 1)).toEqual([0, 0.44, 0.21]);
+    expect(retailStockLandingLocalPosition("milk", 0, 1)).toEqual([-0.55, 0.46, 0.24]);
+    expect(retailStockLandingLocalPosition("cheese", 0, 1)).toEqual([0.55, 0.46, 0.24]);
+    expect(retailStockLandingLocalPosition("juice", 0, 1)).toEqual([0, 0.44, 0.24]);
   });
 
-  it("moves later ordinals to the same higher rows and depth lanes used by fixtures", () => {
-    expect(retailStockLandingLocalPosition("bread", 8, 9)[1]).toBeCloseTo(0.77);
-    expect(retailStockLandingLocalPosition("bread", 16, 17)[1]).toBeCloseTo(1.82);
-    expect(retailStockLandingLocalPosition("flour", 12, 13)[2]).toBeCloseTo(0.07);
-    expect(retailStockLandingLocalPosition("flour", 24, 25)[2]).toBeCloseTo(0.19);
-    expect(retailStockLandingLocalPosition("coffee", 8, 9)[1]).toBeCloseTo(0.74);
-    expect(retailStockLandingLocalPosition("eggs", 6, 7)[1]).toBeCloseTo(0.885);
-    expect(retailStockLandingLocalPosition("milk", 5, 6)[1]).toBeCloseTo(0.86);
-    expect(retailStockLandingLocalPosition("juice", 9, 10)[1]).toBeCloseTo(0.84);
+  it("spreads units over every level of the front row before using deeper rows", () => {
+    // Second unit climbs to the next shelf; the front row of every level is
+    // complete before any unit moves one depth row back.
+    expect(retailStockLandingLocalPosition("bread", 1, 2)[1]).toBeCloseTo(0.77);
+    expect(retailStockLandingLocalPosition("bread", 2, 3)[1]).toBeCloseTo(1.82);
+    expect(retailStockLandingLocalPosition("bread", 23, 24)[2]).toBeCloseTo(0.16);
+    expect(retailStockLandingLocalPosition("bread", 24, 25)[2]).toBeCloseTo(0);
+    expect(retailStockLandingLocalPosition("flour", 12, 13)[2]).toBeCloseTo(0.04);
+    expect(retailStockLandingLocalPosition("flour", 24, 25)[2]).toBeCloseTo(-0.1);
+    expect(retailStockLandingLocalPosition("coffee", 1, 2)[1]).toBeCloseTo(0.74);
+    expect(retailStockLandingLocalPosition("coffee", 40, 41)[2]).toBeCloseTo(0.31);
+    expect(retailStockLandingLocalPosition("eggs", 1, 2)[1]).toBeCloseTo(0.885);
+    expect(retailStockLandingLocalPosition("milk", 1, 2)[1]).toBeCloseTo(0.86);
+    expect(retailStockLandingLocalPosition("juice", 1, 2)[1]).toBeCloseTo(0.84);
+    // A partial front row stays centred on its shelf.
+    expect(retailStockLandingLocalPosition("juice", 0, 1)[0]).toBeCloseTo(0);
+    expect(retailStockLandingLocalPosition("juice", 0, 10)[0]).toBeCloseTo(-0.1);
+    expect(retailStockLandingLocalPosition("juice", 5, 10)[0]).toBeCloseTo(0.1);
     // Produce fills its bin back to front; the second layer only starts once
     // the deck is covered, and stays above the first layer.
     expect(retailStockLandingLocalPosition("tomatoes", 3, 4)[2]).toBeGreaterThan(retailStockLandingLocalPosition("tomatoes", 0, 1)[2]);
@@ -135,10 +143,30 @@ describe("retail service points", () => {
     }
   });
 
-  it("provides a finite visible slot for every possible tier-ten shelf unit", () => {
+  it("makes tier-one capacity exactly the physical front slots of every fixture", () => {
+    expect(RETAIL_FRONT_CAPACITY.bread).toBe(24);
+    expect(RETAIL_FRONT_CAPACITY.coffee).toBe(40);
+    expect(RETAIL_FRONT_CAPACITY.tomatoes).toBe(15);
+    expect(retailShelfCapacity("tomatoes")).toBe(30);
+    expect(retailShelfCapacity("coffee")).toBe(120);
+    expect(retailShelfCapacity("bread")).toBe(24);
+    (Object.keys(RETAIL_SHELF_GRIDS) as (keyof typeof RETAIL_SHELF_GRIDS)[]).forEach((productId) => {
+      const grid = RETAIL_SHELF_GRIDS[productId];
+      const seen = new Set<string>();
+      for (let ordinal = 0; ordinal < RETAIL_FRONT_CAPACITY[productId]; ordinal += 1) {
+        const [, y, z] = retailStockLandingLocalPosition(productId, ordinal, RETAIL_FRONT_CAPACITY[productId]);
+        expect(z, `${productId}:${ordinal} stays on the front row at tier 1`).toBeCloseTo(grid.frontZ);
+        seen.add(`${y.toFixed(4)}:${z.toFixed(4)}:${retailStockLandingLocalPosition(productId, ordinal, RETAIL_FRONT_CAPACITY[productId])[0].toFixed(4)}`);
+      }
+      expect(seen.size, `${productId} front slots are distinct`).toBe(RETAIL_FRONT_CAPACITY[productId]);
+    });
+  });
+
+  it("provides a finite visible slot for every possible tier-ten unit of one fixture", () => {
     const maximumMultiplier = stationTierModifiers(10).capacity;
     (Object.keys(PRODUCT_RETAIL_DEPARTMENT) as ProductId[]).forEach((productId) => {
-      const maximum = Math.round((PRODUCT_CONFIG[productId]?.shelfCapacity ?? 12) * maximumMultiplier);
+      const fixtureCount = retailFixtureDisplayPositions(PRODUCT_RETAIL_DEPARTMENT[productId]).length;
+      const maximum = distributedFixtureQuantity(Math.round(retailShelfCapacity(productId) * maximumMultiplier), 0, fixtureCount);
       expect(RETAIL_VISUAL_CAPACITY[productId], productId).toBeGreaterThanOrEqual(maximum);
       const slots = new Set<string>();
       for (let ordinal = 0; ordinal < maximum; ordinal += 1) {

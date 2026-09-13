@@ -6,7 +6,7 @@ import { createCustomerMind } from "./ai/CustomerBrain";
 import { LEVELS, stationTierModifiers } from "./progression/levels";
 import { averageShelfAvailability, levelObjectiveSatisfied, levelObjectiveTasks, unlockedCustomerProducts } from "./progression/objectives";
 import { CHECKOUT_LANES, checkoutQueueArrival, checkoutQueuePosition, type CheckoutLane } from "./stations/checkout-layout";
-import { retailServicePoint } from "./stations/retail-layout";
+import { retailServicePoint, retailShelfCapacityForTier } from "./stations/retail-layout";
 import {
   FARM_ACCESS_WAYPOINTS,
   FARM_ANIMAL_STATIONS,
@@ -58,7 +58,7 @@ export function createInitialGame(countryCode: CountryCode = "ES"): GameState {
     shelves: { ...EMPTY_INVENTORY(), milk: index === 0 ? 8 : 0, eggs: index === 0 ? 6 : 0, apples: index === 0 ? 8 : 0 },
     machines: { flourMillLevel: 1, bakeryLevel: 1, flourQueue: 0, breadQueue: 0 },
     carry: { capacity: 3, items: {} },
-    crops: [createCrop("crop-tomato-1", "tomatoes", 0, 1, 1), { ...createEmptyCrop("crop-wheat-1", "wheat"), status: "LOCKED" }, { ...createEmptyCrop("crop-corn-1", "corn"), status: "LOCKED" }, { ...createEmptyCrop("crop-orange-1", "oranges"), status: "LOCKED" }],
+    crops: [createCrop("crop-tomato-1", "tomatoes", 0, 1, 1), { ...createEmptyCrop("crop-apple-1", "apples"), status: "LOCKED" }, { ...createEmptyCrop("crop-wheat-1", "wheat"), status: "LOCKED" }, { ...createEmptyCrop("crop-corn-1", "corn"), status: "LOCKED" }, { ...createEmptyCrop("crop-orange-1", "oranges"), status: "LOCKED" }],
     productionMachines: [{ ...createMachine("flour-mill-1", "flour"), status: "LOCKED" }, { ...createMachine("bread-oven-1", "bread"), status: "LOCKED" }, { ...createMachine("cheese-maker-1", "cheese"), status: "LOCKED" }, { ...createMachine("juice-machine-1", "juice"), status: "LOCKED" }, { ...createMachine("chicken-coop-1", "eggs"), status: "LOCKED" }, { ...createMachine("cow-station-1", "milk"), status: "LOCKED" }],
     buildProjects: [{ id: "level-2", level: 2, costMinor: Math.round(LEVELS[1].costMinor * moneyScale), contributedMinor: 0, completed: false }],
     checkoutTransactions: [],
@@ -140,6 +140,14 @@ export function normalizeGameState(input: unknown): GameState {
     franchise.carry = normalizeCarry(franchise.carry, 3);
     franchise.crops ??= [createCrop("crop-tomato-1", "tomatoes", state.simulationTimeMs, 1, state.level), { ...createEmptyCrop("crop-wheat-1", "wheat"), status: "LOCKED" }, { ...createEmptyCrop("crop-corn-1", "corn"), status: "LOCKED" }, { ...createEmptyCrop("crop-orange-1", "oranges"), status: "LOCKED" }];
     if (!franchise.crops.some((crop) => crop.id === "crop-orange-1")) franchise.crops.push({ ...createEmptyCrop("crop-orange-1", "oranges"), status: "LOCKED" });
+    // Saves older than the orchard: apples grow from the level that makes
+    // customers ask for them, so an advanced store gets a growing tree at once.
+    if (!franchise.crops.some((crop) => crop.id === "crop-apple-1")) {
+      franchise.crops.splice(1, 0, state.level >= 2
+        ? createCrop("crop-apple-1", "apples", state.simulationTimeMs, 1, state.level)
+        : { ...createEmptyCrop("crop-apple-1", "apples"), status: "LOCKED" });
+      if (state.level >= 2) franchise.stationTiers["crop-apple-1"] ??= 1;
+    }
     franchise.crops = franchise.crops.map((crop) => crop.status === "EMPTY"
       ? createCrop(crop.id, crop.productId, state.simulationTimeMs, crop.tier, state.level)
       : normalizeCropClock(crop, state.simulationTimeMs, state.lastServerTime, state.level));
@@ -1151,10 +1159,11 @@ function shelfFill(franchise: FranchiseState, productId: ProductId) {
   return franchise.shelves[productId] / shelfCapacity(franchise, productId);
 }
 
-/** Authoritative units one retail shelf holds for a product at a display tier.
- * Exported so presentation (slot signs, fill meters) reads the same rule. */
+/** Authoritative units the store holds of a product at a display tier: every
+ * physical slot of its fixtures at tier 1, deeper rows as the display tier
+ * grows. Exported so presentation (slot signs, fill meters) reads the same rule. */
 export function shelfCapacityForTier(tier: number, productId: ProductId) {
-  return Math.max(1, Math.round((PRODUCT_CONFIG[productId]?.shelfCapacity ?? 12) * stationTierModifiers(tier).capacity));
+  return retailShelfCapacityForTier(tier, productId);
 }
 
 function shelfCapacity(franchise: FranchiseState, productId: ProductId) {
@@ -1954,7 +1963,7 @@ function applyUpgradeTarget(state: GameState, franchise: FranchiseState, target:
     const machine = franchise.productionMachines.find((candidate) => candidate.id === target.id);
     if (machine) {
       machine.tier = nextTier;
-      machine.outputCapacity = Math.max(machine.output, Math.round((PRODUCT_CONFIG[machine.productId]?.shelfCapacity ?? 8) * stationTierModifiers(nextTier).capacity));
+      machine.outputCapacity = Math.max(machine.output, Math.round((PRODUCT_CONFIG[machine.productId]?.outputCapacity ?? 8) * stationTierModifiers(nextTier).capacity));
     }
     if (target.id === "checkout-1") franchise.checkoutLevel = nextTier;
     if (target.id === "shelves-1") franchise.shelvesLevel = nextTier;
@@ -1995,6 +2004,12 @@ function applyLevelUnlock(state: GameState, franchise: FranchiseState, level: nu
   if (level === 2) {
     if (!franchise.crops.some((crop) => crop.id === "crop-tomato-2")) franchise.crops.push(createCrop("crop-tomato-2", "tomatoes", state.simulationTimeMs, 1, level));
     franchise.stationTiers["crop-tomato-2"] ??= 1;
+    // Customers start asking for apples at this level, so the orchard opens
+    // with the demand instead of leaving the supplier as the only source.
+    unlockArea("farm-apple");
+    if (!franchise.crops.some((crop) => crop.id === "crop-apple-1")) franchise.crops.push({ ...createEmptyCrop("crop-apple-1", "apples"), status: "LOCKED" });
+    unlockCrop(franchise, "crop-apple-1", state.simulationTimeMs, level);
+    franchise.stationTiers["crop-apple-1"] ??= 1;
   }
   if (level === 3) {
     franchise.carry.capacity = Math.max(5, franchise.carry.capacity);

@@ -1,6 +1,5 @@
 import type { CarryState, Inventory, ProductId } from "../types";
-import { PRODUCT_CONFIG } from "../economy/products";
-import { stationTierModifiers } from "../progression/levels";
+import { retailShelfCapacityForTier } from "../stations/retail-layout";
 
 export const CAPACITY_TIERS = [3, 5, 8, 12, 16, 20] as const;
 export const MAX_WAREHOUSE_PICKUP_BATCH = CAPACITY_TIERS[CAPACITY_TIERS.length - 1];
@@ -47,12 +46,10 @@ export function preferredStockingProduct(
 ): ProductId | null {
   let selected: ProductId | null = null;
   let selectedFill = Number.POSITIVE_INFINITY;
-  const capacityMultiplier = stationTierModifiers(shelfTier).capacity;
   const allowed = allowedProducts ? new Set<ProductId>(allowedProducts) : null;
   for (const productId of carriedProductIds(container)) {
     if (allowed && !allowed.has(productId)) continue;
-    const baseCapacity = PRODUCT_CONFIG[productId]?.shelfCapacity ?? 12;
-    const capacity = Math.max(1, Math.round(baseCapacity * capacityMultiplier));
+    const capacity = retailShelfCapacityForTier(shelfTier, productId);
     const quantity = Math.max(0, shelves[productId] ?? 0);
     if (quantity >= capacity) continue;
     const fill = quantity / capacity;
@@ -79,7 +76,7 @@ export function nextStockingPulse(
 ) {
   const productId = preferredStockingProduct(container, shelves, shelfTier, allowedProducts);
   if (!productId) return null;
-  const shelfCapacity = Math.max(1, Math.round((PRODUCT_CONFIG[productId]?.shelfCapacity ?? 12) * stationTierModifiers(shelfTier).capacity));
+  const shelfCapacity = retailShelfCapacityForTier(shelfTier, productId);
   const shelfQuantity = Math.max(0, Math.floor(shelves[productId] ?? 0));
   const quantity = Math.min(carryQuantity(container, productId), Math.max(0, shelfCapacity - shelfQuantity));
   return quantity > 0 ? { productId, quantity } : null;

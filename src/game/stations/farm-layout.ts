@@ -1,7 +1,7 @@
 import type { CropState } from "../types";
 import { STORE_REAR_DOOR } from "./storefront-layout";
 
-export type FarmPlotId = "crop-tomato-1" | "crop-tomato-2" | "crop-wheat-1" | "crop-corn-1" | "crop-orange-1";
+export type FarmPlotId = "crop-tomato-1" | "crop-tomato-2" | "crop-wheat-1" | "crop-corn-1" | "crop-orange-1" | "crop-apple-1";
 export type FarmInteractionId = `farm:${FarmPlotId}`;
 
 export interface FarmPlotLayout {
@@ -145,6 +145,9 @@ export const FARM_PLOTS: readonly FarmPlotLayout[] = [
   { id: "crop-wheat-1", productId: "wheat", position: [-6.3, 0, -15.45], accent: "#e9b83f" },
   { id: "crop-corn-1", productId: "corn", position: [-3.55, 0, -15.45], accent: "#f0c438" },
   { id: "crop-orange-1", productId: "oranges", position: [-0.75, 0, -14], accent: "#D58236" },
+  // Apple orchard beside the scarecrow, on the south crop row so the shared
+  // corridor reaches it without crossing a paddock or the compost bin.
+  { id: "crop-apple-1", productId: "apples", position: [-9, 0, -15.45], accent: "#c8362f" },
 ] as const;
 
 export const FARM_FACILITIES = {

@@ -1,6 +1,5 @@
-import { PRODUCT_CONFIG } from "../economy/products";
 import type { FranchiseState, GameState, ProductId } from "../types";
-import { stationTierModifiers } from "./levels";
+import { retailShelfCapacityForTier } from "../stations/retail-layout";
 
 export type LevelObjectiveTaskUnit = "count" | "percent" | "distance" | "rating";
 
@@ -133,6 +132,5 @@ function shelfFill(franchise: FranchiseState, productId: ProductId) {
 }
 
 function shelfCapacity(franchise: FranchiseState, productId: ProductId) {
-  const tier = franchise.stationTiers["shelves-1"] ?? franchise.shelvesLevel;
-  return Math.max(1, Math.round((PRODUCT_CONFIG[productId]?.shelfCapacity ?? 12) * stationTierModifiers(tier).capacity));
+  return retailShelfCapacityForTier(franchise.stationTiers["shelves-1"] ?? franchise.shelvesLevel, productId);
 }

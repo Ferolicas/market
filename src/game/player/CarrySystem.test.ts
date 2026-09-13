@@ -37,17 +37,19 @@ describe("CarrySystem", () => {
     expect(primaryCarryProduct(carry)).toBe("tomatoes");
     expect(preferredStockingProduct(carry, shelves)).toBe("apples");
     expect(preferredStockingProduct({ items: {} }, shelves)).toBeNull();
-    expect(preferredStockingProduct({ items: { tomatoes: 1, bread: 1 } }, { tomatoes: 12, bread: 8 }, 1)).toBeNull();
-    expect(preferredStockingProduct({ items: { tomatoes: 1, bread: 1 } }, { tomatoes: 12, bread: 8 }, 2)).toBe("tomatoes");
-    expect(preferredStockingProduct({ items: { tomatoes: 1, bread: 1 } }, { tomatoes: 15, bread: 10 }, 2)).toBeNull();
+    // Tier 1 holds every physical front slot (30 tomatoes over two tables,
+    // 24 loaves over three shelves); tier 2 opens a deeper row.
+    expect(preferredStockingProduct({ items: { tomatoes: 1, bread: 1 } }, { tomatoes: 30, bread: 24 }, 1)).toBeNull();
+    expect(preferredStockingProduct({ items: { tomatoes: 1, bread: 1 } }, { tomatoes: 30, bread: 24 }, 2)).toBe("tomatoes");
+    expect(preferredStockingProduct({ items: { tomatoes: 1, bread: 1 } }, { tomatoes: 38, bread: 30 }, 2)).toBeNull();
   });
 
   it("creates one exact visual-and-engine batch capped by remaining shelf space", () => {
     const carry = { items: { tomatoes: 8, apples: 2 } };
 
-    expect(nextStockingPulse(carry, { tomatoes: 11, apples: 12 }, 1)).toEqual({ productId: "tomatoes", quantity: 1 });
-    expect(nextStockingPulse(carry, { tomatoes: 4, apples: 12 }, 1)).toEqual({ productId: "tomatoes", quantity: 8 });
-    expect(nextStockingPulse(carry, { tomatoes: 12, apples: 12 }, 1)).toBeNull();
+    expect(nextStockingPulse(carry, { tomatoes: 29, apples: 30 }, 1)).toEqual({ productId: "tomatoes", quantity: 1 });
+    expect(nextStockingPulse(carry, { tomatoes: 4, apples: 30 }, 1)).toEqual({ productId: "tomatoes", quantity: 8 });
+    expect(nextStockingPulse(carry, { tomatoes: 30, apples: 30 }, 1)).toBeNull();
     expect(nextStockingPulse({ items: {} }, { tomatoes: 0 }, 1)).toBeNull();
   });
 
@@ -62,7 +64,7 @@ describe("CarrySystem", () => {
 
   it("plans every compatible product from one department approach", () => {
     const carry = { items: { tomatoes: 3, apples: 2, corn: 1, eggs: 4 } };
-    const shelves = { tomatoes: 10, apples: 12, corn: 0, eggs: 0 };
+    const shelves = { tomatoes: 28, apples: 30, corn: 0, eggs: 0 };
 
     expect(departmentStockingPulses(carry, shelves, 1, ["tomatoes", "apples", "corn"])).toEqual([
       { productId: "corn", quantity: 1 },
@@ -70,7 +72,7 @@ describe("CarrySystem", () => {
     ]);
     expect(departmentStockingPulses({ items: {} }, shelves, 1, ["tomatoes"])).toEqual([]);
     expect(carry.items).toEqual({ tomatoes: 3, apples: 2, corn: 1, eggs: 4 });
-    expect(shelves).toEqual({ tomatoes: 10, apples: 12, corn: 0, eggs: 0 });
+    expect(shelves).toEqual({ tomatoes: 28, apples: 30, corn: 0, eggs: 0 });
   });
 
   it("adds exactly the amount removed from the basket and empties it on the final shelf pulse", () => {

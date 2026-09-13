@@ -4,7 +4,7 @@ export interface LevelDefinition { level: number; costMinor: number; unlock: str
 // second copy here previously allowed the level list and the real gate to
 // describe different work.
 const levelData: [number, string][] = [
-  [0, "Tomate, mesa y caja"], [4_000, "Segundo cultivo y demanda de manzanas"], [8_000, "Capacidad 5 y hasta 4 clientes"],
+  [0, "Tomate, mesa y caja"], [4_000, "Segundo tomate, manzano y demanda de manzanas"], [8_000, "Capacidad 5 y hasta 4 clientes"],
   [14_000, "Ampliación y trigo"], [22_000, "Molino y harina"], [32_000, "Horno y panadería"],
   [48_000, "Caja más rápida"], [65_000, "Gallinero y huevos"], [85_000, "Reponedor"], [110_000, "Ampliación lateral y rango 2"],
   [140_000, "Maíz y mesa"], [180_000, "Velocidad +8 %"], [230_000, "Vaca y refrigerador"], [290_000, "Cajero"], [370_000, "Capacidad 8"],

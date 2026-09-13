@@ -11,7 +11,7 @@ import { CHECKOUT_LANES, activeCheckoutForLane, checkoutBagLocation, checkoutHan
 import { cropVisualSlotIndices } from "@/game/stations/crop-visual";
 import { FARM_ANIMAL_STATIONS, FARM_FACILITIES, FARM_FIELD, FARM_GATE, FARM_PLOTS, farmGateOpenLeafTerminalPost } from "@/game/stations/farm-layout";
 import { STORE_REAR_DOOR } from "@/game/stations/storefront-layout";
-import { distributedFixtureQuantity, PANTRY_DISPLAY_POSITIONS, PRODUCE_BIN_COLUMNS, PRODUCE_BIN_PITCH, PRODUCE_DECK, PRODUCE_DISPLAY_POSITIONS, produceDeckLocalPoint, RETAIL_DEPARTMENTS, RETAIL_FIXTURE_LEVELS, RETAIL_VISUAL_CAPACITY, retailDisplayPosition, retailStockLandingLocalPosition } from "@/game/stations/retail-layout";
+import { distributedFixtureQuantity, PANTRY_DISPLAY_POSITIONS, PRODUCE_BIN_COLUMNS, PRODUCE_BIN_PITCH, PRODUCE_DECK, PRODUCE_DISPLAY_POSITIONS, produceDeckLocalPoint, PRODUCT_RETAIL_DEPARTMENT, RETAIL_DEPARTMENTS, RETAIL_FIXTURE_LEVELS, RETAIL_VISUAL_CAPACITY, retailDisplayPosition, retailFixtureDisplayPositions, retailStockLandingLocalPosition } from "@/game/stations/retail-layout";
 import { shelfCapacityForTier } from "@/game/engine";
 import { STORE_SERVICE_FIXTURES } from "@/game/stations/store-service-layout";
 import { WAREHOUSE_RETURN_STATION } from "@/game/stations/warehouse-layout";
@@ -136,6 +136,32 @@ function DepartmentSign({ label, color, position = [0, 1.82, 0.03], width = 1.72
     <Box args={[width + 0.1, 0.42, 0.07]} position={[0, -0.025, -0.035]} color={palette.frame} radius={0.055} />
     <Box args={[width, 0.31, 0.09]} color={color} radius={0.045} />
     <Text position={[0, 0, 0.052]} fontSize={0.135} color="#fffaf0" anchorX="center" anchorY="middle" fontWeight={800}>{label}</Text>
+  </group>;
+}
+
+/** Ground azimuth of the fixed overview camera (OVERVIEW_CAMERA_OFFSET x/z):
+ * every shelf tag turns to it so its counter reads from the play view. */
+const CAMERA_AZIMUTH = Math.atan2(16, 25.75);
+
+type StockCounts = Readonly<Partial<Record<ProductId, number>>>;
+
+/** Compact stock tag of one SKU on a shelf fixture: replica, name, exact units
+ * on this fixture over its share of the shelf capacity and what is missing.
+ * Mounted beside the fixture on the camera side so it hides no product. */
+function ShelfTag({ productId, count, capacity, position, fixtureYaw = 0 }: { productId: ProductId; count: number; capacity: number; position: Position; fixtureYaw?: number }) {
+  const missing = Math.max(0, capacity - count);
+  const full = capacity > 0 && missing === 0;
+  const color = RETAIL_DEPARTMENTS[PRODUCT_RETAIL_DEPARTMENT[productId]].color;
+  return <group name={`retail-shelf-tag:${productId}`} position={position} rotation={[-0.3, CAMERA_AZIMUTH - THREE.MathUtils.degToRad(fixtureYaw), 0, "YXZ"]}>
+    <Box args={[0.66, 0.36, 0.035]} position={[0, 0, -0.018]} color={palette.frame} radius={0.03} />
+    <Box args={[0.62, 0.32, 0.04]} color={color} radius={0.025} />
+    <Box args={[0.36, 0.19, 0.016]} position={[0.1, -0.055, 0.026]} color="#fbf5e6" radius={0.015} />
+    <group name={`retail-product:${productId}`} position={[-0.2, -0.01, 0.05]}><BasketProduct productId={productId} scale={0.85} /></group>
+    <Text position={[0.1, 0.11, 0.028]} fontSize={0.05} color="#fffaf0" anchorX="center" anchorY="middle" fontWeight={800}>{PRODUCTS_LABELS[productId]}</Text>
+    <group name="dynamic:shelf-tag">
+      <Text position={[0.1, -0.015, 0.04]} fontSize={0.078} color="#24323a" anchorX="center" anchorY="middle" fontWeight={800}>{`${count}/${capacity}`}</Text>
+      <Text position={[0.1, -0.11, 0.04]} fontSize={0.046} color={full ? "#2f7d3a" : "#b8641a"} anchorX="center" anchorY="middle" fontWeight={800}>{full ? "LLENO" : `faltan ${missing}`}</Text>
+    </group>
   </group>;
 }
 
@@ -274,7 +300,7 @@ function StoreElement({ position, yaw = 0, children }: { position: Position; yaw
   return <group position={scaleStorePosition(position)} rotation={[0, THREE.MathUtils.degToRad(yaw), 0]} scale={STORE_ELEMENT_SCALE}>{children}</group>;
 }
 
-type ProduceCounts = Readonly<Partial<Record<ProductId, number>>>;
+type ProduceCounts = StockCounts;
 const PRODUCE_PRODUCTS = RETAIL_DEPARTMENTS.produce.products;
 
 /** Share of one produce table (stock or capacity) for every produce SKU. */
@@ -323,6 +349,12 @@ export const KitFurniture = memo(function KitFurniture({ shelves, shelfTier, mac
   const root = useRef<THREE.Group>(null);
   const structureRevision = unlockedAreas.join("|");
   const machine = (id: string) => machines.find((candidate) => candidate.id === id);
+  // Every fixture shows its own share of the store capacity of each SKU.
+  const fixtureCapacity = (productId: ProductId, fixtureIndex = 0) => distributedFixtureQuantity(
+    shelfCapacityForTier(shelfTier, productId),
+    fixtureIndex,
+    retailFixtureDisplayPositions(PRODUCT_RETAIL_DEPARTMENT[productId]).length,
+  );
   const coldDoorActive = customers.some((customer) => ["WAIT_FOR_ACCESS", "PICK_PRODUCT"].includes(customer.state) && ["milk", "cheese"].includes(customer.shoppingList[customer.currentLine]?.productId ?? ""));
   const activeCheckouts = useMemo(() => [activeCheckoutForLane(checkoutTransactions, 0), activeCheckoutForLane(checkoutTransactions, 1)] as const, [checkoutTransactions]);
   const checkoutHandoffs = useMemo(() => [checkoutHandoffForLane(checkoutTransactions, 0, customers), checkoutHandoffForLane(checkoutTransactions, 1, customers)] as const, [checkoutTransactions, customers]);
@@ -339,12 +371,12 @@ export const KitFurniture = memo(function KitFurniture({ shelves, shelfTier, mac
   return <group ref={root}>
     <StoreElement position={[-1.6, 0, -8.05]}><MemoOperationsWall /></StoreElement>
 
-    <StoreElement position={retailDisplayPosition("bakery")} yaw={RETAIL_DEPARTMENTS.bakery.yaw}><MemoBakeryDisplay bread={shelves.bread} flour={shelves.flour} wheat={shelves.wheat} /></StoreElement>
-    {PANTRY_DISPLAY_POSITIONS.map((position, index) => <StoreElement key={`pantry-${index}`} position={[...position]} yaw={RETAIL_DEPARTMENTS.pantry.yaw}><MemoGondola position={[0, 0, 0]} count={distributedFixtureQuantity(shelves.coffee, index, PANTRY_DISPLAY_POSITIONS.length)} /></StoreElement>)}
-    <StoreElement position={retailDisplayPosition("eggs")} yaw={RETAIL_DEPARTMENTS.eggs.yaw}><MemoEggDisplay count={shelves.eggs} /></StoreElement>
+    <StoreElement position={retailDisplayPosition("bakery")} yaw={RETAIL_DEPARTMENTS.bakery.yaw}><MemoBakeryDisplay stock={{ bread: shelves.bread, flour: shelves.flour, wheat: shelves.wheat }} capacity={{ bread: fixtureCapacity("bread"), flour: fixtureCapacity("flour"), wheat: fixtureCapacity("wheat") }} /></StoreElement>
+    {PANTRY_DISPLAY_POSITIONS.map((position, index) => <StoreElement key={`pantry-${index}`} position={[...position]} yaw={RETAIL_DEPARTMENTS.pantry.yaw}><MemoGondola position={[0, 0, 0]} count={distributedFixtureQuantity(shelves.coffee, index, PANTRY_DISPLAY_POSITIONS.length)} capacity={fixtureCapacity("coffee", index)} /></StoreElement>)}
+    <StoreElement position={retailDisplayPosition("eggs")} yaw={RETAIL_DEPARTMENTS.eggs.yaw}><MemoEggDisplay count={shelves.eggs} capacity={fixtureCapacity("eggs")} /></StoreElement>
     {PRODUCE_DISPLAY_POSITIONS.map((position, index) => <StoreElement key={`produce-${index}`} position={[...position]} yaw={RETAIL_DEPARTMENTS.produce.yaw}><MemoProduceTable position={[0, 0, 0]} stock={produceFixtureCounts((productId) => shelves[productId], index)} capacity={produceFixtureCounts((productId) => shelfCapacityForTier(shelfTier, productId), index)} /></StoreElement>)}
-    <StoreElement position={retailDisplayPosition("dairy")} yaw={RETAIL_DEPARTMENTS.dairy.yaw}><MemoChilledDisplay position={[0, 0, 0]} milk={shelves.milk} cheese={shelves.cheese} open={coldDoorActive} /></StoreElement>
-    <StoreElement position={retailDisplayPosition("drinks")} yaw={RETAIL_DEPARTMENTS.drinks.yaw}><MemoDrinksDisplay position={[0, 0, 0]} count={shelves.juice} /></StoreElement>
+    <StoreElement position={retailDisplayPosition("dairy")} yaw={RETAIL_DEPARTMENTS.dairy.yaw}><MemoChilledDisplay position={[0, 0, 0]} stock={{ milk: shelves.milk, cheese: shelves.cheese }} capacity={{ milk: fixtureCapacity("milk"), cheese: fixtureCapacity("cheese") }} open={coldDoorActive} /></StoreElement>
+    <StoreElement position={retailDisplayPosition("drinks")} yaw={RETAIL_DEPARTMENTS.drinks.yaw}><MemoDrinksDisplay position={[0, 0, 0]} count={shelves.juice} capacity={fixtureCapacity("juice")} /></StoreElement>
     <StoreElement position={[...CHECKOUT_LANES[0].counter]}><MemoCheckoutKit position={[0, 0, 0]} lane={0} transaction={activeCheckouts[0]} handoffTransaction={checkoutHandoffs[0]} handoffBagAtCounter={checkoutHandoffLocations[0] === "counter"} /></StoreElement>
     <StoreElement position={[...CHECKOUT_LANES[0].cashierWork]}><MemoCashierWorkArea /></StoreElement>
     {unlockedAreas.includes("checkout-2")
@@ -522,7 +554,7 @@ function OperationsWall() {
   </group>;
 }
 
-function Gondola({ position, count }: { position: Position; count: number }) {
+function Gondola({ position, count, capacity }: { position: Position; count: number; capacity: number }) {
   const accent = RETAIL_DEPARTMENTS.pantry.color;
   // Fill the service-facing side first so the visible stock and its proximity
   // magnet share one face of the gondola at low inventory.
@@ -533,24 +565,28 @@ function Gondola({ position, count }: { position: Position; count: number }) {
     <FixtureUprights width={2.18} height={1.92} z={0} />
     {sides.map((side) => <CommercialShelfBank key={side} levels={RETAIL_FIXTURE_LEVELS.pantry} width={2.08} depth={0.52} z={side * 0.28} front={side} accent={accent} />)}
     <AuthoritativeRetailStock productId="coffee" count={count} />
+    <ShelfTag productId="coffee" count={count} capacity={capacity} position={[1.3, RETAIL_FIXTURE_LEVELS.pantry[4] + 0.2, 0.62]} fixtureYaw={RETAIL_DEPARTMENTS.pantry.yaw} />
     <Box args={[2.3, 0.14, 1.08]} position={[0, 1.88, 0]} color={palette.fixtureSteel} radius={0.03} />
     <DepartmentSign label={RETAIL_DEPARTMENTS.pantry.label} color={accent} position={[0, 2.15, 0]} width={2.02} />
   </group>;
 }
 
-function BakeryDisplay({ bread, flour, wheat }: { bread: number; flour: number; wheat: number }) {
+function BakeryDisplay({ stock, capacity }: { stock: StockCounts; capacity: StockCounts }) {
   const levels = RETAIL_FIXTURE_LEVELS.bakery;
+  const yaw = RETAIL_DEPARTMENTS.bakery.yaw;
   return <group name="retail-department:bakery">
     <Box args={[2.24, 0.16, 0.78]} position={[0, 0.08, -0.11]} color={palette.fixtureSteel} radius={0.035} />
     <CommercialBackPanel width={2.08} height={1.9} z={-0.34} color="#d8c3a2" />
     <FixtureUprights width={2.18} height={2} z={-0.34} />
     <CommercialShelfBank levels={levels} width={2.08} depth={0.52} z={0.02} front={1} accent={RETAIL_DEPARTMENTS.bakery.color} />
-    <AuthoritativeRetailStock productId="bread" count={bread} />
-    <AuthoritativeRetailStock productId="flour" count={flour} />
-    <AuthoritativeRetailStock productId="wheat" count={wheat} />
-    <Text position={[-0.84, levels[0] + 0.045, 0.235]} fontSize={0.052} color="#6a4b32" anchorX="left" anchorY="middle" fontWeight={800}>PAN</Text>
-    <Text position={[-0.84, levels[2] + 0.045, 0.235]} fontSize={0.052} color="#6a4b32" anchorX="left" anchorY="middle" fontWeight={800}>HARINA</Text>
-    <Text position={[-0.84, levels[3] + 0.045, 0.235]} fontSize={0.052} color="#6a4b32" anchorX="left" anchorY="middle" fontWeight={800}>TRIGO</Text>
+    <AuthoritativeRetailStock productId="bread" count={stock.bread ?? 0} />
+    <AuthoritativeRetailStock productId="flour" count={stock.flour ?? 0} />
+    <AuthoritativeRetailStock productId="wheat" count={stock.wheat ?? 0} />
+    {/* Tags at the first shelf of each SKU on the local +x corner: the near
+        corner sits behind the stockroom wall sign from the camera's view. */}
+    <ShelfTag productId="bread" count={stock.bread ?? 0} capacity={capacity.bread ?? 0} position={[1.3, levels[0] + 0.2, 0.36]} fixtureYaw={yaw} />
+    <ShelfTag productId="flour" count={stock.flour ?? 0} capacity={capacity.flour ?? 0} position={[1.3, levels[2] + 0.2, 0.36]} fixtureYaw={yaw} />
+    <ShelfTag productId="wheat" count={stock.wheat ?? 0} capacity={capacity.wheat ?? 0} position={[1.3, levels[3] + 0.2, 0.36]} fixtureYaw={yaw} />
     <Box args={[2.3, 0.14, 0.78]} position={[0, 1.98, -0.1]} color={palette.fixtureSteel} radius={0.03} />
     <DepartmentSign label={RETAIL_DEPARTMENTS.bakery.label} color={RETAIL_DEPARTMENTS.bakery.color} position={[0, 2.25, 0.08]} width={2.02} />
   </group>;
@@ -627,7 +663,7 @@ function SeasonalDisplay({ position }: { position: Position }) {
   </group>;
 }
 
-function ChilledDisplay({ position, milk, cheese, open }: { position: Position; milk: number; cheese: number; open: boolean }) {
+function ChilledDisplay({ position, stock, capacity, open }: { position: Position; stock: StockCounts; capacity: StockCounts; open: boolean }) {
   const levels = RETAIL_FIXTURE_LEVELS.dairy;
   const doors = useRef<THREE.Group[]>([]);
   const doorFrames = useMemo<InstanceTransform[]>(() => [
@@ -649,8 +685,8 @@ function ChilledDisplay({ position, milk, cheese, open }: { position: Position; 
     <Box args={[2.32, 2.13, 0.12]} position={[0, 1.15, -0.36]} color={palette.coldInterior} radius={0.025} />
     {[-1.14, 1.14].map((x) => <Box key={x} args={[0.09, 2.25, 0.86]} position={[x, 1.17, 0]} color={palette.fixtureSteel} radius={0.018} />)}
     <CommercialShelfBank levels={levels} width={2.18} depth={0.68} front={1} accent={RETAIL_DEPARTMENTS.dairy.color} />
-    <AuthoritativeRetailStock productId="milk" count={milk} />
-    <AuthoritativeRetailStock productId="cheese" count={cheese} />
+    <AuthoritativeRetailStock productId="milk" count={stock.milk ?? 0} />
+    <AuthoritativeRetailStock productId="cheese" count={stock.cheese ?? 0} />
     {([-1, 1] as const).map((side, index) => <group
       key={side}
       name={`retail-cold-door:${side < 0 ? "left" : "right"}`}
@@ -664,12 +700,13 @@ function ChilledDisplay({ position, milk, cheese, open }: { position: Position; 
     <Box args={[2.48, 0.24, 0.92]} position={[0, 2.28, 0]} color={palette.fixtureSteel} radius={0.045} />
     <StaticInstances transforms={vents}><boxGeometry args={[1, 1, 1]} /><meshStandardMaterial color="#7d8b88" metalness={0.28} roughness={0.48} /></StaticInstances>
     <DepartmentSign label={RETAIL_DEPARTMENTS.dairy.label} color={RETAIL_DEPARTMENTS.dairy.color} position={[0, 2.5, 0.08]} width={2.02} />
-    <Text position={[-0.55, 2.08, 0.43]} fontSize={0.075} color="#33586d" anchorX="center" fontWeight={800}>LECHE</Text>
-    <Text position={[0.55, 2.08, 0.43]} fontSize={0.075} color="#33586d" anchorX="center" fontWeight={800}>QUESOS</Text>
+    {/* Tags ride the top bar above the doors, each over its half of the cabinet. */}
+    <ShelfTag productId="milk" count={stock.milk ?? 0} capacity={capacity.milk ?? 0} position={[-0.55, 2.28, 0.56]} fixtureYaw={RETAIL_DEPARTMENTS.dairy.yaw} />
+    <ShelfTag productId="cheese" count={stock.cheese ?? 0} capacity={capacity.cheese ?? 0} position={[0.55, 2.28, 0.56]} fixtureYaw={RETAIL_DEPARTMENTS.dairy.yaw} />
   </group>;
 }
 
-function DrinksDisplay({ position, count }: { position: Position; count: number }) {
+function DrinksDisplay({ position, count, capacity }: { position: Position; count: number; capacity: number }) {
   const levels = RETAIL_FIXTURE_LEVELS.drinks;
   return <group name="retail-department:drinks" position={position}>
     <Box args={[2.3, 0.17, 0.9]} position={[0, 0.085, 0]} color={palette.fixtureSteel} radius={0.04} />
@@ -677,12 +714,13 @@ function DrinksDisplay({ position, count }: { position: Position; count: number 
     <FixtureUprights width={2.28} height={2.2} z={-0.31} />
     <CommercialShelfBank levels={levels} width={2.13} depth={0.67} front={1} accent={RETAIL_DEPARTMENTS.drinks.color} />
     <AuthoritativeRetailStock productId="juice" count={count} />
+    <ShelfTag productId="juice" count={count} capacity={capacity} position={[-1.33, levels[4] + 0.2, 0.42]} fixtureYaw={RETAIL_DEPARTMENTS.drinks.yaw} />
     <Box args={[2.38, 0.18, 0.92]} position={[0, 2.18, 0]} color={palette.fixtureSteel} radius={0.04} />
     <DepartmentSign label={RETAIL_DEPARTMENTS.drinks.label} color={RETAIL_DEPARTMENTS.drinks.color} position={[0, 2.42, 0.07]} width={2} />
   </group>;
 }
 
-function EggDisplay({ count }: { count: number }) {
+function EggDisplay({ count, capacity }: { count: number; capacity: number }) {
   const levels = RETAIL_FIXTURE_LEVELS.eggs;
   const cartons = useMemo<InstanceTransform[]>(() => levels.map((y) => ({ position: [0, y + 0.105, 0.18], scale: [1.22, 0.1, 0.48] })), [levels]);
   return <group name="retail-department:eggs">
@@ -692,7 +730,7 @@ function EggDisplay({ count }: { count: number }) {
     <CommercialShelfBank levels={levels} width={2.02} depth={0.68} accent={RETAIL_DEPARTMENTS.eggs.color} />
     <StaticInstances transforms={cartons} receiveShadow><RoundedBoxGeometry args={[1, 1, 1]} radius={0.09} smoothness={2} /><meshStandardMaterial color="#bca47a" roughness={0.88} /></StaticInstances>
     <AuthoritativeRetailStock productId="eggs" count={count} />
-    <Text position={[0, levels[3] + 0.095, 0.435]} fontSize={0.075} color="#604f36" anchorX="center" fontWeight={800}>HUEVOS FRESCOS</Text>
+    <ShelfTag productId="eggs" count={count} capacity={capacity} position={[1.27, levels[3] + 0.2, 0.42]} fixtureYaw={RETAIL_DEPARTMENTS.eggs.yaw} />
     <Box args={[2.22, 0.14, 0.84]} position={[0, 1.84, 0]} color={palette.fixtureSteel} radius={0.03} />
     <DepartmentSign label={RETAIL_DEPARTMENTS.eggs.label} color={RETAIL_DEPARTMENTS.eggs.color} position={[0, 2.08, 0.08]} width={1.88} />
   </group>;
@@ -1093,7 +1131,7 @@ function CeilingLamp({ position, on, dynamicLight }: { position: Position; on: b
   return <group name="dynamic:ceiling-lamp" position={position}><EnvironmentModel id="equipment_ceiling_light" isolateMaterials onUpdate={updateMaterials} />{on && dynamicLight && <pointLight position={[0, -0.15, 0]} intensity={0.18} distance={4} color="#fff2c9" />}</group>;
 }
 
-type FarmCropKind = "tomato" | "orange" | "wheat" | "corn";
+type FarmCropKind = "tomato" | "apple" | "orange" | "wheat" | "corn";
 
 const FARM_LOCAL_LAYOUT_SCALE = STORE_LAYOUT_SCALE / STORE_ELEMENT_SCALE;
 const FARM_LOCAL_HALF_WIDTH = FARM_FIELD.size[0] * FARM_LOCAL_LAYOUT_SCALE * 0.5;
@@ -1115,6 +1153,8 @@ const FARM_WALL_CONNECTING_FENCES = [
 const TOMATO_GRID = Array.from({ length: 15 }, (_, index): [number, number] => [((index % 5) - 2) * 0.3, (Math.floor(index / 5) - 1) * 0.3]);
 const WHEAT_GRID = Array.from({ length: 28 }, (_, index): [number, number] => [((index % 7) - 3) * 0.215, (Math.floor(index / 7) - 1.5) * 0.205]);
 const CORN_GRID = Array.from({ length: 12 }, (_, index): [number, number] => [((index % 4) - 1.5) * 0.39, (Math.floor(index / 4) - 1) * 0.31]);
+/** Three young apple trees along the bed. */
+const APPLE_GRID: readonly [number, number][] = [[-0.62, 0.06], [0, -0.1], [0.62, 0.06]];
 const BED_TIMBERS: readonly InstanceTransform[] = [
   { position: [0, 0.17, -0.62], scale: [2.05, 0.21, 0.1] },
   { position: [0, 0.17, 0.62], scale: [2.05, 0.21, 0.1] },
@@ -1244,6 +1284,7 @@ function DormantCropPlot() {
 }
 
 function farmCropKind(productId: CropState["productId"]): FarmCropKind {
+  if (productId === "apples") return "apple";
   if (productId === "oranges") return "orange";
   if (productId === "wheat") return "wheat";
   if (productId === "corn") return "corn";
@@ -1334,23 +1375,39 @@ function SeedBed() {
 }
 
 function CropCanopy({ crop, growth, ready, available, yieldCapacity }: { crop: FarmCropKind; growth: number; ready: boolean; available: number; yieldCapacity: number }) {
-  const grid = crop === "wheat" ? WHEAT_GRID : crop === "corn" ? CORN_GRID : TOMATO_GRID;
-  const fullHeight = crop === "corn" ? 1.06 : crop === "wheat" ? 0.76 : 0.68;
+  const grid = crop === "wheat" ? WHEAT_GRID : crop === "corn" ? CORN_GRID : crop === "apple" ? APPLE_GRID : TOMATO_GRID;
+  const fullHeight = crop === "corn" ? 1.06 : crop === "apple" ? 0.82 : crop === "wheat" ? 0.76 : 0.68;
   const height = Math.max(0.12, fullHeight * growth);
   const stems = useMemo<InstanceTransform[]>(() => grid.map(([x, z], index) => ({
     position: [x, 0.25 + height / 2, z],
     rotation: [0, index * 0.49, (index % 3 - 1) * 0.025],
-    scale: [1, height, 1],
-  })), [grid, height]);
-  const leaves = useMemo<InstanceTransform[]>(() => grid.flatMap(([x, z], index) => [-1, 1].map((side): InstanceTransform => ({
-    position: [x + side * (crop === "corn" ? 0.075 : 0.055), 0.28 + height * (side > 0 ? 0.5 : 0.68), z],
-    rotation: [0, index * 0.77, side * (crop === "corn" ? 0.72 : 0.56)],
-    scale: crop === "corn" ? [1.25, 0.23, 0.48] : crop === "wheat" ? [0.48, 0.12, 0.24] : [0.9, 0.2, 0.42],
-  }))), [crop, grid, height]);
+    scale: crop === "apple" ? [2.6, height, 2.6] : [1, height, 1],
+  })), [crop, grid, height]);
+  const leaves = useMemo<InstanceTransform[]>(() => grid.flatMap(([x, z], index) => [-1, 1].map((side): InstanceTransform => (crop === "apple"
+    // Two overlapping crowns per trunk make a round canopy that grows with the tree.
+    ? {
+      position: [x + side * 0.08, 0.3 + height + 0.06 * growth, z + side * 0.04],
+      rotation: [0, index * 0.77 + side * 0.4, 0],
+      scale: [1.9 + growth, 1.5 + growth * 0.9, 1.9 + growth],
+    }
+    : {
+      position: [x + side * (crop === "corn" ? 0.075 : 0.055), 0.28 + height * (side > 0 ? 0.5 : 0.68), z],
+      rotation: [0, index * 0.77, side * (crop === "corn" ? 0.72 : 0.56)],
+      scale: crop === "corn" ? [1.25, 0.23, 0.48] : crop === "wheat" ? [0.48, 0.12, 0.24] : [0.9, 0.2, 0.42],
+    }))), [crop, grid, growth, height]);
   const fruitGrowth = Math.max(0, Math.min(1, (growth - 0.52) / 0.48));
   const fruits = useMemo<InstanceTransform[]>(() => {
     if (fruitGrowth <= 0) return [];
-    const authored = crop === "tomato" || crop === "orange"
+    const authored = crop === "apple"
+      ? grid.flatMap(([x, z], tree) => Array.from({ length: 6 }, (_, slot): InstanceTransform => {
+          const angle = slot * Math.PI / 3 + tree * 0.45;
+          // On the crown surface (crown radius ≈ 0.33 when ripe), never inside it.
+          return {
+            position: [x + Math.cos(angle) * 0.37, 0.3 + height + 0.04 + Math.sin(angle * 1.7 + tree) * 0.12, z + Math.sin(angle) * 0.33],
+            scale: [fruitGrowth, fruitGrowth, fruitGrowth],
+          };
+        }))
+      : crop === "tomato" || crop === "orange"
       ? grid.flatMap(([x, z], index) => [-1, 1].map((side): InstanceTransform => ({
           position: [x + side * 0.075, 0.31 + height * (0.56 + (index % 2) * 0.13), z + (index % 3 - 1) * 0.025],
           scale: [fruitGrowth, fruitGrowth * 0.88, fruitGrowth],
@@ -1363,12 +1420,12 @@ function CropCanopy({ crop, growth, ready, available, yieldCapacity }: { crop: F
     if (!ready) return authored;
     return cropVisualSlotIndices(available, yieldCapacity, authored.length).map((index) => authored[index]);
   }, [available, crop, fruitGrowth, grid, height, ready, yieldCapacity]);
-  const fruitColor = crop === "orange" ? (ready ? "#D58236" : growth > 0.78 ? "#b78b3e" : "#79a24b") : crop === "tomato" ? (ready ? "#df4035" : growth > 0.78 ? "#d98339" : "#79a24b") : crop === "wheat" ? (ready ? "#e8bd4c" : "#a4b15b") : (ready ? "#f2c53f" : "#83a950");
+  const fruitColor = crop === "orange" ? (ready ? "#D58236" : growth > 0.78 ? "#b78b3e" : "#79a24b") : crop === "apple" ? (ready ? "#cf3a33" : growth > 0.78 ? "#c9803a" : "#8fae4a") : crop === "tomato" ? (ready ? "#df4035" : growth > 0.78 ? "#d98339" : "#79a24b") : crop === "wheat" ? (ready ? "#e8bd4c" : "#a4b15b") : (ready ? "#f2c53f" : "#83a950");
   return <group>
-    <StaticInstances transforms={stems} castShadow><cylinderGeometry args={[crop === "wheat" ? 0.01 : 0.018, crop === "wheat" ? 0.015 : 0.024, 1, 6]} /><meshStandardMaterial color={crop === "wheat" && ready ? "#b89337" : "#4d7d3d"} roughness={0.94} /></StaticInstances>
-    <StaticInstances transforms={leaves} castShadow><sphereGeometry args={[0.115, 7, 5]} /><meshStandardMaterial color={crop === "corn" ? "#4f8a43" : crop === "wheat" ? "#729348" : "#438345"} roughness={0.96} /></StaticInstances>
+    <StaticInstances transforms={stems} castShadow><cylinderGeometry args={[crop === "wheat" ? 0.01 : 0.018, crop === "wheat" ? 0.015 : 0.024, 1, 6]} /><meshStandardMaterial color={crop === "apple" ? "#6b4a30" : crop === "wheat" && ready ? "#b89337" : "#4d7d3d"} roughness={0.94} /></StaticInstances>
+    <StaticInstances transforms={leaves} castShadow><sphereGeometry args={[0.115, 7, 5]} /><meshStandardMaterial color={crop === "corn" ? "#4f8a43" : crop === "wheat" ? "#729348" : crop === "apple" ? "#3f7f3d" : "#438345"} roughness={0.96} /></StaticInstances>
     {fruits.length > 0 && <StaticInstances transforms={fruits} castShadow>
-      {crop === "orange" ? <icosahedronGeometry args={[0.068, 1]} /> : crop === "tomato" ? <dodecahedronGeometry args={[0.068, 0]} /> : crop === "wheat" ? <coneGeometry args={[0.045, 0.17, 6]} /> : <sphereGeometry args={[0.075, 8, 6]} />}
+      {crop === "orange" ? <icosahedronGeometry args={[0.068, 1]} /> : crop === "apple" ? <sphereGeometry args={[0.064, 10, 8]} /> : crop === "tomato" ? <dodecahedronGeometry args={[0.068, 0]} /> : crop === "wheat" ? <coneGeometry args={[0.045, 0.17, 6]} /> : <sphereGeometry args={[0.075, 8, 6]} />}
       <meshStandardMaterial color={fruitColor} emissive={ready ? fruitColor : "#000000"} emissiveIntensity={ready ? 0.14 : 0} roughness={0.84} />
     </StaticInstances>}
   </group>;

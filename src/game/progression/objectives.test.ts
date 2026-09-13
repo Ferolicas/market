@@ -94,10 +94,10 @@ describe("level objectives", () => {
 
     expect(unlockedCustomerProducts(1)).toEqual(["tomatoes"]);
     expect(unlockedCustomerProducts(10)).toEqual(["tomatoes", "apples", "bread", "eggs", "coffee"]);
-    expect(averageShelfAvailability(franchise)).toBeCloseTo((8 / 12 + 6 / 10) / 5);
+    expect(averageShelfAvailability(franchise)).toBeCloseTo((8 / 30 + 6 / 24) / 5);
 
     franchise.stationTiers["shelves-1"] = 2;
-    expect(averageShelfAvailability(franchise)).toBeCloseTo((8 / 15 + 6 / 13) / 5);
+    expect(averageShelfAvailability(franchise)).toBeCloseTo((8 / 38 + 6 / 30) / 5);
   });
 });
 

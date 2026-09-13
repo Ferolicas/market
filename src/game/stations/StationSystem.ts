@@ -7,7 +7,7 @@ export type MachineStatus = "LOCKED" | "IDLE" | "WAITING_INPUT" | "PROCESSING" |
 
 export interface CropStation {
   id: string;
-  productId: "tomatoes" | "oranges" | "wheat" | "corn";
+  productId: "tomatoes" | "apples" | "oranges" | "wheat" | "corn";
   status: CropStatus;
   plantedAt: number;
   readyAt: number;
@@ -88,7 +88,7 @@ export function harvestCropBatch(cropInput: CropStation, nowMs: number, requeste
 }
 
 export function createMachine(id: string, productId: MachineStation["productId"], tier = 1): MachineStation {
-  return { id, productId, status: "WAITING_INPUT", input: {}, output: 0, outputCapacity: Math.round((PRODUCT_CONFIG[productId]?.shelfCapacity ?? 8) * stationTierModifiers(tier).capacity), startedAt: null, completesAt: null, tier };
+  return { id, productId, status: "WAITING_INPUT", input: {}, output: 0, outputCapacity: Math.round((PRODUCT_CONFIG[productId]?.outputCapacity ?? 8) * stationTierModifiers(tier).capacity), startedAt: null, completesAt: null, tier };
 }
 
 export function loadMachine(machine: MachineStation, inventory: Inventory, nowMs: number) {

@@ -70,7 +70,7 @@ export interface CarryState {
 
 export interface CropState {
   id: string;
-  productId: "tomatoes" | "oranges" | "wheat" | "corn";
+  productId: "tomatoes" | "apples" | "oranges" | "wheat" | "corn";
   status: "LOCKED" | "EMPTY" | "GROWING" | "READY" | "HARVESTING";
   plantedAt: number;
   readyAt: number;
@@ -259,8 +259,8 @@ export type GameAction =
   | { type: "SET_COUNTRY"; countryCode: CountryCode }
   | { type: "SET_AVATAR"; body?: CharacterId; hair?: HairId; hairColor?: string; skin?: string; shirt?: string; hat?: AvatarHatId }
   | { type: "TOGGLE_STORE" }
-  | { type: "TEND_CROP"; cropId?: string; productId?: "tomatoes" | "oranges" | "wheat" | "corn" }
-  | { type: "HARVEST"; cropId?: string; productId?: "tomatoes" | "oranges" | "wheat" | "corn"; quantity?: number }
+  | { type: "TEND_CROP"; cropId?: string; productId?: CropState["productId"] }
+  | { type: "HARVEST"; cropId?: string; productId?: CropState["productId"]; quantity?: number }
   | { type: "LOAD_FLOUR_MILL" }
   | { type: "BAKE_BREAD" }
   | { type: "OPERATE_MACHINE"; machineId: string }

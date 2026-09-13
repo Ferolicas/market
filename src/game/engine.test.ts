@@ -23,16 +23,35 @@ function addReadyCheckout(state: GameState, id: string, paymentMethod: PaymentMe
 }
 
 describe("motor económico", () => {
+  it("abre el manzano en el nivel que trae la demanda de manzanas y lo añade a partidas antiguas", () => {
+    const fresh = createInitialGame("ES");
+    expect(fresh.franchises[0].crops.find((crop) => crop.id === "crop-apple-1")).toMatchObject({ productId: "apples", status: "LOCKED" });
+
+    const legacy = createInitialGame("ES");
+    legacy.level = 3;
+    legacy.franchises[0].crops = legacy.franchises[0].crops.filter((crop) => crop.id !== "crop-apple-1");
+    const restored = normalizeGameState(legacy);
+    expect(restored.franchises[0].crops.find((crop) => crop.id === "crop-apple-1")).toMatchObject({ productId: "apples", status: "GROWING" });
+    expect(restored.franchises[0].stationTiers["crop-apple-1"]).toBe(1);
+
+    const early = createInitialGame("ES");
+    early.franchises[0].crops = early.franchises[0].crops.filter((crop) => crop.id !== "crop-apple-1");
+    expect(normalizeGameState(early).franchises[0].crops.find((crop) => crop.id === "crop-apple-1")?.status).toBe("LOCKED");
+  });
+
   it("expone la capacidad de estante por nivel con la misma regla que aplica al reponer", () => {
-    expect(shelfCapacityForTier(1, "tomatoes")).toBe(12);
-    expect(shelfCapacityForTier(10, "tomatoes")).toBe(26);
-    expect(shelfCapacityForTier(1, "bread")).toBe(8);
-    expect(shelfCapacityForTier(10, "bread")).toBe(18);
+    // Tier 1 is every physical front slot of the SKU's fixtures (two produce
+    // tables of 15, three bakery shelves of 8); higher tiers fill deeper rows.
+    expect(shelfCapacityForTier(1, "tomatoes")).toBe(30);
+    expect(shelfCapacityForTier(10, "tomatoes")).toBe(66);
+    expect(shelfCapacityForTier(1, "bread")).toBe(24);
+    expect(shelfCapacityForTier(10, "bread")).toBe(53);
+    expect(shelfCapacityForTier(1, "coffee")).toBe(120);
 
     const state = createInitialGame("ES");
     const franchise = state.franchises[0];
-    franchise.carry = { capacity: 40, items: { tomatoes: 40 } };
-    const stocked = applyGameAction(state, { type: "STOCK", productId: "tomatoes", quantity: 40, source: "carry" }).state;
+    franchise.carry = { capacity: 80, items: { tomatoes: 80 } };
+    const stocked = applyGameAction(state, { type: "STOCK", productId: "tomatoes", quantity: 80, source: "carry" }).state;
     expect(stocked.franchises[0].shelves.tomatoes).toBe(shelfCapacityForTier(franchise.stationTiers["shelves-1"] ?? franchise.shelvesLevel, "tomatoes"));
   });
 
@@ -299,6 +318,7 @@ describe("motor económico", () => {
     expect(bought.ok).toBe(true);
     expect(station.carry.capacity).toBe(5);
     expect(station.crops.some((crop) => crop.id === "crop-tomato-2")).toBe(true);
+    expect(station.crops.find((crop) => crop.id === "crop-apple-1")?.status).toBe("GROWING");
     expect(station.crops.find((crop) => crop.id === "crop-wheat-1")?.status).toBe("GROWING");
     expect(station.productionMachines.find((machine) => machine.id === "flour-mill-1")?.status).toBe("WAITING_INPUT");
     expect(station.buildProjects.some((project) => project.level === 6)).toBe(true);
@@ -1130,7 +1150,7 @@ describe("cesta de devolución de empleados", () => {
   it("envía al reponedor a la cesta si el estante se llenó mientras caminaba", () => {
     const state = createInitialGame("ES");
     const franchise = state.franchises[0];
-    franchise.shelves.apples = 12;
+    franchise.shelves.apples = shelfCapacityForTier(1, "apples");
     franchise.warehouse.apples = 0;
     franchise.employees = [{
       id: "return-stocker", name: "Luna", role: "stocker", level: 1, salaryMinor: 3_000, energy: 100, hat: "frog",
@@ -1155,7 +1175,7 @@ describe("cesta de devolución de empleados", () => {
   it("coloca lo que cabe y devuelve junta toda la carga restante sin perder ni duplicar productos", () => {
     let state = createInitialGame("ES");
     const franchise = state.franchises[0];
-    franchise.shelves.apples = 11;
+    franchise.shelves.apples = shelfCapacityForTier(1, "apples") - 1;
     franchise.warehouse.apples = 0;
     franchise.warehouse.milk = 0;
     franchise.employees = [{
@@ -1170,7 +1190,7 @@ describe("cesta de devolución de empleados", () => {
 
     state = advanceWorld(state, 500, directPathfinder).state;
     let runtime = state.franchises[0].employees[0].runtime!;
-    expect(state.franchises[0].shelves.apples).toBe(12);
+    expect(state.franchises[0].shelves.apples).toBe(shelfCapacityForTier(1, "apples"));
     expect(runtime.state).toBe("NAVIGATE_RETURN");
     expect(runtime.carry.items).toEqual({ apples: 2, milk: 1 });
 
@@ -1190,6 +1210,6 @@ describe("cesta de devolución de empleados", () => {
     expect(state.progression.counters["employee-return:warehouse"]).toBe(3);
     expect(state.progression.counters["employee-return:apples"]).toBe(2);
     expect(state.progression.counters["employee-return:milk"]).toBe(1);
-    expect(state.franchises[0].shelves.apples + state.franchises[0].warehouse.apples).toBe(14);
+    expect(state.franchises[0].shelves.apples + state.franchises[0].warehouse.apples).toBe(shelfCapacityForTier(1, "apples") + 2);
   });
 });
