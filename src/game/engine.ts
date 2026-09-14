@@ -6,7 +6,7 @@ import { createCustomerMind } from "./ai/CustomerBrain";
 import { LEVELS, stationTierModifiers } from "./progression/levels";
 import { averageShelfAvailability, levelObjectiveSatisfied, levelObjectiveTasks, unlockedCustomerProducts } from "./progression/objectives";
 import { CHECKOUT_LANES, checkoutQueueArrival, checkoutQueuePosition, type CheckoutLane } from "./stations/checkout-layout";
-import { retailServicePoint, retailShelfCapacityForTier } from "./stations/retail-layout";
+import { pantryEntranceRowBand, retailServicePoint, retailShelfCapacityForTier } from "./stations/retail-layout";
 import {
   FARM_ACCESS_WAYPOINTS,
   FARM_ANIMAL_STATIONS,
@@ -23,7 +23,7 @@ import { CART_RETURN_POINT, RETURNS_POINT, RETURNS_TO_CART_FALLBACK, STORE_SERVI
 import { storefrontDoorActorPresent, STORE_REAR_DOOR, STOREFRONT_LAYOUT } from "./stations/storefront-layout";
 import { PRODUCTION_MACHINE_POINTS } from "./stations/production-layout";
 import { STOCKROOM_POINT, WAREHOUSE_RETURN_STATION } from "./stations/warehouse-layout";
-import { storeSegmentIsClear } from "./world-scale";
+import { STORE_ELEMENT_SCALE, STORE_LAYOUT_SCALE, storeSegmentIsClear } from "./world-scale";
 import { BUSINESS_DAY_NIGHT_MINUTE, BUSINESS_DAY_OPEN_MINUTE, businessDayIsClosing, businessMinutesForRealMs } from "./time/BusinessDay";
 
 const EMPTY_INVENTORY = (): Inventory => ({ wheat: 0, flour: 0, bread: 0, corn: 0, milk: 0, eggs: 0, cheese: 0, apples: 0, tomatoes: 0, oranges: 0, coffee: 0, juice: 0 });
@@ -1703,9 +1703,30 @@ function walkPathActor(actor: PathActor, deltaMs: number) {
 }
 
 /** Pre-Recast fallback lane: the only full-height north–south aisle runs at
- * x ≈ 3.1, between the pantry row and the drinks display (see
- * STORE_REAR_DOOR.interiorCorridor). */
+ * x ≈ 3.1, east of the entrance gondola row and west of the drinks display
+ * (see STORE_REAR_DOOR.interiorCorridor). */
 function laneFor() { return 3.1; }
+
+/** The entrance row (x −3.46…2.46, z −0.37…0.87) plus a walking margin: its
+ * edges, the drinks display's north and south edges and two open rows are the
+ * horizontal legs a fallback walk may use to reach the lane. */
+const PANTRY_ROW_BAND = pantryEntranceRowBand(STORE_ELEMENT_SCALE / STORE_LAYOUT_SCALE, 0.36);
+const LANE_APPROACH_ROWS = [PANTRY_ROW_BAND.minZ, PANTRY_ROW_BAND.maxZ, -1.8, -4.4, 0.45, 5.6] as const;
+
+/** Waypoints from a floor point to the fallback lane that cross neither the
+ * gondola row nor the drinks display: straight across when that leg is clear,
+ * otherwise along the point's own column to the nearest clear row first. */
+function laneApproach(point: readonly [number, number]): [number, number][] {
+  const lane = laneFor();
+  const direct: [number, number] = [lane, Math.min(5.6, point[1])];
+  if (storeSegmentIsClear(point, direct)) return [direct];
+  for (const z of LANE_APPROACH_ROWS) {
+    const corner: [number, number] = [point[0], z];
+    const laneAt: [number, number] = [lane, z];
+    if (storeSegmentIsClear(point, corner) && storeSegmentIsClear(corner, laneAt)) return [corner, laneAt];
+  }
+  return [direct];
+}
 
 function customerPath(start: [number, number], target: [number, number]): [number, number][] {
   if (sameStorePoint(target, RETURNS_POINT)) {
@@ -1729,11 +1750,10 @@ function customerPath(start: [number, number], target: [number, number]): [numbe
   // A clear straight walk needs no lane: the fallback used to send a customer
   // round the whole aisle to reach the neighbouring slot of the same shelf.
   if (!startsOutside && !endsOutside && storeSegmentIsClear(start, target)) return compactPath(start, [target]);
-  const lane = laneFor(); const path: [number, number][] = [];
+  const path: [number, number][] = [];
   if (start[1] > 5.6) path.push([start[0], 5.6]);
-  path.push([lane, Math.min(5.6, Math.max(0.45, start[1]))]);
-  if (target[1] < 0.45) path.push([lane, 0.45]);
-  path.push([lane, target[1]], target);
+  path.push(...laneApproach(path.at(-1) ?? start));
+  path.push(...laneApproach(target).reverse(), target);
   return compactPath(start, path);
 }
 

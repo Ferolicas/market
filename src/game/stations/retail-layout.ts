@@ -21,13 +21,18 @@ export interface RetailDepartment {
 export const RETAIL_STOCKING_MAGNET_REACH = { enter: 1.1, exit: 1.3 } as const;
 
 const INDIVIDUAL_FLOOR_TILE_LAYOUT = 46 / (12 * 3 * 2);
-/** Three gondolas side by side facing the entrance, then two more against the
+/** Three gondolas side by side facing the entrance, set half again as deep
+ * into the floor as before (z 2.5 → 0.25, so the front face stands 6.8
+ * layout units from the door instead of 4.6), then two more against the
  * rear wall (where the decorative operations bays stood) facing the door.
- * The first entry carries the department magnet and service point. */
+ * The first entry carries the department magnet and service point. The row
+ * seals the aisle west of it against the first produce table, so every
+ * north–south walk uses the corridor east of x 2.46; the drinks display sits
+ * far enough south (z ≤ −2.16) for Recast to keep that corridor open. */
 export const PANTRY_DISPLAY_POSITIONS = [
-  [-0.5, 0, 2.5],
-  [-2.5, 0, 2.5],
-  [1.5, 0, 2.5],
+  [-0.5, 0, 0.25],
+  [-2.5, 0, 0.25],
+  [1.5, 0, 0.25],
   [-4, 0, -7.9],
   [-1.9, 0, -7.9],
 ] as const;
@@ -40,11 +45,14 @@ export const RETAIL_DEPARTMENTS: Record<RetailDepartmentId, RetailDepartment> = 
   // Service points remain useful route destinations, but the actual stocking
   // volume wraps the complete fixture footprint so every walkable side works.
   bakery: { id: "bakery", label: "PAN Y HARINAS", color: "#b96d39", display: [-4.3, 0, -5], yaw: 90, fixtureHalfExtents: [1.2, 0.78], service: [-3.05, -5], products: ["bread", "flour", "wheat"] },
-  pantry: { id: "pantry", label: "DESPENSA", color: "#6f4938", display: [...PANTRY_DISPLAY_POSITIONS[0]], yaw: 0, fixtureHalfExtents: [1.2, 0.78], service: [-0.5, 3.9], products: ["coffee"] },
+  pantry: { id: "pantry", label: "DESPENSA", color: "#6f4938", display: [...PANTRY_DISPLAY_POSITIONS[0]], yaw: 0, fixtureHalfExtents: [1.2, 0.78], service: [-0.5, 1.65], products: ["coffee"] },
   eggs: { id: "eggs", label: "HUEVOS", color: "#d49a34", display: [-10.25, 0, -1.75], yaw: 0, fixtureHalfExtents: [1.2, 0.78], service: [-10.25, -0.4], products: ["eggs"] },
   produce: { id: "produce", label: "FRUTAS Y VERDURAS", color: "#3f7b4c", display: [...PRODUCE_DISPLAY_POSITIONS[0]], yaw: 0, fixtureHalfExtents: [1.25, 0.83], service: [-4.55, 4.1 - 4 * INDIVIDUAL_FLOOR_TILE_LAYOUT - 1.35], products: ["tomatoes", "apples", "oranges", "corn"] },
   dairy: { id: "dairy", label: "LÁCTEOS", color: "#4382a1", display: [-10.34, 0, 0.45 + 3 * INDIVIDUAL_FLOOR_TILE_LAYOUT], yaw: 90, fixtureHalfExtents: [1.25, 0.83], service: [-9.24, 0.45 + 3 * INDIVIDUAL_FLOOR_TILE_LAYOUT], products: ["milk", "cheese"] },
-  drinks: { id: "drinks", label: "BEBIDAS", color: "#cc6841", display: [4.35, 0, -0.9], yaw: 90, fixtureHalfExtents: [1.18, 0.8], service: [5.45, -0.9], products: ["juice"] },
+  // Moved 2.2 south with the entrance row: its north edge (z −2.16) must stay
+  // about two layout units diagonally from the row's south-east corner or the
+  // NavMesh loses the only corridor between the sales floor and the back.
+  drinks: { id: "drinks", label: "BEBIDAS", color: "#cc6841", display: [4.35, 0, -3.1], yaw: 90, fixtureHalfExtents: [1.18, 0.8], service: [5.45, -3.1], products: ["juice"] },
 };
 
 export const RETAIL_DEPARTMENT_IDS = Object.keys(RETAIL_DEPARTMENTS) as RetailDepartmentId[];
@@ -209,6 +217,23 @@ export function retailShelfCapacityForTier(tier: number, productId: ProductId) {
 
 export function retailServicePoint(productId: ProductId): [number, number] {
   return [...RETAIL_DEPARTMENTS[PRODUCT_RETAIL_DEPARTMENT[productId]].service];
+}
+
+/**
+ * Footprint of the three entrance gondolas in layout units, enlarged by a
+ * walking margin, for the pre-Recast fallback router: a horizontal leg whose
+ * z lies inside this band would cross the row.
+ */
+export function pantryEntranceRowBand(elementToLayout: number, margin: number) {
+  const row = PANTRY_DISPLAY_POSITIONS.slice(0, 3);
+  const halfX = RETAIL_DEPARTMENTS.pantry.fixtureHalfExtents[0] * elementToLayout;
+  const halfZ = RETAIL_DEPARTMENTS.pantry.fixtureHalfExtents[1] * elementToLayout;
+  return {
+    minX: Math.min(...row.map((position) => position[0])) - halfX - margin,
+    maxX: Math.max(...row.map((position) => position[0])) + halfX + margin,
+    minZ: row[0][2] - halfZ - margin,
+    maxZ: row[0][2] + halfZ + margin,
+  };
 }
 
 export function retailDisplayPosition(departmentId: RetailDepartmentId): [number, number, number] {

@@ -18,8 +18,8 @@ describe("store scale system", () => {
   });
 
   it("detects enlarged furniture footprints", () => {
-    expect(overlapsStoreObstacle(scaleStorePoint([-0.5, 2.5]), 0.4)).toBe(true);
-    expect(overlapsStoreObstacle(scaleStorePoint([2.2, 0.45]), 0.4)).toBe(false);
+    expect(overlapsStoreObstacle(scaleStorePoint([-0.5, 0.25]), 0.4)).toBe(true);
+    expect(overlapsStoreObstacle(scaleStorePoint([3.1, 0.45]), 0.4)).toBe(false);
   });
 
   it("shares both rear-door corridor fences with physics and navigation", () => {
