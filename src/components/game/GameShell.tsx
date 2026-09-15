@@ -528,7 +528,7 @@ function ManagementPanel({ panel, close }: { panel: Exclude<Panel, null>; close:
       {panel === "build" && <div className="upgrade-grid">
         <article><span>🏗️</span><div><strong>Ampliación de nivel</strong><p>{buildProgress(franchise, game.level)}. Las ventas aumentan la caja; la obra avanza al confirmar un aporte y se inaugura al completar también el objetivo.</p></div>{project && projectFunding && !projectFunding.completed ? <button disabled={projectFunding.contributionMinor <= 0} onClick={() => dispatch({ type: "CONTRIBUTE_BUILD", amountMinor: projectFunding.contributionMinor })}>{projectFunding.contributionMinor <= 0 ? "Sin caja disponible" : `${projectFunding.contributionMinor < projectFunding.remainingMinor ? "Aportar" : "Financiar"} · ${formatMoney(projectFunding.contributionMinor, game)}`}</button> : <b>{projectFunding?.completed ? "Financiada" : "Rango máximo"}</b>}</article>
         <UpgradePurchase icon="⚙️" title="Estación prioritaria" description="Mejora primero la estación desbloqueada con menor nivel." quote={stationQuote} game={game} onBuy={() => stationQuote && dispatch({ type: "CONTRIBUTE_UPGRADE", upgrade: "station", amountMinor: stationQuote.remainingMinor })} />
-        <UpgradePurchase icon="🏃" title="Velocidad del vendedor" description={`Movimiento actual T${franchise.playerSpeedTier}.`} quote={speedQuote} game={game} onBuy={() => speedQuote && dispatch({ type: "CONTRIBUTE_UPGRADE", upgrade: "player-speed", amountMinor: speedQuote.remainingMinor })} />
+        <UpgradePurchase icon="🏃" title="Velocidad del vendedor" description={`Movimiento actual T${franchise.playerSpeedTier}.`} quote={speedQuote} lockedMessage={game.level < 3 ? "Se desbloquea en nivel 3" : "Velocidad máxima alcanzada"} game={game} onBuy={() => speedQuote && dispatch({ type: "CONTRIBUTE_UPGRADE", upgrade: "player-speed", amountMinor: speedQuote.remainingMinor })} />
         <UpgradePurchase icon="🧺" title="Capacidad de cesta" description={`Carga actual: ${franchise.carry.capacity} unidades mezcladas.`} quote={capacityQuote} game={game} onBuy={() => capacityQuote && dispatch({ type: "CONTRIBUTE_UPGRADE", upgrade: "player-capacity", amountMinor: capacityQuote.remainingMinor })} />
         <UpgradePurchase icon="👥" title="Formación del equipo" description="Contrata el siguiente puesto o forma al empleado de menor nivel." quote={employeeQuote} game={game} onBuy={() => employeeQuote && dispatch({ type: "CONTRIBUTE_UPGRADE", upgrade: "employee", amountMinor: employeeQuote.remainingMinor })} />
         <article><span>📜</span><div><strong>Licencia comercial</strong><p>{franchise.licenseDaysLeft} días restantes. Obligatoria para abrir.</p></div><button onClick={() => dispatch({ type: "BUY_LICENSE" })}>Renovar 14 días</button></article>
@@ -540,11 +540,11 @@ function ManagementPanel({ panel, close }: { panel: Exclude<Panel, null>; close:
   </section></div>;
 }
 
-function UpgradePurchase({ icon, title, description, quote, game, onBuy }: { icon: string; title: string; description: string; quote: ReturnType<typeof upgradeQuote>; game: GameState; onBuy: () => void }) {
+function UpgradePurchase({ icon, title, description, quote, lockedMessage = "Aún no disponible", game, onBuy }: { icon: string; title: string; description: string; quote: ReturnType<typeof upgradeQuote>; lockedMessage?: string; game: GameState; onBuy: () => void }) {
   return <article className={quote ? "" : "locked"}>
     <span>{icon}</span>
     <div><strong>{title}</strong><p>{quote ? `${quote.label} · T${quote.currentTier} → T${quote.nextTier}. ${description}` : description}</p>{quote && quote.contributedMinor > 0 && <small>{formatMoney(quote.contributedMinor, game)} ya financiados</small>}</div>
-    {quote ? <button disabled={game.balanceMinor < quote.remainingMinor} onClick={onBuy}>{game.balanceMinor < quote.remainingMinor ? `Faltan ${formatMoney(quote.remainingMinor - game.balanceMinor, game)}` : `Mejorar · ${formatMoney(quote.remainingMinor, game)}`}</button> : <b>Aún no disponible</b>}
+    {quote ? <button disabled={game.balanceMinor < quote.remainingMinor} onClick={onBuy}>{game.balanceMinor < quote.remainingMinor ? `Faltan ${formatMoney(quote.remainingMinor - game.balanceMinor, game)}` : `Mejorar · ${formatMoney(quote.remainingMinor, game)}`}</button> : <b>{lockedMessage}</b>}
   </article>;
 }
 

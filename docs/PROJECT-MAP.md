@@ -1,6 +1,6 @@
 # Mini Market — mapa vivo
 
-Actualizado: 2026-09-13.
+Actualizado: 2026-09-15.
 
 ## Producto y stack
 
@@ -45,20 +45,30 @@ activa forma parte del Caddy central del VPS y debe validarse antes de recargar.
 - `/api/game/config`: configuración pública no sensible.
 - `/api/game/save`: autenticada, partida autoritativa con revisión y checksum.
 - `/api/game/ledger`: autenticada, libro contable idempotente.
+- `/api/game/telemetry`: autenticada, diagnóstico de cliente acotado a 32 KB y 12 eventos/minuto por usuario.
 
 ## Persistencia y economía
 
 - El servidor es autoritativo para cuentas, revisiones de guardado y libro contable.
 - La PWA conserva una copia local de recuperación y puede abrirla sin conexión.
-- Las escrituras usan concurrencia optimista; un conflicto nunca destruye la copia local.
+- Las escrituras usan concurrencia optimista e idempotencia durable. Cada PUT lleva `operationId`, `deviceId` y `sessionId`; `SaveOperation` conserva el recibo aplicado para que perder la respuesta HTTP y reintentar no cree un conflicto contra el propio dispositivo ni duplique la revisión.
+- El recovery de IndexedDB está separado por una huella no reversible de cuenta. Además del snapshot guarda un outbox con el cuerpo exacto del PUT pendiente. Una colisión real entre dispositivos conserva la versión local y muestra conflicto; nunca sustituye silenciosamente la partida por una revisión antigua.
 - Todo importe se almacena como entero en unidades menores y aplica `countryMoneyScale` a precios base.
 - Los ticks agrupan el snapshot local más reciente y lo persisten con IndexedDB durante tiempo ocioso, sin serializar la partida completa en el hilo de render. `GameRuntime` sincroniza el servidor cada 30 segundos durante tiempo ocioso y fuerza persistencia/sincronización al ocultar o cerrar la pestaña; la simulación periódica se pausa en segundo plano.
+- `game-validation.ts` valida profundamente el snapshot completo antes de normalizarlo. `SaveAuthority.ts` actúa como firewall de integridad: niveles y progreso monotónicos, franquicias y desbloqueos inmutables/level-gated, límites de inventario/empleados, y todo incremento de caja debe poder explicarse por una venta, recompensa o configuración legítima. El destino arquitectónico sigue siendo replay de comandos en servidor; no se debe describir este firewall como equivalencia total a un servidor de comandos.
+
+## Resiliencia y observabilidad de campo
+
+- `error.tsx` y `global-error.tsx` contienen fallos de React/Next y permiten reintentar sin borrar IndexedDB.
+- `WebGLContextRecovery` captura `webglcontextlost`, solicita restauración con una extensión obtenida mientras el contexto aún está sano y, solo si no vuelve en cinco segundos, persiste la recuperación y recarga. La restauración en caliente reinicia el estado del renderer e invalida la escena.
+- `FieldPerformanceSampler` envía ventanas autenticadas de un minuto con media/p95 de frame, frames de más de 25 ms, tareas largas, nivel y población. Guardado offline/conflicto/error, excepciones y pérdida/restauración WebGL usan el mismo canal.
+- `ClientTelemetry` retiene estos diagnósticos por 30 días mediante limpieza incremental. Nunca se envía el snapshot, inventario, email, token ni otro dato de juego sensible.
 
 ## Escena y gameplay
 
 - El vendedor se mueve con teclado, mando o arrastre táctil y usa una cámara ortográfica isométrica. El encuadre general conserva orientación y ángulo, con un `zoom` 1,3× más próximo; en una cámara ortográfica moverla sobre su eje no cambia el tamaño aparente.
 - `BusinessDay.ts` define la jornada autoritativa 07:30–21:00: 810 minutos de juego equivalen exactamente a 3 horas reales con la tienda abierta. El tick visible avanza el reloj solo mientras la tienda está abierta; al ocultar/cerrar la aplicación los timers se detienen y no existe avance offline. Desde las 18:00 `daylightPresentation` interpola día, atardecer y noche. A las 21:00 (o al cerrar manualmente) se bloquean nuevos clientes, se cobra automáticamente a quienes ya estaban dentro, se mantienen encendidas las luces interiores y, cuando salen, se ejecuta una sola vez el cierre contable y se prepara el día siguiente a las 07:30.
-- Cultivos, máquinas, estantes, almacén y cajas se activan por proximidad mediante imanes; la transferencia visible no bloquea al actor.
+- Cultivos, máquinas, estantes, almacén y cajas se activan por proximidad mediante imanes; la transferencia visible no bloquea al actor. Cada mueble físico repetido tiene su propio sensor/magnet (`fixtureIndex`), aunque todos despachen la misma acción lógica del departamento. `InteractionDirector` elige primero por distancia plana al fixture y usa la prioridad solo para desempatar, de modo que un imán lejano no roba la interacción local.
 - Capacidad de estantes = huecos físicos. `RETAIL_SHELF_GRIDS` y `PRODUCE_LAYERS` (`retail-layout.ts`) describen la cuadrícula real de cada mueble; `retailShelfCapacityForTier` es la única regla de capacidad (motor, planificación de cesta, objetivos y presentación): en nivel de expositor 1 la capacidad de cada producto es exactamente la fila delantera de todos sus muebles (pan 24, harina/trigo 12, café 200 en cinco góndolas, huevos 24, leche/queso 25, zumo 45, frutas y verduras 30 = 15 por mesa) y las mejoras de `shelves-1` abren filas hacia el fondo o capas apiladas, siempre con hueco visible. Las unidades se reparten por todos los niveles antes de usar la siguiente fila de fondo. Las máquinas conservan su búfer propio (`outputCapacity` en `products.ts`).
 - Todo estante lleva su indicador en vivo: la mesa de frutas y verduras tiene cuatro cubetas inclinadas hacia la cámara, una por producto (`PRODUCE_BIN_COLUMNS`), con un cartel grande por cubeta (`retail-slot-sign:*`); panadería, despensa, huevos, lácteos y bebidas llevan una pantalla por producto (`retail-stock-screen:*`, `StockScreen`) sobre un riel encima del rótulo del departamento (`ScreenRail`), girada hacia la cámara fija (`CAMERA_AZIMUTH`). La pantalla muestra la foto del producto (réplica renderizada una vez a textura con `RenderTexture frames={1}`), el nombre, `unidades/capacidad` de ese mueble y `faltan n` o `LLENO`; solo los dos textos de contador cambian en juego (`dynamic:stock-screen`). La cantidad dibujada es la autoritativa: unidades y capacidad se reparten entre los muebles de un departamento por turnos (`distributedFixtureQuantity`), un hueco sin stock se ve vacío y no existe decoración fija; los vuelos de reposición aterrizan en el mueble y hueco donde aparecerá la unidad (`retailStockFixtureSlot`).
 - Orientación: la cámara mira desde +x/+z, así que lácteos y bebidas giran a `yaw: 90` (frente hacia el interior y la cámara; el punto de servicio de bebidas queda al este del mueble, `[5.45, -3.1]`) y la fila delantera de cada balda va junto al borde para que la balda superior no la tape.
@@ -70,8 +80,9 @@ activa forma parte del Caddy central del VPS y debe validarse antes de recargar.
 - Gorros: los GLB de capucha están autorizados alrededor de una cabeza 2–2,8× mayor que la de los rigs entregados (forro de 0,46–0,52 u frente a cráneos de 0,165–0,25 u). `HAT_FIT_SCALE` (`Avatar.tsx`) los escala sobre el hueso `Head` (adultos 0,49; niño 0,64; niña 0,68).
 - `CharacterScale.ts` unifica la escala visible del reparto: el tamaño aprobado del niño (`1,65`) es el mínimo, todos los adultos (propietario, empleados y clientes) comparten una altura objetivo un 10 % mayor, y las calibraciones particulares de los GLB de clientes se conservan.
 - Clientes: entrada, carro, selección de productos, fila, descarga, pago, bolsa, devolución del carro y salida.
-- La segunda caja (`checkout-2`) se abre al contratar un segundo cajero (`ensureSecondCheckoutForCashiers`, también al cargar partidas antiguas) además del desbloqueo por nivel 17; hasta entonces se muestra cerrada.
-- Empleados: granja, producción, reposición y caja según demanda y rol. El granjero puntúa todos los cultivos habilitados por escasez directa y por demanda de recetas (trigo/harina/pan, naranja/zumo, además de tomate y maíz), evita reservar el mismo bancal que otro granjero y lleva siempre la materia prima más necesaria; el operario conserva la carga y descarga de máquinas.
+- La segunda caja (`checkout-2`) se abre al contratar un segundo cajero (`ensureSecondCheckoutForCashiers`, también al cargar partidas antiguas) además del desbloqueo por nivel 17; hasta entonces se muestra cerrada. Los cajeros se ordenan de forma estable por id y cada uno posee una caja disponible; no persiguen al mismo cliente ni cambian de carril por cada tick. El estado `WAIT_CHECKOUT_STATION` mantiene la asignación visual sin fingir que está escaneando.
+- Empleados: granja, producción, reposición y caja según demanda y rol. El granjero puntúa todos los cultivos habilitados por escasez directa y por demanda de recetas (trigo/harina/pan, naranja/zumo, además de tomate y maíz), evita reservar el mismo bancal que otro granjero y lleva siempre la materia prima más necesaria. Reponedores y operarios descuentan las reservas de cargas/tareas ajenas; el reponedor solo lleva productos vendibles al público y mantiene en almacén el mínimo de receta, mientras el operario toma insumos existentes sin esperar innecesariamente al granjero.
+- Progresión comercial: los niveles 1–29 combinan un objetivo operativo y trabajo explícito del propietario (`player:*`). Los contadores se fotografían al entrar al nivel (`levelStartedCounters`), así que actividad histórica o empleados AFK no precompletan el siguiente. Financiar la obra es un requisito adicional, nunca un sustituto. La campaña introduce productos, máquinas, personal, capacidad, velocidad y ampliaciones en el mismo nivel o antes de pedirlos. La velocidad del jugador se habilita desde nivel 3.
 - Rapier resuelve al jugador y colliders; Recast calcula caminos de clientes y empleados. Antes de que Recast esté listo, el motor usa un carril de reserva único en x ≈ 3,1 (`STORE_REAR_DOOR.interiorCorridor`, `laneFor`), el único pasillo norte–sur completo entre la fila de góndolas y el expositor de bebidas; los tramos horizontales hacia un punto a la altura de la fila (`pantryEntranceRowBand`) bordean su lado sur, y si el segmento recto entre origen y destino está libre (`storeSegmentIsClear`) se camina directo.
 - Las posiciones físicas y visuales comparten los módulos de `src/game/stations/` y `src/game/world-scale.ts`.
 
@@ -128,7 +139,9 @@ El tick autoritativo clona el mundo con `structuredClone`, así que cada 200 ms 
 - `StoreColliders`, `InteractionSensors`, `RearDoorAssembly` y las piezas de `KitFurniture` son `memo`; los sensores y el jugador reciben firmas de texto (`unlockedSignature`, `cropSignature`) en lugar de arrays. Los componentes de departamento y máquina usan `sameFixtureProps` (igualdad estructural), de modo que un cambio de stock o un escaneo en caja sólo re-renderiza su departamento.
 - `MarketText` es `memo` con comparación por valor: `Text` de drei relanza `troikaMesh.sync()` (worker + subida de geometría) en cada render, aunque el texto no cambie.
 - Los vuelos de producto reportan cada aterrizaje desde el bucle de frames; `GameShell` los agrupa en una única actualización por `requestAnimationFrame`.
-- `CustomerWarmup` monta los tres primeros cuerpos de cliente, minúsculos y dentro del encuadre, mientras la pantalla de carga cubre el lienzo: el GLB se decodifica, el atlas sube a la GPU y el programa físico con skinning se compila antes de `sceneReady`. Los clips compuestos (`composeCarryAnimations`, alias de runtime) se cachean por GLB.
+- `CustomerWarmup` precarga las seis identidades de cliente durante slices ociosos mientras la pantalla de carga cubre el lienzo: el GLB se decodifica, el atlas sube a la GPU y el programa físico con skinning se compila antes de `sceneReady`. Los clips compuestos (`composeCarryAnimations`, alias de runtime) se cachean por GLB.
+- La cara se actualiza a 24 Hz para el propietario y a 16/12/8 Hz para multitudes LOD0/1/2; locomoción, clips, manos y contactos continúan a la cadencia de presentación. La evitación entre clientes usa una cuadrícula espacial de celdas 0,6 en lugar de comparar todos contra todos.
+- `LocomotionController` detecta la acción anómala que Three conserva programada pero deshabilitada a peso cero después de un cross-fade rápido, y reactiva solo ese caso. Esto elimina la pose en T inicial sin reiniciar clips sanos cada frame.
 - Nada que se monte en mitad del juego usa `RoundedBox` de drei: ese componente extruye una forma nueva y recalcula normales suavizadas en un `useLayoutEffect` en cada montaje. La cesta (`HarvestBasket`) y los productos de cesta, vuelo y carro (`BasketProduct`) comparten geometrías y materiales de módulo. `useCharacterModelTier` cachea su snapshot hasta un cambio real de viewport o de puntero.
 - El propietario se presenta a escala 1,65 (×1,5 respecto a 1,1); la cápsula de colisión conserva su huella para no bloquear pasillos.
 
@@ -151,9 +164,19 @@ Pruebas de navegador relevantes:
 - `pnpm qa:customers`;
 - `pnpm qa:workers`;
 - `pnpm qa:production-surface`.
+- `pnpm qa:save-lost-ack`;
+- `pnpm qa:webgl-recovery`.
 
 `scripts/measure-character-rig.mjs` mide un GLB de personaje sin Blender: límites de cabeza y palmas en la pose de reposo, geometría de las manos en cualquier clip/tiempo y velocidad natural de cada ciclo de marcha (`node scripts/measure-character-rig.mjs public/models/market/characters/owner_man.glb`).
 
 `scripts/qa-mobile-render-budget.mjs` valida el perfil móvil de 30 FPS en reposo/60 FPS en movimiento, DPR, MSAA, draw calls, triángulos, texturas, input táctil y errores de consola/red. Una prueba física prolongada en el teléfono sigue siendo la autoridad final para batería y temperatura.
+
+Baseline comercial medido el 15-09-2026 en la build instrumentada local:
+
+- 30 clientes + 4 empleados: escritorio 60 FPS, p95 16,8 ms, 253 draws; móvil 30 FPS, p95 33,4 ms, 243 draws y 374.983 triángulos;
+- viewport móvil, CPU ×4 y propietario caminando: mediana 60 FPS, p95 16,8 ms, máximo 181 draws, máximo 253.334 triángulos y cero long tasks;
+- cliente en movimiento: mediana de distancia visual/esperada 1,00 y 1,18 % de pausas; empleados: mediana 1,00 y 1,62 % de pausas en la pasada aceptada;
+- pérdida WebGL forzada: una pérdida, una restauración, sin reload y ambos eventos recibidos por telemetría con HTTP 201;
+- ACK de guardado perdido: revisión 2→3 una sola vez, mismo `operationId`, recuperación local exacta y estado final `saved`.
 
 La auditoría, baseline A/B, inventario de escena, riesgos pendientes y protocolo Android están en `docs/audits/MOBILE-PERFORMANCE-AUDIT-2026-09-12.md`.

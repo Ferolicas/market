@@ -1,25 +1,29 @@
 import { describe, expect, it } from "vitest";
-import { advanceWorld, applyGameAction, canOperateMachine, canProcessCheckoutUnit, CHECKOUT_SCAN_UNIT_MS, countryMoneyScale, createInitialGame, employeeHiringQuote, normalizeGameState, shelfCapacityForTier, unlockedCustomerProducts, upgradeQuote } from "./engine";
-import type { CheckoutTransaction, CustomerRuntimeState, GameState, PaymentMethod } from "./types";
+import { advanceWorld, applyCustomerAvoidance, applyGameAction, canOperateMachine, canProcessCheckoutUnit, CHECKOUT_SCAN_UNIT_MS, countryMoneyScale, createInitialGame, employeeHiringQuote, normalizeGameState, shelfCapacityForTier, unlockedCustomerProducts, upgradeQuote } from "./engine";
+import type { CheckoutTransaction, CustomerRuntimeState, Employee, GameState, PaymentMethod } from "./types";
 import { CHECKOUT_LANES, checkoutQueueArrival } from "./stations/checkout-layout";
 import { createCustomerMind } from "./ai/CustomerBrain";
 import { ensureStoreNavigation, storePathfinder } from "./navigation/NavMeshService";
 import { STOCKROOM_POINT, WAREHOUSE_RETURN_STATION } from "./stations/warehouse-layout";
 import { BUSINESS_DAY_NIGHT_MINUTE, BUSINESS_DAY_OPEN_MINUTE, businessMinutesForRealMs } from "./time/BusinessDay";
 
-function addReadyCheckout(state: GameState, id: string, paymentMethod: PaymentMethod) {
+function addReadyCheckout(state: GameState, id: string, paymentMethod: PaymentMethod, lane: 0 | 1 = 0) {
   const customer = {
     id, identity: 1, state: "WAIT_CHECKOUT", shoppingList: [{ productId: "apples", requested: 1, picked: 1 }], currentLine: 1,
     basket: { apples: 1 }, patienceMs: 10_000, checkoutPatienceMs: 300_000, waitingSince: null, queueSlot: 0, transactionId: `${id}-tx`, hasCart: true, hasBag: false, angry: false,
-    x: CHECKOUT_LANES[0].customerFront[0], z: CHECKOUT_LANES[0].customerFront[1], targetX: CHECKOUT_LANES[0].customerFront[0], targetZ: CHECKOUT_LANES[0].customerFront[1], path: [], pathIndex: 0, speed: 1.4, stateSince: state.simulationTimeMs, reservedSocketId: null, blockedSince: null, routeFailures: 0,
+    x: CHECKOUT_LANES[lane].customerFront[0], z: CHECKOUT_LANES[lane].customerFront[1], targetX: CHECKOUT_LANES[lane].customerFront[0], targetZ: CHECKOUT_LANES[lane].customerFront[1], path: [], pathIndex: 0, speed: 1.4, stateSince: state.simulationTimeMs, reservedSocketId: null, blockedSince: null, routeFailures: 0, queueLane: lane,
   } satisfies CustomerRuntimeState;
   const transaction = {
     id: `${id}-tx`, customerId: id, pendingItems: [{ productId: "apples", quantity: 1, loaded: 1, scanned: 0, bagged: 0 }], paymentMethod,
     state: "SCANNING", nextUnitIndex: 0, paymentCommitted: false, updatedAt: state.simulationTimeMs,
-    lastLoadedAt: state.simulationTimeMs, lastScannedAt: state.simulationTimeMs - CHECKOUT_SCAN_UNIT_MS, lastBaggedAt: state.simulationTimeMs,
+    lastLoadedAt: state.simulationTimeMs, lastScannedAt: state.simulationTimeMs - CHECKOUT_SCAN_UNIT_MS, lastBaggedAt: state.simulationTimeMs, checkoutLane: lane,
   } satisfies CheckoutTransaction;
   state.franchises[0].customers.push(customer);
   state.franchises[0].checkoutTransactions.push(transaction);
+}
+
+function employee(id: string, role: Employee["role"]): Employee {
+  return { id, name: id, role, level: 1, salaryMinor: 3_000, energy: 100, hat: "frog" };
 }
 
 describe("motor económico", () => {
@@ -81,6 +85,8 @@ describe("motor económico", () => {
     expect(result.state.franchises[0].shelves.tomatoes).toBe(2);
     expect(result.state.franchises[0].carry.items).toEqual({});
     expect(result.state.progression.counters["stock:tomatoes"]).toBe(2);
+    expect(result.state.progression.counters["player:stock:tomatoes"]).toBe(2);
+    expect(result.state.progression.counters["player:action:STOCK"]).toBe(2);
     expect(result.state.revision).toBe(state.revision + 1);
     expect(state.franchises[0].shelves.tomatoes).toBe(0);
     expect(state.franchises[0].carry.items.tomatoes).toBe(2);
@@ -258,6 +264,25 @@ describe("motor económico", () => {
     expect(next.targetX).toBe(1);
   });
 
+  it("separa una multitud usando solo vecinos de su celda espacial", () => {
+    const template = createInitialGame("ES").franchises[0];
+    const customers = Array.from({ length: 30 }, (_, index): CustomerRuntimeState => ({
+      id: `crowd-${index}`, identity: ((index % 6) + 1) as CustomerRuntimeState["identity"], state: "NAVIGATE_TO_PRODUCT",
+      shoppingList: [], currentLine: 0, basket: {}, patienceMs: 10_000, checkoutPatienceMs: 300_000,
+      waitingSince: null, queueSlot: null, transactionId: null, hasCart: true, hasBag: false, angry: false,
+      x: index < 2 ? index * 0.2 : 10 + index, z: 0, targetX: 20, targetZ: 0, path: [[20, 0]], pathIndex: 0,
+      speed: 1.4, currentSpeed: 1.4, stateSince: 0, reservedSocketId: null, blockedSince: null, routeFailures: 0,
+    }));
+    const farBefore = customers.slice(2).map(({ x, z }) => [x, z]);
+
+    applyCustomerAvoidance(customers);
+
+    expect(customers[0].x).toBeLessThan(0);
+    expect(customers[1].x).toBeGreaterThan(0.2);
+    expect(customers.slice(2).map(({ x, z }) => [x, z])).toEqual(farBefore);
+    expect(template.customers).toHaveLength(0);
+  });
+
   it("termina la ruta de caja de frente a la cinta", () => {
     const state = createInitialGame("ES");
     state.franchises[0].lastCustomerSpawnAt = 999_999;
@@ -324,6 +349,7 @@ describe("motor económico", () => {
     expect(station.buildProjects.some((project) => project.level === 6)).toBe(true);
 
     bought.state.progression.counters["harvest:wheat"] = 6;
+    bought.state.progression.counters["player:harvest:wheat"] = 3;
     bought.state.franchises[0].buildProjects.find((project) => project.level === 6)!.completed = true;
     const levelSix = applyGameAction(bought.state, { type: "SET_AVATAR", shirt: bought.state.avatar.shirt });
 
@@ -816,6 +842,51 @@ describe("motor económico", () => {
     expect(working.franchises[0].checkoutTransactions[0].pendingItems[0].scanned).toBe(1);
   });
 
+  it("asigna dos cajeros a cajas distintas y nunca los hace perseguir la transacción global", () => {
+    let state = createInitialGame("ES");
+    state.level = 17;
+    state.franchises[0].open = true;
+    state.franchises[0].unlockedAreas.push("checkout-2");
+    state.franchises[0].stationTiers["checkout-2"] = 1;
+    state.franchises[0].employees = [employee("cashier-a", "cashier"), employee("cashier-b", "cashier")];
+    addReadyCheckout(state, "lane-a", "card", 0);
+    addReadyCheckout(state, "lane-b", "cash", 1);
+    const assignments = new Map<string, Set<string>>([
+      ["cashier-a", new Set()],
+      ["cashier-b", new Set()],
+    ]);
+
+    for (let tick = 0; tick < 160; tick += 1) {
+      state = advanceWorld(state, 100).state;
+      for (const cashier of state.franchises[0].employees) {
+        if (cashier.runtime?.assignedStationId) assignments.get(cashier.id)!.add(cashier.runtime.assignedStationId);
+      }
+    }
+
+    expect([...assignments.get("cashier-a")!]).toEqual(["checkout-1"]);
+    expect([...assignments.get("cashier-b")!]).toEqual(["checkout-2"]);
+    const [first, second] = state.franchises[0].employees.map((cashier) => cashier.runtime!);
+    expect(Math.hypot(first.x - CHECKOUT_LANES[0].cashierWork[0], first.z - CHECKOUT_LANES[0].cashierWork[2])).toBeLessThan(0.02);
+    expect(Math.hypot(second.x - CHECKOUT_LANES[1].cashierWork[0], second.z - CHECKOUT_LANES[1].cashierWork[2])).toBeLessThan(0.02);
+  });
+
+  it("reserva las materias primas de producción y evita que el reponedor secuestre el trigo", () => {
+    let state = createInitialGame("ES");
+    state.level = 6;
+    state = normalizeGameState(state);
+    const franchise = state.franchises[0];
+    franchise.warehouse.wheat = 6;
+    franchise.shelves.wheat = 0;
+    franchise.employees = [employee("stocker", "stocker"), employee("operator", "operator")];
+
+    for (let tick = 0; tick < 500; tick += 1) state = advanceWorld(state, 100).state;
+
+    const next = state.franchises[0];
+    expect(next.shelves.wheat).toBe(0);
+    expect(state.progression.counters["production:flour"]).toBeGreaterThan(0);
+    expect(next.warehouse.flour + next.productionMachines.find((machine) => machine.id === "flour-mill-1")!.output).toBeGreaterThan(0);
+  });
+
   it("no cobra solo y envía la compra a devoluciones al agotar cinco minutos", () => {
     let state = createInitialGame("ES");
     state.franchises[0].open = true;
@@ -933,7 +1004,7 @@ describe("motor económico", () => {
 
   it("sube de nivel únicamente al completar la lista visible y su financiación", () => {
     let state = createInitialGame("ES");
-    state.progression.counters = { "harvest:tomatoes": 3, "stock:tomatoes": 3, customers: 1 };
+    state.progression.counters = { "player:harvest:tomatoes": 3, "player:stock:tomatoes": 3, "player:action:CHECKOUT": 1 };
 
     state = applyGameAction(state, { type: "SET_AVATAR", shirt: state.avatar.shirt }).state;
     expect(state.level).toBe(1);
@@ -952,6 +1023,7 @@ describe("motor económico", () => {
     entered.level = 3;
     entered.progression.completedLevels = [1, 2];
     entered.progression.counters.customers = 60;
+    entered.progression.counters["player:stock:all"] = 5;
     entered.balanceMinor = 142_431;
     const state = normalizeGameState(entered);
     const project = state.franchises[0].buildProjects.find((candidate) => candidate.level === 4)!;

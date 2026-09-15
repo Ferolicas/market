@@ -75,6 +75,19 @@ export class LocomotionController {
     if (!nextAction) return;
     const targetScale = speedScale === 0 ? 0 : MathUtils.clamp(speedScale, 0.55, 2.8);
     if (next === this.active && nextAction.isScheduled()) {
+      // A rapid Idle → interaction → Idle cross-fade can leave Three's action
+      // active in the mixer but disabled at weight zero. isScheduled() remains
+      // true in that state, so merely changing its time scale preserves a
+      // frozen bind pose. Recover it without restarting healthy actions.
+      if (targetScale > 0 && !nextAction.isRunning()) {
+        nextAction.reset()
+          .setLoop(LoopRepeat, Number.POSITIVE_INFINITY)
+          .setEffectiveWeight(1)
+          .setEffectiveTimeScale(targetScale)
+          .fadeIn(fadeSeconds)
+          .play();
+        return;
+      }
       nextAction.setEffectiveTimeScale(MathUtils.lerp(nextAction.getEffectiveTimeScale(), targetScale, 0.18));
       return;
     }

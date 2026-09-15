@@ -16,4 +16,16 @@ describe("InteractionDirector", () => {
     expect(director.update("player", 1, 0, 280).filter((event) => event.signal === "exit")).toHaveLength(0);
     expect(director.update("player", 1, 0, 400).filter((event) => event.signal === "exit")).toHaveLength(2);
   });
+
+  it("selects the closest active target before using priority as a tie-breaker", () => {
+    const near = { ...zone("near", 2), x: 0, z: 0 };
+    const fartherPriority = { ...zone("priority", 80), x: 0.8, z: 0 };
+    const director = new InteractionDirector([near, fartherPriority]);
+
+    director.update("player", 0.1, 0, 0);
+    const ticks = director.update("player", 0.1, 0, 80).filter((event) => event.signal === "tick");
+
+    expect(ticks.map((event) => event.zone.id)).toEqual(["near"]);
+    expect(director.selectedZoneIds()).toEqual(["near"]);
+  });
 });

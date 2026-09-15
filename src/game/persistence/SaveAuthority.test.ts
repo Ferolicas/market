@@ -93,4 +93,38 @@ describe("server save authority", () => {
     const tampered = structuredClone(registration.state); tampered.countryCode = "US"; tampered.currency = "USD";
     expect(validateSaveTransition(registration.state, tampered, [])).toEqual({ ok: false, code: "INVALID_STATE_TRANSITION" });
   });
+
+  it("rejects a forged campaign jump even when the snapshot is internally shaped", () => {
+    const current = createInitialGame("ES");
+    const forged = structuredClone(current);
+    forged.level = 30;
+    forged.progression.completedLevels = Array.from({ length: 29 }, (_, index) => index + 1);
+    forged.franchises[0].storeRank = 4;
+
+    expect(validateSaveTransition(current, forged, [])).toEqual({ ok: false, code: "INVALID_STATE_TRANSITION" });
+  });
+
+  it("rejects a counterfeit sale even when its declared delta matches the balance", () => {
+    const current = createInitialGame("ES");
+    const forged = structuredClone(current);
+    const eventId = "44444444-4444-4444-8444-444444444444";
+    const amountMinor = 100_000_000;
+    forged.balanceMinor += amountMinor;
+    forged.eventSequence = 1;
+    forged.processedEventIds = [eventId];
+    const events = [{
+      franchiseId: current.currentFranchiseId,
+      category: "sales",
+      description: "Compra falsificada",
+      amountMinor,
+      eventId,
+      sequence: 1,
+      occurredAt: new Date(0).toISOString(),
+      type: "sales",
+      payload: { transactionId: "forged" },
+      idempotencyKey: eventId,
+    }];
+
+    expect(validateSaveTransition(current, forged, events)).toEqual({ ok: false, code: "INVALID_BALANCE_DELTA" });
+  });
 });

@@ -21,6 +21,8 @@ model User {
   accounts        Account[]
   profile         PlayerProfile?
   saves           GameSave[]
+  saveOperations  SaveOperation[]
+  clientTelemetry ClientTelemetry[]
   transactions    LedgerEntry[]
 
   @@map("user")
@@ -101,6 +103,45 @@ model GameSave {
 
   @@unique([userId, slot])
   @@index([userId, updatedAt])
+}
+
+/// Durable idempotency receipt for a save request. A client can safely retry
+/// the exact operation after losing the HTTP response without turning its own
+/// successful write into a revision conflict.
+model SaveOperation {
+  operationId    String   @id
+  userId         String
+  slot           Int      @default(1)
+  expectedRevision Int
+  appliedRevision  Int
+  deviceId       String
+  sessionId      String
+  stateChecksum  String
+  createdAt      DateTime @default(now())
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([userId, slot, appliedRevision])
+}
+
+/// Sanitised field diagnostics from authenticated game clients. Payloads are
+/// bounded at the API and retained only long enough to diagnose releases.
+model ClientTelemetry {
+  id        String   @id @default(cuid())
+  userId    String
+  kind      String
+  name      String
+  severity  String
+  message   String?
+  route     String?
+  deviceId  String?
+  sessionId String?
+  payload   Json?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([kind, name, createdAt])
 }
 
 model LedgerEntry {

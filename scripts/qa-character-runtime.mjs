@@ -28,7 +28,7 @@ page.on("response", (response) => {
 });
 
 const suffix = Date.now().toString(36);
-await page.goto("http://localhost:3000", { waitUntil: "networkidle", timeout: 60_000 });
+await page.goto("http://localhost:3000?debug=1", { waitUntil: "networkidle", timeout: 60_000 });
 await page.getByRole("button", { name: "Crear perfil nuevo" }).click();
 await page.getByLabel("Tu nombre").fill("Market QA");
 await page.getByLabel("Nombre de usuario").fill(`market_qa_${suffix}`.slice(0, 24));
@@ -75,6 +75,9 @@ await page.getByRole("button", { name: "Sin gorro" }).click();
 await page.getByRole("button", { name: "Abrir mi primer Mini Market" }).click();
 await page.getByText("Objetivos del día").waitFor({ timeout: 30_000 });
 await page.waitForTimeout(5_000);
+const idleAnimationBefore = await page.evaluate(() => structuredClone(window.__MARKET_QA__?.avatarAnimation));
+await page.waitForTimeout(500);
+const idleAnimationAfter = await page.evaluate(() => structuredClone(window.__MARKET_QA__?.avatarAnimation));
 await page.screenshot({ path: path.join(outputRoot, "07-world-idle.png"), fullPage: true });
 
 await page.keyboard.down("ArrowUp");
@@ -86,6 +89,7 @@ await page.waitForTimeout(240);
 await page.screenshot({ path: path.join(outputRoot, "10-world-walk-c.png"), fullPage: true });
 await page.keyboard.up("ArrowUp");
 await page.waitForTimeout(450);
+const afterWalkAnimation = await page.evaluate(() => structuredClone(window.__MARKET_QA__?.avatarAnimation));
 await page.screenshot({ path: path.join(outputRoot, "11-world-after-walk.png"), fullPage: true });
 
 const storeStatus = page.locator(".store-status");
@@ -114,6 +118,9 @@ const report = {
   consoleErrors,
   pageErrors,
   failedResponses,
+  idleAnimationBefore,
+  idleAnimationAfter,
+  afterWalkAnimation,
   modelResponses: [...new Map(modelResponses.map((entry) => [entry.url, entry])).values()],
   screenshots: [
     "01-owner-man-side-part.png",
@@ -134,4 +141,6 @@ await fs.writeFile(path.join(outputRoot, "report.json"), JSON.stringify(report, 
 await browser.close();
 console.log(JSON.stringify(report, null, 2));
 if (!webgl?.renderer.includes("NVIDIA GeForce RTX 4080 SUPER")) throw new Error(`La GPU esperada no está activa: ${JSON.stringify(webgl)}`);
+if (idleAnimationBefore?.clip !== "Idle" || !idleAnimationBefore.running || !idleAnimationBefore.inView || (idleAnimationAfter?.time ?? 0) <= (idleAnimationBefore?.time ?? 0) + 0.2) throw new Error(`La animación idle no avanza: ${JSON.stringify({ idleAnimationBefore, idleAnimationAfter })}`);
+if (afterWalkAnimation?.clip !== "Idle" || !afterWalkAnimation.running) throw new Error(`El jugador no volvió limpiamente a Idle: ${JSON.stringify(afterWalkAnimation)}`);
 if (consoleErrors.length || pageErrors.length || failedResponses.length) throw new Error(`Errores durante QA visual: ${JSON.stringify({ consoleErrors, pageErrors, failedResponses })}`);

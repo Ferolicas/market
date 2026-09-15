@@ -41,7 +41,7 @@ export interface Employee {
 }
 
 export interface EmployeeRuntimeState {
-  state: "IDLE" | "NAVIGATE_PICKUP" | "PICKUP" | "NAVIGATE_DROPOFF" | "DROPOFF" | "NAVIGATE_RETURN" | "RETURN_TO_WAREHOUSE" | "NAVIGATE_CHECKOUT" | "OPERATE_CHECKOUT";
+  state: "IDLE" | "NAVIGATE_PICKUP" | "PICKUP" | "NAVIGATE_DROPOFF" | "DROPOFF" | "NAVIGATE_RETURN" | "RETURN_TO_WAREHOUSE" | "NAVIGATE_CHECKOUT" | "WAIT_CHECKOUT_STATION" | "OPERATE_CHECKOUT";
   assignedProduct: ProductId | null;
   assignedStationId: string | null;
   carry: CarryState;
@@ -101,6 +101,9 @@ export interface BuildProject {
 export interface ProgressionState {
   completedLevels: number[];
   counters: Record<string, number>;
+  levelStartedCounters: Record<string, number>;
+  playerActionCount: number;
+  levelStartedPlayerActionCount: number;
   objectiveComplete: boolean;
   lastUnlockAt: number;
 }
@@ -118,6 +121,7 @@ export interface CheckoutTransaction {
   lastScannedAt: number;
   lastBaggedAt: number;
   checkoutLane?: 0 | 1;
+  handledByPlayer?: boolean;
 }
 
 export type CustomerBrainState = "SPAWN" | "ENTER_STORE" | "GET_CART" | "BUILD_SHOPPING_LIST" | "NAVIGATE_TO_PRODUCT" | "WAIT_FOR_ACCESS" | "PICK_PRODUCT" | "NEXT_PRODUCT" | "NAVIGATE_TO_QUEUE" | "QUEUE_WAIT" | "MOVE_QUEUE" | "UNLOAD" | "WAIT_CHECKOUT" | "PAY" | "NAVIGATE_TO_BAG" | "TAKE_BAG" | "NAVIGATE_TO_RETURNS" | "LEAVE_RETURNS" | "NAVIGATE_TO_CART_RETURN" | "RETURN_CART" | "EXIT_STORE" | "DESPAWN" | "WAIT_RESTOCK";

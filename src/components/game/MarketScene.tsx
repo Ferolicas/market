@@ -28,7 +28,7 @@ import { createWalkableStoreGeometry, storePathfinder } from "@/game/navigation/
 import { captureEmployeeMotion, projectCustomerMotion, type CustomerMotionSnapshot } from "@/game/animation/CustomerVisualMotion";
 import { ADULT_CHARACTER_SCENE_SCALE, characterSceneScale, CHILD_CHARACTER_SCENE_SCALE } from "@/game/animation/CharacterScale";
 import { CHECKOUT_CAMERA_FRAME, CHECKOUT_CAMERA_POSITION as CHECKOUT_CAMERA_POSITION_COORDS, CHECKOUT_CAMERA_TARGET as CHECKOUT_CAMERA_TARGET_COORDS, checkoutQueuePosition } from "@/game/stations/checkout-layout";
-import { isStockingInteractionId, PRODUCT_RETAIL_DEPARTMENT, retailDepartmentFromStockingInteraction, retailDisplayPosition, retailFixtureDisplayPositions, retailStockingMagnet, retailStockFixtureSlot, retailStockLandingLocalPosition, RETAIL_DEPARTMENT_IDS, RETAIL_DEPARTMENTS, stockingInteractionId, type StockingInteractionId } from "@/game/stations/retail-layout";
+import { isStockingInteractionId, PRODUCT_RETAIL_DEPARTMENT, retailDepartmentFromStockingInteraction, retailDisplayPosition, retailFixtureDisplayPositions, retailStockingMagnets, retailStockFixtureSlot, retailStockLandingLocalPosition, RETAIL_DEPARTMENT_IDS, RETAIL_DEPARTMENTS, stockingInteractionId, type StockingInteractionId } from "@/game/stations/retail-layout";
 import { isWorkstationId, isWorkstationUnlocked, WORKSTATIONS, WORKSTATION_IDS, type WorkstationId } from "@/game/stations/workstation-layout";
 import { PRODUCTS } from "@/game/catalog";
 import { farmInteractionId, farmPlotById, FARM_ACCESS_WAYPOINTS, FARM_GATE, FARM_PLOTS, FARM_WORKER_HOME, scaledFarmHarvestSensor, type FarmInteractionId } from "@/game/stations/farm-layout";
@@ -52,6 +52,8 @@ import { ADAPTIVE_QUALITY_GRACE_MS, advanceAdaptiveQuality, DisplayCadenceEstima
 import { createStaticMeshBatch } from "@/game/render/StaticMeshBatch";
 import { customerPresentationKey, employeePresentationKey, liveActors, publishLiveActors } from "@/game/render/LiveActors";
 import { daylightPresentation } from "@/game/time/BusinessDay";
+import { flushRecoverySnapshot } from "@/game/persistence/RecoveryStorage";
+import { reportClientTelemetry } from "@/lib/client-telemetry";
 
 export type InteractionId = Exclude<WorkstationId, "shelf"> | StockingInteractionId | FarmInteractionId | "supplier" | "warehouseReturn" | "door";
 export interface InteractionPrompt { id: InteractionId; label: string; }
@@ -193,10 +195,10 @@ export const MarketScene = memo(function MarketScene({ avatar, carry, visualCarr
       const [x, z] = scaleStorePoint([...department.service]);
       const display = retailDisplayPosition(departmentId);
       const [displayX, displayZ] = scaleStorePoint([display[0], display[2]]);
-      const magnet = retailStockingMagnet(departmentId, STORE_LAYOUT_SCALE, STORE_ELEMENT_SCALE);
-      return {
+      return retailStockingMagnets(departmentId, STORE_LAYOUT_SCALE, STORE_ELEMENT_SCALE).map((magnet) => ({
         id: stockingInteractionId(departmentId),
         departmentId,
+        fixtureIndex: magnet.fixtureIndex,
         productId: stockableByDepartment[departmentId],
         sensorEnabled: true,
         x,
@@ -208,10 +210,11 @@ export const MarketScene = memo(function MarketScene({ avatar, carry, visualCarr
         magnetHalfX: magnet.halfExtents[0],
         magnetHalfZ: magnet.halfExtents[1],
         magnetReach: magnet.enterRadius,
-      };
+      }));
     });
-    qaWindow.__MARKET_QA__.stockingTargets = targets;
-    qaWindow.__MARKET_QA__.stockingTarget = targets.find((target) => target.productId === stockableProduct) ?? { productId: null, sensorEnabled: false, x: 0, z: 0 };
+    const fixtureTargets = targets.flat();
+    qaWindow.__MARKET_QA__.stockingTargets = fixtureTargets;
+    qaWindow.__MARKET_QA__.stockingTarget = fixtureTargets.find((target) => target.productId === stockableProduct) ?? { productId: null, sensorEnabled: false, x: 0, z: 0 };
     const [warehouseX, warehouseZ] = scaleStorePoint([WAREHOUSE_PICKUP_STATION.position[0], WAREHOUSE_PICKUP_STATION.position[2]]);
     qaWindow.__MARKET_QA__.warehousePickupTarget = {
       id: WAREHOUSE_PICKUP_STATION.interactionId,
@@ -270,6 +273,7 @@ export const MarketScene = memo(function MarketScene({ avatar, carry, visualCarr
   return (
     <Canvas dpr={canvasDpr} events={safeCanvasEvents} frameloop={renderProfile.mobile && renderProfile.targetFps < 60 ? "never" : "always"} shadows="percentage" performance={MARKET_CANVAS_PERFORMANCE} gl={canvasGl} onCreated={({ gl }) => configureRendererPolicy(gl, renderProfile)}>
       <MarketRenderProfileContext.Provider value={renderProfile}>
+      <WebGLContextRecovery />
       <CappedFrameScheduler profile={renderProfile} playerMotionActiveRef={playerMotionActiveRef} publishDiagnostics={performanceProbe} />
       <AdaptiveQualityController canvasDpr={canvasDpr} profile={renderProfile} playerMotionActiveRef={playerMotionActiveRef} sceneSettledRef={sceneSettledRef} onDprChange={setCanvasDpr} publishDiagnostics={performanceProbe} />
       <OverviewCamera playerFocus={playerFocus} checkoutFocused={checkoutFocused} />
@@ -346,6 +350,44 @@ function configureRendererPolicy(gl: THREE.WebGLRenderer, profile: MarketRenderP
   gl.transmissionResolutionScale = profile.transmissionResolutionScale;
 }
 
+function WebGLContextRecovery() {
+  const gl = useThree((state) => state.gl);
+  const invalidate = useThree((state) => state.invalidate);
+  useEffect(() => {
+    const canvas = gl.domElement;
+    // Once a context is lost, getExtension() is allowed to return null. Keep
+    // the recovery handle while the context is healthy so a simulated or
+    // recoverable driver reset can actually request restoration.
+    const recoveryExtension = gl.getContext().getExtension("WEBGL_lose_context");
+    let reloadTimer = 0;
+    let restoreTimer = 0;
+    const lost = (event: Event) => {
+      event.preventDefault();
+      void reportClientTelemetry({ kind: "webgl", name: "context-lost", severity: "error" }, true);
+      restoreTimer = window.setTimeout(() => recoveryExtension?.restoreContext(), 750);
+      reloadTimer = window.setTimeout(() => {
+        void flushRecoverySnapshot().finally(() => window.location.reload());
+      }, 5_000);
+    };
+    const restored = () => {
+      window.clearTimeout(reloadTimer);
+      window.clearTimeout(restoreTimer);
+      gl.resetState();
+      invalidate();
+      void reportClientTelemetry({ kind: "webgl", name: "context-restored", severity: "warning" });
+    };
+    canvas.addEventListener("webglcontextlost", lost, true);
+    canvas.addEventListener("webglcontextrestored", restored, true);
+    return () => {
+      window.clearTimeout(reloadTimer);
+      window.clearTimeout(restoreTimer);
+      canvas.removeEventListener("webglcontextlost", lost, true);
+      canvas.removeEventListener("webglcontextrestored", restored, true);
+    };
+  }, [gl, invalidate]);
+  return null;
+}
+
 const LocalEnvironment = memo(function LocalEnvironment() {
   return <Environment resolution={64} frames={1} environmentIntensity={0.28}>
     <Lightformer form="rect" intensity={2.4} color="#fff3d2" position={[0, 8, 2]} rotation={[Math.PI / 2, 0, 0]} scale={[12, 12]} />
@@ -407,7 +449,7 @@ function CappedFrameScheduler({ profile, playerMotionActiveRef, publishDiagnosti
     const schedule = (now: number) => {
       if (document.visibilityState !== "visible") return;
       const refreshIntervalMs = cadence.observe(now);
-      const targetFps = playerMotionActiveRef.current ? profile.motionFps : profile.targetFps;
+      const targetFps = playerMotionActiveRef.current || visibleActorMotionActive() ? profile.motionFps : profile.targetFps;
       ticksSincePresent += 1;
       if (ticksSincePresent >= presentationDivisor(refreshIntervalMs, targetFps)) {
         ticksSincePresent = 0;
@@ -433,6 +475,12 @@ function CappedFrameScheduler({ profile, playerMotionActiveRef, publishDiagnosti
     };
   }, [advance, playerMotionActiveRef, profile, publishDiagnostics]);
   return null;
+}
+
+function visibleActorMotionActive() {
+  for (const actor of liveActors.customers.values()) if ((actor.currentSpeed ?? 0) > 0.05) return true;
+  for (const actor of liveActors.employees.values()) if ((actor.currentSpeed ?? 0) > 0.05) return true;
+  return false;
 }
 
 /**
@@ -486,9 +534,12 @@ function SceneReadinessProbe({ onReady, onSettled, sceneSettledRef }: { onReady?
       phase.current = "compiling";
       stableFrames.current = 0;
       const generation = ++compileGeneration.current;
-      void gl.compileAsync(scene, camera).catch(() => gl.compile(scene, camera)).then(() => {
-        if (generation === compileGeneration.current && !ready.current) phase.current = "compiled";
-      });
+      // compileAsync can keep references to a material set while a Suspense
+      // subtree changes underneath it. Three then reads a disposed/removed
+      // program and throws from `isReady`. Compile the stable snapshot in one
+      // synchronous pass while the loading cover is still visible.
+      gl.compile(scene, camera);
+      if (generation === compileGeneration.current && !ready.current) phase.current = "compiled";
       return;
     }
     if (phase.current !== "compiled") return;
@@ -1204,7 +1255,7 @@ function Player({ avatar, carry, cropSignature, checkoutLevel, playerSpeedTier, 
     body.current.setNextKinematicTranslation(logicalPosition.current);
 
     const events = director.update("player", logicalPosition.current.x / WORLD_SCALE, logicalPosition.current.z / WORLD_SCALE, frameClockMs.current);
-    const activeWorkstation = highestPriorityWorkstation(director.activeZoneIds());
+    const activeWorkstation = highestPriorityWorkstation(director.selectedZoneIds());
     workstation.current.sync(activeWorkstation, input.magnitude);
     publishWorkstation(workstation.current.performingZoneId() as WorkstationId | null);
     for (const event of events) {
@@ -1291,6 +1342,7 @@ function Player({ avatar, carry, cropSignature, checkoutLevel, playerSpeedTier, 
     }
 
     const active = director.activeZoneIds();
+    const selected = director.selectedZoneIds();
     const nextCheckoutFocused = workstation.current.performingZoneId() === "checkout";
     if (nextCheckoutFocused !== checkoutFocused.current) {
       checkoutFocused.current = nextCheckoutFocused;
@@ -1301,7 +1353,7 @@ function Player({ avatar, carry, cropSignature, checkoutLevel, playerSpeedTier, 
       const qaWindow = window as typeof window & { __MARKET_QA__?: Record<string, unknown> };
       if (qaWindow.__MARKET_QA__) qaWindow.__MARKET_QA__.activeZones = active;
     }
-    const foundZone = ZONES.find((zone) => active.includes(zone.id)
+    const foundZone = ZONES.find((zone) => selected.includes(zone.id)
       && (!(isStockingInteractionId(zone.id) || zone.id === "supplier" || zone.id === "warehouseReturn") || interactionLabels[zone.id]));
     const found = foundZone ? { id: foundZone.id, label: interactionLabels[foundZone.id] ?? foundZone.label } : null;
     if (found?.id !== nearest.current?.id || found?.label !== nearest.current?.label) { nearest.current = found; onPrompt(found); }
@@ -1310,7 +1362,7 @@ function Player({ avatar, carry, cropSignature, checkoutLevel, playerSpeedTier, 
   const worldStart = PLAYER_START.map((value) => value * WORLD_SCALE) as [number, number, number];
   return <RigidBody ref={body} type="kinematicPosition" colliders={false} position={worldStart} enabledRotations={[false, false, false]} canSleep={false} userData={{ actor: "player" }}>
     <CapsuleCollider ref={collider} args={[0.45 * WORLD_SCALE, 0.24 * WORLD_SCALE]} position={[0, 0.69 * WORLD_SCALE, 0]} friction={0} />
-    <group ref={visual}><Avatar {...avatar} scale={characterSceneScale(avatar.body) * WORLD_SCALE} walking={walking} carrying={carryTotal(carry) > 0} carryAccessory={<HarvestBasket ref={basketVisual} carry={carry} />} motion={avatarMotion} animation={!walking && lastInteraction?.kind === "work" && lastInteraction.id === performingWorkstation ? interactionAnimation[lastInteraction.id] : undefined} idleAnimationSpeed={0} feedbackSource="player" feedbackActorId="player" /></group>
+    <group ref={visual}><Avatar {...avatar} scale={characterSceneScale(avatar.body) * WORLD_SCALE} walking={walking} carrying={carryTotal(carry) > 0} carryAccessory={<HarvestBasket ref={basketVisual} carry={carry} />} motion={avatarMotion} animation={!walking && lastInteraction?.kind === "work" && lastInteraction.id === performingWorkstation ? interactionAnimation[lastInteraction.id] : undefined} feedbackSource="player" feedbackActorId="player" /></group>
   </RigidBody>;
 }
 
@@ -1490,7 +1542,7 @@ const InteractionSensors = memo(function InteractionSensors({ checkoutLevel, unl
     [checkoutLevel, unlockedSignature, cropSignature, warehousePickupEnabled],
   );
   return <RigidBody type="fixed" colliders={false}>
-    {zones.map((zone) => <InteractionSensorCollider key={zone.id} zone={zone} />)}
+    {zones.map((zone) => <InteractionSensorCollider key={`${zone.id}:${zone.x}:${zone.z}`} zone={zone} />)}
   </RigidBody>;
 });
 
@@ -1539,11 +1591,11 @@ function interactionZoneConfigs(checkoutLevel = 1, unlockedAreas: readonly strin
   const storeZones = ZONES.filter((zone) => (
     (zone.id !== "supplier" || warehousePickupEnabled)
     && (!isWorkstationId(zone.id) || isWorkstationUnlocked(zone.id, unlockedAreas))
-  )).map((zone): InteractionZoneConfig => {
+  )).flatMap((zone): InteractionZoneConfig[] => {
     const departmentId = retailDepartmentFromStockingInteraction(zone.id);
-    const retailMagnet = departmentId ? retailStockingMagnet(departmentId, STORE_LAYOUT_SCALE, STORE_ELEMENT_SCALE) : null;
     const productionMagnet = isProductionWorkstationId(zone.id) ? productionMachineMagnet(zone.id, STORE_LAYOUT_SCALE, STORE_ELEMENT_SCALE) : null;
-    const magnet = retailMagnet ?? productionMagnet;
+    const magnets = departmentId ? retailStockingMagnets(departmentId, STORE_LAYOUT_SCALE, STORE_ELEMENT_SCALE) : [productionMagnet];
+    return magnets.map((magnet) => {
     const doorSensor = zone.id === "door" ? STOREFRONT_LAYOUT.sensor : null;
     return {
       id: zone.id,
@@ -1578,6 +1630,7 @@ function interactionZoneConfigs(checkoutLevel = 1, unlockedAreas: readonly strin
       exitGraceMs: zone.id === "supplier" ? WAREHOUSE_PICKUP_STATION.exitGraceMs : zone.id === "warehouseReturn" ? WAREHOUSE_RETURN_STATION.exitGraceMs : 120,
       channel: zone.id === "door" || zone.id === "supplier" ? "passive" : zone.id === "checkout" ? "hands" : "transfer",
     };
+    });
   });
   const activeCrops = new Set(activeCropIds);
   const farmSensor = scaledFarmHarvestSensor(STORE_ELEMENT_SCALE);
@@ -1744,7 +1797,7 @@ const Npc = memo(function Npc({ employee, position, color, body = "adult-man", h
       const heading = Math.atan2(projected.headingX, projected.headingZ);
       motion.current.yawDelta = heading - ref.current.rotation.y;
       ref.current.rotation.y = turnTowards(ref.current.rotation.y, heading, frameDelta(delta) * 3);
-    } else if (employee.role === "cashier" && runtime.state === "OPERATE_CHECKOUT") {
+    } else if (employee.role === "cashier" && (runtime.state === "OPERATE_CHECKOUT" || runtime.state === "WAIT_CHECKOUT_STATION")) {
       ref.current.rotation.y = turnTowards(ref.current.rotation.y, Math.PI, frameDelta(delta) * 3.5);
     }
     const qaWindow = window as typeof window & { __MARKET_QA__?: Record<string, unknown> };

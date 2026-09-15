@@ -40,6 +40,22 @@ describe("LocomotionController", () => {
     expect(reset).toHaveBeenCalledTimes(1);
   });
 
+  it("reactiva el clip actual si un cross-fade lo dejó programado con peso cero", () => {
+    const controller = new LocomotionController();
+    const mixer = new AnimationMixer(new Object3D());
+    const idle = mixer.clipAction(new AnimationClip("Idle", 2, []));
+    const reset = vi.spyOn(idle, "reset");
+
+    controller.transition({ Idle: idle }, "Idle", 1);
+    idle.enabled = false;
+    controller.transition({ Idle: idle }, "Idle", 1);
+
+    expect(idle.isScheduled()).toBe(true);
+    expect(idle.isRunning()).toBe(true);
+    expect(idle.enabled).toBe(true);
+    expect(reset).toHaveBeenCalledTimes(2);
+  });
+
   it("usa histéresis para no alternar entre marcha y carrera cerca del umbral", () => {
     const controller = new LocomotionController();
     expect(controller.select(3.2, 0, false)).toBe("Run");

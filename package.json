@@ -17,6 +17,8 @@
     "qa:workers": "node scripts/qa-worker-runtime.mjs",
     "qa:mobile-render": "node scripts/qa-mobile-render-budget.mjs",
     "qa:production-surface": "node scripts/qa-production-surface.mjs",
+    "qa:save-lost-ack": "node scripts/qa-save-lost-ack.mjs",
+    "qa:webgl-recovery": "node scripts/qa-webgl-recovery.mjs",
     "load:test:game": "node scripts/load-test-game-api.mjs",
     "art:manifest": "tsx scripts/write-reference-manifest.ts",
     "art:lods": "node scripts/build-market-lods.mjs",

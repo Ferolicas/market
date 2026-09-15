@@ -4,18 +4,18 @@ import type { GameState } from "../types";
 import { averageShelfAvailability, levelObjectiveSatisfied, levelObjectiveTasks, unlockedCustomerProducts } from "./objectives";
 
 describe("level objectives", () => {
-  it("exposes the three exact level-one requirements and their live progress", () => {
+  it("exposes the level-one requirements and an explicit player participation gate", () => {
     const state = createInitialGame();
-    state.progression.counters = { "harvest:tomatoes": 2, "stock:tomatoes": 3, customers: 1 };
+    state.progression.counters = { "player:harvest:tomatoes": 2, "player:stock:tomatoes": 3, "player:action:CHECKOUT": 1 };
 
     expect(levelObjectiveTasks(1, state)).toEqual([
-      { id: "harvest:tomatoes", label: "Cosecha 3 tomates", progress: 2, target: 3, unit: "count" },
-      { id: "stock:tomatoes", label: "Surte 3 tomates", progress: 3, target: 3, unit: "count" },
-      { id: "customers", label: "Atiende 1 cliente", progress: 1, target: 1, unit: "count" },
+      { id: "player:harvest:tomatoes", label: "Cosecha tú 3 tomates", progress: 2, target: 3, unit: "count" },
+      { id: "player:stock:tomatoes", label: "Surte tú 3 tomates", progress: 3, target: 3, unit: "count" },
+      { id: "player:action:CHECKOUT", label: "Atiende tú 1 cliente en caja", progress: 1, target: 1, unit: "count" },
     ]);
     expect(levelObjectiveSatisfied(1, state)).toBe(false);
 
-    state.progression.counters["harvest:tomatoes"] = 3;
+    state.progression.counters["player:harvest:tomatoes"] = 3;
     expect(levelObjectiveSatisfied(1, state)).toBe(true);
   });
 
@@ -53,9 +53,12 @@ describe("level objectives", () => {
 
     for (const [level, complete] of scenarios) {
       const state = createInitialGame();
-      expect(levelObjectiveTasks(level, state)).toHaveLength(1);
+      expect(levelObjectiveTasks(level, state)).toHaveLength(2);
       expect(levelObjectiveSatisfied(level, state), `level ${level} should start incomplete`).toBe(false);
       complete(state);
+      const playerTask = levelObjectiveTasks(level, state).find((task) => task.id.startsWith("player:"));
+      expect(playerTask, `level ${level} needs authored player work`).toBeDefined();
+      state.progression.counters[playerTask!.id] = playerTask!.target;
       expect(levelObjectiveSatisfied(level, state), `level ${level} should use its documented requirement`).toBe(true);
     }
 
@@ -64,6 +67,19 @@ describe("level objectives", () => {
     ]);
     expect(levelObjectiveSatisfied(30, createInitialGame())).toBe(true);
     expect(levelObjectiveSatisfied(31, createInitialGame())).toBe(false);
+  });
+
+  it("measures counters from level entry so lifetime automation cannot pre-complete later levels", () => {
+    const state = createInitialGame();
+    state.progression.counters.customers = 100;
+    state.progression.levelStartedCounters.customers = 100;
+    state.progression.counters["player:harvest:apples"] = 8;
+    state.progression.levelStartedCounters["player:harvest:apples"] = 8;
+
+    expect(levelObjectiveSatisfied(2, state)).toBe(false);
+    state.progression.counters.customers += 2;
+    state.progression.counters["player:harvest:apples"] += 2;
+    expect(levelObjectiveSatisfied(2, state)).toBe(true);
   });
 
   it("keeps every newly reached level pending until its own visible work is done", () => {
@@ -86,6 +102,7 @@ describe("level objectives", () => {
     expect(levelObjectiveTasks(17, state)[0]).toMatchObject({ id: "queue:under30", label: "Completa 1 venta con espera menor a 30 s", target: 1 });
     expect(levelObjectiveTasks(19, state)[0]).toMatchObject({ id: "orders", label: "Realiza 8 pedidos en total", target: 8 });
     expect(levelObjectiveTasks(29, state)[0]).toMatchObject({ id: "availability:sales", label: "Completa 50 ventas con estantes al 90 %", target: 50 });
+    expect(levelObjectiveTasks(6, state)[1]).toMatchObject({ id: "player:machine:bread-oven-1", label: "Opera tú el horno de pan", target: 2 });
   });
 
   it("uses the same product unlocks and tier-aware shelf capacity as the simulation", () => {

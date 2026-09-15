@@ -47,6 +47,9 @@ const PRIORITY_CUSTOMER_MODEL_PATHS = [
   "/models/market/customers/customer_01_man_young.glb",
   "/models/market/customers/customer_02_man_senior.glb",
   "/models/market/customers/customer_03_woman_young.glb",
+  "/models/market/customers/customer_04_woman_adult.glb",
+  "/models/market/customers/customer_05_woman_mature.glb",
+  "/models/market/customers/customer_06_woman_senior.glb",
 ] as const;
 
 /**
@@ -83,9 +86,17 @@ export function characterModelPathForTier(path: string, tier: CharacterModelTier
   return path.replace(family, `${family}lod${tier}/`);
 }
 
-/** Level one admits at most three simultaneous customers and the authoritative
- * sequence starts with identities 01–03. Preloading only that first wave keeps
- * later GLB decode out of live play without warming unused owner variants. */
+/** Facial morphs are secondary motion in a crowd. Locomotion and interaction
+ * clips still run every presented frame; only expression weights are sampled
+ * less often as device pressure increases. */
+export function characterFaceUpdateInterval(tier: CharacterModelTier, crowd: boolean) {
+  if (!crowd) return CHARACTER_FACE_UPDATE_INTERVAL;
+  return tier === 2 ? 1 / 8 : tier === 1 ? 1 / 12 : 1 / 16;
+}
+
+/** Warm the complete six-body customer cast behind the readiness cover. This
+ * keeps an identity first seen in a later wave from decoding GLB data and
+ * compiling a skinning program in the middle of player movement. */
 export function priorityCustomerModelPathsForTier(tier: CharacterModelTier) {
   return PRIORITY_CUSTOMER_MODEL_PATHS.map((path) => characterModelPathForTier(path, tier));
 }

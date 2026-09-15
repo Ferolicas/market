@@ -245,12 +245,17 @@ export function retailStockingMagnet(
   departmentId: RetailDepartmentId,
   layoutScale: number,
   elementScale: number,
+  fixtureIndex = 0,
 ) {
   const department = RETAIL_DEPARTMENTS[departmentId];
+  const fixtures = retailFixtureDisplayPositions(departmentId);
+  const boundedFixtureIndex = Math.max(0, Math.min(fixtures.length - 1, Math.floor(fixtureIndex)));
+  const position = fixtures[boundedFixtureIndex] ?? department.display;
   const quarterTurn = Math.abs(department.yaw ?? 0) % 180 === 90;
   return {
-    x: department.display[0] * layoutScale,
-    z: department.display[2] * layoutScale,
+    fixtureIndex: boundedFixtureIndex,
+    x: position[0] * layoutScale,
+    z: position[2] * layoutScale,
     halfExtents: [
       department.fixtureHalfExtents[quarterTurn ? 1 : 0] * elementScale,
       department.fixtureHalfExtents[quarterTurn ? 0 : 1] * elementScale,
@@ -258,6 +263,10 @@ export function retailStockingMagnet(
     enterRadius: RETAIL_STOCKING_MAGNET_REACH.enter * elementScale,
     exitRadius: RETAIL_STOCKING_MAGNET_REACH.exit * elementScale,
   };
+}
+
+export function retailStockingMagnets(departmentId: RetailDepartmentId, layoutScale: number, elementScale: number) {
+  return retailFixtureDisplayPositions(departmentId).map((_, fixtureIndex) => retailStockingMagnet(departmentId, layoutScale, elementScale, fixtureIndex));
 }
 
 function centeredSlot(index: number, count: number, spacing: number) {

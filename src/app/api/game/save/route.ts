@@ -17,7 +17,16 @@ export async function GET(request: Request) {
   if (!rateLimit.allowed) return rateLimitExceeded(rateLimit);
 
   const existing = await db.gameSave.findUnique({ where: { userId_slot: { userId: session.user.id, slot: 1 } } });
-  if (existing) return Response.json({ state: normalizeGameState(existing.state), saveRevision: existing.revision, savedAt: existing.updatedAt });
+  if (existing) {
+    const latestOperation = await db.saveOperation.findFirst({ where: { userId: session.user.id, slot: 1 }, orderBy: { appliedRevision: "desc" } });
+    return Response.json({
+      state: normalizeGameState(existing.state),
+      saveRevision: existing.revision,
+      savedAt: existing.updatedAt,
+      recoveryScope: recoveryScope(session.user.id),
+      lastOperationId: latestOperation?.operationId ?? null,
+    });
+  }
 
   const initial = createInitialGame("ES");
   let saved;
@@ -39,7 +48,7 @@ export async function GET(request: Request) {
     saved = await db.gameSave.findUnique({ where: { userId_slot: { userId: session.user.id, slot: 1 } } });
     if (!saved) throw cause;
   }
-  return Response.json({ state: saved.state, saveRevision: saved.revision, savedAt: saved.updatedAt }, { status: 201 });
+  return Response.json({ state: saved.state, saveRevision: saved.revision, savedAt: saved.updatedAt, recoveryScope: recoveryScope(session.user.id), lastOperationId: null }, { status: 201 });
 }
 
 export async function PUT(request: Request) {
@@ -69,20 +78,54 @@ export async function PUT(request: Request) {
   const extendedLedger = await hasExtendedLedger();
 
   const result = await db.$transaction(async (tx) => {
+    const existingOperation = await tx.saveOperation.findUnique({ where: { operationId: payload.operationId } });
+    if (existingOperation) {
+      const exactReplay = existingOperation.userId === session.user.id
+        && existingOperation.slot === 1
+        && existingOperation.expectedRevision === payload.expectedRevision
+        && existingOperation.deviceId === payload.deviceId
+        && existingOperation.stateChecksum === checksum(payload.state);
+      if (!exactReplay) {
+        return { conflict: false as const, replay: false as const, invalid: "INVALID_OPERATION" as const, appliedRevision: null, savedAt: null };
+      }
+      return { conflict: false as const, replay: true as const, invalid: null, appliedRevision: existingOperation.appliedRevision, savedAt: existingOperation.createdAt };
+    }
     const current = await tx.gameSave.findUnique({ where: { userId_slot: { userId: session.user.id, slot: 1 } } });
-    if (!current || current.revision !== payload.expectedRevision) return { conflict: true as const, replay: false as const, invalid: null };
+    if (!current || current.revision !== payload.expectedRevision) return { conflict: true as const, replay: false as const, invalid: null, appliedRevision: null, savedAt: null };
     const currentState = normalizeGameState(current.state);
     const authority = validateSaveTransition(currentState, payload.state, payload.events);
-    if (!authority.ok) return { conflict: false as const, replay: false as const, invalid: authority.code };
+    if (!authority.ok) return { conflict: false as const, replay: false as const, invalid: authority.code, appliedRevision: null, savedAt: null };
     const acceptedIds = new Set(currentState.processedEventIds);
     if (payload.events.some((event) => event.eventId && acceptedIds.has(event.eventId))) {
-      return { conflict: true as const, replay: true as const, invalid: null };
+      return { conflict: true as const, replay: true as const, invalid: null, appliedRevision: null, savedAt: null };
     }
     const updated = await tx.gameSave.updateMany({
       where: { userId: session.user.id, slot: 1, revision: payload.expectedRevision },
       data: { revision: nextRevision, state: stateJson, checksum: checksum(payload.state) },
     });
-    if (updated.count !== 1) return { conflict: true as const, replay: false as const, invalid: null };
+    if (updated.count !== 1) return { conflict: true as const, replay: false as const, invalid: null, appliedRevision: null, savedAt: null };
+
+    await tx.saveOperation.create({
+      data: {
+        operationId: payload.operationId,
+        userId: session.user.id,
+        slot: 1,
+        expectedRevision: payload.expectedRevision,
+        appliedRevision: nextRevision,
+        deviceId: payload.deviceId,
+        sessionId: payload.sessionId,
+        stateChecksum: checksum(payload.state),
+      },
+    });
+    if (nextRevision % 120 === 0) {
+      await tx.saveOperation.deleteMany({
+        where: {
+          userId: session.user.id,
+          createdAt: { lt: new Date(Date.now() - 14 * 24 * 60 * 60 * 1_000) },
+          operationId: { not: payload.operationId },
+        },
+      });
+    }
 
     if (payload.events.length) {
       await tx.ledgerEntry.createMany({
@@ -111,20 +154,40 @@ export async function PUT(request: Request) {
       where: { userId: session.user.id },
       data: { countryCode: payload.state.countryCode, currency: payload.state.currency, avatarSkin: payload.state.avatar.skin, avatarShirt: payload.state.avatar.shirt, avatarHat: payload.state.avatar.hat },
     });
-    return { conflict: false as const, replay: false as const, invalid: null };
+    return { conflict: false as const, replay: false as const, invalid: null, appliedRevision: nextRevision, savedAt: new Date() };
   });
 
   if (result.invalid) return Response.json({ error: result.invalid }, { status: 422 });
 
-  if (result.conflict) {
-    const current = await db.gameSave.findUnique({ where: { userId_slot: { userId: session.user.id, slot: 1 } } });
-    return Response.json({ error: result.replay ? "EVENT_REPLAY" : "SAVE_CONFLICT", state: current?.state, saveRevision: current?.revision }, { status: 409 });
+  if (result.replay) {
+    return Response.json({ ok: true, replay: true, saveRevision: result.appliedRevision, savedAt: result.savedAt });
   }
-  return Response.json({ ok: true, saveRevision: nextRevision, savedAt: new Date().toISOString() });
+
+  if (result.conflict) {
+    // A concurrent identical request can miss the receipt at the transaction's
+    // first read and see the advanced revision. Recheck after the winner commits.
+    const receipt = await db.saveOperation.findUnique({ where: { operationId: payload.operationId } });
+    if (receipt?.userId === session.user.id && receipt.slot === 1) {
+      return Response.json({ ok: true, replay: true, saveRevision: receipt.appliedRevision, savedAt: receipt.createdAt });
+    }
+    const current = await db.gameSave.findUnique({ where: { userId_slot: { userId: session.user.id, slot: 1 } } });
+    const latestWriter = await db.saveOperation.findFirst({ where: { userId: session.user.id, slot: 1 }, orderBy: { appliedRevision: "desc" } });
+    return Response.json({
+      error: result.replay ? "EVENT_REPLAY" : "SAVE_CONFLICT",
+      state: current?.state,
+      saveRevision: current?.revision,
+      conflict: latestWriter ? { deviceId: latestWriter.deviceId, sessionId: latestWriter.sessionId, savedAt: latestWriter.createdAt } : null,
+    }, { status: 409 });
+  }
+  return Response.json({ ok: true, saveRevision: result.appliedRevision, savedAt: result.savedAt });
 }
 
 function checksum(state: GameState) {
   return createHash("sha256").update(JSON.stringify(state)).digest("hex");
+}
+
+function recoveryScope(userId: string) {
+  return createHash("sha256").update(`market-recovery:${userId}`).digest("hex");
 }
 
 function isUniqueConstraintError(cause: unknown) {
@@ -140,6 +203,9 @@ function hasExtendedLedger() {
     WHERE table_schema = 'public'
       AND table_name = 'LedgerEntry'
       AND column_name IN ('eventId', 'sessionId', 'sequence', 'type', 'payload', 'idempotencyKey')
-  `).then((rows) => Number(rows[0]?.count ?? 0) === 6).catch(() => false);
+  `).then((rows) => Number(rows[0]?.count ?? 0) === 6).catch(() => {
+    extendedLedgerSupport = null;
+    return false;
+  });
   return extendedLedgerSupport;
 }

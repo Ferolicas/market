@@ -25,7 +25,6 @@ import { useGlassTransmission } from "./MarketRenderProfile";
 
 type Position = [number, number, number];
 
-const SEASONAL_DISPLAY_LEVELS = [0.36, 0.86, 1.36] as const;
 
 interface InstanceTransform {
   position: Position;
@@ -612,30 +611,6 @@ function ProduceSlotSign({ productId, x, count, capacity }: { productId: Product
   </group>;
 }
 
-function SeasonalDisplay({ position }: { position: Position }) {
-  const levels = SEASONAL_DISPLAY_LEVELS;
-  const planters = useMemo<InstanceTransform[]>(() => levels.flatMap((y, row) => [-0.55, 0, 0.55].map((x, column) => ({
-    position: [x, y + 0.14, column % 2 ? 0.02 : -0.04],
-    scale: [0.15 + row * 0.012, 0.16, 0.15 + row * 0.012],
-  }))), [levels]);
-  const foliage = useMemo<InstanceTransform[]>(() => planters.map((planter, index) => ({
-    position: [planter.position[0], planter.position[1] + 0.19, planter.position[2]],
-    rotation: [0, index * 0.58, 0],
-    scale: [0.2, 0.27 + (index % 2) * 0.035, 0.2],
-  })), [planters]);
-  return <group position={position}>
-    <Box args={[1.95, 0.14, 0.86]} position={[0, 0.08, 0]} color={palette.fixtureSteel} radius={0.035} />
-    {[-0.88, 0.88].map((x) => <Box key={x} args={[0.075, 1.85, 0.075]} position={[x, 0.96, -0.3]} color={palette.fixtureSteel} radius={0.014} />)}
-    {levels.map((y) => <group key={y}>
-      <Box args={[1.82, 0.09, 0.68]} position={[0, y, 0]} rotation={[-0.2, 0, 0]} color={palette.wood} radius={0.02} />
-      <Box args={[1.86, 0.11, 0.04]} position={[0, y + 0.02, 0.35]} color={palette.fixtureSteel} radius={0.01} />
-    </group>)}
-    <StaticInstances transforms={planters} castShadow><cylinderGeometry args={[1, 0.82, 1, 10]} /><meshStandardMaterial color="#b06e46" roughness={0.9} /></StaticInstances>
-    <StaticInstances transforms={foliage} castShadow><dodecahedronGeometry args={[1, 1]} /><meshStandardMaterial color="#5d8b5b" roughness={0.94} /></StaticInstances>
-    <DepartmentSign label="TEMPORADA" color="#5d7561" position={[0, 1.92, -0.27]} width={1.72} />
-  </group>;
-}
-
 function ChilledDisplay({ position, stock, capacity, open }: { position: Position; stock: StockCounts; capacity: StockCounts; open: boolean }) {
   const levels = RETAIL_FIXTURE_LEVELS.dairy;
   const doors = useRef<THREE.Group[]>([]);
@@ -710,39 +685,6 @@ function EggDisplay({ count, capacity }: { count: number; capacity: number }) {
     <DepartmentSign label={RETAIL_DEPARTMENTS.eggs.label} color={RETAIL_DEPARTMENTS.eggs.color} position={[0, 2.08, 0.08]} width={1.88} />
   </group>;
 }
-
-function BackroomColdStorage({ position }: { position: Position }) {
-  const vents = useMemo<InstanceTransform[]>(() => Array.from({ length: 7 }, (_, index) => ({
-    position: [(index - 3) * 0.19, 2.15, 0.48],
-    scale: [0.12, 0.045, 0.015],
-  })), []);
-  return <group position={position}>
-    <Box args={[2.35, 2.48, 0.92]} position={[0, 1.24, 0]} color={palette.fixtureSteel} radius={0.055} />
-    {[-0.55, 0.55].map((x) => <group key={x} position={[x, 1.22, 0.47]}>
-      <Box args={[1.03, 2.18, 0.075]} color="#71817e" radius={0.028} />
-      <Box args={[0.045, 1.05, 0.055]} position={[x < 0 ? 0.4 : -0.4, 0, 0.075]} color="#d0d8d4" radius={0.015} />
-    </group>)}
-    <Box args={[0.045, 2.16, 0.09]} position={[0, 1.22, 0.52]} color="#2f3a37" radius={0.01} />
-    <StaticInstances transforms={vents}><boxGeometry args={[1, 1, 1]} /><meshStandardMaterial color="#a9b7b3" metalness={0.4} roughness={0.42} /></StaticInstances>
-    <DepartmentSign label="CÁMARA FRÍA" color="#4f7182" position={[0, 2.7, 0.08]} width={2.05} />
-  </group>;
-}
-
-function MetalRack({ position }: { position: Position }) {
-  return <group position={position}>
-    {[-0.74, 0.74].flatMap((x) => [-0.33, 0.33].map((z) => <Box key={`${x}-${z}`} args={[0.075, 2.05, 0.075]} position={[x, 1.03, z]} color="#53666b" radius={0.012} />))}
-    {[0.18, 0.75, 1.32, 1.89].map((y) => <group key={y}>
-      <Box args={[1.62, 0.1, 0.82]} position={[0, y, 0]} color="#728489" radius={0.015} />
-      <Box args={[1.66, 0.1, 0.08]} position={[0, y + 0.02, 0.41]} color="#e1a53a" radius={0.012} />
-      {[-0.43, 0.16, 0.47].map((x, index) => <group key={x} position={[x, y + 0.2, 0]} scale={index === 1 ? 0.78 : 0.9}>
-        <Box args={[0.48, 0.36, 0.52]} color={index === 1 ? "#b98655" : "#b47a48"} radius={0.018} />
-        <Box args={[0.06, 0.37, 0.53]} color="#d9b778" radius={0.006} />
-      </group>)}
-    </group>)}
-    <DepartmentSign label="RESERVA" color="#5f777d" position={[0, 2.2, 0.03]} width={1.46} />
-  </group>;
-}
-
 
 function CheckoutKit({ position, lane, transaction, handoffTransaction, handoffBagAtCounter }: { position: Position; lane: 0 | 1; transaction?: CheckoutTransaction; handoffTransaction?: CheckoutTransaction; handoffBagAtCounter: boolean }) {
   const scanning = transaction?.state === "SCANNING" || transaction?.state === "BAGGING";

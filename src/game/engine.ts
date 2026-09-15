@@ -106,7 +106,7 @@ export function createInitialGame(countryCode: CountryCode = "ES"): GameState {
     pendingOrders: [],
     finances: { grossRevenueMinor: 0, costOfGoodsMinor: 0, payrollMinor: 0, operatingCostsMinor: 0, taxesMinor: 0, netProfitMinor: 0 },
     tutorialStep: 0,
-    progression: { completedLevels: [], counters: {}, objectiveComplete: false, lastUnlockAt: 0 },
+    progression: { completedLevels: [], counters: {}, levelStartedCounters: {}, playerActionCount: 0, levelStartedPlayerActionCount: 0, objectiveComplete: false, lastUnlockAt: 0 },
     eventSequence: 0,
     processedEventIds: [],
     lastServerTime: 0,
@@ -130,7 +130,13 @@ export function normalizeGameState(input: unknown): GameState {
   state.processedEventIds = Array.isArray(state.processedEventIds) ? state.processedEventIds.filter((id): id is string => typeof id === "string").slice(-1_000) : [];
   state.lastServerTime = Number.isFinite(state.lastServerTime) ? state.lastServerTime : Math.max(0, Date.parse(state.lastSavedAt || "") || 0);
   state.simulationTimeMs = Number.isFinite(state.simulationTimeMs) ? state.simulationTimeMs : 0;
-  state.progression ??= { completedLevels: [], counters: {}, objectiveComplete: false, lastUnlockAt: 0 };
+  state.progression ??= { completedLevels: [], counters: {}, levelStartedCounters: {}, playerActionCount: 0, levelStartedPlayerActionCount: 0, objectiveComplete: false, lastUnlockAt: 0 };
+  state.progression.counters ??= {};
+  state.progression.levelStartedCounters ??= {};
+  state.progression.playerActionCount = Number.isFinite(state.progression.playerActionCount) ? Math.max(0, Math.floor(state.progression.playerActionCount)) : 0;
+  state.progression.levelStartedPlayerActionCount = Number.isFinite(state.progression.levelStartedPlayerActionCount)
+    ? Math.min(state.progression.playerActionCount, Math.max(0, Math.floor(state.progression.levelStartedPlayerActionCount)))
+    : 0;
   const validEmployeeHats = new Set<string>(HATS.map((hat) => hat.id));
   if (state.avatar.hat !== "none" && !validEmployeeHats.has(String(state.avatar.hat))) state.avatar.hat = "none";
   for (const franchise of state.franchises ?? []) {
@@ -235,10 +241,13 @@ export function applyGameAction(input: GameState, action: GameAction): ActionRes
 function applyGameActionInternal(input: GameState, action: GameAction, cloneInput: boolean, finalize: boolean): ActionResult {
   const state = cloneInput ? structuredClone(input) : input;
   const events: GameEvent[] = [];
+  const countersBeforeAction = { ...state.progression.counters };
   const franchise = currentFranchise(state);
   const fail = (message: string): ActionResult => ({ state: input, ok: false, message, events: [] });
   const success = (message: string): ActionResult => {
+    if (COUNTS_AS_PLAYER_PROGRESS.has(action.type)) attributePlayerAction(state, action, countersBeforeAction);
     if (finalize) {
+      if (COUNTS_AS_PLAYER_PROGRESS.has(action.type)) state.progression.playerActionCount += 1;
       state.revision += 1;
       normalizeLevel(state);
       stampEvents(state, events);
@@ -410,6 +419,7 @@ function applyGameActionInternal(input: GameState, action: GameAction, cloneInpu
       const transaction = franchise.checkoutTransactions.find((candidate) => candidate.state !== "COMPLETE" && candidate.state !== "ABANDONED");
       if (!transaction) return fail("Todavía no hay un cliente listo en caja.");
       transaction.paymentMethod = action.paymentMethod;
+      transaction.handledByPlayer = true;
       const result = processCheckoutUnit(state, franchise, transaction, events);
       return success(result);
     }
@@ -573,7 +583,10 @@ export function advanceWorld(input: GameState, deltaMs = 250, pathfinder?: World
   for (const action of worldInput.interactions ?? []) {
     const result = applyGameActionInternal(state, action, false, false);
     interactionMessage = result.message;
-    if (result.ok) events.push(...result.events);
+    if (result.ok) {
+      if (COUNTS_AS_PLAYER_PROGRESS.has(action.type)) state.progression.playerActionCount += 1;
+      events.push(...result.events);
+    }
   }
   const elapsedMs = Math.min(1_000, Math.max(0, deltaMs));
   state.simulationTimeMs += elapsedMs;
@@ -882,7 +895,7 @@ function updateEmployee(state: GameState, franchise: FranchiseState, employee: E
   }
   switch (runtime.state) {
     case "IDLE":
-      if (state.simulationTimeMs - runtime.stateSince < 350 || !assignEmployeeTask(franchise, employee, pathfinder)) return;
+      if (state.simulationTimeMs - runtime.stateSince < 350 || !assignEmployeeTask(state, franchise, employee, pathfinder)) return;
       runtime.state = "NAVIGATE_PICKUP";
       runtime.stateSince = state.simulationTimeMs;
       break;
@@ -922,18 +935,22 @@ function updateEmployee(state: GameState, franchise: FranchiseState, employee: E
 
 function updateCashierEmployee(state: GameState, franchise: FranchiseState, employee: Employee, deltaMs: number, events: GameEvent[], pathfinder?: WorldPathfinder) {
   const runtime = employee.runtime!;
+  const assignedLane = cashierLaneForEmployee(franchise, employee);
+  if (assignedLane === null) {
+    if (runtime.state !== "IDLE" || runtime.assignedStationId !== null) resetEmployee(employee, state.simulationTimeMs);
+    return;
+  }
+  const assignedStationId = `checkout-${assignedLane + 1}`;
+  const workPoint = CASHIER_WORK_POINTS[assignedLane];
   const activeTransactions = franchise.checkoutTransactions
     .filter((transaction) => transaction.state !== "COMPLETE" && transaction.state !== "ABANDONED")
     .sort((a, b) => a.updatedAt - b.updatedAt);
-  const waitingCustomer = franchise.customers.find((customer) => ["NAVIGATE_TO_QUEUE", "QUEUE_WAIT", "MOVE_QUEUE", "UNLOAD", "WAIT_CHECKOUT"].includes(customer.state));
-  const lane = (activeTransactions[0]?.checkoutLane ?? waitingCustomer?.queueLane ?? 0) as 0 | 1;
-  const workPoint = CASHIER_WORK_POINTS[lane];
-  const hasCheckoutWork = activeTransactions.length > 0 || Boolean(waitingCustomer);
+  const transaction = activeTransactions.find((candidate) => (candidate.checkoutLane ?? 0) === assignedLane);
 
-  if (runtime.state !== "NAVIGATE_CHECKOUT" && runtime.state !== "OPERATE_CHECKOUT") {
-    if (!hasCheckoutWork) return;
+  if (runtime.assignedStationId !== assignedStationId
+    || (runtime.state !== "NAVIGATE_CHECKOUT" && runtime.state !== "WAIT_CHECKOUT_STATION" && runtime.state !== "OPERATE_CHECKOUT")) {
     runtime.state = "NAVIGATE_CHECKOUT";
-    runtime.assignedStationId = `checkout-${lane + 1}`;
+    runtime.assignedStationId = assignedStationId;
     runtime.stateSince = state.simulationTimeMs;
     setEmployeePath(runtime, navigatePath(pathfinder, [runtime.x, runtime.z], workPoint));
     return;
@@ -952,7 +969,7 @@ function updateCashierEmployee(state: GameState, franchise: FranchiseState, empl
       runtime.targetZ = workPoint[1];
       runtime.path = [];
       runtime.pathIndex = 0;
-      runtime.state = "OPERATE_CHECKOUT";
+      runtime.state = transaction ? "OPERATE_CHECKOUT" : "WAIT_CHECKOUT_STATION";
       runtime.stateSince = state.simulationTimeMs;
       runtime.currentSpeed = 0;
     }
@@ -963,23 +980,18 @@ function updateCashierEmployee(state: GameState, franchise: FranchiseState, empl
   // Do not let them scan remotely: route them to the current lane geometry.
   if (Math.hypot(runtime.x - workPoint[0], runtime.z - workPoint[1]) > 0.16) {
     runtime.state = "NAVIGATE_CHECKOUT";
-    runtime.assignedStationId = `checkout-${lane + 1}`;
+    runtime.assignedStationId = assignedStationId;
     runtime.stateSince = state.simulationTimeMs;
     setEmployeePath(runtime, navigatePath(pathfinder, [runtime.x, runtime.z], workPoint));
     return;
   }
 
-  const assignedLane = runtime.assignedStationId === "checkout-2" ? 1 : 0;
-  const transaction = activeTransactions.find((candidate) => (candidate.checkoutLane ?? 0) === assignedLane);
   if (!transaction) {
-    if (hasCheckoutWork && lane !== assignedLane) {
-      runtime.state = "NAVIGATE_CHECKOUT";
-      runtime.assignedStationId = `checkout-${lane + 1}`;
-      runtime.stateSince = state.simulationTimeMs;
-      setEmployeePath(runtime, navigatePath(pathfinder, [runtime.x, runtime.z], workPoint));
-    }
+    runtime.state = "WAIT_CHECKOUT_STATION";
+    runtime.currentSpeed = 0;
     return;
   }
+  runtime.state = "OPERATE_CHECKOUT";
   const interval = checkoutScanInterval(franchise, transaction);
   if (state.simulationTimeMs - transaction.lastScannedAt >= interval) {
     processCheckoutUnit(state, franchise, transaction, events);
@@ -987,11 +999,20 @@ function updateCashierEmployee(state: GameState, franchise: FranchiseState, empl
   }
 }
 
-function assignEmployeeTask(franchise: FranchiseState, employee: Employee, pathfinder?: WorldPathfinder) {
+function cashierLaneForEmployee(franchise: FranchiseState, employee: Employee): CheckoutLane | null {
+  const laneCount = franchise.unlockedAreas.includes("checkout-2") ? 2 : 1;
+  const cashiers = franchise.employees.filter((candidate) => candidate.role === "cashier");
+  const index = cashiers.findIndex((candidate) => candidate.id === employee.id);
+  if (index < 0 || index >= laneCount) return null;
+  return index as CheckoutLane;
+}
+
+function assignEmployeeTask(state: GameState, franchise: FranchiseState, employee: Employee, pathfinder?: WorldPathfinder) {
   const runtime = employee.runtime!;
   if (employee.role === "stocker") {
+    const saleableProducts = new Set(unlockedCustomerProducts(state.level));
     const productId = (Object.keys(franchise.warehouse) as ProductId[])
-      .filter((id) => franchise.warehouse[id] > 0)
+      .filter((id) => saleableProducts.has(id) && availableWarehouseForEmployee(franchise, id, employee.id) > productionIngredientReserve(franchise, id))
       .sort((a, b) => shelfFill(franchise, a) - shelfFill(franchise, b))[0];
     if (!productId || shelfFill(franchise, productId) >= 1) return false;
     runtime.assignedProduct = productId; runtime.assignedStationId = "stockroom";
@@ -1027,7 +1048,7 @@ function assignEmployeeTask(franchise: FranchiseState, employee: Employee, pathf
       (candidate.status === "IDLE" || candidate.status === "WAITING_INPUT")
       && candidate.output === 0
       && candidate.output < candidate.outputCapacity
-      && Object.entries(PRODUCT_CONFIG[candidate.productId]?.recipe ?? {}).every(([id, quantity]) => franchise.warehouse[id as ProductId] >= quantity)
+      && Object.entries(PRODUCT_CONFIG[candidate.productId]?.recipe ?? {}).every(([id, quantity]) => availableWarehouseForEmployee(franchise, id as ProductId, employee.id) >= quantity)
     ));
     const ingredient = machine ? Object.keys(PRODUCT_CONFIG[machine.productId]?.recipe ?? {})[0] as ProductId | undefined : undefined;
     if (!machine || !ingredient) return false;
@@ -1036,6 +1057,30 @@ function assignEmployeeTask(franchise: FranchiseState, employee: Employee, pathf
     return true;
   }
   return false;
+}
+
+function availableWarehouseForEmployee(franchise: FranchiseState, productId: ProductId, employeeId: string) {
+  const reserved = franchise.employees.reduce((total, candidate) => {
+    if (candidate.id === employeeId) return total;
+    const runtime = candidate.runtime;
+    if (!runtime || runtime.assignedProduct !== productId || (runtime.state !== "NAVIGATE_PICKUP" && runtime.state !== "PICKUP")) return total;
+    if (candidate.role === "operator") {
+      const machine = franchise.productionMachines.find((item) => item.id === runtime.assignedStationId);
+      return total + Number(PRODUCT_CONFIG[machine?.productId ?? "flour"]?.recipe?.[productId] ?? 0);
+    }
+    return total + runtime.carry.capacity;
+  }, 0);
+  return Math.max(0, franchise.warehouse[productId] - reserved);
+}
+
+/** Keeps at least one actionable recipe batch away from retail restocking. */
+function productionIngredientReserve(franchise: FranchiseState, productId: ProductId) {
+  return franchise.productionMachines.reduce((total, machine) => {
+    if (machine.status === "LOCKED" || machine.status === "PROCESSING" || machine.output >= machine.outputCapacity) return total;
+    const required = Number(PRODUCT_CONFIG[machine.productId]?.recipe?.[productId] ?? 0);
+    const loaded = Number(machine.input[productId] ?? 0);
+    return total + Math.max(0, required - loaded);
+  }, 0);
 }
 
 /** Scores all harvestable raw materials by real downstream shortage. */
@@ -1066,7 +1111,7 @@ function employeePickup(state: GameState, franchise: FranchiseState, employee: E
   const productId = runtime.assignedProduct;
   if (!productId) return resetEmployee(employee, state.simulationTimeMs);
   if (employee.role === "stocker") {
-    const quantity = Math.min(runtime.carry.capacity, franchise.warehouse[productId]);
+    const quantity = Math.min(runtime.carry.capacity, Math.max(0, availableWarehouseForEmployee(franchise, productId, employee.id) - productionIngredientReserve(franchise, productId)));
     franchise.warehouse[productId] -= quantity;
     runtime.carry.items = quantity ? { [productId]: quantity } : {};
   } else if (employee.role === "farmer") {
@@ -1611,14 +1656,18 @@ function setProductPath(franchise: FranchiseState, customer: CustomerRuntimeStat
   setCustomerPath(customer, navigatePath(pathfinder, [customer.x, customer.z], target));
 }
 
-function applyCustomerAvoidance(customers: CustomerRuntimeState[]) {
+export function applyCustomerAvoidance(customers: CustomerRuntimeState[]) {
   const moving = new Set<CustomerRuntimeState["state"]>(["ENTER_STORE", "NAVIGATE_TO_PRODUCT", "NAVIGATE_TO_QUEUE", "MOVE_QUEUE", "NAVIGATE_TO_BAG", "NAVIGATE_TO_RETURNS", "NAVIGATE_TO_CART_RETURN", "EXIT_STORE"]);
+  const cellSize = 0.6;
+  const cells = new Map<string, number[]>();
   for (let firstIndex = 0; firstIndex < customers.length; firstIndex++) {
     const first = customers[firstIndex];
     if (!moving.has(first.state)) continue;
-    for (let secondIndex = firstIndex + 1; secondIndex < customers.length; secondIndex++) {
-      const second = customers[secondIndex];
-      if (!moving.has(second.state)) continue;
+    const cellX = Math.floor(first.x / cellSize);
+    const cellZ = Math.floor(first.z / cellSize);
+    for (let offsetX = -1; offsetX <= 1; offsetX += 1) for (let offsetZ = -1; offsetZ <= 1; offsetZ += 1) {
+      for (const secondIndex of cells.get(`${cellX + offsetX}:${cellZ + offsetZ}`) ?? []) {
+        const second = customers[secondIndex];
       const dx = second.x - first.x; const dz = second.z - first.z; const distance = Math.hypot(dx, dz);
       if (distance >= 0.6) continue;
       const nx = distance > 0.001 ? dx / distance : first.id < second.id ? 1 : -1;
@@ -1626,7 +1675,12 @@ function applyCustomerAvoidance(customers: CustomerRuntimeState[]) {
       const correction = Math.min(0.08, (0.6 - distance) * 0.5);
       first.x -= nx * correction; first.z -= nz * correction;
       second.x += nx * correction; second.z += nz * correction;
+      }
     }
+    const key = `${Math.floor(first.x / cellSize)}:${Math.floor(first.z / cellSize)}`;
+    const occupants = cells.get(key);
+    if (occupants) occupants.push(firstIndex);
+    else cells.set(key, [firstIndex]);
   }
 }
 
@@ -1908,6 +1962,8 @@ function normalizeLevel(state: GameState) {
     state.progression.completedLevels.push(state.level);
     state.level += 1;
     state.progression.lastUnlockAt = state.simulationTimeMs;
+    state.progression.levelStartedCounters = { ...state.progression.counters };
+    state.progression.levelStartedPlayerActionCount = state.progression.playerActionCount;
     for (const ownedFranchise of state.franchises.filter((candidate) => candidate.owned)) {
       applyLevelUnlock(state, ownedFranchise, state.level);
       ensureNextBuildProject(state, ownedFranchise);
@@ -1928,7 +1984,7 @@ function upgradeTarget(state: GameState, franchise: FranchiseState, upgrade: "st
     const entry = Object.entries(franchise.stationTiers).filter(([, tier]) => tier < 10).sort((a, b) => a[1] - b[1] || a[0].localeCompare(b[0]))[0];
     return entry ? { kind: "station", id: entry[0], label: stationUpgradeLabel(franchise, entry[0]), currentTier: entry[1] } : null;
   }
-  if (upgrade === "player-speed") return state.level >= 12 && franchise.playerSpeedTier < 10 ? { kind: "player-speed", id: "player-speed", label: "Velocidad del vendedor", currentTier: franchise.playerSpeedTier } : null;
+  if (upgrade === "player-speed") return state.level >= 3 && franchise.playerSpeedTier < 10 ? { kind: "player-speed", id: "player-speed", label: "Velocidad del vendedor", currentTier: franchise.playerSpeedTier } : null;
   if (upgrade === "player-capacity") {
     const currentTier = carryCapacityTier(franchise.carry.capacity);
     return state.level >= 3 && currentTier < CAPACITY_TIERS.length
@@ -2019,7 +2075,7 @@ function applyUpgradeTarget(state: GameState, franchise: FranchiseState, target:
 }
 
 function upgradeUnavailableMessage(upgrade: "station" | "player-speed" | "player-capacity" | "employee") {
-  if (upgrade === "player-speed") return "La mejora de velocidad se desbloquea en nivel 12 o ya está al máximo.";
+  if (upgrade === "player-speed") return "La mejora de velocidad se desbloquea en nivel 3 o ya está al máximo.";
   if (upgrade === "player-capacity") return "La mejora de carga se desbloquea en nivel 3 o ya está al máximo.";
   if (upgrade === "employee") return "No hay nuevas contrataciones o formaciones disponibles.";
   return "Todas las estaciones disponibles ya están al máximo.";
@@ -2027,6 +2083,32 @@ function upgradeUnavailableMessage(upgrade: "station" | "player-speed" | "player
 
 function recordDomain(state: GameState, counter: string, amount: number) {
   state.progression.counters[counter] = (state.progression.counters[counter] ?? 0) + amount;
+}
+
+const COUNTS_AS_PLAYER_PROGRESS = new Set<GameAction["type"]>([
+  "TEND_CROP",
+  "HARVEST",
+  "LOAD_FLOUR_MILL",
+  "BAKE_BREAD",
+  "OPERATE_MACHINE",
+  "PICKUP_WAREHOUSE",
+  "RETURN_TO_WAREHOUSE",
+  "STOCK",
+  "CHECKOUT",
+  "ORDER",
+  "CONTRIBUTE_UPGRADE",
+]);
+
+function attributePlayerAction(state: GameState, action: GameAction, countersBeforeAction: Record<string, number>) {
+  recordDomain(state, `player:action:${action.type}`, 1);
+  for (const [counterId, value] of Object.entries(state.progression.counters)) {
+    if (counterId.startsWith("player:")) continue;
+    const delta = value - (countersBeforeAction[counterId] ?? 0);
+    if (delta > 0) recordDomain(state, `player:${counterId}`, delta);
+  }
+  if (action.type === "LOAD_FLOUR_MILL") recordDomain(state, "player:machine:flour-mill-1", 1);
+  if (action.type === "BAKE_BREAD") recordDomain(state, "player:machine:bread-oven-1", 1);
+  if (action.type === "OPERATE_MACHINE") recordDomain(state, `player:machine:${action.machineId}`, 1);
 }
 
 function applyLevelUnlock(state: GameState, franchise: FranchiseState, level: number) {
@@ -2044,6 +2126,7 @@ function applyLevelUnlock(state: GameState, franchise: FranchiseState, level: nu
   if (level === 3) {
     franchise.carry.capacity = Math.max(5, franchise.carry.capacity);
     franchise.playerCapacityTier = carryCapacityTier(franchise.carry.capacity);
+    franchise.playerSpeedTier = Math.max(2, franchise.playerSpeedTier);
   }
   if (level === 4) { unlockArea("farm-wheat"); unlockCrop(franchise, "crop-wheat-1", state.simulationTimeMs, level); franchise.stationTiers["crop-wheat-1"] ??= 1; }
   if (level === 5) { unlockArea("flour-mill"); unlockMachine(franchise, "flour-mill-1"); franchise.stationTiers["flour-mill-1"] ??= 1; }

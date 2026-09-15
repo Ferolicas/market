@@ -59,7 +59,7 @@ describe("market store world queue", () => {
     expect(final.saveStatus).toBe("dirty");
   });
 
-  it("backs up mutations made during a slow save before accepting a 409", async () => {
+  it("preserves live mutations and pending events instead of rolling back on a 409", async () => {
     const local = memoryStorage();
     vi.stubGlobal("localStorage", local);
     vi.stubGlobal("sessionStorage", memoryStorage());
@@ -83,13 +83,11 @@ describe("market store world queue", () => {
     releaseSave(new Response(JSON.stringify({ state: authoritative, saveRevision: 9 }), { status: 409, headers: { "Content-Type": "application/json" } }));
     await saving;
 
-    const conflictKey = Array.from({ length: local.length }, (_, index) => local.key(index)).find((key) => key?.startsWith("mini-market-conflict-"));
-    expect(conflictKey).toBeTruthy();
-    const backup = JSON.parse(local.getItem(conflictKey!)!) as { state: typeof game; pendingEvents: unknown[]; saveRevision: number; serverSaveRevision: number };
-    expect(backup.state.franchises[0].carry.items.tomatoes).toBe(1);
-    expect(backup.pendingEvents.length).toBeGreaterThan(0);
-    expect(backup).toMatchObject({ saveRevision: 4, serverSaveRevision: 9 });
-    expect(useMarketStore.getState()).toMatchObject({ saveRevision: 9, saveStatus: "conflict", pendingEvents: [] });
+    const preserved = useMarketStore.getState();
+    expect(preserved.game!.franchises[0].carry.items.tomatoes).toBe(1);
+    expect(preserved.pendingEvents.length).toBeGreaterThan(0);
+    expect(preserved).toMatchObject({ saveRevision: 4, saveStatus: "conflict" });
+    expect(preserved.message).toContain("no fue sustituido");
   });
 
   it("publishes a new occurrence for repeated text-identical offline transitions", async () => {

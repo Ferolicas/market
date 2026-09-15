@@ -5,8 +5,9 @@ import { advanceSimulation, advanceWorld, applyGameAction, normalizeGameState } 
 import type { ActionResult, GameAction, GameEvent, GameState, WorldInteractionAction } from "./types";
 import { ensureStoreNavigation, storePathfinder } from "./navigation/NavMeshService";
 import { chooseRecovery, restorePendingEventOrigins } from "./persistence/Snapshot";
-import { persistRecoverySnapshot, queueRecoverySnapshot, readRecoverySnapshot } from "./persistence/RecoveryStorage";
+import { persistRecoverySnapshot, queueRecoverySnapshot, readRecoverySnapshot, setRecoveryScope, type SaveAttempt } from "./persistence/RecoveryStorage";
 import { marketQaFreezeEnabled } from "./debug/QaAccess";
+import { gameDeviceId, gameSessionId } from "./persistence/ClientIdentity";
 
 type SaveStatus = "idle" | "loading" | "dirty" | "saving" | "saved" | "offline" | "conflict" | "error";
 
@@ -23,19 +24,10 @@ interface MarketStore {
   queueInteraction: (action: WorldInteractionAction) => void;
   simulate: (minutes?: number) => void;
   tickWorld: (deltaMs?: number) => void;
-  saveGame: () => Promise<void>;
+  saveGame: (options?: { keepalive?: boolean }) => Promise<void>;
 }
 
 const MAX_PENDING_INTERACTIONS = 64;
-
-function gameSessionId() {
-  const key = "mini-market-session-id";
-  const existing = sessionStorage.getItem(key);
-  if (existing) return existing;
-  const id = crypto.randomUUID();
-  sessionStorage.setItem(key, id);
-  return id;
-}
 
 function qaSimulationFrozen() {
   if (typeof window === "undefined") return false;
@@ -46,7 +38,9 @@ export const useMarketStore = create<MarketStore>((set, get) => {
   let pendingPlayerDistanceMeters = 0;
   let pendingInteractions: WorldInteractionAction[] = [];
   let saveInFlight = false;
+  let pendingSaveAttempt: SaveAttempt | null = null;
   const messageOccurrence = (message: string) => ({ message, messageRevision: get().messageRevision + 1 });
+  const recoverySnapshot = (state: GameState, saveRevision: number, pendingEvents: GameEvent[]) => ({ state, saveRevision, pendingEvents, pendingSave: pendingSaveAttempt });
 
   return {
   game: null,
@@ -66,10 +60,38 @@ export const useMarketStore = create<MarketStore>((set, get) => {
       const response = await fetch("/api/game/save", { cache: "no-store" });
       if (!response.ok) throw new Error(`Carga ${response.status}`);
       const payload = await response.json();
+      if (typeof payload.recoveryScope === "string") setRecoveryScope(payload.recoveryScope);
       const serverState = normalizeGameState(payload.state);
       const recovery = await readRecoverySnapshot();
       if (recovery?.pendingEvents?.length && recovery.state?.currentFranchiseId) {
         recovery.pendingEvents = restorePendingEventOrigins(recovery.pendingEvents, recovery.state.currentFranchiseId);
+      }
+      pendingSaveAttempt = recovery?.pendingSave ?? null;
+      if (recovery && pendingSaveAttempt) {
+        const attemptedIds = new Set(pendingSaveAttempt.events.map((event) => event.eventId));
+        const operationWasApplied = payload.lastOperationId === pendingSaveAttempt.operationId
+          || (payload.saveRevision >= pendingSaveAttempt.expectedRevision + 1
+            && pendingSaveAttempt.events.every((event) => serverState.processedEventIds.includes(event.eventId!)));
+        if (operationWasApplied) {
+          const localState = normalizeGameState(recovery.state);
+          const remainingEvents = (recovery.pendingEvents ?? []).filter((event) => !attemptedIds.has(event.eventId));
+          const hasNewerLocalState = localState.revision > pendingSaveAttempt.state.revision;
+          pendingSaveAttempt = null;
+          const selectedState = hasNewerLocalState ? localState : serverState;
+          queueRecoverySnapshot(recoverySnapshot(selectedState, payload.saveRevision, remainingEvents));
+          set({ game: selectedState, saveRevision: payload.saveRevision, saveStatus: hasNewerLocalState || remainingEvents.length ? "dirty" : "saved", pendingEvents: remainingEvents, ...messageOccurrence("Confirmé un guardado cuya respuesta se había perdido") });
+          return;
+        }
+        if (payload.saveRevision === pendingSaveAttempt.expectedRevision) {
+          const localState = normalizeGameState(recovery.state);
+          queueRecoverySnapshot(recoverySnapshot(localState, recovery.saveRevision, recovery.pendingEvents ?? []));
+          set({ game: localState, saveRevision: recovery.saveRevision, saveStatus: "dirty", pendingEvents: recovery.pendingEvents ?? [], ...messageOccurrence("Recuperé un guardado local pendiente") });
+          return;
+        }
+        const localState = normalizeGameState(recovery.state);
+        queueRecoverySnapshot(recoverySnapshot(localState, recovery.saveRevision, recovery.pendingEvents ?? []));
+        set({ game: localState, saveRevision: recovery.saveRevision, saveStatus: "conflict", pendingEvents: recovery.pendingEvents ?? [], ...messageOccurrence("Detecté progreso distinto en otro dispositivo; conservé esta copia sin sobrescribirla") });
+        return;
       }
       if (recovery && recovery.saveRevision === payload.saveRevision) {
         const localState = normalizeGameState(recovery.state);
@@ -78,15 +100,17 @@ export const useMarketStore = create<MarketStore>((set, get) => {
           { state: localState, saveRevision: recovery.saveRevision, pendingEvents: recovery.pendingEvents ?? [] },
         );
         if (selected.source === "local") {
-          queueRecoverySnapshot({ state: selected.envelope.state, saveRevision: payload.saveRevision, pendingEvents: selected.envelope.pendingEvents });
+          queueRecoverySnapshot(recoverySnapshot(selected.envelope.state, payload.saveRevision, selected.envelope.pendingEvents));
           set({ game: selected.envelope.state, saveRevision: payload.saveRevision, saveStatus: "dirty", pendingEvents: selected.envelope.pendingEvents, ...messageOccurrence("Recuperé cambios locales pendientes") });
           return;
         }
       }
-      queueRecoverySnapshot({ state: serverState, saveRevision: payload.saveRevision, pendingEvents: [] });
+      pendingSaveAttempt = null;
+      queueRecoverySnapshot(recoverySnapshot(serverState, payload.saveRevision, []));
       set({ game: serverState, saveRevision: payload.saveRevision, saveStatus: "saved", ...messageOccurrence("Progreso sincronizado") });
     } catch {
       const recovery = await readRecoverySnapshot();
+      pendingSaveAttempt = recovery?.pendingSave ?? null;
       if (recovery?.pendingEvents?.length && recovery.state?.currentFranchiseId) {
         recovery.pendingEvents = restorePendingEventOrigins(recovery.pendingEvents, recovery.state.currentFranchiseId);
       }
@@ -107,7 +131,7 @@ export const useMarketStore = create<MarketStore>((set, get) => {
       return result;
     }
     const pendingEvents = [...get().pendingEvents, ...result.events];
-    queueRecoverySnapshot({ state: result.state, saveRevision: get().saveRevision, pendingEvents });
+    queueRecoverySnapshot(recoverySnapshot(result.state, get().saveRevision, pendingEvents));
     set({ game: result.state, saveStatus: saveInFlight ? "saving" : "dirty", pendingEvents, ...messageOccurrence(result.message) });
     return result;
   },
@@ -132,7 +156,7 @@ export const useMarketStore = create<MarketStore>((set, get) => {
     if (!game) return;
     const result = advanceSimulation(game, minutes);
     const pendingEvents = [...get().pendingEvents, ...result.events];
-    queueRecoverySnapshot({ state: result.state, saveRevision: get().saveRevision, pendingEvents });
+    queueRecoverySnapshot(recoverySnapshot(result.state, get().saveRevision, pendingEvents));
     set({ game: result.state, saveStatus: saveInFlight ? "saving" : "dirty", pendingEvents });
   },
 
@@ -151,21 +175,38 @@ export const useMarketStore = create<MarketStore>((set, get) => {
     // Keep only the newest snapshot. RecoveryStorage persists it through an
     // asynchronous IndexedDB transaction during browser idle time, so the
     // 10 Hz world path never performs JSON.stringify/localStorage.
-    queueRecoverySnapshot({ state: result.state, saveRevision: get().saveRevision, pendingEvents });
+    queueRecoverySnapshot(recoverySnapshot(result.state, get().saveRevision, pendingEvents));
     set({ game: result.state, saveStatus: saveInFlight ? "saving" : "dirty", pendingEvents, ...(interactions.length ? messageOccurrence(result.message) : {}) });
   },
 
-  saveGame: async () => {
+  saveGame: async (options) => {
     const { game, saveRevision, saveStatus, pendingEvents } = get();
     if (!game || saveInFlight || (saveStatus === "saved" && pendingEvents.length === 0)) return;
     saveInFlight = true;
     set({ saveStatus: "saving" });
     try {
       const state = { ...game, lastSavedAt: new Date().toISOString() };
+      const deviceId = gameDeviceId();
+      const canReusePendingAttempt = pendingSaveAttempt?.deviceId === deviceId
+        && pendingSaveAttempt.expectedRevision === saveRevision;
+      const attempt = canReusePendingAttempt ? pendingSaveAttempt! : {
+        expectedRevision: saveRevision,
+        operationId: crypto.randomUUID(),
+        deviceId,
+        sessionId: gameSessionId(),
+        state,
+        events: pendingEvents,
+      };
+      pendingSaveAttempt = attempt;
+      queueRecoverySnapshot(recoverySnapshot(game, saveRevision, get().pendingEvents));
+      const requestBody = JSON.stringify(attempt);
       const response = await fetch("/api/game/save", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ expectedRevision: saveRevision, sessionId: gameSessionId(), state, events: pendingEvents }),
+        body: requestBody,
+        // Browsers cap the aggregate keepalive queue near 64 KiB. Larger
+        // snapshots remain protected in IndexedDB and retry on next launch.
+        keepalive: Boolean(options?.keepalive && new TextEncoder().encode(requestBody).byteLength <= 60_000),
       });
       const payload = await response.json();
       if (response.status === 409) {
@@ -175,24 +216,23 @@ export const useMarketStore = create<MarketStore>((set, get) => {
         // before accepting the authoritative server state.
         const latest = get();
         const conflictState = latest.game ?? state;
-        localStorage.setItem(`mini-market-conflict-${Date.now()}`, JSON.stringify({
-          state: conflictState,
-          saveRevision,
-          pendingEvents: latest.pendingEvents,
-          serverSaveRevision: payload.saveRevision,
-        }));
-        const serverState = normalizeGameState(payload.state);
-        await persistRecoverySnapshot({ state: serverState, saveRevision: payload.saveRevision, pendingEvents: [] });
-        set({ game: serverState, saveRevision: payload.saveRevision, saveStatus: "conflict", pendingEvents: [], ...messageOccurrence("Otra sesión guardó primero; cargué la versión más reciente y conservé una copia local") });
+        await persistRecoverySnapshot(recoverySnapshot(conflictState, saveRevision, latest.pendingEvents));
+        const writer = payload.conflict?.deviceId === attempt.deviceId ? "otra pestaña de este dispositivo" : "otro dispositivo";
+        set({ game: conflictState, saveRevision, saveStatus: "conflict", pendingEvents: latest.pendingEvents, ...messageOccurrence(`Conflicto con ${writer}; tu progreso local no fue sustituido`) });
         return;
       }
-      if (!response.ok) throw new Error(payload.error ?? "SAVE_FAILED");
+      if (!response.ok) {
+        const retryable = response.status === 429 || response.status >= 500;
+        set({ saveStatus: retryable ? "offline" : "error", ...messageOccurrence(retryable ? "El servidor está ocupado; el guardado local se reintentará" : `El guardado fue rechazado: ${payload.error ?? response.status}`) });
+        return;
+      }
       const latest = get();
-      const savedIds = new Set(pendingEvents.map((event) => event.eventId));
+      const savedIds = new Set(attempt.events.map((event) => event.eventId));
       const remainingEvents = latest.pendingEvents.filter((event) => !savedIds.has(event.eventId));
-      const hasNewerState = Boolean(latest.game && latest.game.revision > state.revision);
-      const latestState = hasNewerState ? latest.game! : state;
-      await persistRecoverySnapshot({ state: latestState, saveRevision: payload.saveRevision, pendingEvents: remainingEvents });
+      const hasNewerState = Boolean(latest.game && latest.game.revision > attempt.state.revision);
+      const latestState = hasNewerState ? latest.game! : attempt.state;
+      pendingSaveAttempt = null;
+      await persistRecoverySnapshot(recoverySnapshot(latestState, payload.saveRevision, remainingEvents));
       set({ game: latestState, saveRevision: payload.saveRevision, saveStatus: hasNewerState || remainingEvents.length ? "dirty" : "saved", pendingEvents: remainingEvents, ...messageOccurrence(hasNewerState || remainingEvents.length ? "Guardado parcial; sincronizando cambios nuevos" : "Partida guardada") });
     } catch {
       set({ saveStatus: "offline", ...messageOccurrence("Sin conexión: los cambios siguen protegidos en este dispositivo") });

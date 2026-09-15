@@ -9,7 +9,7 @@ import { dampFactor, frameDelta, turnTowards, type VisitorAnimation } from "@/ga
 import type { CheckoutTransaction, CustomerRuntimeState, ProductId } from "@/game/types";
 import { scaleStorePoint, STORE_ELEMENT_SCALE, STORE_LAYOUT_SCALE, WORLD_SCALE } from "@/game/world-scale";
 import { FacialController, type FaceExpression } from "@/game/animation/FacialController";
-import { CHARACTER_FACE_UPDATE_INTERVAL, characterIsInView, characterModelPathForTier, createCharacterVisibilityScratch, disposeCharacterMaterials, prepareCharacterModel, useCharacterModelTier } from "@/game/animation/CharacterPresentation";
+import { characterFaceUpdateInterval, characterIsInView, characterModelPathForTier, createCharacterVisibilityScratch, disposeCharacterMaterials, prepareCharacterModel, useCharacterModelTier } from "@/game/animation/CharacterPresentation";
 import { captureCustomerMotion, projectCustomerMotion } from "@/game/animation/CustomerVisualMotion";
 import { liveActors } from "@/game/render/LiveActors";
 import { marketQaQueryEnabled } from "@/game/debug/QaAccess";
@@ -124,6 +124,7 @@ export const Customer = memo(function Customer({ customer, checkoutTransaction }
   // Orthographic distance does not change screen size, so select one source by
   // live device capability rather than loading all LODs into GPU memory.
   const modelTier = useCharacterModelTier();
+  const facialUpdateInterval = characterFaceUpdateInterval(modelTier, true);
   const modelPath = modelTier === 2 ? LOD2_PATHS[id] : modelTier === 1 ? LOD1_PATHS[id] : MODEL_PATHS[id];
   const gltf = useGLTF(modelPath);
   const model = useMemo(() => prepareCharacterModel(gltf.scene, { crowd: true, reducedDetail: modelTier > 0 }), [gltf.scene, modelTier]);
@@ -237,7 +238,7 @@ export const Customer = memo(function Customer({ customer, checkoutTransaction }
       return;
     }
 
-    if (clock.elapsedTime - lastFacialUpdate.current >= CHARACTER_FACE_UPDATE_INTERVAL || clock.elapsedTime < lastFacialUpdate.current) {
+    if (clock.elapsedTime - lastFacialUpdate.current >= facialUpdateInterval || clock.elapsedTime < lastFacialUpdate.current) {
       lastFacialUpdate.current = clock.elapsedTime;
       const expression: FaceExpression = animation === "Happy" || animation === "ReceiveBag" ? "Happy" : animation === "Confused" ? "Confused" : animation === "Impatient" || customer.state === "WAIT_RESTOCK" || customer.angry ? "Impatient" : "Neutral";
       const weights = facial.current.weights(clock.elapsedTime + id * 0.21, expression);

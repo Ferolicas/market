@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import * as THREE from "three";
-import { CHARACTER_SOLE_PROFILES, characterIsInView, characterModelPathForTier, characterModelTierForCapabilities, createCharacterVisibilityScratch, disposeCharacterMaterials, prepareCharacterModel, priorityCustomerModelPathsForTier } from "./CharacterPresentation";
+import { CHARACTER_SOLE_PROFILES, characterFaceUpdateInterval, characterIsInView, characterModelPathForTier, characterModelTierForCapabilities, createCharacterVisibilityScratch, disposeCharacterMaterials, prepareCharacterModel, priorityCustomerModelPathsForTier } from "./CharacterPresentation";
 
 function characterFixture() {
   const root = new THREE.Group();
@@ -157,15 +157,24 @@ describe("character presentation", () => {
     expect(characterModelPathForTier("/models/market/customers/customer_01.glb", 2)).toBe("/models/market/customers/lod2/customer_01.glb");
   });
 
-  it("preloads only the deterministic first three customer identities for the active tier", () => {
+  it("preloads every customer identity before live play for the active tier", () => {
     expect(priorityCustomerModelPathsForTier(2)).toEqual([
       "/models/market/customers/lod2/customer_01_man_young.glb",
       "/models/market/customers/lod2/customer_02_man_senior.glb",
       "/models/market/customers/lod2/customer_03_woman_young.glb",
+      "/models/market/customers/lod2/customer_04_woman_adult.glb",
+      "/models/market/customers/lod2/customer_05_woman_mature.glb",
+      "/models/market/customers/lod2/customer_06_woman_senior.glb",
     ]);
-    expect(priorityCustomerModelPathsForTier(0)).toHaveLength(3);
-    expect(priorityCustomerModelPathsForTier(0)).not.toContain("/models/market/customers/customer_04_woman_adult.glb");
+    expect(priorityCustomerModelPathsForTier(0)).toHaveLength(6);
     expect(priorityCustomerModelPathsForTier(0).some((path) => path.includes("/characters/owner_"))).toBe(false);
+  });
+
+  it("reduces only crowd facial sampling on constrained presentation tiers", () => {
+    expect(characterFaceUpdateInterval(0, false)).toBeCloseTo(1 / 24);
+    expect(characterFaceUpdateInterval(0, true)).toBeCloseTo(1 / 16);
+    expect(characterFaceUpdateInterval(1, true)).toBeCloseTo(1 / 12);
+    expect(characterFaceUpdateInterval(2, true)).toBeCloseTo(1 / 8);
   });
 
   it("uses conservative bounds to cull only actors safely outside the camera", () => {

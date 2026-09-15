@@ -10,7 +10,7 @@ import { CLIP_NATURAL_SPEED, gaitTimeScale, locomotionGroundingSupport, Locomoti
 import { FacialController, type FaceExpression } from "@/game/animation/FacialController";
 import { feedbackBus, type FeedbackSource } from "@/game/feedback/FeedbackBus";
 import { FootGroundingController } from "@/game/animation/FootGroundingController";
-import { CHARACTER_FACE_UPDATE_INTERVAL, characterIsInView, characterModelPathForTier, createCharacterVisibilityScratch, disposeCharacterMaterials, prepareCharacterModel, priorityCustomerModelPathsForTier, scheduleCharacterModelPreload, useCharacterModelTier } from "@/game/animation/CharacterPresentation";
+import { characterFaceUpdateInterval, characterIsInView, characterModelPathForTier, createCharacterVisibilityScratch, disposeCharacterMaterials, prepareCharacterModel, priorityCustomerModelPathsForTier, scheduleCharacterModelPreload, useCharacterModelTier } from "@/game/animation/CharacterPresentation";
 import { CHARACTER_PALM_OFFSETS, composeCarryAnimations, createCarrySocketScratch, handPalmPoint, HARVEST_BASKET_GRIP_HALF_WIDTH, HARVEST_BASKET_GRIP_HEIGHT, HARVEST_BASKET_GRIP_REACH, mountedHarvestBasketHandle, placeCarrySocket, updateHarvestBasketHandle } from "@/game/animation/CarrySocket";
 import { marketQaQueryEnabled } from "@/game/debug/QaAccess";
 
@@ -114,6 +114,7 @@ function RiggedAvatar({
   const visibilityScratch = useMemo(() => createCharacterVisibilityScratch(), []);
   const lastFacialUpdate = useRef(Number.NEGATIVE_INFINITY);
   const modelTier = useCharacterModelTier();
+  const facialUpdateInterval = characterFaceUpdateInterval(modelTier, feedbackSource === "npc");
   const modelPath = modelTier === 2 ? LOD2_MODEL_PATHS[body] : modelTier === 1 ? LOD1_MODEL_PATHS[body] : MODEL_PATHS[body];
   const gltf = useGLTF(modelPath);
   const model = useMemo(
@@ -149,17 +150,23 @@ function RiggedAvatar({
     const gaitScale = (motion?.current.speed ? gaitTimeScale(liveClip, motion.current.speed, rootScale) : undefined)
       ?? authoredSpeed ?? (liveClip === "Walk" || liveClip === "CarryWalk" ? 1.3 : liveClip === "Run" || liveClip === "CarryRun" ? 1.4 : 1);
     locomotion.current.transition(actions, liveClip, gaitScale);
+    const inView = !avatarRoot.current || characterIsInView(camera, avatarRoot.current, visibilityScratch);
+    mixerRef.current.timeScale = inView ? 1 : 0;
     if (feedbackActorId === "player" && typeof window !== "undefined" && marketQaQueryEnabled(window.location.search)) {
       const qaWindow = window as typeof window & { __MARKET_QA__?: Record<string, unknown> };
+      const activeAction = actions[liveClip];
       qaWindow.__MARKET_QA__ ??= {};
       qaWindow.__MARKET_QA__.avatarAnimation = {
         clip: liveClip,
-        time: actions[liveClip]?.time ?? 0,
-        timeScale: actions[liveClip]?.getEffectiveTimeScale() ?? 0,
+        time: activeAction?.time ?? 0,
+        timeScale: activeAction?.getEffectiveTimeScale() ?? 0,
+        weight: activeAction?.getEffectiveWeight() ?? 0,
+        scheduled: activeAction?.isScheduled() ?? false,
+        running: activeAction?.isRunning() ?? false,
+        mixerTimeScale: mixerRef.current.timeScale,
+        inView,
       };
     }
-    const inView = !avatarRoot.current || characterIsInView(camera, avatarRoot.current, visibilityScratch);
-    mixerRef.current.timeScale = inView ? 1 : 0;
     if (!inView) return;
     if (avatarRoot.current && groundingRoot.current && feet.length) {
       let lowest = Number.POSITIVE_INFINITY;
@@ -224,7 +231,7 @@ function RiggedAvatar({
       }
     }
 
-    if (clock.elapsedTime - lastFacialUpdate.current >= CHARACTER_FACE_UPDATE_INTERVAL || clock.elapsedTime < lastFacialUpdate.current) {
+    if (clock.elapsedTime - lastFacialUpdate.current >= facialUpdateInterval || clock.elapsedTime < lastFacialUpdate.current) {
       lastFacialUpdate.current = clock.elapsedTime;
       const expression: FaceExpression = liveClip === "Happy" ? "Happy" : liveClip === "Confused" ? "Confused" : "Neutral";
       const weights = facial.current.weights(clock.elapsedTime, expression);
@@ -255,7 +262,11 @@ function RiggedAvatar({
 
   useEffect(() => {
     locomotion.current.transition(actions, fallbackClip, fallbackClip === "Idle" ? idleAnimationSpeed ?? animationSpeed ?? 1 : animationSpeed ?? 1);
-    return () => { actions[fallbackClip]?.fadeOut(0.16); };
+    // Do not fade this clip in the dependency cleanup. `walking` can toggle
+    // between physics frames while useFrame has already selected Idle again;
+    // fading the previous render's fallback then leaves that active action at
+    // weight zero forever (a visible T-pose) until the player moves once.
+    // useAnimations owns the actual unmount cleanup and stops every action.
   }, [actions, animationSpeed, fallbackClip, idleAnimationSpeed]);
 
   useEffect(() => {

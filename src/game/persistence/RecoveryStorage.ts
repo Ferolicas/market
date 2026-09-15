@@ -2,6 +2,7 @@ import type { GameEvent, GameState } from "../types";
 
 export const LEGACY_RECOVERY_KEY = "mini-market-recovery-v1";
 export const RECOVERY_MARKER_KEY = "mini-market-recovery-available-v2";
+export const RECOVERY_SCOPE_KEY = "mini-market-recovery-scope-v1";
 
 const DATABASE_NAME = "mini-market-recovery";
 const DATABASE_VERSION = 1;
@@ -13,6 +14,17 @@ export interface RecoverySnapshot {
   state: GameState;
   saveRevision: number;
   pendingEvents?: GameEvent[];
+  pendingSave?: SaveAttempt | null;
+  scopeId?: string;
+}
+
+export interface SaveAttempt {
+  expectedRevision: number;
+  operationId: string;
+  deviceId: string;
+  sessionId: string;
+  state: GameState;
+  events: GameEvent[];
 }
 
 let queuedSnapshot: RecoverySnapshot | null = null;
@@ -20,6 +32,14 @@ let scheduledTimer: number | null = null;
 let scheduledIdleCallback: number | null = null;
 let writeChain = Promise.resolve();
 let lastWriteAt = 0;
+let activeRecoveryScope: string | null = null;
+
+export function setRecoveryScope(scopeId: string) {
+  const normalized = /^[a-f0-9]{32,64}$/i.test(scopeId) ? scopeId.toLowerCase() : null;
+  if (!normalized) return;
+  activeRecoveryScope = normalized;
+  try { localStorage.setItem(RECOVERY_SCOPE_KEY, normalized); } catch { /* storage may be blocked */ }
+}
 
 /**
  * Reads the async recovery snapshot first and transparently imports snapshots
@@ -27,12 +47,16 @@ let lastWriteAt = 0;
  * from localStorage's synchronous main-thread JSON path.
  */
 export async function readRecoverySnapshot(): Promise<RecoverySnapshot | null> {
-  const indexed = await readIndexedRecovery().catch(() => null);
+  const indexed = await readIndexedRecovery(recoverySnapshotKey()).catch(() => null);
+  const legacyIndexed = indexed || recoverySnapshotKey() === SNAPSHOT_KEY
+    ? null
+    : await readIndexedRecovery(SNAPSHOT_KEY).catch(() => null);
   const legacy = readLegacyRecovery();
-  const legacyIsNewer = Boolean(legacy && (!indexed
-    || legacy.state.revision > indexed.state.revision
-    || (legacy.state.revision === indexed.state.revision && legacy.saveRevision > indexed.saveRevision)));
-  const selected = legacyIsNewer ? legacy : indexed;
+  const candidates = [indexed, legacyIndexed, legacy]
+    .filter((candidate): candidate is RecoverySnapshot => Boolean(candidate))
+    .filter((candidate) => !activeScope() || !candidate.scopeId || candidate.scopeId === activeScope())
+    .sort((a, b) => b.state.revision - a.state.revision || b.saveRevision - a.saveRevision);
+  const selected = candidates[0] ?? null;
   if (selected === legacy && legacy && canUseIndexedDb()) void persistRecoverySnapshot(legacy);
   return selected;
 }
@@ -63,7 +87,7 @@ export function persistRecoverySnapshot(snapshot: RecoverySnapshot) {
   writeChain = writeChain.then(async () => {
     if (canUseIndexedDb()) {
       try {
-        await writeIndexedRecovery(snapshot);
+        await writeIndexedRecovery({ ...snapshot, scopeId: activeScope() ?? snapshot.scopeId }, recoverySnapshotKey());
         markRecoveryAvailable();
         try { localStorage.removeItem(LEGACY_RECOVERY_KEY); } catch { /* storage may be blocked */ }
         lastWriteAt = canScheduleInBrowser() ? performance.now() : 0;
@@ -73,7 +97,7 @@ export function persistRecoverySnapshot(snapshot: RecoverySnapshot) {
         // legacy fallback so offline recovery remains more important than jank.
       }
     }
-    writeLegacyRecovery(snapshot);
+    writeLegacyRecovery({ ...snapshot, scopeId: activeScope() ?? snapshot.scopeId });
     lastWriteAt = canScheduleInBrowser() ? performance.now() : 0;
   });
   return writeChain;
@@ -93,7 +117,7 @@ export function clearRecoverySnapshot() {
   clearLocalRecoveryHints();
   if (!canUseIndexedDb()) return Promise.resolve();
   writeChain = writeChain
-    .then(() => withStore("readwrite", (store) => store.delete(SNAPSHOT_KEY)))
+    .then(() => withStore("readwrite", (store) => store.delete(recoverySnapshotKey())))
     .then(() => undefined)
     .catch(() => undefined);
   return writeChain.finally(clearLocalRecoveryHints);
@@ -196,12 +220,25 @@ async function withStore<T>(mode: IDBTransactionMode, operation: (store: IDBObje
   });
 }
 
-function readIndexedRecovery() {
+function readIndexedRecovery(key: string) {
   if (!canUseIndexedDb()) return Promise.resolve(null);
-  return withStore<RecoverySnapshot | undefined>("readonly", (store) => store.get(SNAPSHOT_KEY))
+  return withStore<RecoverySnapshot | undefined>("readonly", (store) => store.get(key))
     .then((snapshot) => snapshot ?? null);
 }
 
-function writeIndexedRecovery(snapshot: RecoverySnapshot) {
-  return withStore<IDBValidKey>("readwrite", (store) => store.put(snapshot, SNAPSHOT_KEY)).then(() => undefined);
+function writeIndexedRecovery(snapshot: RecoverySnapshot, key: string) {
+  return withStore<IDBValidKey>("readwrite", (store) => store.put(snapshot, key)).then(() => undefined);
+}
+
+function activeScope() {
+  if (activeRecoveryScope) return activeRecoveryScope;
+  try {
+    const stored = localStorage.getItem(RECOVERY_SCOPE_KEY);
+    if (stored && /^[a-f0-9]{32,64}$/i.test(stored)) activeRecoveryScope = stored.toLowerCase();
+  } catch { /* storage may be blocked */ }
+  return activeRecoveryScope;
+}
+
+function recoverySnapshotKey() {
+  return activeScope() ? `scope:${activeScope()}:slot:1` : SNAPSHOT_KEY;
 }

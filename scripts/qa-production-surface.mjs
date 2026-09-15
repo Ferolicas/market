@@ -37,9 +37,13 @@ await page.getByRole("button", { name: "Abrir mi primer Mini Market" }).waitFor(
 await page.getByRole("button", { name: "Abrir mi primer Mini Market" }).click();
 await page.locator("canvas").first().waitFor({ timeout: 30_000 });
 await page.locator(".hud-stat.earnings").waitFor({ timeout: 30_000 });
+await page.getByRole("button", { name: "Abrir el supermercado" }).click();
 
 const clockBefore = await page.locator(".hud-stat.earnings").innerText();
-await page.waitForTimeout(6_200);
+// One displayed game minute takes roughly 13.34 real seconds. Wait beyond
+// that boundary so the assertion observes the rounded HUD clock, not a valid
+// sub-minute advance that still renders as 07:30.
+await page.waitForTimeout(15_000);
 const clockAfter = await page.locator(".hud-stat.earnings").innerText();
 const runtimeSurface = await page.evaluate(() => ({
   hasQaHook: Object.prototype.hasOwnProperty.call(window, "__MARKET_QA__"),

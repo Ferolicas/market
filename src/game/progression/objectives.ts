@@ -38,12 +38,17 @@ export function averageShelfAvailability(franchise: FranchiseState) {
 
 export function levelObjectiveTasks(level: number, state: GameState): LevelObjectiveTask[] {
   const franchise = currentFranchise(state);
+  const playerRequirement = PLAYER_LEVEL_TASKS[level];
+  const intentionalAction: LevelObjectiveTask[] = playerRequirement
+    ? [countTask(playerRequirement.id, playerRequirement.label, counter(state, playerRequirement.id), playerRequirement.target)]
+    : [];
+  const tasks: LevelObjectiveTask[] = (() => {
   switch (level) {
     case 1:
       return [
-        countTask("harvest:tomatoes", "Cosecha 3 tomates", counter(state, "harvest:tomatoes"), 3),
-        countTask("stock:tomatoes", "Surte 3 tomates", counter(state, "stock:tomatoes"), 3),
-        countTask("customers", "Atiende 1 cliente", counter(state, "customers"), 1),
+        countTask("player:harvest:tomatoes", "Cosecha tú 3 tomates", counter(state, "player:harvest:tomatoes"), 3),
+        countTask("player:stock:tomatoes", "Surte tú 3 tomates", counter(state, "player:stock:tomatoes"), 3),
+        countTask("player:action:CHECKOUT", "Atiende tú 1 cliente en caja", counter(state, "player:action:CHECKOUT"), 1),
       ];
     case 2:
       return [countTask("customers", "Atiende 2 clientes en total", counter(state, "customers"), 2)];
@@ -108,6 +113,8 @@ export function levelObjectiveTasks(level: number, state: GameState): LevelObjec
     default:
       return [];
   }
+  })();
+  return level === 1 ? tasks : [...tasks, ...intentionalAction];
 }
 
 export function levelObjectiveSatisfied(level: number, state: GameState) {
@@ -120,8 +127,39 @@ function countTask(id: string, label: string, progress: number, target: number):
 }
 
 function counter(state: GameState, id: string) {
-  return state.progression.counters[id] ?? 0;
+  return Math.max(0, (state.progression.counters[id] ?? 0) - (state.progression.levelStartedCounters[id] ?? 0));
 }
+
+const PLAYER_LEVEL_TASKS: Record<number, { id: string; label: string; target: number }> = {
+  2: { id: "player:harvest:apples", label: "Cosecha tú 2 manzanas", target: 2 },
+  3: { id: "player:stock:all", label: "Surte tú 5 productos", target: 5 },
+  4: { id: "player:pickup:warehouse", label: "Recoge tú 3 productos del almacén", target: 3 },
+  5: { id: "player:harvest:wheat", label: "Cosecha tú 3 trigos", target: 3 },
+  6: { id: "player:machine:bread-oven-1", label: "Opera tú el horno de pan", target: 2 },
+  7: { id: "player:action:CHECKOUT", label: "Escanea tú en caja 2 veces", target: 2 },
+  8: { id: "player:pickup:eggs", label: "Transporta tú 4 huevos", target: 4 },
+  9: { id: "player:stock:all", label: "Corrige tú 8 huecos de estante", target: 8 },
+  10: { id: "player:action:CHECKOUT", label: "Interviene tú 4 veces en caja", target: 4 },
+  11: { id: "player:harvest:corn", label: "Cosecha tú 8 maíces", target: 8 },
+  12: { id: "player:stock:all", label: "Repón tú 10 productos durante el recorrido", target: 10 },
+  13: { id: "player:pickup:milk", label: "Transporta tú 6 leches", target: 6 },
+  14: { id: "player:action:CHECKOUT", label: "Atiende tú 5 pulsos de caja", target: 5 },
+  15: { id: "player:transport:all", label: "Transporta tú 12 productos", target: 12 },
+  16: { id: "player:machine:cheese-maker-1", label: "Opera tú la quesera", target: 2 },
+  17: { id: "player:action:CHECKOUT", label: "Refuerza tú las cajas 5 veces", target: 5 },
+  18: { id: "player:orders", label: "Haz tú 2 pedidos de abastecimiento", target: 2 },
+  19: { id: "player:orders", label: "Planifica tú 4 pedidos", target: 4 },
+  20: { id: "player:action:CHECKOUT", label: "Interviene tú 8 veces en hora punta", target: 8 },
+  21: { id: "player:machine:juice-machine-1", label: "Opera tú la máquina de zumo", target: 2 },
+  22: { id: "player:harvest:all", label: "Cosecha tú 20 productos", target: 20 },
+  23: { id: "player:stock:all", label: "Repón tú 15 productos para recuperar servicio", target: 15 },
+  24: { id: "player:pickup:warehouse", label: "Mueve tú 20 productos desde almacén", target: 20 },
+  25: { id: "player:action:CHECKOUT", label: "Atiende tú 8 pulsos de una hora variada", target: 8 },
+  26: { id: "player:action:OPERATE_MACHINE", label: "Opera tú maquinaria 6 veces", target: 6 },
+  27: { id: "player:stock:all", label: "Repón tú 30 productos en la nueva zona", target: 30 },
+  28: { id: "player:action:CONTRIBUTE_UPGRADE", label: "Aporta tú a 4 mejoras operativas", target: 4 },
+  29: { id: "player:action:CHECKOUT", label: "Supera tú 12 pulsos del desafío final", target: 12 },
+};
 
 function currentFranchise(state: GameState) {
   return state.franchises.find((item) => item.id === state.currentFranchiseId) ?? state.franchises[0];

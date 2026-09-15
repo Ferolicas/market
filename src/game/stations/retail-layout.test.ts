@@ -3,7 +3,7 @@ import { stationTierModifiers } from "../progression/levels";
 import { InteractionZoneState } from "../interaction/InteractionZone";
 import { overlapsStoreObstacle, scaleStorePoint, STORE_ELEMENT_SCALE, STORE_LAYOUT_SCALE } from "../world-scale";
 import type { ProductId } from "../types";
-import { distributedFixtureQuantity, isStockingInteractionId, PRODUCE_BIN_COLUMNS, PRODUCE_DECK, PRODUCE_DISPLAY_POSITIONS, produceBinColumn, PRODUCT_RETAIL_DEPARTMENT, retailDepartmentFromStockingInteraction, retailFixtureDisplayPositions, retailShelfCapacity, retailStockFixtureSlot, retailStockingMagnet, retailStockLandingLocalPosition, RETAIL_DEPARTMENTS, RETAIL_DEPARTMENT_IDS, RETAIL_FRONT_CAPACITY, RETAIL_SHELF_GRIDS, RETAIL_VISUAL_CAPACITY, stockingInteractionId } from "./retail-layout";
+import { distributedFixtureQuantity, isStockingInteractionId, PANTRY_DISPLAY_POSITIONS, PRODUCE_BIN_COLUMNS, PRODUCE_DECK, PRODUCE_DISPLAY_POSITIONS, produceBinColumn, PRODUCT_RETAIL_DEPARTMENT, retailDepartmentFromStockingInteraction, retailFixtureDisplayPositions, retailShelfCapacity, retailStockFixtureSlot, retailStockingMagnet, retailStockingMagnets, retailStockLandingLocalPosition, RETAIL_DEPARTMENTS, RETAIL_DEPARTMENT_IDS, RETAIL_FRONT_CAPACITY, RETAIL_SHELF_GRIDS, RETAIL_VISUAL_CAPACITY, stockingInteractionId } from "./retail-layout";
 
 const NAVMESH_FURNITURE_PADDING = 0.31 * STORE_LAYOUT_SCALE;
 
@@ -141,6 +141,16 @@ describe("retail service points", () => {
       for (let ordinal = 0; ordinal < total; ordinal += 1) perFixture[retailStockFixtureSlot("produce", ordinal, total).fixtureIndex] += 1;
       expect(perFixture).toEqual([distributedFixtureQuantity(total, 0, 2), distributedFixtureQuantity(total, 1, 2)]);
     }
+  });
+
+  it("creates one stocking magnet at every physical fixture instead of only the first", () => {
+    const pantry = retailStockingMagnets("pantry", 3, 2);
+    const produce = retailStockingMagnets("produce", 3, 2);
+
+    expect(pantry).toHaveLength(PANTRY_DISPLAY_POSITIONS.length);
+    expect(produce).toHaveLength(PRODUCE_DISPLAY_POSITIONS.length);
+    expect(pantry.map(({ x, z }) => [x, z])).toEqual(PANTRY_DISPLAY_POSITIONS.map(([x, , z]) => [x * 3, z * 3]));
+    expect(new Set(pantry.map(({ fixtureIndex }) => fixtureIndex)).size).toBe(PANTRY_DISPLAY_POSITIONS.length);
   });
 
   it("makes tier-one capacity exactly the physical front slots of every fixture", () => {
