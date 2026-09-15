@@ -1,4 +1,5 @@
 import type { Inventory, ProductId } from "../types";
+import { CUSTOMER_PATIENCE_MS } from "./CustomerPatience";
 
 export type CustomerState = "SPAWN" | "ENTER_STORE" | "GET_CART" | "BUILD_SHOPPING_LIST" | "NAVIGATE_TO_PRODUCT" | "WAIT_FOR_ACCESS" | "PICK_PRODUCT" | "NEXT_PRODUCT" | "NAVIGATE_TO_QUEUE" | "QUEUE_WAIT" | "MOVE_QUEUE" | "UNLOAD" | "WAIT_CHECKOUT" | "PAY" | "NAVIGATE_TO_BAG" | "TAKE_BAG" | "NAVIGATE_TO_RETURNS" | "LEAVE_RETURNS" | "NAVIGATE_TO_CART_RETURN" | "RETURN_CART" | "EXIT_STORE" | "DESPAWN" | "WAIT_RESTOCK";
 
@@ -21,7 +22,7 @@ export function createCustomerMind(id: string, unlocked: readonly ProductId[], s
   const maximumTypes = level >= 25 ? 5 : 3;
   const typeCount = Math.min(candidates.length, level >= 25 ? 5 : 1 + Math.floor(random() * maximumTypes));
   const shoppingList = candidates.slice(0, typeCount).map((productId) => ({ productId, requested: 1 + Math.floor(random() * 3), picked: 0 }));
-  return { id, state: "SPAWN", shoppingList, currentLine: 0, basket: {}, patienceMs: 12_000 + Math.floor(random() * 12_000), waitingSince: null, reservedSocket: null, queueSlot: null };
+  return { id, state: "SPAWN", shoppingList, currentLine: 0, basket: {}, patienceMs: CUSTOMER_PATIENCE_MS, waitingSince: null, reservedSocket: null, queueSlot: null };
 }
 
 export type CustomerSignal = "spawned" | "entered" | "basket-ready" | "list-ready" | "arrived-product" | "socket-reserved" | "product-picked" | "product-empty" | "restocked" | "route-blocked" | "arrived-queue" | "queue-advanced" | "at-checkout" | "unloaded" | "checkout-complete" | "paid" | "bag-received" | "exited";

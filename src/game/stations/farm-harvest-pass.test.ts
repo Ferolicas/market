@@ -27,7 +27,7 @@ describe("walk-through farm harvest", () => {
       channel: "transfer",
     });
     const frameMs = 1_000 / 60;
-    const speed = playerMotionForTier(speedTier).walkSpeed;
+    const speed = playerMotionForTier(speedTier, true).walkSpeed;
     let x = -radii.enterRadius - 0.08;
     let nowMs = 0;
     let sensorTicks = 0;

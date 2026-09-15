@@ -34,10 +34,15 @@ describe("player controller", () => {
     expect(playerMotionForTier(Number.NaN)).toEqual(playerMotionForTier(1));
     expect(playerMotionForTier(-3)).toEqual(playerMotionForTier(1));
   });
-  it("uses the campaign's 70% start and 3% relative first speed upgrade", () => {
-    const maximum = DEFAULT_PLAYER_MOTION.walkSpeed * PLAYER_MAX_SPEED_MULTIPLIER;
-    expect(playerMotionForTier(1, true).walkSpeed).toBeCloseTo(maximum * 0.7);
+  it("starts the campaign 2.5 times faster, at 75% of its new maximum", () => {
+    const previousStart = DEFAULT_PLAYER_MOTION.walkSpeed * PLAYER_MAX_SPEED_MULTIPLIER * 0.7;
+    const maximum = playerMotionForTier(10, true).walkSpeed;
+    expect(playerMotionForTier(1, true).walkSpeed).toBeCloseTo(previousStart * 2.5);
+    expect(playerMotionForTier(1, true).walkSpeed).toBeCloseTo(maximum * 0.75);
     expect(playerMotionForTier(2, true).walkSpeed).toBeCloseTo(playerMotionForTier(1, true).walkSpeed * 1.03);
     expect(playerMotionForTier(10, true).walkSpeed).toBeCloseTo(maximum);
+    for (let tier = 2; tier <= 10; tier++) {
+      expect(playerMotionForTier(tier, true).walkSpeed).toBeGreaterThan(playerMotionForTier(tier - 1, true).walkSpeed);
+    }
   });
 });

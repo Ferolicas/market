@@ -890,11 +890,11 @@ describe("motor económico", () => {
       + next.productionMachines.find((machine) => machine.id === "flour-mill-1")!.output).toBeGreaterThan(0);
   });
 
-  it("no cobra solo y envía la compra a devoluciones al agotar cinco minutos", () => {
+  it("no cobra solo y envía la compra a devoluciones al agotar dos minutos", () => {
     let state = createInitialGame("ES");
     state.franchises[0].open = true;
     addReadyCheckout(state, "waiting-customer", "card");
-    state.simulationTimeMs = 299_500;
+    state.simulationTimeMs = 119_500;
     const customer = state.franchises[0].customers[0];
     customer.queueJoinedAt = 0;
     customer.stateSince = 0;

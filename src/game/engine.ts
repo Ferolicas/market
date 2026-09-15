@@ -12,6 +12,7 @@ import { campaignAvailableProducts, OPENING_PURCHASES, type OpeningPurchaseId } 
 import { PRODUCT_CONFIG } from "./economy/products";
 import { createEmptyInventory } from "./economy/ProductRegistry";
 import { createCustomerMind } from "./ai/CustomerBrain";
+import { CUSTOMER_PATIENCE_MS, customerShowingAnger } from "./ai/CustomerPatience";
 import { LEVELS, stationTierModifiers } from "./progression/levels";
 import { averageShelfAvailability, levelObjectiveSatisfied, levelObjectiveTasks, unlockedCustomerProducts } from "./progression/objectives";
 import { CHECKOUT_LANES, checkoutQueueArrival, checkoutQueuePosition, type CheckoutLane } from "./stations/checkout-layout";
@@ -36,7 +37,7 @@ import { STORE_ELEMENT_SCALE, STORE_LAYOUT_SCALE, storeSegmentIsClear } from "./
 import { BUSINESS_DAY_NIGHT_MINUTE, BUSINESS_DAY_OPEN_MINUTE, businessDayIsClosing, businessMinutesForRealMs } from "./time/BusinessDay";
 
 const EMPTY_INVENTORY = createEmptyInventory;
-export const CHECKOUT_PATIENCE_MS = 5 * 60_000;
+export const CHECKOUT_PATIENCE_MS = CUSTOMER_PATIENCE_MS;
 export const CHECKOUT_LOAD_UNIT_MS = 900;
 export const CHECKOUT_SCAN_UNIT_MS = 700;
 export const CHECKOUT_BAG_UNIT_MS = 650;
@@ -192,7 +193,8 @@ export function normalizeGameState(input: unknown): GameState {
       customer.queueLane ??= 0;
       customer.queueJoinedAt ??= null;
       customer.currentSpeed ??= 0;
-      customer.checkoutPatienceMs = Number.isFinite(customer.checkoutPatienceMs) ? customer.checkoutPatienceMs : CHECKOUT_PATIENCE_MS;
+      customer.checkoutPatienceMs = CHECKOUT_PATIENCE_MS;
+      customer.patienceMs = CUSTOMER_PATIENCE_MS;
       customer.hasCart ??= !["SPAWN", "ENTER_STORE", "GET_CART", "EXIT_STORE", "DESPAWN"].includes(customer.state);
       customer.hasBag ??= ["TAKE_BAG", "NAVIGATE_TO_CART_RETURN", "RETURN_CART", "EXIT_STORE"].includes(customer.state);
       customer.angry ??= false;
@@ -1527,11 +1529,16 @@ function spawnCustomerIfNeeded(state: GameState, franchise: FranchiseState, path
 
 function updateCustomer(state: GameState, franchise: FranchiseState, customer: CustomerRuntimeState, deltaMs: number, events: GameEvent[], pathfinder?: WorldPathfinder) {
   const now = state.simulationTimeMs;
+  if (["NAVIGATE_TO_PRODUCT", "WAIT_FOR_ACCESS", "PICK_PRODUCT", "WAIT_RESTOCK"].includes(customer.state)
+    && customer.waitingSince !== null && now - customer.waitingSince >= CUSTOMER_PATIENCE_MS) {
+    abandonCheckout(franchise, customer, now, events, pathfinder, "producto no disponible");
+    return;
+  }
   if (!customer.transactionId && isCheckoutQueueState(customer) && customerBasketUnits(customer) === 0) {
     leaveWithoutPurchase(customer, now, pathfinder);
     return;
   }
-  if (isWaitingForCheckout(customer) && customer.queueJoinedAt != null && now - customer.queueJoinedAt >= customer.checkoutPatienceMs) {
+  if (isWaitingForCheckout(customer) && customer.queueJoinedAt != null && now - customer.queueJoinedAt >= CHECKOUT_PATIENCE_MS) {
     abandonCheckout(franchise, customer, now, events, pathfinder);
     return;
   }
@@ -1562,32 +1569,26 @@ function updateCustomer(state: GameState, franchise: FranchiseState, customer: C
         const line = customer.shoppingList[customer.currentLine];
         if (!line || line.picked >= line.requested) setCustomerState(customer, "NEXT_PRODUCT", now);
         else if (franchise.shelves[line.productId] > 0) setCustomerState(customer, "PICK_PRODUCT", now);
-        else { customer.waitingSince = now; setCustomerState(customer, "WAIT_RESTOCK", now); }
+        else { customer.waitingSince ??= now; setCustomerState(customer, "WAIT_RESTOCK", now); }
       }
       break;
     case "PICK_PRODUCT":
       if (now - customer.stateSince >= 520) {
         const line = customer.shoppingList[customer.currentLine];
-        if (!line || franchise.shelves[line.productId] <= 0) { customer.waitingSince = now; setCustomerState(customer, "WAIT_RESTOCK", now); break; }
+        if (!line || franchise.shelves[line.productId] <= 0) { customer.waitingSince ??= now; setCustomerState(customer, "WAIT_RESTOCK", now); break; }
         franchise.shelves[line.productId] -= 1;
         line.picked += 1;
         customer.basket[line.productId] = (customer.basket[line.productId] ?? 0) + 1;
         customer.reservedSocketId = null;
-        if (line.picked >= line.requested) { customer.currentLine += 1; setCustomerState(customer, "NEXT_PRODUCT", now); }
+        if (line.picked >= line.requested) { customer.waitingSince = null; customer.currentLine += 1; setCustomerState(customer, "NEXT_PRODUCT", now); }
         else setCustomerState(customer, "WAIT_FOR_ACCESS", now);
       }
       break;
     case "WAIT_RESTOCK": {
       const line = customer.shoppingList[customer.currentLine];
       if (line && franchise.shelves[line.productId] > 0) {
-        customer.waitingSince = null;
         setCustomerState(customer, "NAVIGATE_TO_PRODUCT", now);
         setProductPath(franchise, customer, pathfinder);
-      } else if (customer.waitingSince !== null && now - customer.waitingSince >= customer.patienceMs) {
-        customer.currentLine += 1;
-        customer.waitingSince = null;
-        customer.reservedSocketId = null;
-        setCustomerState(customer, "NEXT_PRODUCT", now);
       }
       break;
     }
@@ -1651,6 +1652,7 @@ function updateCustomer(state: GameState, franchise: FranchiseState, customer: C
       }
       break;
     case "NAVIGATE_TO_RETURNS":
+      if (customerShowingAnger(customer, now)) break;
       if (walkCustomer(customer, deltaMs)) setCustomerState(customer, "LEAVE_RETURNS", now);
       break;
     case "LEAVE_RETURNS":
@@ -1701,20 +1703,23 @@ function leaveWithoutPurchase(customer: CustomerRuntimeState, now: number, pathf
   setCustomerPath(customer, navigatePath(pathfinder, [customer.x, customer.z], [...CART_RETURN_POINT]));
 }
 
-function abandonCheckout(franchise: FranchiseState, customer: CustomerRuntimeState, now: number, events: GameEvent[], pathfinder?: WorldPathfinder) {
+function abandonCheckout(franchise: FranchiseState, customer: CustomerRuntimeState, now: number, events: GameEvent[], pathfinder?: WorldPathfinder, reason = "caja sin atender") {
   const transaction = franchise.checkoutTransactions.find((candidate) => candidate.id === customer.transactionId);
   if (transaction && transaction.state !== "COMPLETE") {
     transaction.state = "ABANDONED";
     transaction.updatedAt = now;
   }
   customer.angry = true;
+  customer.waitingSince = null;
+  customer.reservedSocketId = null;
+  customer.currentSpeed = 0;
   customer.queueJoinedAt = null;
   customer.queueSlot = null;
   customer.transactionId = null;
   franchise.rating = roundRating(Math.max(1, franchise.rating - 0.15));
   setCustomerState(customer, "NAVIGATE_TO_RETURNS", now);
   setCustomerPath(customer, navigatePath(pathfinder, [customer.x, customer.z], [...RETURNS_POINT]));
-  events.push({ franchiseId: franchise.id, category: "returns", description: `Cliente ${customer.id} agotó sus 5 minutos de espera`, amountMinor: 0, payload: { customerId: customer.id } });
+  events.push({ franchiseId: franchise.id, category: "returns", description: `Cliente ${customer.id} agotó sus 2 minutos de espera: ${reason}`, amountMinor: 0, payload: { customerId: customer.id, reason } });
 }
 
 function updateCustomerQueue(franchise: FranchiseState, pathfinder?: WorldPathfinder) {
@@ -1888,7 +1893,7 @@ function setProductPath(franchise: FranchiseState, customer: CustomerRuntimeStat
   const slot = [0, 1, 2, 3].find((candidate) => !used.has(`${line.productId}:${candidate}`));
   if (slot === undefined) {
     customer.reservedSocketId = null;
-    customer.waitingSince = customer.stateSince;
+    customer.waitingSince ??= customer.stateSince;
     setCustomerState(customer, "WAIT_FOR_ACCESS", customer.stateSince);
     return;
   }

@@ -12,6 +12,7 @@ import { FacialController, type FaceExpression } from "@/game/animation/FacialCo
 import { characterFaceUpdateInterval, characterIsInView, characterModelPathForTier, createCharacterVisibilityScratch, disposeCharacterMaterials, prepareCharacterModel, useCharacterModelTier } from "@/game/animation/CharacterPresentation";
 import { captureCustomerMotion, projectCustomerMotion } from "@/game/animation/CustomerVisualMotion";
 import { liveActors } from "@/game/render/LiveActors";
+import { customerShowingAnger } from "@/game/ai/CustomerPatience";
 import { marketQaQueryEnabled } from "@/game/debug/QaAccess";
 import { CUSTOMER_CART_WHEEL_RADIUS, CUSTOMER_CHECKOUT_ITEM_CYCLE_MS, CUSTOMER_PICKUP_DURATION_MS, assignCartGripTargets, cartSteeringAngle, checkoutCartInventory, checkoutLoadingPresentation, easedMotionProgress, motionProgress, productTransferPoint, shortestHeadingDelta, wheelRollDelta } from "@/game/animation/CustomerCartMotion";
 import { PRODUCT_RETAIL_DEPARTMENT, retailDisplayPosition } from "@/game/stations/retail-layout";
@@ -525,6 +526,7 @@ function collectMorphMeshes(model: THREE.Group) {
  * move); BasketWalk is the matching walk cycle, so every state that travels
  * with the cart uses it and only the stationary states keep the pose. */
 function customerAnimation(customer: CustomerRuntimeState, elapsed = 0, checkoutLoading = false, runsFree = false): CustomerAnimation {
+  if (customerShowingAnger(customer, liveActors.simulationTimeMs)) return "Impatient";
   switch (customer.state) {
     case "ENTER_STORE": return runsFree ? "Run" : "Enter";
     case "GET_CART":

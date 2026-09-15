@@ -28,20 +28,24 @@ export const DEFAULT_PLAYER_MOTION: PlayerMotionConfig = {
  */
 export const PLAYER_MAX_SPEED_MULTIPLIER = 2.7;
 export const PLAYER_TIER_ONE_SPEED_MULTIPLIER = PLAYER_MAX_SPEED_MULTIPLIER * 0.6;
+// Campaign T1 was 70% of 5.94. Requested: 2.5 times that speed,
+// now representing 75% of the new maximum. Legacy games stay unchanged.
+export const CAMPAIGN_MAX_SPEED_MULTIPLIER = PLAYER_MAX_SPEED_MULTIPLIER * 0.7 * 2.5 / 0.75;
 
 export function playerSpeedProgressForTier(tier: number, campaign = false) {
   const safeTier = Math.max(1, Math.min(10, Math.floor(Number.isFinite(tier) ? tier : 1)));
-  if (campaign) return safeTier === 1 ? 0.7 : 0.721 + (safeTier - 2) / 8 * 0.279;
+  if (campaign) return safeTier === 1 ? 0.75 : 0.7725 + (safeTier - 2) / 8 * 0.2275;
   return 0.6 + (safeTier - 1) / 9 * 0.4;
 }
 
 export function playerMotionForTier(tier: number, campaign = false): PlayerMotionConfig {
   const tierMultiplier = playerSpeedProgressForTier(tier, campaign);
+  const maximumMultiplier = campaign ? CAMPAIGN_MAX_SPEED_MULTIPLIER : PLAYER_MAX_SPEED_MULTIPLIER;
   return {
     ...DEFAULT_PLAYER_MOTION,
-    walkSpeed: DEFAULT_PLAYER_MOTION.walkSpeed * PLAYER_MAX_SPEED_MULTIPLIER * tierMultiplier,
-    acceleration: DEFAULT_PLAYER_MOTION.acceleration * PLAYER_MAX_SPEED_MULTIPLIER,
-    braking: DEFAULT_PLAYER_MOTION.braking * PLAYER_MAX_SPEED_MULTIPLIER,
+    walkSpeed: DEFAULT_PLAYER_MOTION.walkSpeed * maximumMultiplier * tierMultiplier,
+    acceleration: DEFAULT_PLAYER_MOTION.acceleration * maximumMultiplier,
+    braking: DEFAULT_PLAYER_MOTION.braking * maximumMultiplier,
   };
 }
 

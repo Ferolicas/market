@@ -1,5 +1,15 @@
 # Mini Market — mapa vivo
 
+## Ajuste de velocidad y paciencia — 15-09-2026
+
+La campaña inicia a 10,395 unidades de layout/s: exactamente 2,5 veces sus anteriores 4,158. Es el 75 % del nuevo máximo (13,86); T2 conserva el +3 % relativo anunciado y T3–T10 crecen hasta el máximo. PlayerController escala también aceleración/frenado y conserva la calibración legada. No reinicia ni modifica el progreso guardado.
+
+CustomerPatience centraliza 120.000 ms de simulación activa para espera de producto y caja. La espera de un producto no se reinicia por reintentos de acceso ni por ver stock: se limpia al completar su recogida. Al agotarse, se libera la reserva, se marca angry, se muestra el clip existente Impatient durante 1,5 s con locomoción detenida y se recorre devolución de mercancía no pagada → carro → salida. La cola también abandona a los dos minutos. Carga de partidas normaliza ambos límites sin borrar clientes ni inventario; no hay cambios de esquema, reset ni nueva versión de campaña. La pausa de aplicación mantiene detenida la simulación.
+
+Impacto: PlayerController y pruebas, CustomerBrain, CustomerPatience, engine, presentación Customer, prueba de cosecha al pasar por los diez tiers. Verificación: límites de 119,9/120 s, reacción y salida con/sin mercancía, devolución sin cobrar, reposición sin reiniciar plazo, recogida exitosa y restauración.
+
+QA local PASS: 571 pruebas/73 archivos, typecheck, lint y build. Navegador con HTTP aislado y render/física reales, escritorio 1440×1000 y móvil 390×844: scripts/qa-speed-patience.mjs confirma speedCap 10,395, selección del clip Impatient y salida completa (/tmp/market-speed-patience/report.json, vídeos); la captura móvil no encuadra al cliente y no se usa como aprobación visual de su pose. qa-register-cash con compras/reposición PASS en ambos tamaños (/tmp/market-fast-register-qa/report.json): cobro de las dos cajas, compra física del cajero, reposición, guardado y recarga. No prueba un teléfono físico.
+
 ## Cambio de alcance vigente: reinicio desde nivel 1
 
 ## Cierre de niveles, contratación y reinicio — release campaign-30-20260915
