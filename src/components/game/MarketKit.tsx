@@ -22,6 +22,9 @@ import { createStaticMeshBatch } from "@/game/render/StaticMeshBatch";
 import { BasketProduct } from "./HarvestBasket";
 import { MarketText as Text } from "./MarketText";
 import { useGlassTransmission } from "./MarketRenderProfile";
+import { DeliveredModel, DeliveredProductInstances, deliveredProductId } from "./DeliveredModel";
+import { FarmAnimal } from "./FarmAnimal";
+import { DeliveredDairy } from "./DeliveredDairy";
 
 type Position = [number, number, number];
 
@@ -189,6 +192,8 @@ function ScreenRail({ barY, railY, halfWidth, z }: { barY: number; railY: number
 }
 
 function RetailProduct({ productId, position, scale = 1 }: { productId: ProductId; position: Position; scale?: number }) {
+  const delivered = deliveredProductId(productId);
+  if (delivered) return <group name={`retail-product:${productId}`}><DeliveredModel id={delivered} position={position} scale={scale} /></group>;
   if (productId === "oranges") return <mesh name={`retail-product:${productId}`} castShadow position={position} scale={scale}>
     <icosahedronGeometry args={[0.09, 1]} /><meshStandardMaterial color="#D58236" roughness={0.58} />
   </mesh>;
@@ -254,6 +259,8 @@ function RetailProductBatch({ productId, transforms, capacity }: { productId: Pr
     scale={transform.scale}
   />);
   if (transforms.length === 0) return <group name={`retail-stock:${productId}`} />;
+  const delivered = deliveredProductId(productId);
+  if (delivered) return <group name={`retail-stock:${productId}`}>{anchors}<DeliveredProductInstances id={delivered} transforms={transforms} capacity={capacity} /></group>;
   if (productId === "tomatoes") return <group name={`retail-stock:${productId}`}>
     {anchors}
     <StaticInstances transforms={transforms} capacity={capacity} component={TOMATO_BODY} castShadow><sphereGeometry args={[0.09, 14, 10]} /><meshStandardMaterial color="#d94838" roughness={0.78} /></StaticInstances>
@@ -612,45 +619,14 @@ function ProduceSlotSign({ productId, x, count, capacity }: { productId: Product
 }
 
 function ChilledDisplay({ position, stock, capacity, open }: { position: Position; stock: StockCounts; capacity: StockCounts; open: boolean }) {
-  const levels = RETAIL_FIXTURE_LEVELS.dairy;
-  const doors = useRef<THREE.Group[]>([]);
-  const doorFrames = useMemo<InstanceTransform[]>(() => [
-    { position: [0, 1.02, 0], scale: [1.04, 0.07, 0.055] },
-    { position: [0, -1.02, 0], scale: [1.04, 0.07, 0.055] },
-    { position: [-0.495, 0, 0], scale: [0.055, 2.08, 0.055] },
-    { position: [0.495, 0, 0], scale: [0.055, 2.08, 0.055] },
-  ], []);
-  const vents = useMemo<InstanceTransform[]>(() => Array.from({ length: 9 }, (_, index) => ({ position: [(index - 4) * 0.23, 2.28, 0.47], scale: [0.12, 0.055, 0.015] })), []);
-  const doorGlassTransmission = useGlassTransmission(0.62);
-  useFrame((_, delta) => {
-    doors.current.forEach((door, index) => {
-      const side = index === 0 ? -1 : 1;
-      door.position.x = THREE.MathUtils.damp(door.position.x, side * (open ? 1.03 : 0.55), 9, delta);
-    });
-  });
   return <group name="retail-department:dairy" position={position}>
-    <Box args={[2.42, 0.18, 0.92]} position={[0, 0.09, 0]} color={palette.fixtureSteel} radius={0.045} />
-    <Box args={[2.32, 2.13, 0.12]} position={[0, 1.15, -0.36]} color={palette.coldInterior} radius={0.025} />
-    {[-1.14, 1.14].map((x) => <Box key={x} args={[0.09, 2.25, 0.86]} position={[x, 1.17, 0]} color={palette.fixtureSteel} radius={0.018} />)}
-    <CommercialShelfBank levels={levels} width={2.18} depth={0.68} front={1} accent={RETAIL_DEPARTMENTS.dairy.color} />
+    <DeliveredDairy open={open} />
     <AuthoritativeRetailStock productId="milk" count={stock.milk ?? 0} />
     <AuthoritativeRetailStock productId="cheese" count={stock.cheese ?? 0} />
-    {([-1, 1] as const).map((side, index) => <group
-      key={side}
-      name={`retail-cold-door:${side < 0 ? "left" : "right"}`}
-      ref={(door) => { if (door) doors.current[index] = door; }}
-      position={[side * 0.55, 1.18, 0.47]}
-    >
-      <StaticInstances transforms={doorFrames} castShadow><RoundedBoxGeometry args={[1, 1, 1]} radius={0.12} smoothness={2} /><meshStandardMaterial color="#34423f" metalness={0.38} roughness={0.34} /></StaticInstances>
-      <mesh position={[0, 0, 0.015]}><boxGeometry args={[0.94, 1.95, 0.022]} /><meshPhysicalMaterial color="#c7eef0" transparent opacity={0.2} transmission={doorGlassTransmission} clearcoat={1} clearcoatRoughness={0.05} roughness={0.05} depthWrite={false} /></mesh>
-      <Box args={[0.045, 1.12, 0.055]} position={[side * -0.4, 0, 0.065]} color="#aab5b2" radius={0.015} />
-    </group>)}
-    <Box args={[2.48, 0.24, 0.92]} position={[0, 2.28, 0]} color={palette.fixtureSteel} radius={0.045} />
-    <StaticInstances transforms={vents}><boxGeometry args={[1, 1, 1]} /><meshStandardMaterial color="#7d8b88" metalness={0.28} roughness={0.48} /></StaticInstances>
-    <DepartmentSign label={RETAIL_DEPARTMENTS.dairy.label} color={RETAIL_DEPARTMENTS.dairy.color} position={[0, 2.5, 0.08]} width={2.02} />
-    <ScreenRail barY={2.4} railY={2.78} halfWidth={1.12} z={0.1} />
-    <StockScreen productId="milk" count={stock.milk ?? 0} capacity={capacity.milk ?? 0} position={[-0.55, 3.22, 0.1]} fixtureYaw={RETAIL_DEPARTMENTS.dairy.yaw} />
-    <StockScreen productId="cheese" count={stock.cheese ?? 0} capacity={capacity.cheese ?? 0} position={[0.55, 3.22, 0.1]} fixtureYaw={RETAIL_DEPARTMENTS.dairy.yaw} />
+    <DepartmentSign label={RETAIL_DEPARTMENTS.dairy.label} color={RETAIL_DEPARTMENTS.dairy.color} position={[0, 1.86, 0.08]} width={2.02} />
+    <ScreenRail barY={1.58} railY={2.12} halfWidth={1.12} z={0.1} />
+    <StockScreen productId="milk" count={stock.milk ?? 0} capacity={capacity.milk ?? 0} position={[-0.55, 2.58, 0.1]} fixtureYaw={RETAIL_DEPARTMENTS.dairy.yaw} />
+    <StockScreen productId="cheese" count={stock.cheese ?? 0} capacity={capacity.cheese ?? 0} position={[0.55, 2.58, 0.1]} fixtureYaw={RETAIL_DEPARTMENTS.dairy.yaw} />
   </group>;
 }
 
@@ -670,19 +646,11 @@ function DrinksDisplay({ position, count, capacity }: { position: Position; coun
 }
 
 function EggDisplay({ count, capacity }: { count: number; capacity: number }) {
-  const levels = RETAIL_FIXTURE_LEVELS.eggs;
-  const cartons = useMemo<InstanceTransform[]>(() => levels.map((y) => ({ position: [0, y + 0.105, 0.18], scale: [1.22, 0.1, 0.48] })), [levels]);
   return <group name="retail-department:eggs">
-    <Box args={[2.18, 0.16, 0.82]} position={[0, 0.08, 0]} color={palette.fixtureSteel} radius={0.035} />
-    <CommercialBackPanel width={2.04} height={1.78} z={-0.31} color="#d7c9aa" />
-    <FixtureUprights width={2.12} height={1.88} z={-0.31} />
-    <CommercialShelfBank levels={levels} width={2.02} depth={0.68} accent={RETAIL_DEPARTMENTS.eggs.color} />
-    <StaticInstances transforms={cartons} receiveShadow><RoundedBoxGeometry args={[1, 1, 1]} radius={0.09} smoothness={2} /><meshStandardMaterial color="#bca47a" roughness={0.88} /></StaticInstances>
+    <DeliveredModel id="egg-display" />
     <AuthoritativeRetailStock productId="eggs" count={count} />
-    <Box args={[2.22, 0.14, 0.84]} position={[0, 1.84, 0]} color={palette.fixtureSteel} radius={0.03} />
-    <ScreenRail barY={1.91} railY={2.36} halfWidth={1.05} z={0.1} />
+    <ScreenRail barY={2.1} railY={2.36} halfWidth={0.73} z={0.1} />
     <StockScreen productId="eggs" count={count} capacity={capacity} position={[0, 2.83, 0.1]} fixtureYaw={RETAIL_DEPARTMENTS.eggs.yaw} />
-    <DepartmentSign label={RETAIL_DEPARTMENTS.eggs.label} color={RETAIL_DEPARTMENTS.eggs.color} position={[0, 2.08, 0.08]} width={1.88} />
   </group>;
 }
 
@@ -850,7 +818,9 @@ function ProductionBakeryCubicle() {
       <Box args={[2.05, 0.43, 0.14]} position={[0, 2.32, 0]} color="#233a34" radius={0.055} />
       <Text position={[0, 2.35, 0.081]} fontSize={0.165} color="#fff3d2" anchorX="center" anchorY="middle" fontWeight={900}>PANADERÍA · OBRADOR</Text>
       <Text position={[0, 2.35, -0.081]} rotation={[0, Math.PI, 0]} fontSize={0.165} color="#fff3d2" anchorX="center" anchorY="middle" fontWeight={900}>PANADERÍA · OBRADOR</Text>
-      <Box args={[1.85, 0.035, 0.5]} position={[0, 0.035, 0]} color="#3d514b" radius={0.008} />
+      {/* Floor top is 0.0525. Keep the entire threshold above it: coincident
+          top faces caused depth flicker even while the simulation was idle. */}
+      <group name="bakery-entrance-threshold"><Box args={[1.85, 0.035, 0.5]} position={[0, 0.082, 0]} color="#3d514b" radius={0.008} /></group>
     </StoreElement>
   </group>;
 }
@@ -902,23 +872,16 @@ function BakeryKit({ position, machine }: { position: Position; machine?: Produc
   const fixture = STORE_PRODUCTION_FIXTURES.breadOven;
   return <group position={position}>
     <ProductionMachineIdentity fixture={fixture} machine={machine} />
-    <EnvironmentModel id="equipment_bread_oven" onFrame={(model, delta) => model.traverse((node) => { if (node.name.startsWith("OvenGlass")) node.rotation.x = THREE.MathUtils.lerp(node.rotation.x, processing ? 0 : -0.55, 1 - Math.exp(-6 * delta)); })} />
-    <Box args={[0.72, 0.16, 0.62]} position={[0, 1.86, -0.46]} color="#5a6663" radius={0.035} />
-    <mesh position={[0, 2.13, -0.48]}><cylinderGeometry args={[0.13, 0.16, 0.42, 14]} /><meshStandardMaterial color="#747f7c" metalness={0.58} roughness={0.31} /></mesh>
-    {[-0.24, 0, 0.24].map((x) => <RetailProduct key={x} productId="bread" position={[x, 0.69, 0.11]} scale={0.82} />)}
+    <DeliveredModel id="oven" position={[0, 0.175, -0.55]} />
     {processing && <pointLight position={[0, 0.95, 0.52]} intensity={0.8} distance={2.2} color="#df8b43" />}
   </group>;
 }
 
 function MillMachine({ position, machine }: { position: Position; machine?: ProductionMachineState }) {
-  const processing = machine?.status === "PROCESSING";
   const fixture = STORE_PRODUCTION_FIXTURES.flourMill;
   return <group position={position}>
     <ProductionMachineIdentity fixture={fixture} machine={machine} />
-    <EnvironmentModel id="equipment_flour_mill" onFrame={(model, delta) => { if (!processing) return; model.traverse((node) => { if (node.name.startsWith("Wheel")) node.rotation.z += delta * 4.8; }); }} />
-    <mesh position={[0, 1.72, -0.52]} rotation={[Math.PI, 0, 0]}><coneGeometry args={[0.38, 0.46, 16]} /><meshStandardMaterial color="#aeb7b3" metalness={0.42} roughness={0.38} /></mesh>
-    <RetailProduct productId="flour" position={[0.38, 0.32, 0.05]} scale={1.25} />
-    <RetailProduct productId="wheat" position={[-0.38, 0.32, 0.05]} scale={1.25} />
+    <DeliveredModel id="mill" position={[0, 0.175, -0.58]} />
   </group>;
 }
 
@@ -927,16 +890,12 @@ function ProcessMachine({ kind, machine }: { kind: "cheese" | "juice"; machine?:
   const fixture = kind === "cheese" ? STORE_PRODUCTION_FIXTURES.cheeseMaker : STORE_PRODUCTION_FIXTURES.juiceMachine;
   return <group>
     <ProductionMachineIdentity fixture={fixture} machine={machine} />
-    <EnvironmentModel id={kind === "cheese" ? "equipment_cheese_maker" : "equipment_juice_machine"} onFrame={(model, _, elapsed) => { if (processing) model.rotation.y = Math.sin(elapsed * 4) * 0.018; }} />
+    {kind === "cheese" ? <EnvironmentModel id="equipment_cheese_maker" /> : <DeliveredModel id="juicer" position={[0, 0.175, -0.55]} />}
     {kind === "cheese" ? <>
       <Box args={[0.09, 0.78, 0.09]} position={[-0.4, 1.18, -0.35]} color="#4c5855" radius={0.012} />
       <Box args={[0.88, 0.1, 0.12]} position={[0, 1.52, -0.35]} color="#4c5855" radius={0.015} />
       <mesh position={[0, 0.58, 0.08]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[0.29, 0.29, 0.16, 18]} /><meshStandardMaterial color="#e7b938" roughness={0.72} /></mesh>
-    </> : <>
-      <mesh position={[0, 1.62, -0.48]} rotation={[Math.PI, 0, 0]}><coneGeometry args={[0.36, 0.38, 16]} /><meshStandardMaterial color="#8b9692" metalness={0.5} roughness={0.34} /></mesh>
-      {[[-0.16, 1.78, -0.47], [0.13, 1.76, -0.45], [0, 1.91, -0.48]].map((point, index) => <RetailProduct key={index} productId="tomatoes" position={point as Position} scale={1.35} />)}
-      <RetailProduct productId="juice" position={[0.34, 0.33, 0.12]} scale={1.22} />
-    </>}
+    </> : null}
     {processing && <pointLight position={[0, 0.65, 0.45]} intensity={0.45} distance={1.6} color={kind === "cheese" ? "#ffd75c" : "#ff6b43"} />}
     <group name="dynamic:machine-output">
       {Array.from({ length: Math.min(4, machine?.output ?? 0) }, (_, index) => <RetailProduct key={index} productId={kind} position={[0.34 + (index % 2) * 0.13, 0.16 + Math.floor(index / 2) * 0.12, 0.45]} scale={0.8} />)}
@@ -1368,7 +1327,9 @@ function AnimalPaddock({ kind }: { kind: "chicken" | "cow" }) {
     ...[-width / 2, width / 2].flatMap((x) => [0.32, 0.67].map((y) => ({ position: [x, y, 0] as Position, scale: [0.07, 0.07, depth] as Position }))),
   ], [depth, width]);
   return <group>
-    <RoundedBox args={[width + 0.22, 0.075, depth + 0.22]} position={[0, 0.035, 0]} radius={0.16} smoothness={2} receiveShadow><meshStandardMaterial color={kind === "cow" ? "#6d9b55" : "#78a65b"} roughness={1} /></RoundedBox>
+    {/* Bevel radius must be smaller than half the thickness. The old 0.16
+        inverted the thin shape and raised its surface through the legs. */}
+    <RoundedBox name={`farm-paddock-ground:${kind}`} args={[width + 0.22, 0.075, depth + 0.22]} position={[0, 0.035, 0]} radius={0.025} smoothness={2} receiveShadow><meshStandardMaterial color={kind === "cow" ? "#6d9b55" : "#78a65b"} roughness={1} /></RoundedBox>
     <StaticInstances transforms={posts} castShadow><boxGeometry args={[1, 1, 1]} /><meshStandardMaterial color="#6d4930" roughness={0.94} /></StaticInstances>
     <StaticInstances transforms={rails} castShadow><boxGeometry args={[1, 1, 1]} /><meshStandardMaterial color="#95643c" roughness={0.92} /></StaticInstances>
     <group position={[width * 0.31, 0.18, -depth * 0.27]}>
@@ -1386,17 +1347,8 @@ function AnimalStation({ kind, machine }: { kind: "chicken" | "cow"; machine: Pr
   </group>;
 }
 
-function ChickenCharacter({ active }: { active: boolean }) {
-  const root = useRef<THREE.Group>(null);
-  useFrame(({ clock }) => { if (root.current) { root.current.position.y = 0.48 + (active ? Math.sin(clock.elapsedTime * 7) * 0.025 : 0); root.current.rotation.y = Math.sin(clock.elapsedTime * 0.8) * 0.28; } });
-  return <group ref={root} position={[0, 0.48, 0]}><EnvironmentModel id="chicken_character" /></group>;
-}
-
-function CowCharacter({ active }: { active: boolean }) {
-  const head = useRef<THREE.Group>(null);
-  useFrame(({ clock }) => { if (head.current) head.current.rotation.y = Math.sin(clock.elapsedTime * (active ? 1.8 : 0.7)) * 0.1; });
-  return <group ref={head} position={[-0.12, 0.02, 0]}><EnvironmentModel id="cow_character" /></group>;
-}
+function ChickenCharacter({ active }: { active: boolean }) { return <FarmAnimal kind="chicken" active={active} />; }
+function CowCharacter({ active }: { active: boolean }) { return <FarmAnimal kind="cow" active={active} />; }
 
 function FarmTools({ position }: { position: Position }) {
   return <group position={position}>

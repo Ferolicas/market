@@ -113,8 +113,8 @@ export function produceBinColumn(productId: ProductId): number {
 export const RETAIL_FIXTURE_LEVELS = {
   bakery: [0.28, 0.63, 0.98, 1.33, 1.68],
   pantry: [0.24, 0.6, 0.96, 1.32, 1.68],
-  eggs: [0.28, 0.68, 1.08, 1.48],
-  dairy: [0.32, 0.72, 1.12, 1.52, 1.92],
+  eggs: [0.22, 0.76, 1.28],
+  dairy: [0.39, 0.66, 0.90, 1.15],
   drinks: [0.3, 0.7, 1.1, 1.5, 1.9],
 } as const;
 
@@ -139,9 +139,9 @@ export const RETAIL_SHELF_GRIDS: Record<Exclude<ProductId, "tomatoes" | "apples"
   flour: { levels: [RETAIL_FIXTURE_LEVELS.bakery[2]], across: 12, pitch: 0.15, originX: 0, frontZ: 0.18, depthPitch: 0.14, depthRows: 3, lift: 0.14 },
   wheat: { levels: [RETAIL_FIXTURE_LEVELS.bakery[3]], across: 12, pitch: 0.15, originX: 0, frontZ: 0.18, depthPitch: 0.14, depthRows: 3, lift: 0.14 },
   coffee: { levels: RETAIL_FIXTURE_LEVELS.pantry, across: 8, pitch: 0.24, originX: 0, frontZ: 0.45, depthPitch: 0.14, depthRows: 3, lift: 0.14 },
-  eggs: { levels: RETAIL_FIXTURE_LEVELS.eggs, across: 6, pitch: 0.19, originX: 0, frontZ: 0.31, depthPitch: 0.13, depthRows: 3, lift: 0.205 },
-  milk: { levels: RETAIL_FIXTURE_LEVELS.dairy, across: 5, pitch: 0.17, originX: -0.55, frontZ: 0.24, depthPitch: 0.15, depthRows: 3, lift: 0.14 },
-  cheese: { levels: RETAIL_FIXTURE_LEVELS.dairy, across: 5, pitch: 0.17, originX: 0.55, frontZ: 0.24, depthPitch: 0.15, depthRows: 3, lift: 0.14 },
+  eggs: { levels: RETAIL_FIXTURE_LEVELS.eggs, across: 8, pitch: 0.17, originX: 0, frontZ: 0.26, depthPitch: 0.15, depthRows: 3, lift: 0.075 },
+  milk: { levels: RETAIL_FIXTURE_LEVELS.dairy, across: 7, pitch: 0.135, originX: -0.55, frontZ: 0.18, depthPitch: 0.15, depthRows: 3, lift: 0.12 },
+  cheese: { levels: RETAIL_FIXTURE_LEVELS.dairy, across: 7, pitch: 0.135, originX: 0.55, frontZ: 0.18, depthPitch: 0.15, depthRows: 3, lift: 0.052 },
   juice: { levels: RETAIL_FIXTURE_LEVELS.drinks, across: 9, pitch: 0.2, originX: 0, frontZ: 0.24, depthPitch: 0.15, depthRows: 3, lift: 0.14 },
 };
 
@@ -161,8 +161,10 @@ export const RETAIL_FRONT_CAPACITY: Record<ProductId, number> = {
   wheat: shelfGridFrontCapacity(RETAIL_SHELF_GRIDS.wheat),
   coffee: shelfGridFrontCapacity(RETAIL_SHELF_GRIDS.coffee),
   eggs: shelfGridFrontCapacity(RETAIL_SHELF_GRIDS.eggs),
-  milk: shelfGridFrontCapacity(RETAIL_SHELF_GRIDS.milk),
-  cheese: shelfGridFrontCapacity(RETAIL_SHELF_GRIDS.cheese),
+  // Preserve existing save capacities; the new four-shelf cabinet has 28
+  // possible front sockets, of which the original 25 remain available.
+  milk: 25,
+  cheese: 25,
   juice: shelfGridFrontCapacity(RETAIL_SHELF_GRIDS.juice),
   tomatoes: PRODUCE_LAYERS[0][0] * PRODUCE_LAYERS[0][1],
   apples: PRODUCE_LAYERS[0][0] * PRODUCE_LAYERS[0][1],

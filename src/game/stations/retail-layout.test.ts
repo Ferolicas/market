@@ -81,9 +81,9 @@ describe("retail service points", () => {
     expect(retailStockLandingLocalPosition("flour", 0, 1)[1]).toBeCloseTo(1.12);
     expect(retailStockLandingLocalPosition("wheat", 0, 1)[1]).toBeCloseTo(1.47);
     expect(retailStockLandingLocalPosition("coffee", 0, 1)).toEqual([0, 0.38, 0.45]);
-    expect(retailStockLandingLocalPosition("eggs", 0, 1)[1]).toBeCloseTo(0.485);
-    expect(retailStockLandingLocalPosition("milk", 0, 1)).toEqual([-0.55, 0.46, 0.24]);
-    expect(retailStockLandingLocalPosition("cheese", 0, 1)).toEqual([0.55, 0.46, 0.24]);
+    expect(retailStockLandingLocalPosition("eggs", 0, 1)[1]).toBeCloseTo(0.295);
+    expect(retailStockLandingLocalPosition("milk", 0, 1)).toEqual([-0.55, 0.51, 0.18]);
+    expect(retailStockLandingLocalPosition("cheese", 0, 1)[1]).toBeCloseTo(0.442);
     expect(retailStockLandingLocalPosition("juice", 0, 1)).toEqual([0, 0.44, 0.24]);
   });
 
@@ -98,8 +98,8 @@ describe("retail service points", () => {
     expect(retailStockLandingLocalPosition("flour", 24, 25)[2]).toBeCloseTo(-0.1);
     expect(retailStockLandingLocalPosition("coffee", 1, 2)[1]).toBeCloseTo(0.74);
     expect(retailStockLandingLocalPosition("coffee", 40, 41)[2]).toBeCloseTo(0.31);
-    expect(retailStockLandingLocalPosition("eggs", 1, 2)[1]).toBeCloseTo(0.885);
-    expect(retailStockLandingLocalPosition("milk", 1, 2)[1]).toBeCloseTo(0.86);
+    expect(retailStockLandingLocalPosition("eggs", 1, 2)[1]).toBeCloseTo(0.835);
+    expect(retailStockLandingLocalPosition("milk", 1, 2)[1]).toBeCloseTo(0.78);
     expect(retailStockLandingLocalPosition("juice", 1, 2)[1]).toBeCloseTo(0.84);
     // A partial front row stays centred on its shelf.
     expect(retailStockLandingLocalPosition("juice", 0, 1)[0]).toBeCloseTo(0);

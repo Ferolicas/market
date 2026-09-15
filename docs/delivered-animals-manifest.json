@@ -1,0 +1,46 @@
+[
+  {
+    "kind": "chicken",
+    "source": "gallina.glb",
+    "sourceSha256": "50678e6edf61f1efcb00b1a04b1d298f1126dcaa55a08ecc442e42305e2fa8f7",
+    "bytes": 278592,
+    "height": 0.72,
+    "bones": [
+      "Root",
+      "Neck",
+      "Head",
+      "LeftLeg",
+      "RightLeg",
+      "Tail"
+    ],
+    "clips": [
+      "Idle",
+      "Walk",
+      "Peck"
+    ],
+    "validatorErrors": 0
+  },
+  {
+    "kind": "cow",
+    "source": "vaca.glb",
+    "sourceSha256": "68707f33dba34ace087b0a28dae1b9c7a0947bcc2037eb89a5309bdb710d1af8",
+    "bytes": 257092,
+    "height": 1.15,
+    "bones": [
+      "Root",
+      "Neck",
+      "Head",
+      "FrontLeft",
+      "FrontRight",
+      "BackLeft",
+      "BackRight",
+      "Tail"
+    ],
+    "clips": [
+      "Idle",
+      "Walk",
+      "Graze"
+    ],
+    "validatorErrors": 0
+  }
+]

@@ -5,7 +5,7 @@ import { useFrame } from "@react-three/fiber";
 import { Suspense, useEffect, useMemo, useRef, type ReactNode, type RefObject } from "react";
 import * as THREE from "three";
 import type { AvatarHatId, CharacterId, HairId } from "@/game/types";
-import { CharacterHat } from "./CharacterAccessories";
+import { CharacterHair, CharacterHat } from "./CharacterAccessories";
 import { CLIP_NATURAL_SPEED, gaitTimeScale, locomotionGroundingSupport, LocomotionController } from "@/game/animation/LocomotionController";
 import { FacialController, type FaceExpression } from "@/game/animation/FacialController";
 import { feedbackBus, type FeedbackSource } from "@/game/feedback/FeedbackBus";
@@ -13,6 +13,7 @@ import { FootGroundingController } from "@/game/animation/FootGroundingControlle
 import { characterFaceUpdateInterval, characterIsInView, characterModelPathForTier, createCharacterVisibilityScratch, disposeCharacterMaterials, prepareCharacterModel, priorityCustomerModelPathsForTier, scheduleCharacterModelPreload, useCharacterModelTier } from "@/game/animation/CharacterPresentation";
 import { CHARACTER_PALM_OFFSETS, composeCarryAnimations, createCarrySocketScratch, handPalmPoint, HARVEST_BASKET_GRIP_HALF_WIDTH, HARVEST_BASKET_GRIP_HEIGHT, HARVEST_BASKET_GRIP_REACH, mountedHarvestBasketHandle, placeCarrySocket, updateHarvestBasketHandle } from "@/game/animation/CarrySocket";
 import { marketQaQueryEnabled } from "@/game/debug/QaAccess";
+import { maskedHairGeometry } from "@/game/animation/AvatarHairMask";
 
 interface AvatarProps {
   skin: string;
@@ -69,6 +70,15 @@ const HAT_FIT_SCALE: Record<CharacterId, number> = {
   girl: 0.68,
 };
 
+// Accessories were authored on the previous cast. Fit the hair independently
+// of the approved hoods, using the delivered skull width and crown height.
+const HAIR_FIT: Record<CharacterId, { scale: [number, number, number]; position: [number, number, number] }> = {
+  "adult-man": { scale: [0.38, 0.43, 0.39], position: [0, 0, 0.028] },
+  "adult-woman": { scale: [0.38, 0.43, 0.39], position: [0, 0, 0.028] },
+  boy: { scale: [0.5, 0.53, 0.5], position: [0, 0, 0.028] },
+  girl: { scale: [0.5, 0.53, 0.5], position: [0, 0, 0.028] },
+};
+
 export function Avatar(props: AvatarProps) {
   const body = props.body ?? "adult-man";
   return <RiggedAvatar key={body} {...props} body={body} />;
@@ -79,6 +89,7 @@ function RiggedAvatar({
   shirt,
   hat,
   body = "adult-man",
+  hair = "side-part",
   hairColor = "#332b27",
   walking = false,
   carrying = false,
@@ -122,6 +133,16 @@ function RiggedAvatar({
     [body, gltf.scene, modelTier],
   );
   const animations = useMemo(() => composeCarryAnimations(gltf.animations), [gltf.animations]);
+  useEffect(() => {
+    if (hat !== "none") return;
+    const originals: Array<[THREE.Mesh, THREE.BufferGeometry]> = [];
+    model.traverse((node) => {
+      if (!(node instanceof THREE.SkinnedMesh)) return;
+      originals.push([node, node.geometry]);
+      node.geometry = maskedHairGeometry(node.geometry, modelPath);
+    });
+    return () => { for (const [mesh, geometry] of originals) mesh.geometry = geometry; };
+  }, [hat, model, modelPath]);
   const { actions, mixer } = useAnimations(animations, model);
   const mixerRef = useRef(mixer);
   const fallbackClip: CharacterAnimation = animation ?? (walking ? carrying ? "CarryWalk" : "Walk" : carrying ? "CarryIdle" : "Idle");
@@ -129,7 +150,7 @@ function RiggedAvatar({
   const leftHand = model.getObjectByName("Hand_L");
   const rightHand = model.getObjectByName("Hand_R");
   const hasCarryAccessory = carrying && Boolean(carryAccessory);
-  const hasHeadAccessory = Boolean(head && hat !== "none");
+  const hasHeadAccessory = Boolean(head);
   const feet = useMemo(() => [model.getObjectByName("Foot_L"), model.getObjectByName("Foot_R")].filter((foot): foot is THREE.Object3D => Boolean(foot)), [model]);
   const morphMeshes = useMemo(() => {
     const meshes: THREE.Mesh[] = [];
@@ -295,6 +316,7 @@ function RiggedAvatar({
       <group ref={groundingRoot}><primitive object={model} dispose={null} /></group>
       {hasHeadAccessory && <group ref={appearanceRoot} matrixAutoUpdate={false}>
         <Suspense fallback={null}>
+          {hat === "none" && <group name={`avatar-hair:${hair}`} scale={HAIR_FIT[body].scale} position={HAIR_FIT[body].position}><CharacterHair key={`${body}-hair-${hair}`} body={body} style={hair} color={hairColor} /></group>}
           {hat !== "none" && <group scale={HAT_FIT_SCALE[body]}><CharacterHat key={`${body}-hat-${hat}`} body={body} hat={hat} /></group>}
         </Suspense>
       </group>}

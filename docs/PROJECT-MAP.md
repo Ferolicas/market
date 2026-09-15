@@ -2,6 +2,16 @@
 
 Actualizado: 2026-09-15.
 
+## Recursos entregados, animales y personalización (15-09-2026)
+
+- `public/models/market/delivered/`: horno, molino, exprimidora, lácteos, estante de huevos, leche, queso, huevo, gallina y vaca suministrados por el propietario. Los originales de Descargas no se modifican. Importadores reproducibles: `scripts/import-delivered-assets.mjs` y `scripts/build-delivered-animals.mjs`; hashes, tamaños y clips en `docs/delivered-*-manifest.json`.
+- `DeliveredModel.tsx` carga los modelos normalizados y dibuja stock mediante instancias compartidas. `retail-layout.ts` calibra las alturas de balda y conserva las capacidades de partidas guardadas. Los productos suministrados se usan también en cesta, vuelos y pantallas.
+- `DeliveredDairy.tsx` conserva la apertura de la vitrina durante el acceso de clientes. El importador separa tres hojas, añade bisagras y remates interiores; el grupo dinámico no entra al lote estático.
+- `FarmAnimal.tsx` clona esqueletos independientes, mezcla Idle/Walk/Peck/Graze y comparte geometría/texturas. `AnimalMotion.ts` limita el paseo al corral; desplazamiento y mixer usan el mismo delta. La producción sigue siendo responsabilidad exclusiva del motor. El suelo del corral usa bisel 0,025 para un grosor de 0,075: no aumentar el radio por encima del semigrosor.
+- `Avatar.tsx` presenta el pelo seleccionado cuando no hay gorro. `AvatarHairMask.ts` oculta únicamente caras del pelo original fusionado mediante índices precalculados para los 12 cuerpos/LOD; preserva el original al llevar gorro, rig, UV y morphs. Regenerar las máscaras con `scripts/build-avatar-hair-masks.mjs` si cambian los cuerpos. El encuadre de `AvatarCustomizer.tsx` se adapta al tamaño real de su panel.
+- Los recursos raster de `INTERFACE MARKET/mercado_del_barrio_piezas` son referencias con valores/textos incrustados: se trasladan a estilos DOM vivos en `globals.css`, no se usan como controles de imagen con datos congelados.
+- Umbral verde de panadería separado del suelo para evitar superficies coplanares. QA de integración con vídeo, red, consola y contactos: `scripts/qa-delivered-runtime.mjs` (solo desarrollo local). `validate:assets` incluye el directorio `delivered` y exige los clips de ambos animales.
+
 ## Producto y stack
 
 Mini Market es un simulador privado de supermercado 3D, browser-first e instalable como PWA. Usa Next.js 16.3.3, React 19, TypeScript, React Three Fiber 9, Three.js 0.185, Rapier 2, Recast 0.43, PostgreSQL 17, Prisma 7 y Better Auth.

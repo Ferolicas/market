@@ -1,8 +1,8 @@
 "use client";
 
-import { Canvas } from "@react-three/fiber";
+import { Canvas, useThree } from "@react-three/fiber";
 import { ContactShadows, Environment, Lightformer, OrbitControls } from "@react-three/drei";
-import { Component, Suspense, type CSSProperties, type ErrorInfo, type ReactNode } from "react";
+import { Component, Suspense, useEffect, type CSSProperties, type ErrorInfo, type ReactNode } from "react";
 import { CHARACTERS, HAIRSTYLES, HATS } from "@/game/catalog";
 import type { AvatarConfig, AvatarHatId } from "@/game/types";
 import { Avatar } from "./Avatar";
@@ -12,7 +12,8 @@ export function AvatarCustomizer({ avatar, onChange, compact = false }: { avatar
   return <div className={`avatar-customizer ${compact ? "compact" : ""}`}>
     <div className="avatar-preview-3d" aria-label="Vista previa tridimensional del personaje">
       <PreviewErrorBoundary>
-        <Canvas events={safeCanvasEvents} shadows="percentage" dpr={[1, 1.5]} camera={{ position: [0, 1.42, 6.3], fov: 34 }} gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}>
+        <Canvas events={safeCanvasEvents} shadows="percentage" dpr={[1, 1.5]} camera={{ position: [0, 0.72, 2.9], fov: 34 }} gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}>
+          <PreviewFraming />
           <ambientLight intensity={1.45} />
           <directionalLight position={[3, 5, 4]} intensity={2.2} castShadow />
           <Suspense fallback={null}>
@@ -20,7 +21,7 @@ export function AvatarCustomizer({ avatar, onChange, compact = false }: { avatar
             <StudioEnvironment />
           </Suspense>
           <ContactShadows position={[0, 0.01, 0]} opacity={0.34} scale={3.5} blur={2.4} far={3} />
-          <OrbitControls target={[0, 1.12, 0]} enablePan={false} enableZoom={false} minPolarAngle={Math.PI / 2.5} maxPolarAngle={Math.PI / 1.85} />
+          <OrbitControls target={[0, 0.55, 0]} enablePan={false} enableZoom={false} minPolarAngle={Math.PI / 2.5} maxPolarAngle={Math.PI / 1.85} />
         </Canvas>
       </PreviewErrorBoundary>
       <span className="preview-hint">Arrastra para verlo en 360°</span>
@@ -38,7 +39,7 @@ export function AvatarCustomizer({ avatar, onChange, compact = false }: { avatar
 
       <CustomizerSection title="Peinado" note={`${HAIRSTYLES.length} estilos`}>
         <div className="hair-options">
-          {HAIRSTYLES.map((style, index) => <button key={style.id} type="button" className={avatar.hair === style.id ? "selected" : ""} aria-pressed={avatar.hair === style.id} title={style.name} onClick={() => onChange({ hair: style.id })}>
+          {HAIRSTYLES.map((style, index) => <button key={style.id} type="button" className={avatar.hair === style.id ? "selected" : ""} aria-pressed={avatar.hair === style.id} title={style.name} onClick={() => onChange({ hair: style.id, hat: "none" })}>
             <span className={`hair-thumbnail hair-${(index % 6) + 1}`} style={{ "--hair-preview": avatar.hairColor } as CSSProperties} />
             <small>{style.name}</small>
           </button>)}
@@ -69,6 +70,20 @@ export function AvatarCustomizer({ avatar, onChange, compact = false }: { avatar
  * that request, the loader rejects inside Suspense and, without a boundary,
  * React unmounted the entire game the moment the avatar panel opened.
  */
+function PreviewFraming() {
+  const camera = useThree(state => state.camera);
+  const size = useThree(state => state.size);
+  useEffect(() => {
+    // Fit both the tall desktop column and the wide mobile preview. Include
+    // clearance for the approved animal hoods without rescaling the avatar.
+    const verticalSpan = Math.max(1.9, 0.85 / Math.max(0.2, size.width / size.height));
+    const distance = verticalSpan / (2 * Math.tan(34 * Math.PI / 360));
+    camera.position.set(0, 0.65, distance);
+    camera.lookAt(0, 0.55, 0);
+  }, [camera, size.width, size.height]);
+  return null;
+}
+
 function StudioEnvironment() {
   return <Environment resolution={64} frames={1} environmentIntensity={0.42}>
     <Lightformer form="rect" intensity={3.2} color="#fff6e6" position={[0, 4.5, 2]} rotation={[Math.PI / 2, 0, 0]} scale={[6, 6]} />

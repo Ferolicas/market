@@ -1,0 +1,162 @@
+[
+  {
+    "id": "mill",
+    "source": "MOLINO.glb",
+    "sourceSha256": "969df100d1585f84d92b209aa774e94a5955caed49afa28b1da8c1aed245459b",
+    "bytes": 223772,
+    "sourceBytes": 677556,
+    "normalizedBounds": {
+      "min": [
+        -0.4677877426147461,
+        0,
+        -0.4673523008823395
+      ],
+      "max": [
+        0.4677877426147461,
+        1.7200000286102295,
+        0.4673523008823395
+      ]
+    },
+    "validatorErrors": 0
+  },
+  {
+    "id": "oven",
+    "source": "HORNO.glb",
+    "sourceSha256": "2abd3a5ecd6bd6586de03462510eab8561c6e0613b6ed3f39e84afa3dcfa3578",
+    "bytes": 468044,
+    "sourceBytes": 1385276,
+    "normalizedBounds": {
+      "min": [
+        -0.7400000095367432,
+        0,
+        -0.44296547770500183
+      ],
+      "max": [
+        0.7400000095367432,
+        1.325506329536438,
+        0.44296547770500183
+      ]
+    },
+    "validatorErrors": 0
+  },
+  {
+    "id": "juicer",
+    "source": "EXPRIMIDORA.glb",
+    "sourceSha256": "69136636ddb54f61c7e81bf844518f9140aa000de5e33bea49317e4328da1097",
+    "bytes": 381708,
+    "sourceBytes": 1032376,
+    "normalizedBounds": {
+      "min": [
+        -0.4670398235321045,
+        0,
+        -0.40024223923683167
+      ],
+      "max": [
+        0.4670398235321045,
+        1.7000000476837158,
+        0.40024223923683167
+      ]
+    },
+    "validatorErrors": 0
+  },
+  {
+    "id": "cheese",
+    "source": "NUEVO_KIT/QUESO.glb",
+    "sourceSha256": "0626ac3c966100de17ffcdb9ca4091cf66a3603648d348dff7a6938990a15c10",
+    "bytes": 60852,
+    "sourceBytes": 188576,
+    "normalizedBounds": {
+      "min": [
+        -0.07999999821186066,
+        -0.05562557280063629,
+        -0.059750109910964966
+      ],
+      "max": [
+        0.07999999821186066,
+        0.05562557280063629,
+        0.059750109910964966
+      ]
+    },
+    "validatorErrors": 0
+  },
+  {
+    "id": "milk",
+    "source": "NUEVO_KIT/LECHE.glb",
+    "sourceSha256": "3263e11ce2a43ead99347ba8daa8332c6b077384f88dfe62410e1401ae3f50aa",
+    "bytes": 66276,
+    "sourceBytes": 199868,
+    "normalizedBounds": {
+      "min": [
+        -0.05673784017562866,
+        -0.12999999523162842,
+        -0.058312732726335526
+      ],
+      "max": [
+        0.05673784017562866,
+        0.12999999523162842,
+        0.058312732726335526
+      ]
+    },
+    "validatorErrors": 0
+  },
+  {
+    "id": "dairy",
+    "source": "NUEVO_KIT/LACTEOS.glb",
+    "sourceSha256": "67379fbddf8b469182779f21cf400f35b93e363f6434dae381d2da73145f0f03",
+    "bytes": 440284,
+    "sourceBytes": 1397200,
+    "normalizedBounds": {
+      "min": [
+        -1.2000000476837158,
+        0,
+        -0.5220146179199219
+      ],
+      "max": [
+        1.2000000476837158,
+        1.5740430355072021,
+        0.5220146179199219
+      ]
+    },
+    "validatorErrors": 0
+  },
+  {
+    "id": "egg",
+    "source": "NUEVO_KIT/HUEVO.glb",
+    "sourceSha256": "8d27169e1e494f9b5e93311f55a9315f10ed7f27ceb5c3b6488ad3a4d66d5793",
+    "bytes": 27836,
+    "sourceBytes": 117972,
+    "normalizedBounds": {
+      "min": [
+        -0.0566517673432827,
+        -0.07999999821186066,
+        -0.056738391518592834
+      ],
+      "max": [
+        0.0566517673432827,
+        0.07999999821186066,
+        0.056738391518592834
+      ]
+    },
+    "validatorErrors": 0
+  },
+  {
+    "id": "egg-display",
+    "source": "NUEVO_KIT/ESTANTE_HUEVOS.glb",
+    "sourceSha256": "d25f2ffbfb6b06b7b464c871c844c1d53df0be5e5c8c54153a72da925e672093",
+    "bytes": 511460,
+    "sourceBytes": 1474708,
+    "normalizedBounds": {
+      "min": [
+        -0.8081222772598267,
+        0,
+        -0.4916922152042389
+      ],
+      "max": [
+        0.8081222772598267,
+        2.0999999046325684,
+        0.4916922152042389
+      ]
+    },
+    "validatorErrors": 0
+  }
+]

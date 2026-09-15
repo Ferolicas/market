@@ -39,7 +39,7 @@ function glbJson(buffer) {
 
 async function assets() {
   const result = [];
-  for (const folder of ["characters", "customers", "hair", "hats", "environment"]) {
+  for (const folder of ["characters", "customers", "hair", "hats", "environment", "delivered"]) {
     const directory = path.join(modelRoot, folder);
     for (const absolute of await glbs(directory)) result.push({ folder, file: path.relative(directory, absolute), absolute });
   }
@@ -81,7 +81,9 @@ for (const asset of assetList) {
   const targetNames = (json.meshes ?? []).flatMap((mesh) => mesh.extras?.targetNames ?? []);
   const nodeNames = (json.nodes ?? []).map((node) => node.name);
   const expectedClips = asset.folder === "customers" ? [...requiredClips, ...requiredCustomerClips] : requiredClips;
-  const missingClips = characterFolders.has(asset.folder) ? expectedClips.filter((clip) => !animations.includes(clip)) : [];
+  const animalClips = asset.folder === "delivered" && ["chicken.glb", "cow.glb"].includes(asset.file)
+    ? ["Idle", "Walk", asset.file === "cow.glb" ? "Graze" : "Peck"] : [];
+  const missingClips = (characterFolders.has(asset.folder) ? expectedClips : animalClips).filter((clip) => !animations.includes(clip));
   const missingMorphs = characterFolders.has(asset.folder) ? requiredMorphs.filter((morph) => !targetNames.includes(morph)) : [];
   const missingBones = characterFolders.has(asset.folder) ? requiredBones.filter((bone) => !nodeNames.includes(bone)) : [];
   const failures = report.issues.messages.filter((issue) => issue.severity <= 1);

@@ -1236,3 +1236,61 @@
   .toast { animation: none !important; }
 }
 .avatar-preview-fallback{display:grid;place-items:center;min-height:inherit;height:100%;padding:24px;color:#315044;font-size:11px;font-weight:750;text-align:center}
+
+/* Mercado del Barrio: live DOM interpretation of the supplied mobile sheets.
+   Values, labels and controls stay live; source screenshots are not UI skins. */
+.game-shell,.setup-panel {
+  --forest:#475331; --ink:#30372a; --mint:#788650; --pale:#e8e9dc;
+  --cream:#f5f0e6; --coral:#77834d; --gold:#b69a55;
+  --game-ui-ink:#30372a; --game-ui-muted:#686c5d;
+  --game-ui-surface:#f5f0e7; --game-ui-border:#fffaf0;
+  --game-ui-line:#77765c2b;
+  --game-ui-shadow:0 3px 0 #817b6526,0 10px 26px #393c2826;
+  --game-ui-shadow-raised:0 3px 0 #817b6540,0 7px 18px #393c2830;
+}
+.game-shell .glass-panel,.management-panel,.setup-panel {
+  border:1px solid #fffaf0;
+  background:linear-gradient(150deg,#fffcf6,#f0eadf);
+  box-shadow:inset 0 1px 1px #fff,0 4px 0 #b0a99455,0 18px 45px #30352333;
+}
+.management-panel>header,.panel-footer {background:#f1ede3;border-color:#d8d3c5}
+.management-panel>header h2,.management-panel .eyebrow {color:#414c30}
+.game-shell .primary-button,.setup-panel .primary-button {
+  background:linear-gradient(#7b8653,#4c5a33);border:1px solid #a0a97b;
+  box-shadow:inset 0 1px #d0d5b5,0 3px 0 #374126;color:#fffdf4;
+}
+.game-shell .primary-button:disabled {opacity:.55}
+.quick-menu button {color:#4b533c;background:#faf7ef;border-color:#dfd9ca;box-shadow:0 2px 3px #6c68591a}
+.quick-menu button:hover,.quick-menu button:focus-visible {background:#e8ead8;border-color:#929c6c;color:#303c25}
+.hud-brand>span,.mission-card>.panel-heading>span,.level-one-guide header>span {background:linear-gradient(#818b5c,#4b5833);color:#fff9e9}
+.hud-stat.money strong {color:#485b32}
+.mission-track,.level-one-progress {background:#dcd9cc;box-shadow:inset 0 2px 3px #726f5c26}
+.mission-track i,.level-one-progress i {background:linear-gradient(#8c9860,#50613a);box-shadow:inset 0 1px #bac795}
+.mission.done,.mission.level-requirement.done {background:#e8eddc;border-color:#c1cba9}
+.level-one-guide li.active {background:#e9edda;border-color:#748350;color:#41522b}
+.level-one-guide li.done {background:#647747;border-color:#879967;color:#fff}
+.game-shell .player-chip {background:linear-gradient(135deg,#69764c,#3d492c);color:#fffdf0;border:1px solid #cad2a6}
+.game-shell .player-chip>span {background:#e7e5cd}
+.game-shell .carry-chip {background:linear-gradient(145deg,#fffaf0,#ede7d9);color:#3c452f;border-color:#fffaf0}
+.game-shell .carry-chip strong {color:#3c452f}
+.game-shell .carry-chip small {color:#707361}
+.game-shell .carry-preview,.game-shell .carry-preview>i {background:#f3eede;border-color:#ded9c9}
+.drag-joystick {border-color:#fff9e5;background:#eee8d9a8;box-shadow:inset 0 1px 3px #fff,0 5px 12px #393d2b40}
+.drag-joystick i {background:linear-gradient(#899660,#4b5b34);border-color:#d3d9b8;box-shadow:inset 0 2px #c5ce9b,0 4px 8px #3b45284d}
+.management-body .product-card,.supplier-list>article,.employee-card,.franchise-card,.upgrade-card,.help-grid>article,.customizer-section {
+  background:linear-gradient(145deg,#fffdf8,#f4efe5);border-color:#ded8ca;box-shadow:0 2px 4px #7f795b12;
+}
+.supplier-products button,.upgrade-grid button,.panel-actions button {border-color:#d0cbb9;background:#faf7ef;color:#485234}
+.avatar-preview-3d {background:radial-gradient(ellipse at 50% 35%,#fffdf5,#ede9da 70%,#d6d9bf);border-color:#d5d4bd}
+.character-options button,.hair-options button,.animal-hat-options button,.avatar-color-options label {background:#faf7ee;border-color:#dad6c5}
+.character-options button.selected,.hair-options button.selected,.animal-hat-options button.selected {background:#e9edd8;border-color:#7c8a51;box-shadow:0 0 0 2px #84935a2b}
+.character-options button,.hair-options button,.animal-hat-options button {min-height:44px}
+.preview-hint {background:#485536df}
+.close-button {min-width:44px;min-height:44px}
+@media(max-width:580px) {
+  .management-panel {border-radius:22px 22px 0 0}
+  .management-panel>header {border-radius:22px 22px 0 0}
+  .hair-options small,.animal-hat-options small {font-size:10px}
+  .character-options strong {font-size:11px}
+  .customizer-section>header small {font-size:10px}
+}

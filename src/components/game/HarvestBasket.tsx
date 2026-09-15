@@ -5,6 +5,7 @@ import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 import type { CarryState, ProductId } from "@/game/types";
 import { carriedProductIds, carryQuantity, carryTotal, MAX_WAREHOUSE_PICKUP_BATCH } from "@/game/player/CarrySystem";
+import { DeliveredModel, deliveredProductId } from "./DeliveredModel";
 
 const standard = (color: string, roughness = 1) => new THREE.MeshStandardMaterial({ color, roughness });
 
@@ -112,6 +113,8 @@ const productMaterial = {
 };
 
 export function BasketProduct({ productId, position = [0, 0, 0], rotation = [0, 0, 0], scale = 1 }: { productId: ProductId; position?: [number, number, number]; rotation?: [number, number, number]; scale?: number }) {
+  const delivered = deliveredProductId(productId);
+  if (delivered) return <DeliveredModel id={delivered} position={position} rotation={rotation} scale={scale * 0.8} />;
   if (productId === "oranges") return <mesh castShadow position={position} rotation={rotation} scale={scale} geometry={productGeometry.orange} material={productMaterial.orange} />;
   if (productId === "tomatoes" || productId === "apples") {
     const tomato = productId === "tomatoes";
