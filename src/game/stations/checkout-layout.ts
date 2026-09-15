@@ -34,9 +34,18 @@ export const CHECKOUT_LANES: Record<CheckoutLane, CheckoutLaneLayout> = {
   },
 };
 
-export const CHECKOUT_CAMERA_TARGET: StorePosition = [8.3, 1.35, 3.8];
-export const CHECKOUT_CAMERA_POSITION: StorePosition = [8.3, 7.2, 8.8];
-export const CHECKOUT_CAMERA_FRAME = { width: 39, height: 27 } as const;
+export const CHECKOUT_CAMERA_TARGET: StorePosition = [7.35, 1.25, 3.55];
+export const CHECKOUT_CAMERA_POSITION: StorePosition = [8.8, 3.2, 6.8];
+export const CHECKOUT_CAMERA_FRAME = { width: 10, height: 10 } as const;
+
+/** Cart parks on the customer's right, on the sales-floor side of the belt. */
+export function checkoutParkedCart(customer: Pick<CustomerRuntimeState, "state" | "queueLane" | "queueSlot" | "x" | "z">): StorePoint | null {
+  const front = CHECKOUT_LANES[customer.queueLane === 1 ? 1 : 0].customerFront;
+  const serving = ["UNLOAD", "WAIT_CHECKOUT", "PAY"].includes(customer.state);
+  const approaching = customer.queueSlot === 0 && ["NAVIGATE_TO_QUEUE", "MOVE_QUEUE"].includes(customer.state)
+    && Math.hypot(customer.x - front[0], customer.z - front[1]) < 1.2;
+  return serving || approaching ? [front[0] + 1, front[1] - 0.45] : null;
+}
 
 const CHECKOUT_QUEUE_SPACING = 0.78;
 const CHECKOUT_CUSTOMER_FACING_STATES = new Set<CustomerRuntimeState["state"]>([

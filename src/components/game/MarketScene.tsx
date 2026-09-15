@@ -288,7 +288,7 @@ export const MarketScene = memo(function MarketScene({ avatar, carry, visualCarr
       <WebGLContextRecovery />
       <CappedFrameScheduler profile={renderProfile} playerMotionActiveRef={playerMotionActiveRef} publishDiagnostics={performanceProbe} />
       <AdaptiveQualityController canvasDpr={canvasDpr} profile={renderProfile} playerMotionActiveRef={playerMotionActiveRef} sceneSettledRef={sceneSettledRef} onDprChange={setCanvasDpr} publishDiagnostics={performanceProbe} />
-      <OverviewCamera playerFocus={playerFocus} checkoutFocused={checkoutFocused} />
+      <OverviewCamera playerFocus={playerFocus} checkoutFocused={checkoutFocused} debug={debug} />
       <StorefrontDoorMotion doorState={doorState} doorProgress={doorProgress} motionRef={doorMotion} />
       <color attach="background" args={[daylight.background]} />
       <fog attach="fog" args={[daylight.fog, 62 * WORLD_SCALE, 105 * WORLD_SCALE]} />
@@ -330,7 +330,7 @@ export const MarketScene = memo(function MarketScene({ avatar, carry, visualCarr
         </group>
         <group name="perf:contact-shadows"><StaticContactShadows frames={1} position={[0, 0.015, 2 * STORE_LAYOUT_SCALE]} opacity={0.24} scale={34 * STORE_LAYOUT_SCALE} blur={2.6} far={8} /></group>
       </group>
-      <Physics timeStep={PHYSICS_STEP_SECONDS} gravity={[0, -9.81, 0]}>
+      <Physics timeStep={PHYSICS_STEP_SECONDS} updatePriority={-2} gravity={[0, -9.81, 0]}>
         <StoreColliders doorMotion={doorMotion} unlockedAreas={unlockedAreas} />
         <RearDoorAssembly playerFocus={playerFocus} />
         <InteractionSensors checkoutLevel={checkoutLevel} unlockedSignature={unlockedSignature} cropSignature={cropSignature} warehousePickupEnabled={warehousePickupEnabled} />
@@ -1107,7 +1107,7 @@ function DebugProbe({ inspectScene, publishInventory }: { inspectScene: boolean;
 const CHECKOUT_CAMERA_TARGET = new THREE.Vector3(...scaleStorePosition([...CHECKOUT_CAMERA_TARGET_COORDS]));
 const CHECKOUT_CAMERA_POSITION = new THREE.Vector3(...scaleStorePosition([...CHECKOUT_CAMERA_POSITION_COORDS]));
 
-function OverviewCamera({ playerFocus, checkoutFocused }: { playerFocus: RefObject<THREE.Vector3>; checkoutFocused: boolean }) {
+function OverviewCamera({ playerFocus, checkoutFocused, debug }: { playerFocus: RefObject<THREE.Vector3>; checkoutFocused: boolean; debug: boolean }) {
   const camera = useRef<THREE.OrthographicCamera>(null);
   const lookAt = useRef(new THREE.Vector3(PLAYER_START[0], 0.9 * PLAYER_SCALE, PLAYER_START[2]).multiplyScalar(WORLD_SCALE));
   const desiredLookAt = useRef(new THREE.Vector3());
@@ -1128,14 +1128,25 @@ function OverviewCamera({ playerFocus, checkoutFocused }: { playerFocus: RefObje
     checkoutBlend.current = THREE.MathUtils.lerp(checkoutBlend.current, checkoutFocused ? 1 : 0, dampFactor(checkoutFocused ? 4.8 : 3.2, delta));
     desiredLookAt.current.copy(overviewLookAt.current).lerp(CHECKOUT_CAMERA_TARGET, checkoutBlend.current).multiplyScalar(WORLD_SCALE);
     desiredPosition.current.copy(overviewPosition.current).lerp(CHECKOUT_CAMERA_POSITION, checkoutBlend.current).multiplyScalar(WORLD_SCALE);
-    const response = dampFactor(2.8, delta);
-    camera.current.position.lerp(desiredPosition.current, response);
-    lookAt.current.lerp(desiredLookAt.current, response);
+    // Rapier (-2) → player presentation (-1) → camera (0), same frame.
+    // The capsule is already interpolated: damping it again creates travel lag.
+    // Only the checkout composition/zoom retains a smooth transition.
+    camera.current.position.copy(desiredPosition.current);
+    lookAt.current.copy(desiredLookAt.current);
     camera.current.lookAt(lookAt.current);
     const overviewZoom = Math.min(size.width / 32, size.height / 28.5) / CAMERA_DISTANCE_FACTOR * CAMERA_PROXIMITY_FACTOR;
     const checkoutZoom = Math.min(size.width / CHECKOUT_CAMERA_FRAME.width, size.height / CHECKOUT_CAMERA_FRAME.height) * CAMERA_PROXIMITY_FACTOR;
     camera.current.zoom = THREE.MathUtils.lerp(camera.current.zoom, THREE.MathUtils.lerp(overviewZoom, checkoutZoom, checkoutBlend.current), dampFactor(5, delta));
     camera.current.updateProjectionMatrix();
+    if (debug) {
+      const qaWindow = window as typeof window & { __MARKET_QA__?: Record<string, unknown> };
+      qaWindow.__MARKET_QA__ ??= {};
+      qaWindow.__MARKET_QA__.cameraFollow = {
+        x: playerFocus.current.x, z: playerFocus.current.z,
+        targetX: lookAt.current.x / WORLD_SCALE, targetZ: lookAt.current.z / WORLD_SCALE,
+        checkoutBlend: checkoutBlend.current,
+      };
+    }
   });
   return <OrthographicCamera ref={camera} makeDefault position={[(PLAYER_START[0] + OVERVIEW_CAMERA_OFFSET.x) * WORLD_SCALE, 23.9 * WORLD_SCALE, (PLAYER_START[2] + OVERVIEW_CAMERA_OFFSET.z) * WORLD_SCALE]} near={0.1 * WORLD_SCALE} far={120 * WORLD_SCALE} />;
 }
@@ -1339,6 +1350,9 @@ function Player({ avatar, carry, cropSignature, checkoutLevel, playerSpeedTier, 
         speed: avatarMotion.current.locomotionSpeed,
         speedCap: playerMotion.walkSpeed / WORLD_SCALE,
         speedTier: playerSpeedTier,
+        presentedX: playerFocus.current.x,
+        presentedZ: playerFocus.current.z,
+        visible: visual.current.visible,
         basketMounted: Boolean(basketVisual.current),
         basketUnits: carryTotal(carry),
       };
@@ -1368,7 +1382,7 @@ function Player({ avatar, carry, cropSignature, checkoutLevel, playerSpeedTier, 
       checkoutFocused.current = nextCheckoutFocused;
       onCheckoutFocus(nextCheckoutFocused);
     }
-    visual.current.visible = !nextCheckoutFocused;
+    visual.current.visible = true;
     if (debug) {
       const qaWindow = window as typeof window & { __MARKET_QA__?: Record<string, unknown> };
       if (qaWindow.__MARKET_QA__) qaWindow.__MARKET_QA__.activeZones = active;
@@ -1377,7 +1391,7 @@ function Player({ avatar, carry, cropSignature, checkoutLevel, playerSpeedTier, 
       && (!(isStockingInteractionId(zone.id) || isRegisterInteractionId(zone.id) || zone.id === "purchase" || zone.id === "supplier" || zone.id === "warehouseReturn") || interactionLabels[zone.id]));
     const found = foundZone ? { id: foundZone.id, label: interactionLabels[foundZone.id] ?? foundZone.label } : null;
     if (found?.id !== nearest.current?.id || found?.label !== nearest.current?.label) { nearest.current = found; onPrompt(found); }
-  });
+  }, -1);
 
   const worldStart = PLAYER_START.map((value) => value * WORLD_SCALE) as [number, number, number];
   return <RigidBody ref={body} type="kinematicPosition" colliders={false} position={worldStart} enabledRotations={[false, false, false]} canSleep={false} userData={{ actor: "player" }}>

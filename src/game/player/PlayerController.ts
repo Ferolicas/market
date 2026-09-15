@@ -29,8 +29,9 @@ export const DEFAULT_PLAYER_MOTION: PlayerMotionConfig = {
 export const PLAYER_MAX_SPEED_MULTIPLIER = 2.7;
 export const PLAYER_TIER_ONE_SPEED_MULTIPLIER = PLAYER_MAX_SPEED_MULTIPLIER * 0.6;
 // Campaign T1 was 70% of 5.94. Requested: 2.5 times that speed,
-// now representing 75% of the new maximum. Legacy games stay unchanged.
-export const CAMPAIGN_MAX_SPEED_MULTIPLIER = PLAYER_MAX_SPEED_MULTIPLIER * 0.7 * 2.5 / 0.75;
+// now representing 75% of the new maximum, with the requested 20% reduction.
+// Legacy games stay unchanged.
+export const CAMPAIGN_MAX_SPEED_MULTIPLIER = PLAYER_MAX_SPEED_MULTIPLIER * 0.7 * 2.5 * 0.8 / 0.75;
 
 export function playerSpeedProgressForTier(tier: number, campaign = false) {
   const safeTier = Math.max(1, Math.min(10, Math.floor(Number.isFinite(tier) ? tier : 1)));

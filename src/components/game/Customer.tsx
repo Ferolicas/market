@@ -17,7 +17,7 @@ import { marketQaQueryEnabled } from "@/game/debug/QaAccess";
 import { CUSTOMER_CART_WHEEL_RADIUS, CUSTOMER_CHECKOUT_ITEM_CYCLE_MS, CUSTOMER_PICKUP_DURATION_MS, assignCartGripTargets, cartSteeringAngle, checkoutCartInventory, checkoutLoadingPresentation, easedMotionProgress, motionProgress, productTransferPoint, shortestHeadingDelta, wheelRollDelta } from "@/game/animation/CustomerCartMotion";
 import { PRODUCT_RETAIL_DEPARTMENT, retailDisplayPosition } from "@/game/stations/retail-layout";
 import { CART_BAY_POINT } from "@/game/stations/store-service-layout";
-import { checkoutCustomerFacingYaw } from "@/game/stations/checkout-layout";
+import { checkoutCustomerFacingYaw, checkoutParkedCart } from "@/game/stations/checkout-layout";
 import { composeRuntimeAnimationAliases } from "@/game/animation/CarrySocket";
 import { CLIP_NATURAL_SPEED, gaitTimeScale, RUN_GAIT_RATIO } from "@/game/animation/LocomotionController";
 import { adultCustomerSceneScale } from "@/game/animation/CharacterScale";
@@ -210,6 +210,7 @@ export const Customer = memo(function Customer({ customer, checkoutTransaction }
     }
     const cartVisible = customer.hasCart || customer.state === "GET_CART";
     const cartGroup = cart.current;
+    const parkedCart = checkoutParkedCart(live);
     if (cartGroup) cartGroup.visible = cartVisible;
     const qaWindow = window as typeof window & { __MARKET_QA__?: Record<string, unknown> };
     const qaVisuals = qaWindow.__MARKET_QA__ && marketQaQueryEnabled(window.location.search)
@@ -299,6 +300,11 @@ export const Customer = memo(function Customer({ customer, checkoutTransaction }
       }
       desiredCartPosition.current.y = 0;
       desiredCartPosition.current.z = gripLocalPosition.current.z - CART_HANDLE_Z * CART_SCALE;
+      if (parkedCart) {
+        pickupPoint.current.set(parkedCart[0] * STORE_LAYOUT_SCALE, 0, parkedCart[1] * STORE_LAYOUT_SCALE);
+        group.parent?.localToWorld(pickupPoint.current);
+        group.worldToLocal(desiredCartPosition.current.copy(pickupPoint.current));
+      }
       // The handle is a rigid part of the cart. The arm chains close the final
       // animated gap below; changing its height or width would make the metal
       // frame visibly breathe at clip boundaries.
@@ -324,7 +330,7 @@ export const Customer = memo(function Customer({ customer, checkoutTransaction }
           cartGroup.position.lerp(desiredCartPosition.current, 1 - CART_MAX_FOLLOW_LAG / remainingLag);
         }
       }
-      cartGroup.rotation.y = THREE.MathUtils.lerp(cartGroup.rotation.y, 0, dampFactor(14, delta));
+      cartGroup.rotation.y = THREE.MathUtils.lerp(cartGroup.rotation.y, parkedCart ? -group.rotation.y : 0, dampFactor(14, delta));
       cartGroup.updateWorldMatrix(true, false);
 
       // Animation sampling happens independently of the customer's world
@@ -335,7 +341,7 @@ export const Customer = memo(function Customer({ customer, checkoutTransaction }
       carryObjectWorldPosition.current.copy(leftHandWorldPosition.current).add(rightHandWorldPosition.current).multiplyScalar(0.5);
       group.worldToLocal(carryObjectWorldPosition.current);
       group.worldToLocal(pickupSourceLocalPosition.current.copy(cartHandleWorldPosition.current));
-      cartGroup.position.add(carryObjectWorldPosition.current.sub(pickupSourceLocalPosition.current));
+      if (!parkedCart) cartGroup.position.add(carryObjectWorldPosition.current.sub(pickupSourceLocalPosition.current));
       cartGroup.updateWorldMatrix(true, false);
 
       const headingDelta = shortestHeadingDelta(previousHeading.current, group.rotation.y);
@@ -465,6 +471,8 @@ export const Customer = memo(function Customer({ customer, checkoutTransaction }
         snapshotCapturedAtMs: motionSnapshot.current.capturedAtMs,
         headQuaternion: head?.quaternion.toArray() ?? null,
         cartVisible: cart.current?.visible ?? false,
+        cartParked: Boolean(parkedCart),
+        cartPosition: cartWorldPosition.current.toArray(),
         cartDistance,
         cartGripDistance: handleGripDistance,
         cartLeftGripDistance: leftGripDistance,

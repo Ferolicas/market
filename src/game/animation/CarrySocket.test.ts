@@ -3,6 +3,17 @@ import * as THREE from "three";
 import { CHARACTER_PALM_OFFSETS, composeCarryAnimations, composeRuntimeAnimationAliases, createCarrySocketScratch, handPalmPoint, HARVEST_BASKET_GRIP_HALF_WIDTH, HARVEST_BASKET_GRIP_HEIGHT, HARVEST_BASKET_GRIP_REACH, mountedHarvestBasketHandle, placeCarrySocket, updateHarvestBasketHandle } from "./CarrySocket";
 
 describe("agarre de la cesta de cosecha", () => {
+  it("keeps checkout legs standing without modifying gesture arms or source clips", () => {
+    const idle = new THREE.AnimationClip("Idle", 1, [new THREE.VectorKeyframeTrack("Hips.position", [0, 1], [0, 1, 0, 0, 1, 0]), new THREE.QuaternionKeyframeTrack("Shin_L.quaternion", [0, 1], [0, 0, 0, 1, 0, 0, 0, 1])]);
+    const hips = new THREE.VectorKeyframeTrack("Hips.position", [0, 2], [0, 0.5, 0, 0, 0.4, 0]);
+    const hand = new THREE.VectorKeyframeTrack("Hand_R.position", [0, 2], [0, 0, 0, 1, 1, 1]);
+    const source = new THREE.AnimationClip("CheckoutItem", 2, [hips, hand]);
+    const result = composeRuntimeAnimationAliases([idle, source]).find((clip) => clip.name === "CheckoutItem")!;
+    expect(result.tracks.find((track) => track.name === "Hips.position")!.values).toEqual(new Float32Array([0, 1, 0, 0, 1, 0]));
+    expect(result.tracks.find((track) => track.name === "Hand_R.position")).toBe(hand);
+    expect(source.tracks[0]).toBe(hips);
+    expect(source.tracks).toHaveLength(2);
+  });
   it("calibrates a finite visible-palm socket for every selectable body", () => {
     expect(Object.keys(CHARACTER_PALM_OFFSETS).toSorted()).toEqual(["adult-man", "adult-woman", "boy", "girl"]);
     for (const { left, right } of Object.values(CHARACTER_PALM_OFFSETS)) {

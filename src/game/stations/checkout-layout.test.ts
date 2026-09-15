@@ -1,8 +1,21 @@
 import { describe, expect, it } from "vitest";
 import { CHECKOUT_CAMERA_FRAME, CHECKOUT_CAMERA_POSITION, CHECKOUT_CAMERA_TARGET, CHECKOUT_LANES, activeCheckoutForLane, checkoutBagLocation, checkoutCustomerFacingYaw, checkoutHandoffForLane, checkoutQueueArrival, checkoutQueuePosition } from "./checkout-layout";
 import type { CheckoutTransaction, CustomerRuntimeState } from "../types";
+import { checkoutParkedCart } from "./checkout-layout";
 
 describe("checkout layout", () => {
+  it("parks the trolley beside the customer, away from both counters", () => {
+    for (const queueLane of [0, 1] as const) {
+      const lane = CHECKOUT_LANES[queueLane];
+      for (const state of ["UNLOAD", "WAIT_CHECKOUT", "PAY"] as const) {
+        const point = checkoutParkedCart({ state, queueLane, queueSlot: 0, x: lane.customerFront[0], z: lane.customerFront[1] })!;
+        expect(point[0]).toBeGreaterThan(lane.customerFront[0] + 0.8);
+        expect(point[1]).toBeLessThan(lane.customerFront[1]);
+        expect(lane.counter[2] - point[1]).toBeGreaterThan(1.4);
+      }
+      expect(checkoutParkedCart({ state: "EXIT_STORE", queueLane, queueSlot: null, x: 0, z: 8 })).toBeNull();
+    }
+  });
   it("places the cashier on the entrance side facing the store", () => {
     for (const lane of [0, 1] as const) {
       const layout = CHECKOUT_LANES[lane];
@@ -21,9 +34,9 @@ describe("checkout layout", () => {
     }
     expect(CHECKOUT_CAMERA_POSITION[2]).toBeGreaterThan(CHECKOUT_LANES[0].cashierWork[2]);
     expect(CHECKOUT_CAMERA_TARGET[2]).toBeLessThan(CHECKOUT_LANES[0].counter[2]);
-    expect(CHECKOUT_CAMERA_TARGET[0]).toBeGreaterThan(CHECKOUT_LANES[0].counter[0]);
-    expect(CHECKOUT_CAMERA_FRAME.width).toBeGreaterThanOrEqual(39);
-    expect(CHECKOUT_CAMERA_FRAME.height).toBeGreaterThanOrEqual(27);
+    expect(CHECKOUT_CAMERA_TARGET[0]).toBeLessThan(CHECKOUT_LANES[0].counter[0]);
+    expect(CHECKOUT_CAMERA_FRAME.width).toBe(10);
+    expect(CHECKOUT_CAMERA_FRAME.height).toBe(10);
   });
 
   it("faces every stationary queue and payment pose toward its own register", () => {

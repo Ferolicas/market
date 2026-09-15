@@ -199,7 +199,19 @@ export function composeRuntimeAnimationAliases(animations: readonly THREE.Animat
 }
 
 function buildRuntimeAnimationAliases(animations: readonly THREE.AnimationClip[]) {
-  const composed = [...animations];
+  // Checkout gestures share GESTODECAJA's full-body performance. Keep the
+  // delivered arms/torso, but anchor its lower body in this rig's standing Idle.
+  // Never alter source GLBs or locomotion/harvesting pelvis tracks.
+  const standing = animations.find((clip) => clip.name === "Idle");
+  const lowerBody = (track: THREE.KeyframeTrack) => /^(Hips|Rig_Leg_[LR]|Shin_[LR]|Foot_[LR]|Toe_[LR])\./.test(track.name);
+  const standingTracks = standing?.tracks.filter(lowerBody) ?? [];
+  const checkoutClips = new Set(["CheckoutItem", "Pay", "CheckoutScan", "CheckoutBag", "ScanItem"]);
+  const composed = animations.map((clip) => checkoutClips.has(clip.name) && standingTracks.length
+    ? new THREE.AnimationClip(clip.name, clip.duration, [
+      ...clip.tracks.filter((track) => !lowerBody(track)),
+      ...standingTracks.map((track) => constantTrackAt(track, 0, clip.duration)),
+    ], clip.blendMode)
+    : clip);
   const names = new Set(composed.map((clip) => clip.name));
   for (const [alias, sourceName] of Object.entries(RUNTIME_ANIMATION_ALIASES)) {
     if (names.has(alias)) continue;

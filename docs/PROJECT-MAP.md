@@ -1,5 +1,15 @@
 # Mini Market — mapa vivo
 
+## Velocidad −20 % y cámara solidaria — 15-09-2026
+
+La calibración vigente reduce un 20 % todos los tiers de velocidad de campaña: T1 8,316 y máximo 11,088 unidades/s. Se conserva el inicio al 75 % del máximo y la progresión de mejoras, con aceleración/frenado proporcionales. Sin reinicios ni cambios de economía o guardado.
+
+OverviewCamera copia la posición/objetivo calculados desde la cápsula interpolada, sin el segundo amortiguado exponencial (2,8/s) que generaba retraso creciente al correr en cualquier dirección. Orden de frame explícito: Rapier updatePriority −2 → presentación Player −1 → cámara 0. La transición de composición y zoom al atender caja sigue suavizada. QA privada publica cámara/posición presentada; MARKET_QA_CAMERA=1 node scripts/qa-speed-patience.mjs comprueba seguimiento sin un frame de retraso al acelerar, girar y frenar en escritorio y viewport móvil. El modo normal del script conserva la prueba de paciencia.
+
+Caja: el propietario ya no se oculta al operar; cámara cercana desde detrás del propietario hacia el comprador, marco ortográfico 10×10 en vez de 39×27, posición [8.8,3.2,6.8] y objetivo [7.35,1.25,3.55] en coordenadas de layout. Los gestos compartidos GESTODECAJA (CheckoutItem/Pay/CheckoutScan/CheckoutBag/ScanItem) conservan brazos y torso, con pelvis/piernas de la pose Idle de cada rig para evitar flexión de asiento; composición cacheada sin modificar GLB ni clips originales. checkoutParkedCart define ancla lateral por carril, también al aproximarse: un punto a la derecha y detrás de customerFront. La presentación deja de pegar el carrito a las manos durante el cobro; retoma el seguimiento al salir, sin deformar metal ni estirar brazos con IK.
+
+QA: 573 pruebas de dominio, typecheck/lint/build; seguimiento en las cuatro direcciones, aceleración y frenado PASS escritorio/móvil (/tmp/market-camera-follow-qa/report.json). MARKET_QA_CHECKOUT=1 ejecuta recorrido físico a caja, verifica jugador visible, transición cercana y carrito lateral en hombre/mujer; capturas y vídeos /tmp/market-checkout-close-final. El fixture HTTP no modifica cuentas ni guardados reales. Sin certificación de teléfono físico ni cambio de escala de muebles/productos.
+
 ## Ajuste de velocidad y paciencia — 15-09-2026
 
 La campaña inicia a 10,395 unidades de layout/s: exactamente 2,5 veces sus anteriores 4,158. Es el 75 % del nuevo máximo (13,86); T2 conserva el +3 % relativo anunciado y T3–T10 crecen hasta el máximo. PlayerController escala también aceleración/frenado y conserva la calibración legada. No reinicia ni modifica el progreso guardado.
