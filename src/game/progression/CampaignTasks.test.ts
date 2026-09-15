@@ -45,7 +45,7 @@ describe("personal campaign work", () => {
   it("cannot buy expansion with money, global totals or employee work alone", () => {
     let state = createCampaignGame();
     state.balanceMinor = 1_000_000;
-    for (const purchaseId of ["cashier-1", "egg-display-1", "chicken-1", "farmer-1"] as const) {
+    for (const purchaseId of ["farmer-1", "egg-display-1", "chicken-1", "tomato-2", "farmer-2"] as const) {
       state = applyGameAction(state, { type: "CONTRIBUTE_PURCHASE", purchaseId, amountMinor: 100_000 }).state;
     }
     for (let tick = 0; tick < 1_000; tick++) state = advanceWorld(state, 100).state;
@@ -77,7 +77,10 @@ describe("personal campaign work", () => {
         state = result.state; events.push(...result.events);
       }
     };
-    for (const purchaseId of ["cashier-1", "egg-display-1", "chicken-1"] as const) act({ type: "CONTRIBUTE_PURCHASE", purchaseId, amountMinor: 100_000 });
+    for (const purchaseId of ["farmer-1", "egg-display-1", "chicken-1"] as const) act({ type: "CONTRIBUTE_PURCHASE", purchaseId, amountMinor: 100_000 });
+    // Personal tasks must be the player's own work, so the hired granjero is
+    // sent home for this run instead of competing for the same tomatoes.
+    state.franchises[0].employees = [];
     tick(30);
     for (const quantity of [3, 3, 2]) {
       act({ type: "HARVEST", cropId: "crop-tomato-1", quantity });
@@ -92,7 +95,8 @@ describe("personal campaign work", () => {
       act({ type: "STOCK", productId: "eggs", quantity, source: "carry" });
       state = normalizeGameState(JSON.parse(JSON.stringify(state)));
     }
-    act({ type: "CONTRIBUTE_PURCHASE", purchaseId: "farmer-1", amountMinor: 100_000 });
+    for (const purchaseId of ["tomato-2", "farmer-2"] as const) act({ type: "CONTRIBUTE_PURCHASE", purchaseId, amountMinor: 100_000 });
+    state.franchises[0].employees = [];
     const expansion = campaignPurchaseQuotes(state).find((quote) => quote.id === "expansion-1")!;
     expect(expansion.tasks.every((task) => task.completed)).toBe(true);
     expect(expansion.available).toBe(true);

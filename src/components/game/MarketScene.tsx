@@ -32,8 +32,7 @@ import { ADULT_CHARACTER_SCENE_SCALE, characterSceneScale, CHILD_CHARACTER_SCENE
 import { CHECKOUT_CAMERA_FRAME, CHECKOUT_CAMERA_POSITION as CHECKOUT_CAMERA_POSITION_COORDS, CHECKOUT_CAMERA_TARGET as CHECKOUT_CAMERA_TARGET_COORDS, checkoutQueuePosition } from "@/game/stations/checkout-layout";
 import { isStockingInteractionId, PRODUCT_RETAIL_DEPARTMENT, retailDepartmentFromStockingInteraction, retailDisplayPosition, retailFixtureDisplayPositions, retailStockingMagnets, retailStockFixtureSlot, retailStockLandingLocalPosition, RETAIL_DEPARTMENT_IDS, RETAIL_DEPARTMENTS, stockingInteractionId, type StockingInteractionId } from "@/game/stations/retail-layout";
 import { isWorkstationId, isWorkstationUnlocked, WORKSTATIONS, WORKSTATION_IDS, type WorkstationId } from "@/game/stations/workstation-layout";
-import { PRODUCTS } from "@/game/catalog";
-import { farmInteractionId, farmPlotById, FARM_ACCESS_WAYPOINTS, FARM_GATE, FARM_PLOTS, FARM_WORKER_HOME, scaledFarmHarvestSensor, type FarmInteractionId } from "@/game/stations/farm-layout";
+import { farmAnimalMagnet, farmInteractionId, farmPlotById, FARM_ACCESS_WAYPOINTS, FARM_GATE, FARM_PLOTS, FARM_WORKER_HOME, scaledFarmHarvestSensor, type FarmInteractionId } from "@/game/stations/farm-layout";
 import { carryTotal, preferredStockingProduct } from "@/game/player/CarrySystem";
 import {
   advanceRearDoorMotion,
@@ -48,7 +47,7 @@ import {
   storefrontDoorProgress,
 } from "@/game/stations/storefront-layout";
 import { STORE_SERVICE_FIXTURE_IDS, STORE_SERVICE_FIXTURES } from "@/game/stations/store-service-layout";
-import { WAREHOUSE_PICKUP_STATION, WAREHOUSE_RETURN_STATION } from "@/game/stations/warehouse-layout";
+import { WAREHOUSE_RETURN_STATION } from "@/game/stations/warehouse-layout";
 import { isProductionWorkstationId, productionMachineMagnet, PRODUCTION_WORKSTATION_IDS } from "@/game/stations/production-layout";
 import { ADAPTIVE_QUALITY_GRACE_MS, advanceAdaptiveQuality, DisplayCadenceEstimator, INITIAL_ADAPTIVE_QUALITY_STATE, legacyMobileRenderProfile, marketRenderProfileForCapabilities, MOBILE_ADAPTIVE_QUALITY, MOBILE_MOTION_ADAPTIVE_QUALITY, presentationDivisor, recoveredDpr, regressedDpr, type MarketRenderProfile } from "@/game/render/AdaptiveQuality";
 import { createStaticMeshBatch } from "@/game/render/StaticMeshBatch";
@@ -58,9 +57,9 @@ import { flushRecoverySnapshot } from "@/game/persistence/RecoveryStorage";
 import { reportClientTelemetry } from "@/lib/client-telemetry";
 import { isRegisterInteractionId, REGISTER_INTERACTION_IDS, registerLane, registerPickupPosition, type RegisterInteractionId } from "@/game/stations/register-layout";
 
-import { PURCHASE_POINT } from "@/game/stations/purchase-layout";
-export type InteractionId = Exclude<WorkstationId, "shelf"> | StockingInteractionId | FarmInteractionId | RegisterInteractionId | "supplier" | "warehouseReturn" | "door" | "purchase";
-export interface InteractionPrompt { id: InteractionId; label: string; }
+import { isPurchaseInteractionId, purchaseIdFromInteraction, purchaseInteractionId, PURCHASE_POSITIONS, PURCHASE_RING, type PurchaseInteractionId } from "@/game/stations/purchase-layout";
+import { OPENING_PURCHASES, type OpeningPurchaseId } from "@/game/progression/MartCampaign";
+export type InteractionId = Exclude<WorkstationId, "shelf"> | StockingInteractionId | FarmInteractionId | RegisterInteractionId | PurchaseInteractionId | "warehouseReturn" | "door";
 export interface InteractionVisualEvent {
   id: InteractionId;
   sequence: number;
@@ -108,7 +107,7 @@ function visualTransferDelta(delta: number) {
 }
 
 const ZONES: { id: InteractionId; label: string; position: [number, number, number]; facing?: number }[] = ([
-  { id: "purchase", label: "Aportar a la compra seleccionada", position: PURCHASE_POINT },
+  ...OPENING_PURCHASES.map((purchase) => ({ id: purchaseInteractionId(purchase.id), label: purchase.label, position: [...PURCHASE_POSITIONS[purchase.id]] as [number, number, number] })),
   ...REGISTER_INTERACTION_IDS.map((id) => ({ id, label: `Recoger dinero de caja ${registerLane(id) + 1}`, position: registerPickupPosition(registerLane(id)) })),
   ...WORKSTATION_IDS.filter((id) => id !== "shelf").map((id) => {
     const station = WORKSTATIONS[id];
@@ -118,22 +117,31 @@ const ZONES: { id: InteractionId; label: string; position: [number, number, numb
     const department = RETAIL_DEPARTMENTS[departmentId];
     return { id: stockingInteractionId(departmentId), label: `Surtir ${department.label.toLowerCase()}`, position: [department.service[0], 0, department.service[1]] as [number, number, number] };
   }),
-  { id: WAREHOUSE_PICKUP_STATION.interactionId, label: WAREHOUSE_PICKUP_STATION.label, position: [...WAREHOUSE_PICKUP_STATION.position] },
   { id: WAREHOUSE_RETURN_STATION.interactionId, label: WAREHOUSE_RETURN_STATION.label, position: [...WAREHOUSE_RETURN_STATION.position] },
   { id: "door", label: "Sensor de entrada", position: [STOREFRONT_LAYOUT.sensor.centerX, 0, STOREFRONT_LAYOUT.sensor.centerZ] },
 ] satisfies { id: InteractionId; label: string; position: [number, number, number]; facing?: number }[]).map((zone) => ({ ...zone, position: scaleStorePosition(zone.position) }));
+
+export interface PurchaseMarker {
+  id: OpeningPurchaseId;
+  label: string;
+  /** "Faltan 120 €" or the completed copy, already formatted by the shell. */
+  remainingLabel: string;
+  /** 0 to 1 of the price already paid. */
+  funded: number;
+  /** The purchase the level hint is pointing at right now. */
+  highlighted: boolean;
+}
 
 interface MarketSceneProps {
   avatar: AvatarConfig;
   carry: CarryState;
   visualCarry: CarryState;
-  warehousePickupEnabled: boolean;
   checkoutLevel: number;
   playerSpeedTier: number;
   customers: CustomerRuntimeState[];
   checkoutTransactions: CheckoutTransaction[];
   registerCashMinor: [number, number];
-  purchaseLabel?: string;
+  purchaseMarkers: PurchaseMarker[];
   returnsBin: Inventory;
   returnedCartCount: number;
   crops: CropState[];
@@ -152,7 +160,6 @@ interface MarketSceneProps {
   onTransferProgress: (sequence: number, remainingQuantity: number) => void;
   onInteract: (id: InteractionId) => void;
   onDistance: (meters: number) => void;
-  onPrompt: (prompt: InteractionPrompt | null) => void;
   open: boolean;
   doorState: "CLOSED" | "OPENING" | "OPEN" | "CLOSING" | "BLOCKED";
   doorProgress: number;
@@ -161,7 +168,7 @@ interface MarketSceneProps {
   debug?: boolean;
 }
 
-export const MarketScene = memo(function MarketScene({ avatar, carry, visualCarry, warehousePickupEnabled, customers, checkoutTransactions, registerCashMinor, purchaseLabel, returnsBin, returnedCartCount, crops, visualCrops, productionMachines, shelves, visualShelves, shelfTier, unlockedAreas, lightsOn, minuteOfDay, simulationTimeMs, employees, onPrompt, onInteract, onDistance, onDoorPresence, onSceneReady, lastInteraction, transferEvents, onTransferProgress, open, doorState, doorProgress, checkoutLevel, playerSpeedTier, debug = false }: MarketSceneProps) {
+export const MarketScene = memo(function MarketScene({ avatar, carry, visualCarry, customers, checkoutTransactions, registerCashMinor, purchaseMarkers, returnsBin, returnedCartCount, crops, visualCrops, productionMachines, shelves, visualShelves, shelfTier, unlockedAreas, lightsOn, minuteOfDay, simulationTimeMs, employees, onInteract, onDistance, onDoorPresence, onSceneReady, lastInteraction, transferEvents, onTransferProgress, open, doorState, doorProgress, checkoutLevel, playerSpeedTier, debug = false }: MarketSceneProps) {
   const playerFocus = useRef(new THREE.Vector3(...PLAYER_START));
   const playerMotionActiveRef = useRef(false);
   const sceneSettledRef = useRef(false);
@@ -180,22 +187,13 @@ export const MarketScene = memo(function MarketScene({ avatar, carry, visualCarr
     departmentId,
     preferredStockingProduct(carry, shelves, shelfTier, RETAIL_DEPARTMENTS[departmentId].products, unlockedAreas),
   ])) as Record<(typeof RETAIL_DEPARTMENT_IDS)[number], ProductId | null>;
-  const interactionLabels = Object.fromEntries(RETAIL_DEPARTMENT_IDS.flatMap((departmentId) => {
-    const productId = stockableByDepartment[departmentId];
-    return productId ? [[stockingInteractionId(departmentId), `Surtir ${PRODUCTS[productId].name.toLowerCase()}`]] : [];
-  })) as Partial<Record<InteractionId, string>>;
-  if (purchaseLabel) interactionLabels.purchase = purchaseLabel;
-  if (warehousePickupEnabled) interactionLabels.supplier = WAREHOUSE_PICKUP_STATION.label;
-  if (carryTotal(carry) > 0) interactionLabels.warehouseReturn = WAREHOUSE_RETURN_STATION.label;
-  for (const id of REGISTER_INTERACTION_IDS) {
-    if (registerCashMinor[registerLane(id)] > 0) interactionLabels[id] = `Recoger dinero de caja ${registerLane(id) + 1}`;
-  }
   const stockableProduct = preferredStockingProduct(carry, shelves, shelfTier, undefined, unlockedAreas);
   publishLiveActors(customers, checkoutTransactions, employees, simulationTimeMs);
   // Authoritative ticks structured-clone the whole save, so array identity
   // changes every 200 ms. Children that only depend on membership compare
   // these signatures instead of references.
   const unlockedSignature = unlockedAreas.join("|");
+  const purchaseSignature = purchaseMarkers.map((marker) => marker.id).join("|");
   const cropSignature = crops.map((crop) => `${crop.id}:${crop.status === "LOCKED" ? 0 : 1}`).join("|");
   const driveable = debug || performanceProbe;
   useEffect(() => {
@@ -227,14 +225,6 @@ export const MarketScene = memo(function MarketScene({ avatar, carry, visualCarr
     const fixtureTargets = targets.flat();
     qaWindow.__MARKET_QA__.stockingTargets = fixtureTargets;
     qaWindow.__MARKET_QA__.stockingTarget = fixtureTargets.find((target) => target.productId === stockableProduct) ?? { productId: null, sensorEnabled: false, x: 0, z: 0 };
-    const [warehouseX, warehouseZ] = scaleStorePoint([WAREHOUSE_PICKUP_STATION.position[0], WAREHOUSE_PICKUP_STATION.position[2]]);
-    qaWindow.__MARKET_QA__.warehousePickupTarget = {
-      id: WAREHOUSE_PICKUP_STATION.interactionId,
-      label: WAREHOUSE_PICKUP_STATION.label,
-      sensorEnabled: warehousePickupEnabled,
-      x: warehouseX,
-      z: warehouseZ,
-    };
     const [returnX, returnZ] = scaleStorePoint([WAREHOUSE_RETURN_STATION.position[0], WAREHOUSE_RETURN_STATION.position[2]]);
     qaWindow.__MARKET_QA__.warehouseReturnTarget = {
       id: WAREHOUSE_RETURN_STATION.interactionId,
@@ -281,7 +271,7 @@ export const MarketScene = memo(function MarketScene({ avatar, carry, visualCarr
         reach: magnet.enterRadius,
       };
     });
-  }, [driveable, stockableByDepartment, stockableProduct, warehousePickupEnabled]);
+  }, [driveable, stockableByDepartment, stockableProduct]);
   return (
     <Canvas dpr={canvasDpr} events={safeCanvasEvents} frameloop={renderProfile.mobile && renderProfile.targetFps < 60 ? "never" : "always"} shadows="percentage" performance={MARKET_CANVAS_PERFORMANCE} gl={canvasGl} onCreated={({ gl }) => configureRendererPolicy(gl, renderProfile)}>
       <MarketRenderProfileContext.Provider value={renderProfile}>
@@ -296,10 +286,7 @@ export const MarketScene = memo(function MarketScene({ avatar, carry, visualCarr
       <MarketKeyLight shadowMapSize={renderProfile.shadowMapSize} publishDiagnostics={performanceProbe} intensity={daylight.keyIntensity} color={daylight.keyColor} />
       <group scale={WORLD_SCALE}>
         <RegisterCashMarkers amounts={registerCashMinor} />
-        {purchaseLabel && <group position={scaleStorePosition(PURCHASE_POINT)} scale={STORE_ELEMENT_SCALE}>
-          <mesh rotation={[-Math.PI / 2, 0, 0]}><ringGeometry args={[0.65, 0.76, 32]} /><meshBasicMaterial color="#e8ca6b" /></mesh>
-          <Text position={[0, 1, 0]} fontSize={0.15} maxWidth={2.8} textAlign="center" color="#28483e" outlineColor="#fff1bf" outlineWidth={0.012}>{purchaseLabel}</Text>
-        </group>}
+        <PurchaseMarkers markers={purchaseMarkers} />
         <group name="perf:ground" scale={[STORE_LAYOUT_SCALE, 1, STORE_LAYOUT_SCALE]}><MarketGround /></group>
         <Suspense fallback={null}>
           <group name="perf:city" scale={[STORE_LAYOUT_SCALE, 1, STORE_LAYOUT_SCALE]}><StaticCityPerimeter /></group>
@@ -333,8 +320,8 @@ export const MarketScene = memo(function MarketScene({ avatar, carry, visualCarr
       <Physics timeStep={PHYSICS_STEP_SECONDS} updatePriority={-2} gravity={[0, -9.81, 0]}>
         <StoreColliders doorMotion={doorMotion} unlockedAreas={unlockedAreas} />
         <RearDoorAssembly playerFocus={playerFocus} />
-        <InteractionSensors checkoutLevel={checkoutLevel} unlockedSignature={unlockedSignature} cropSignature={cropSignature} warehousePickupEnabled={warehousePickupEnabled} />
-        <group name="perf:player"><Suspense fallback={null}><Player avatar={avatar} carry={visualCarry} cropSignature={cropSignature} checkoutLevel={checkoutLevel} playerSpeedTier={playerSpeedTier} unlockedSignature={unlockedSignature} warehousePickupEnabled={warehousePickupEnabled} debug={debug} driveable={driveable} onPrompt={onPrompt} onInteract={onInteract} onDistance={onDistance} onDoorPresence={onDoorPresence} onCheckoutFocus={setCheckoutFocused} lastInteraction={lastInteraction} playerFocus={playerFocus} playerMotionActiveRef={playerMotionActiveRef} basketTarget={basketTarget} interactionLabels={interactionLabels} /></Suspense></group>
+        <InteractionSensors checkoutLevel={checkoutLevel} unlockedSignature={unlockedSignature} cropSignature={cropSignature} purchaseSignature={purchaseSignature} />
+        <group name="perf:player"><Suspense fallback={null}><Player avatar={avatar} carry={visualCarry} cropSignature={cropSignature} checkoutLevel={checkoutLevel} playerSpeedTier={playerSpeedTier} unlockedSignature={unlockedSignature} purchaseSignature={purchaseSignature} debug={debug} driveable={driveable} onInteract={onInteract} onDistance={onDistance} onDoorPresence={onDoorPresence} onCheckoutFocus={setCheckoutFocused} lastInteraction={lastInteraction} playerFocus={playerFocus} playerMotionActiveRef={playerMotionActiveRef} basketTarget={basketTarget} /></Suspense></group>
       </Physics>
       <LocalEnvironment />
       <SceneReadinessProbe onReady={onSceneReady} onSettled={setCastWarmed} sceneSettledRef={sceneSettledRef} />
@@ -345,12 +332,16 @@ export const MarketScene = memo(function MarketScene({ avatar, carry, visualCarr
 }, sameMarketSceneProps);
 
 function sameMarketSceneProps(previous: MarketSceneProps, next: MarketSceneProps) {
-  if (previous.purchaseLabel !== next.purchaseLabel) return false;
+  if (previous.purchaseMarkers.length !== next.purchaseMarkers.length
+    || previous.purchaseMarkers.some((marker, index) => marker.id !== next.purchaseMarkers[index].id
+      || marker.remainingLabel !== next.purchaseMarkers[index].remainingLabel
+      || marker.funded !== next.purchaseMarkers[index].funded
+      || marker.highlighted !== next.purchaseMarkers[index].highlighted)) return false;
   if (previous.registerCashMinor[0] !== next.registerCashMinor[0] || previous.registerCashMinor[1] !== next.registerCashMinor[1]) return false;
-  if (previous.debug !== next.debug || previous.onSceneReady !== next.onSceneReady || previous.warehousePickupEnabled !== next.warehousePickupEnabled || previous.checkoutLevel !== next.checkoutLevel || previous.playerSpeedTier !== next.playerSpeedTier || previous.shelfTier !== next.shelfTier || previous.open !== next.open || previous.doorState !== next.doorState || previous.doorProgress !== next.doorProgress) return false;
+  if (previous.debug !== next.debug || previous.onSceneReady !== next.onSceneReady || previous.checkoutLevel !== next.checkoutLevel || previous.playerSpeedTier !== next.playerSpeedTier || previous.shelfTier !== next.shelfTier || previous.open !== next.open || previous.doorState !== next.doorState || previous.doorProgress !== next.doorProgress) return false;
   if (previous.crops !== next.crops || previous.visualCrops !== next.visualCrops || previous.productionMachines !== next.productionMachines || previous.shelves !== next.shelves || previous.visualShelves !== next.visualShelves || previous.unlockedAreas !== next.unlockedAreas || previous.lightsOn !== next.lightsOn || previous.minuteOfDay !== next.minuteOfDay || previous.simulationTimeMs !== next.simulationTimeMs) return false;
   if (previous.customers !== next.customers || previous.checkoutTransactions !== next.checkoutTransactions || previous.returnsBin !== next.returnsBin || previous.returnedCartCount !== next.returnedCartCount) return false;
-  if (previous.lastInteraction !== next.lastInteraction || previous.transferEvents !== next.transferEvents || previous.onTransferProgress !== next.onTransferProgress || previous.onInteract !== next.onInteract || previous.onPrompt !== next.onPrompt || previous.onDistance !== next.onDistance || previous.onDoorPresence !== next.onDoorPresence) return false;
+  if (previous.lastInteraction !== next.lastInteraction || previous.transferEvents !== next.transferEvents || previous.onTransferProgress !== next.onTransferProgress || previous.onInteract !== next.onInteract || previous.onDistance !== next.onDistance || previous.onDoorPresence !== next.onDoorPresence) return false;
   const avatarKeys = ["body", "hair", "hairColor", "skin", "shirt", "hat"] as const;
   if (avatarKeys.some((key) => previous.avatar[key] !== next.avatar[key])) return false;
   if (previous.carry.capacity !== next.carry.capacity) return false;
@@ -1151,7 +1142,7 @@ function OverviewCamera({ playerFocus, checkoutFocused, debug }: { playerFocus: 
   return <OrthographicCamera ref={camera} makeDefault position={[(PLAYER_START[0] + OVERVIEW_CAMERA_OFFSET.x) * WORLD_SCALE, 23.9 * WORLD_SCALE, (PLAYER_START[2] + OVERVIEW_CAMERA_OFFSET.z) * WORLD_SCALE]} near={0.1 * WORLD_SCALE} far={120 * WORLD_SCALE} />;
 }
 
-function Player({ avatar, carry, cropSignature, checkoutLevel, playerSpeedTier, unlockedSignature, warehousePickupEnabled, debug, driveable, onPrompt, onInteract, onDistance, onDoorPresence, onCheckoutFocus, lastInteraction, playerFocus, playerMotionActiveRef, basketTarget, interactionLabels }: { avatar: AvatarConfig; carry: CarryState; cropSignature: string; checkoutLevel: number; playerSpeedTier: number; unlockedSignature: string; warehousePickupEnabled: boolean; debug: boolean; driveable: boolean; onPrompt: (prompt: InteractionPrompt | null) => void; onInteract: (id: InteractionId) => void; onDistance: (meters: number) => void; onDoorPresence: (active: boolean) => void; onCheckoutFocus: (active: boolean) => void; lastInteraction: InteractionVisualEvent | null; playerFocus: RefObject<THREE.Vector3>; playerMotionActiveRef: RefObject<boolean>; basketTarget: RefObject<THREE.Vector3>; interactionLabels: Partial<Record<InteractionId, string>> }) {
+function Player({ avatar, carry, cropSignature, checkoutLevel, playerSpeedTier, unlockedSignature, purchaseSignature, debug, driveable, onInteract, onDistance, onDoorPresence, onCheckoutFocus, lastInteraction, playerFocus, playerMotionActiveRef, basketTarget }: { avatar: AvatarConfig; carry: CarryState; cropSignature: string; checkoutLevel: number; playerSpeedTier: number; unlockedSignature: string; purchaseSignature: string; debug: boolean; driveable: boolean; onInteract: (id: InteractionId) => void; onDistance: (meters: number) => void; onDoorPresence: (active: boolean) => void; onCheckoutFocus: (active: boolean) => void; lastInteraction: InteractionVisualEvent | null; playerFocus: RefObject<THREE.Vector3>; playerMotionActiveRef: RefObject<boolean>; basketTarget: RefObject<THREE.Vector3> }) {
   const body = useRef<RapierRigidBody>(null);
   const collider = useRef<RapierCollider>(null);
   const visual = useRef<THREE.Group>(null);
@@ -1159,7 +1150,6 @@ function Player({ avatar, carry, cropSignature, checkoutLevel, playerSpeedTier, 
   const basketWorldPosition = useRef(new THREE.Vector3());
   const logicalPosition = useRef(new THREE.Vector3(...PLAYER_START).multiplyScalar(WORLD_SCALE));
   const velocity = useRef(new THREE.Vector2());
-  const nearest = useRef<InteractionPrompt | null>(null);
   const moving = useRef(false);
   const angularVelocity = useRef(0);
   const avatarMotion = useRef({ speed: 0, locomotionSpeed: 0, yawDelta: 0 });
@@ -1178,8 +1168,8 @@ function Player({ avatar, carry, cropSignature, checkoutLevel, playerSpeedTier, 
     checkoutLevel,
     unlockedSignature ? unlockedSignature.split("|") : [],
     activeCropIdsFromSignature(cropSignature),
-    warehousePickupEnabled,
-  )), [checkoutLevel, unlockedSignature, cropSignature, warehousePickupEnabled]);
+    purchaseSignature ? purchaseSignature.split("|") : [],
+  )), [checkoutLevel, unlockedSignature, cropSignature, purchaseSignature]);
   const playerMotion = useMemo(() => {
     const config = playerMotionForTier(playerSpeedTier, unlockedSignature.split("|").includes("purchase-campaign"));
     return {
@@ -1193,7 +1183,7 @@ function Player({ avatar, carry, cropSignature, checkoutLevel, playerSpeedTier, 
   const { world, rapier } = useRapier();
   const [walking, setWalking] = useState(false);
   const [performingWorkstation, setPerformingWorkstation] = useState<WorkstationId | null>(null);
-  const interactionAnimation: Partial<Record<InteractionId, CharacterAnimation>> = { mill: "LiftBox", bakery: "StockHigh", chicken: "PickupLow", cow: "PickupLow", cheese: "LiftBox", juice: "LiftBox", checkout: "ScanItem", supplier: "ReceiveOrder", warehouseReturn: "StockLow", door: "Enter" };
+  const interactionAnimation: Partial<Record<InteractionId, CharacterAnimation>> = { mill: "LiftBox", bakery: "StockHigh", chicken: "PickupLow", cow: "PickupLow", cheese: "LiftBox", juice: "LiftBox", checkout: "ScanItem", warehouseReturn: "StockLow", door: "Enter" };
   const publishWorkstation = (id: WorkstationId | null) => {
     if (publishedWorkstation.current === id) return;
     publishedWorkstation.current = id;
@@ -1376,7 +1366,6 @@ function Player({ avatar, carry, cropSignature, checkoutLevel, playerSpeedTier, 
     }
 
     const active = director.activeZoneIds();
-    const selected = director.selectedZoneIds();
     const nextCheckoutFocused = workstation.current.performingZoneId() === "checkout";
     if (nextCheckoutFocused !== checkoutFocused.current) {
       checkoutFocused.current = nextCheckoutFocused;
@@ -1387,10 +1376,8 @@ function Player({ avatar, carry, cropSignature, checkoutLevel, playerSpeedTier, 
       const qaWindow = window as typeof window & { __MARKET_QA__?: Record<string, unknown> };
       if (qaWindow.__MARKET_QA__) qaWindow.__MARKET_QA__.activeZones = active;
     }
-    const foundZone = ZONES.find((zone) => selected.includes(zone.id)
-      && (!(isStockingInteractionId(zone.id) || isRegisterInteractionId(zone.id) || zone.id === "purchase" || zone.id === "supplier" || zone.id === "warehouseReturn") || interactionLabels[zone.id]));
-    const found = foundZone ? { id: foundZone.id, label: interactionLabels[foundZone.id] ?? foundZone.label } : null;
-    if (found?.id !== nearest.current?.id || found?.label !== nearest.current?.label) { nearest.current = found; onPrompt(found); }
+    // No on-screen "use the oven" prompts: proximity already performs the
+    // action, so a label that only repeats what just happened is noise.
   }, -1);
 
   const worldStart = PLAYER_START.map((value) => value * WORLD_SCALE) as [number, number, number];
@@ -1570,10 +1557,10 @@ function workstationFacing(id: WorkstationId) {
 
 /** Sensor volumes only change with unlocks, crop plots or checkout level;
  * signatures keep them out of the 5 Hz reconciliation entirely. */
-const InteractionSensors = memo(function InteractionSensors({ checkoutLevel, unlockedSignature, cropSignature, warehousePickupEnabled }: { checkoutLevel: number; unlockedSignature: string; cropSignature: string; warehousePickupEnabled: boolean }) {
+const InteractionSensors = memo(function InteractionSensors({ checkoutLevel, unlockedSignature, cropSignature, purchaseSignature }: { checkoutLevel: number; unlockedSignature: string; cropSignature: string; purchaseSignature: string }) {
   const zones = useMemo(
-    () => interactionZoneConfigs(checkoutLevel, unlockedSignature ? unlockedSignature.split("|") : [], activeCropIdsFromSignature(cropSignature), warehousePickupEnabled),
-    [checkoutLevel, unlockedSignature, cropSignature, warehousePickupEnabled],
+    () => interactionZoneConfigs(checkoutLevel, unlockedSignature ? unlockedSignature.split("|") : [], activeCropIdsFromSignature(cropSignature), purchaseSignature ? purchaseSignature.split("|") : []),
+    [checkoutLevel, unlockedSignature, cropSignature, purchaseSignature],
   );
   return <RigidBody type="fixed" colliders={false}>
     {zones.map((zone) => <InteractionSensorCollider key={`${zone.id}:${zone.x}:${zone.z}`} zone={zone} />)}
@@ -1621,6 +1608,64 @@ function InteractionSensorCollider({ zone }: { zone: InteractionZoneConfig }) {
   </>;
 }
 
+/**
+ * Permanent price tag on the floor of every purchase the owner can already
+ * pay: a golden ring where the thing will stand, its name, what is missing
+ * and a note that fills as the money goes in. Banknotes rain into the ring
+ * while it is being funded, so paying reads as paying, not as a menu click.
+ */
+const PurchaseMarkers = memo(function PurchaseMarkers({ markers }: { markers: readonly PurchaseMarker[] }) {
+  return <group name="purchase-markers">
+    {markers.map((marker) => <PurchaseRing key={marker.id} marker={marker} />)}
+  </group>;
+}, (previous, next) => previous.markers.length === next.markers.length
+  && previous.markers.every((marker, index) => marker.id === next.markers[index].id
+    && marker.remainingLabel === next.markers[index].remainingLabel
+    && marker.funded === next.markers[index].funded
+    && marker.highlighted === next.markers[index].highlighted));
+
+const PURCHASE_BILL_COUNT = 5;
+
+function PurchaseRing({ marker }: { marker: PurchaseMarker }) {
+  const bills = useRef<THREE.Group>(null);
+  const pulse = useRef<THREE.Mesh>(null);
+  const funded = Math.max(0, Math.min(1, marker.funded));
+  useFrame((state) => {
+    const elapsed = state.clock.elapsedTime;
+    if (bills.current) {
+      bills.current.children.forEach((bill, index) => {
+        const phase = (elapsed * 0.9 + index / PURCHASE_BILL_COUNT) % 1;
+        bill.position.y = 1.15 * (1 - phase);
+        bill.rotation.z = Math.sin((elapsed + index) * 3.2) * 0.5;
+        bill.rotation.x = -Math.PI / 2 + Math.sin((elapsed + index) * 2.1) * 0.35;
+        bill.scale.setScalar(phase > 0.92 ? Math.max(0, (1 - phase) / 0.08) : 1);
+      });
+    }
+    if (pulse.current) {
+      const breath = 1 + Math.sin(elapsed * 2.4) * (marker.highlighted ? 0.09 : 0.03);
+      pulse.current.scale.set(breath, breath, breath);
+    }
+  });
+  return <group position={scaleStorePosition(PURCHASE_POSITIONS[marker.id])} scale={STORE_ELEMENT_SCALE}>
+    <mesh ref={pulse} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
+      <ringGeometry args={[PURCHASE_RING.radius, PURCHASE_RING.radius + 0.11, 40]} />
+      <meshBasicMaterial color={marker.highlighted ? "#ffd75e" : "#e8ca6b"} transparent opacity={0.92} />
+    </mesh>
+    {funded > 0 && <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
+      <circleGeometry args={[PURCHASE_RING.radius * funded, 32]} />
+      <meshBasicMaterial color="#7fba63" transparent opacity={0.45} />
+    </mesh>}
+    <group ref={bills}>
+      {Array.from({ length: PURCHASE_BILL_COUNT }, (_, index) => <mesh key={index} position={[(index - 2) * 0.12, 0.6, (index % 2 ? 0.08 : -0.08)]}>
+        <boxGeometry args={[0.2, 0.012, 0.1]} />
+        <meshStandardMaterial color="#79b063" roughness={0.85} />
+      </mesh>)}
+    </group>
+    <Text position={[0, 1.34, 0]} fontSize={0.15} maxWidth={2.8} textAlign="center" color="#28483e" outlineColor="#fff1bf" outlineWidth={0.012} anchorX="center">{marker.label}</Text>
+    <Text position={[0, 1.14, 0]} fontSize={0.17} maxWidth={2.8} textAlign="center" color="#1f5c3b" outlineColor="#fff7dd" outlineWidth={0.014} anchorX="center">{marker.remainingLabel}</Text>
+  </group>;
+}
+
 const RegisterCashMarkers = memo(function RegisterCashMarkers({ amounts }: { amounts: readonly [number, number] }) {
   return <group name="register-cash-markers">
     {REGISTER_INTERACTION_IDS.map((id) => {
@@ -1636,16 +1681,29 @@ const RegisterCashMarkers = memo(function RegisterCashMarkers({ amounts }: { amo
   </group>;
 }, (previous, next) => previous.amounts[0] === next.amounts[0] && previous.amounts[1] === next.amounts[1]);
 
-function interactionZoneConfigs(checkoutLevel = 1, unlockedAreas: readonly string[] = [], activeCropIds: readonly string[] = [], warehousePickupEnabled = false): InteractionZoneConfig[] {
+function interactionZoneConfigs(checkoutLevel = 1, unlockedAreas: readonly string[] = [], activeCropIds: readonly string[] = [], availablePurchaseIds: readonly string[] = []): InteractionZoneConfig[] {
   const storeZones = ZONES.filter((zone) => (
-    (zone.id !== "supplier" || warehousePickupEnabled)
+    (!isPurchaseInteractionId(zone.id) || availablePurchaseIds.includes(purchaseIdFromInteraction(zone.id)))
     && (!retailDepartmentFromStockingInteraction(zone.id) || fixtureAvailable(`fixture:retail-${retailDepartmentFromStockingInteraction(zone.id)}-1`, unlockedAreas))
     && (zone.id !== "register-1" || unlockedAreas.includes("checkout-2"))
     && (!isWorkstationId(zone.id) || isWorkstationUnlocked(zone.id, unlockedAreas))
   )).flatMap((zone): InteractionZoneConfig[] => {
     const departmentId = retailDepartmentFromStockingInteraction(zone.id);
+    // Every station is its own magnet: the whole machine, the whole paddock
+    // and the whole return crate, never one authored spot in front of them.
     const productionMagnet = isProductionWorkstationId(zone.id) ? productionMachineMagnet(zone.id, STORE_LAYOUT_SCALE, STORE_ELEMENT_SCALE) : null;
-    const magnets = departmentId ? retailStockingMagnets(departmentId, STORE_LAYOUT_SCALE, STORE_ELEMENT_SCALE, unlockedAreas) : [productionMagnet];
+    const animalMagnet = zone.id === "chicken" || zone.id === "chicken2" || zone.id === "cow"
+      ? farmAnimalMagnet(zone.id, STORE_LAYOUT_SCALE, STORE_ELEMENT_SCALE) : null;
+    const returnMagnet = zone.id === "warehouseReturn" ? {
+      x: WAREHOUSE_RETURN_STATION.position[0] * STORE_LAYOUT_SCALE,
+      z: WAREHOUSE_RETURN_STATION.position[2] * STORE_LAYOUT_SCALE,
+      halfExtents: [WAREHOUSE_RETURN_STATION.footprint.halfX * STORE_LAYOUT_SCALE, WAREHOUSE_RETURN_STATION.footprint.halfZ * STORE_LAYOUT_SCALE] as const,
+      enterRadius: WAREHOUSE_RETURN_STATION.enterRadius * STORE_ELEMENT_SCALE,
+      exitRadius: WAREHOUSE_RETURN_STATION.exitRadius * STORE_ELEMENT_SCALE,
+    } : null;
+    const magnets = departmentId
+      ? retailStockingMagnets(departmentId, STORE_LAYOUT_SCALE, STORE_ELEMENT_SCALE, unlockedAreas)
+      : [productionMagnet ?? animalMagnet ?? returnMagnet];
     return magnets.map((magnet) => {
     const doorSensor = zone.id === "door" ? STOREFRONT_LAYOUT.sensor : null;
     return {
@@ -1662,24 +1720,24 @@ function interactionZoneConfigs(checkoutLevel = 1, unlockedAreas: readonly strin
       // rounded corner. Hands-on stations retain a radial service socket.
       enterRadius: magnet?.enterRadius ?? (doorSensor
         ? doorSensor.enterMargin * STORE_LAYOUT_SCALE
-        : (zone.id === "supplier"
-            ? WAREHOUSE_PICKUP_STATION.enterRadius
+        : (isPurchaseInteractionId(zone.id)
+            ? PURCHASE_RING.enterRadius
             : zone.id === "warehouseReturn"
               ? WAREHOUSE_RETURN_STATION.enterRadius
-              : isWorkstationId(zone.id) ? 0.44 : 0.75) * STORE_ELEMENT_SCALE),
+              : isWorkstationId(zone.id) ? 0.8 : 0.75) * STORE_ELEMENT_SCALE),
       exitRadius: magnet?.exitRadius ?? (doorSensor
         ? doorSensor.exitMargin * STORE_LAYOUT_SCALE
-        : (zone.id === "supplier"
-            ? WAREHOUSE_PICKUP_STATION.exitRadius
+        : (isPurchaseInteractionId(zone.id)
+            ? PURCHASE_RING.exitRadius
             : zone.id === "warehouseReturn"
               ? WAREHOUSE_RETURN_STATION.exitRadius
-              : isWorkstationId(zone.id) ? 0.58 : 0.9) * STORE_ELEMENT_SCALE),
+              : isWorkstationId(zone.id) ? 1.0 : 0.9) * STORE_ELEMENT_SCALE),
       actorMask: ["player"],
-      priority: isStockingInteractionId(zone.id) ? 80 : ({ checkout: 100, mill: 70, bakery: 70, cheese: 70, juice: 70, chicken: 65, cow: 65, door: 20, warehouseReturn: 6, supplier: 5 } as Partial<Record<InteractionId, number>>)[zone.id] ?? 10,
-      dwellMs: zone.id === "supplier" ? WAREHOUSE_PICKUP_STATION.dwellMs : zone.id === "warehouseReturn" ? WAREHOUSE_RETURN_STATION.dwellMs : zone.id === "checkout" ? 180 : zone.id === "door" || isStockingInteractionId(zone.id) || isProductionWorkstationId(zone.id) ? 0 : 80,
-      repeatEveryMs: zone.id === "supplier" ? WAREHOUSE_PICKUP_STATION.repeatEveryMs : zone.id === "warehouseReturn" ? WAREHOUSE_RETURN_STATION.repeatEveryMs : isStockingInteractionId(zone.id) || isProductionWorkstationId(zone.id) ? 180 : zone.id === "checkout" ? (checkoutLevel >= 2 ? 340 : 450) : zone.id === "door" ? 60_000 : 220,
-      exitGraceMs: zone.id === "supplier" ? WAREHOUSE_PICKUP_STATION.exitGraceMs : zone.id === "warehouseReturn" ? WAREHOUSE_RETURN_STATION.exitGraceMs : 120,
-      channel: zone.id === "door" || zone.id === "supplier" || zone.id === "purchase" || isRegisterInteractionId(zone.id) ? "passive" : zone.id === "checkout" ? "hands" : "transfer",
+      priority: isStockingInteractionId(zone.id) ? 80 : isPurchaseInteractionId(zone.id) ? 30 : ({ checkout: 100, mill: 70, bakery: 70, cheese: 70, juice: 70, chicken: 65, cow: 65, door: 20, warehouseReturn: 6 } as Partial<Record<InteractionId, number>>)[zone.id] ?? 10,
+      dwellMs: zone.id === "warehouseReturn" ? WAREHOUSE_RETURN_STATION.dwellMs : zone.id === "checkout" ? 180 : zone.id === "door" || isPurchaseInteractionId(zone.id) || isStockingInteractionId(zone.id) || isProductionWorkstationId(zone.id) ? 0 : 80,
+      repeatEveryMs: zone.id === "warehouseReturn" ? WAREHOUSE_RETURN_STATION.repeatEveryMs : isPurchaseInteractionId(zone.id) ? 200 : isStockingInteractionId(zone.id) || isProductionWorkstationId(zone.id) ? 180 : zone.id === "checkout" ? (checkoutLevel >= 2 ? 340 : 450) : zone.id === "door" ? 60_000 : 220,
+      exitGraceMs: zone.id === "warehouseReturn" ? WAREHOUSE_RETURN_STATION.exitGraceMs : 120,
+      channel: zone.id === "door" || isPurchaseInteractionId(zone.id) || isRegisterInteractionId(zone.id) ? "passive" : zone.id === "checkout" ? "hands" : "transfer",
     };
     });
   });
@@ -1796,6 +1854,7 @@ const MarketBuilding = memo(function MarketBuilding({ open, doorMotion }: { open
 function Employees({ employees }: { employees: Employee[] }) {
   const rolePositions: Record<EmployeeRole, [number, number, number]> = {
     farmer: scaleStorePosition([FARM_WORKER_HOME[0], 0, FARM_WORKER_HOME[1]]),
+    feeder: scaleStorePosition([FARM_WORKER_HOME[0] + 1.4, 0, FARM_WORKER_HOME[1]]),
     operator: scaleStorePosition([-4.8, 0, -0.9]),
     stocker: scaleStorePosition([0, 0, -2.2]),
     cashier: scaleStorePosition([4.7, 0, 2.2]),
@@ -1817,7 +1876,7 @@ const Npc = memo(function Npc({ employee, position, color, body = "adult-man", h
   const motionSnapshot = useRef<CustomerMotionSnapshot | null>(employee.runtime ? captureEmployeeMotion(employee.runtime, runtimeNowMs()) : null);
   const snapshotSource = useRef<EmployeeRuntimeState | undefined>(employee.runtime);
   const motion = useRef({ speed: 0, locomotionSpeed: 0, yawDelta: 0 });
-  const roleAnimation: Record<EmployeeRole, CharacterAnimation> = { farmer: "Harvest", operator: "LiftBox", stocker: "StockHigh", cashier: "ScanItem", builder: "CarryBox", manager: "Wave" };
+  const roleAnimation: Record<EmployeeRole, CharacterAnimation> = { farmer: "Harvest", feeder: "PickupLow", operator: "LiftBox", stocker: "StockHigh", cashier: "ScanItem", builder: "CarryBox", manager: "Wave" };
   const moving = employee.runtime?.state === "NAVIGATE_PICKUP" || employee.runtime?.state === "NAVIGATE_DROPOFF" || employee.runtime?.state === "NAVIGATE_RETURN" || employee.runtime?.state === "NAVIGATE_CHECKOUT";
   useEffect(() => {
     return () => {

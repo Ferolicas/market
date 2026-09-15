@@ -23,23 +23,63 @@ export function campaignLocation(id: string): LocationProfile {
   return CAMPAIGN_LOCATIONS[id as keyof typeof CAMPAIGN_LOCATIONS] ?? CAMPAIGN_LOCATIONS.barrio;
 }
 
-/** Weighted sampling without replacement: deterministic, no duplicated lines,
- * no locked products and at most 15 units, matching checkout/save budgets. */
-export function campaignShoppingList(locationId: string, available: readonly ProductId[], seed: number, expanded: boolean): ShoppingLine[] {
+/** Level 4 completes the first chicken, so eggs reach the shelf with it. */
+export const CAMPAIGN_EGG_LEVEL = 4;
+/** Hard ceiling shared with the checkout and save budgets. */
+export const CAMPAIGN_MAX_BASKET_UNITS = 15;
+
+/**
+ * Units one shopper buys: a single tomato before the eggs open, then four
+ * units spread over every product on sale, plus one more every three levels.
+ * The random shopper takes exactly one extra unit.
+ */
+export function campaignBasketUnits(level: number) {
+  const safeLevel = Number.isFinite(level) ? Math.max(1, Math.floor(level)) : 1;
+  const base = safeLevel < CAMPAIGN_EGG_LEVEL
+    ? 1
+    : 4 + Math.floor((safeLevel - CAMPAIGN_EGG_LEVEL) / 3);
+  return { base: Math.min(CAMPAIGN_MAX_BASKET_UNITS - 1, base), bonus: 1 };
+}
+
+/** Shoppers on the floor at once: two until level 4, then one more every five. */
+export function campaignCustomerLimit(level: number) {
+  const safeLevel = Number.isFinite(level) ? Math.max(1, Math.floor(level)) : 1;
+  return Math.min(8, 2 + Math.floor(safeLevel / 5));
+}
+
+/**
+ * Deterministic basket: every product on sale gets at least one unit while the
+ * budget lasts, and the remainder goes to the location's speciality first, so
+ * a shopper never walks past a stocked shelf with an empty slot in the list.
+ */
+export function campaignShoppingList(locationId: string, available: readonly ProductId[], seed: number, level: number): ShoppingLine[] {
   let value = seed >>> 0;
   const random = () => { value = (Math.imul(value, 1664525) + 1013904223) >>> 0; return value / 0x1_0000_0000; };
   const profile = campaignLocation(locationId);
   const candidates = [...new Set(available)];
-  const count = Math.min(candidates.length, expanded ? 1 + Math.floor(random() * profile.maximumTypes) : 1);
-  const result: ShoppingLine[] = [];
-  for (let line = 0; line < count; line++) {
-    const weights = candidates.map((product) => expanded && profile.focus.includes(product) ? 3 : 1);
+  if (!candidates.length) return [];
+  const budget = campaignBasketUnits(level);
+  const total = Math.min(CAMPAIGN_MAX_BASKET_UNITS, budget.base + (random() < 0.5 ? budget.bonus : 0));
+  const lines = new Map<ProductId, number>();
+  const pool = [...candidates];
+  // One unit each, in weighted order, for as many products as the budget holds.
+  while (pool.length && lines.size < total) {
+    const weights = pool.map((product) => profile.focus.includes(product) ? 3 : 1);
     let ticket = random() * weights.reduce((sum, weight) => sum + weight, 0);
     let index = 0;
     while (index < weights.length - 1 && ticket >= weights[index]) ticket -= weights[index++];
-    const [productId] = candidates.splice(index, 1);
-    const requested = expanded ? 1 + Math.floor(random() * 3) : (seed >>> 0) % 5 === 0 ? 2 : 1;
-    result.push({ productId, requested, picked: 0 });
+    lines.set(pool.splice(index, 1)[0], 1);
   }
-  return result;
+  const ordered = [...lines.keys()];
+  let remaining = total - ordered.length;
+  while (remaining > 0) {
+    const weights = ordered.map((product) => profile.focus.includes(product) ? 3 : 1);
+    let ticket = random() * weights.reduce((sum, weight) => sum + weight, 0);
+    let index = 0;
+    while (index < weights.length - 1 && ticket >= weights[index]) ticket -= weights[index++];
+    const product = ordered[index];
+    lines.set(product, (lines.get(product) ?? 0) + 1);
+    remaining -= 1;
+  }
+  return ordered.map((productId) => ({ productId, requested: lines.get(productId)!, picked: 0 }));
 }

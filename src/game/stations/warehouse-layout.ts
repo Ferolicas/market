@@ -7,17 +7,14 @@
  * orders block on the rear wall, shared with the player's pickup sensor. */
 export const STOCKROOM_POINT: [number, number] = [0.9, -5.2];
 
-export const WAREHOUSE_PICKUP_STATION = {
-  interactionId: "supplier",
-  label: "Recoger mercancía del almacén",
-  // In front of the PEDIDOS terminal on the rear wall (the orders block
-  // service point), on an open cell that survives Recast actor-radius erosion.
+/**
+ * The orders terminal on the rear wall. Warehouse goods are taken from the
+ * PEDIDOS panel, never by walking past: an automatic proximity pickup filled
+ * the basket with produce the owner had not asked for.
+ */
+export const WAREHOUSE_ORDERS_TERMINAL = {
+  label: "Pedidos y almacén",
   position: [STOCKROOM_POINT[0], 0, STOCKROOM_POINT[1]] as const,
-  enterRadius: 0.75,
-  exitRadius: 0.9,
-  dwellMs: 80,
-  repeatEveryMs: 220,
-  exitGraceMs: 120,
 } as const;
 
 /**

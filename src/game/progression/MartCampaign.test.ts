@@ -3,7 +3,7 @@ import {
   collectOpeningRegister, createOpeningCampaign, creditOpeningRegister,
   fundOpeningPurchase, OPENING_FARMER_STATS, OPENING_PURCHASES,
   openingAvailability, openingEconomyIsConserved, openingPlayerStats,
-  openingPurchaseCost, openingPurchaseQuote,
+  openingPurchaseCost, openingPurchaseQuote, OPENING_PURCHASE_LEVEL,
 } from "./MartCampaign";
 
 describe("documented opening campaign", () => {
@@ -15,16 +15,31 @@ describe("documented opening campaign", () => {
   });
 
   it.each([
-    ["cashier-1", 6_800], ["egg-display-1", 6_800], ["chicken-1", 10_200],
-    ["player-2", 10_200], ["farmer-1", 20_400], ["tomato-2", 10_200],
-    ["tomato-3", 17_850], ["chicken-1-tier-2", 20_400],
-  ] as const)("quotes %s using the supplied relative price", (id, amount) => {
+    ["farmer-1", 2_000], ["egg-display-1", 2_500], ["chicken-1", 2_000],
+    ["player-2", 2_500], ["tomato-2", 5_000], ["farmer-2", 9_000],
+    ["expansion-1", 40_000], ["chicken-1-tier-3", 5_000], ["tomato-3", 9_000],
+    ["chicken-1-tier-2", 9_000], ["farmer-3", 12_000], ["juice-machine-1", 200_000],
+    ["corn-canner-1", 180_000],
+  ] as const)("quotes %s at the authored level price", (id, amount) => {
     expect(openingPurchaseCost(id, "ES")).toBe(amount);
     expect(Number.isSafeInteger(openingPurchaseCost(id, "CO"))).toBe(true);
   });
 
-  it("uses the authorized original tier-three price without bypassing dependencies", () => {
-    expect(openingPurchaseCost("chicken-1-tier-3", "ES")).toBe(30_600);
+  it("orders the purchases so each one grants the next level", () => {
+    expect(OPENING_PURCHASES).toHaveLength(27);
+    expect(OPENING_PURCHASES.map((purchase) => purchase.id).slice(0, 7))
+      .toEqual(["farmer-1", "egg-display-1", "chicken-1", "player-2", "tomato-2", "farmer-2", "expansion-1"]);
+    expect(OPENING_PURCHASE_LEVEL.get("farmer-1")).toBe(2);
+    expect(OPENING_PURCHASE_LEVEL.get("corn-canner-1")).toBe(28);
+    // Every dependency is bought earlier, so the authored order is playable.
+    OPENING_PURCHASES.forEach((purchase, index) => {
+      for (const required of purchase.requires) {
+        expect(OPENING_PURCHASE_LEVEL.get(required)!).toBeLessThan(index + 2);
+      }
+    });
+  });
+
+  it("keeps the tier-three feeder behind its chicken without bypassing dependencies", () => {
     expect(openingPurchaseQuote(createOpeningCampaign(), "chicken-1-tier-3", "ES").available).toBe(false);
   });
 
@@ -45,46 +60,44 @@ describe("documented opening campaign", () => {
     const sold = creditOpeningRegister(initial, 3_000);
     expect(sold.walletMinor).toBe(0);
     expect(sold.registerMinor).toBe(3_000);
-    expect(fundOpeningPurchase(sold, "cashier-1", "ES", 3_000)).toEqual(sold);
-    const funded = fundOpeningPurchase(collectOpeningRegister(sold), "cashier-1", "ES", 3_000);
-    expect(openingPurchaseQuote(funded, "cashier-1", "ES").remainingMinor).toBe(3_800);
+    expect(fundOpeningPurchase(sold, "farmer-1", "ES", 3_000)).toEqual(sold);
+    const funded = fundOpeningPurchase(collectOpeningRegister(sold), "farmer-1", "ES", 3_000);
+    expect(openingPurchaseQuote(funded, "farmer-1", "ES").remainingMinor).toBe(0);
     expect(openingEconomyIsConserved(funded)).toBe(true);
     expect(initial.registerMinor).toBe(0);
   });
 
   it("does not spend more than the remaining cost or buy an item twice", () => {
     const rich = collectOpeningRegister(creditOpeningRegister(createOpeningCampaign(), 10_000));
-    const funded = fundOpeningPurchase(rich, "cashier-1", "ES", 10_000);
-    expect(funded.walletMinor).toBe(3_200);
-    expect(funded.purchased).toEqual(["cashier-1"]);
-    expect(fundOpeningPurchase(funded, "cashier-1", "ES", 10_000)).toBe(funded);
+    const funded = fundOpeningPurchase(rich, "farmer-1", "ES", 10_000);
+    expect(funded.walletMinor).toBe(8_000);
+    expect(funded.purchased).toEqual(["farmer-1"]);
+    expect(fundOpeningPurchase(funded, "farmer-1", "ES", 10_000)).toBe(funded);
     expect(collectOpeningRegister(funded)).toBe(funded);
   });
 
   it("persists exact partial funding without rounding or releasing the item", () => {
-    const state = fundOpeningPurchase(collectOpeningRegister(creditOpeningRegister(createOpeningCampaign(), 3_000)), "cashier-1", "ES", 3_000);
+    const state = fundOpeningPurchase(collectOpeningRegister(creditOpeningRegister(createOpeningCampaign(), 1_500)), "egg-display-1", "ES", 1_500);
     const restored = JSON.parse(JSON.stringify(state));
-    expect(openingPurchaseQuote(restored, "cashier-1", "ES")).toMatchObject({ contributedMinor: 3_000, remainingMinor: 3_800, completed: false });
+    expect(openingPurchaseQuote(restored, "egg-display-1", "ES")).toMatchObject({ contributedMinor: 0, remainingMinor: 2_500, completed: false });
     expect(openingEconomyIsConserved(restored)).toBe(true);
   });
 
   it("unlocks eggs only after buying the display and chicken, then offers the farmer", () => {
     let state = collectOpeningRegister(creditOpeningRegister(createOpeningCampaign(), 100_000));
     expect(fundOpeningPurchase(state, "chicken-1", "ES", 100_000)).toBe(state);
-    state = fundOpeningPurchase(state, "cashier-1", "ES", 100_000);
+    state = fundOpeningPurchase(state, "farmer-1", "ES", 100_000);
     state = fundOpeningPurchase(state, "egg-display-1", "ES", 100_000);
     expect(openingAvailability(state).products).toEqual(["tomatoes"]);
     state = fundOpeningPurchase(state, "chicken-1", "ES", 100_000);
     expect(openingAvailability(state).products).toEqual(["tomatoes", "eggs"]);
-    expect(openingAvailability(state).expansionAvailable).toBe(false);
-    state = fundOpeningPurchase(state, "farmer-1", "ES", 100_000);
     expect(openingAvailability(state).expansionAvailable).toBe(true);
     expect(openingAvailability(state).customerLimit).toBe(2);
   });
 
   it("upgrades player capacity and speed together while farmer never feeds", () => {
     let state = collectOpeningRegister(creditOpeningRegister(createOpeningCampaign(), 100_000));
-    for (const id of ["cashier-1", "egg-display-1", "player-2"] as const) state = fundOpeningPurchase(state, id, "ES", 100_000);
+    for (const id of ["farmer-1", "egg-display-1", "chicken-1", "player-2"] as const) state = fundOpeningPurchase(state, id, "ES", 100_000);
     expect(openingPlayerStats(state).capacity).toBe(4);
     expect(openingPlayerStats(state).maximumSpeedRatio).toBeCloseTo(0.721);
     expect(OPENING_FARMER_STATS).toMatchObject({ capacity: 3, feedsAnimals: false });
@@ -95,7 +108,7 @@ describe("documented opening campaign", () => {
     const state = collectOpeningRegister(creditOpeningRegister(createOpeningCampaign(), 10_000));
     expect(creditOpeningRegister(state, amount)).toBe(state);
     expect(collectOpeningRegister(state, amount)).toBe(state);
-    expect(fundOpeningPurchase(state, "cashier-1", "ES", amount)).toBe(state);
+    expect(fundOpeningPurchase(state, "farmer-1", "ES", amount)).toBe(state);
   });
 
   it("conserves every cent across 2000 deterministic mixed operations and reloads", () => {

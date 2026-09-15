@@ -37,7 +37,7 @@ describe("purchases connected to game state", () => {
     }
     expect(upgradeQuote(state, "player-speed")).toBeNull();
     expect(upgradeQuote(state, "player-capacity")).toBeNull();
-    for (const purchaseId of ["cashier-1", "egg-display-1", "player-2", "chicken-1", "farmer-1", "expansion-1", "wheat-1", "flour-mill-1"] as const) {
+    for (const purchaseId of ["farmer-1", "egg-display-1", "chicken-1", "player-2", "tomato-2", "farmer-2", "expansion-1", "wheat-1", "flour-mill-1"] as const) {
       state = applyGameAction(state, { type: "CONTRIBUTE_PURCHASE", purchaseId, amountMinor: 10_000_000 }).state;
     }
     state.level = 1;
@@ -86,17 +86,17 @@ describe("purchases connected to game state", () => {
   it("persists partial payment, hires exactly once, and passes server validation", () => {
     const initial = createCampaignGame();
     initial.balanceMinor = 10_000;
-    const first = applyGameAction(initial, { type: "CONTRIBUTE_PURCHASE", purchaseId: "cashier-1", amountMinor: 3_000 });
+    const first = applyGameAction(initial, { type: "CONTRIBUTE_PURCHASE", purchaseId: "farmer-1", amountMinor: 1_000 });
     expect(first.ok).toBe(true);
     expect(first.state.franchises[0].employees).toHaveLength(0);
     expect(validateSaveTransition(initial, first.state, first.events)).toEqual({ ok: true });
     const restored = normalizeGameState(JSON.parse(JSON.stringify(first.state)));
-    expect(campaignPurchaseQuotes(restored)[0].remainingMinor).toBe(3_800);
-    const finish = applyGameAction(restored, { type: "CONTRIBUTE_PURCHASE", purchaseId: "cashier-1", amountMinor: 10_000 });
-    expect(finish.state.balanceMinor).toBe(3_200);
-    expect(finish.state.franchises[0].employees.filter((employee) => employee.role === "cashier")).toHaveLength(1);
+    expect(campaignPurchaseQuotes(restored)[0].remainingMinor).toBe(1_000);
+    const finish = applyGameAction(restored, { type: "CONTRIBUTE_PURCHASE", purchaseId: "farmer-1", amountMinor: 10_000 });
+    expect(finish.state.balanceMinor).toBe(8_000);
+    expect(finish.state.franchises[0].employees.filter((employee) => employee.role === "farmer")).toHaveLength(1);
     expect(validateSaveTransition(first.state, finish.state, finish.events)).toEqual({ ok: true });
-    expect(applyGameAction(finish.state, { type: "CONTRIBUTE_PURCHASE", purchaseId: "cashier-1" }).ok).toBe(false);
+    expect(applyGameAction(finish.state, { type: "CONTRIBUTE_PURCHASE", purchaseId: "farmer-1" }).ok).toBe(false);
   });
 
   it("applies every purchase to real stations without charging twice on reload", () => {
@@ -112,7 +112,10 @@ describe("purchases connected to game state", () => {
     }
     expect(state.franchises[0].crops.filter((crop) => crop.status !== "LOCKED")).toHaveLength(7);
     expect(state.franchises[0].productionMachines.filter((machine) => machine.status !== "LOCKED")).toHaveLength(8);
-    expect(state.franchises[0].employees.filter((employee) => employee.role === "farmer")).toHaveLength(2);
+    expect(state.franchises[0].employees.filter((employee) => employee.role === "farmer")).toHaveLength(3);
+    expect(state.franchises[0].employees.filter((employee) => employee.role === "feeder")).toHaveLength(1);
+    // Levels 10 and 20 arrive along the way and hand over their cashiers.
+    expect(state.franchises[0].employees.filter((employee) => employee.role === "cashier")).toHaveLength(2);
     expect(state.franchises[0].purchases?.purchased).toHaveLength(OPENING_PURCHASES.length);
     expect(applyGameAction(state, { type: "CONTRIBUTE_BUILD" }).ok).toBe(false);
   });
@@ -131,10 +134,10 @@ describe("purchases connected to game state", () => {
   it("rejects forged inherited purchases, contributions and deleted purchase state", () => {
     const initial = createCampaignGame();
     initial.balanceMinor = 10_000;
-    const paid = applyGameAction(initial, { type: "CONTRIBUTE_PURCHASE", purchaseId: "cashier-1", amountMinor: 3_000 });
+    const paid = applyGameAction(initial, { type: "CONTRIBUTE_PURCHASE", purchaseId: "farmer-1", amountMinor: 1_000 });
     for (const mutate of [
       (state: typeof initial) => { state.franchises[0].purchases!.inherited.push("cow-1"); },
-      (state: typeof initial) => { state.franchises[0].purchases!.contributions["cashier-1"] = 6_800; },
+      (state: typeof initial) => { state.franchises[0].purchases!.contributions["farmer-1"] = 2_000; },
       (state: typeof initial) => { delete state.franchises[0].purchases; },
     ]) {
       const forged = structuredClone(paid.state);
@@ -148,7 +151,7 @@ describe("purchases connected to game state", () => {
   it("lets the first farmer harvest, collect eggs and stock shelves without feeding animals", () => {
     let state = createCampaignGame();
     state.balanceMinor = 100_000;
-    for (const purchaseId of ["cashier-1", "egg-display-1", "chicken-1", "farmer-1"] as const) {
+    for (const purchaseId of ["farmer-1", "egg-display-1", "chicken-1"] as const) {
       state = applyGameAction(state, { type: "CONTRIBUTE_PURCHASE", purchaseId, amountMinor: 100_000 }).state;
     }
     const chicken = state.franchises[0].productionMachines.find((machine) => machine.id === "chicken-coop-1")!;

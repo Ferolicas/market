@@ -19,7 +19,7 @@ describe("campaign economy", () => {
   it("keeps register cash, personal work and license through eight empty daily closures and reloads", () => {
     let state = createCampaignGame();
     state.balanceMinor = 6_800;
-    state = applyGameAction(state, { type: "CONTRIBUTE_PURCHASE", purchaseId: "cashier-1", amountMinor: 6_800 }).state;
+    state = applyGameAction(state, { type: "CONTRIBUTE_PURCHASE", purchaseId: "farmer-1", amountMinor: 2_000 }).state;
     expect(state.franchises[0].employees).toHaveLength(1);
     state.balanceMinor = 0;
     state.franchises[0].registerCashMinor = [100, 200];

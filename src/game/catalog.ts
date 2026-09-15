@@ -34,7 +34,8 @@ export const SUPPLIERS = [
 ] as const;
 
 export const ROLE_INFO: Record<EmployeeRole, { name: string; salaryMinor: number; unlockLevel: number; description: string }> = {
-  farmer: { name: "Granjero", salaryMinor: 2800, unlockLevel: 2, description: "Cultiva y lleva la materia prima que más hace falta." },
+  farmer: { name: "Granjero-reponedor", salaryMinor: 2800, unlockLevel: 2, description: "Cosecha, recoge la producción y repone las estanterías." },
+  feeder: { name: "Alimentador", salaryMinor: 3000, unlockLevel: 6, description: "Solo alimenta a los animales de la granja." },
   operator: { name: "Operario", salaryMinor: 3200, unlockLevel: 4, description: "Carga molinos y hornos." },
   stocker: { name: "Reponedor", salaryMinor: 3000, unlockLevel: 3, description: "Surte todas las estanterías." },
   cashier: { name: "Cajero", salaryMinor: 3400, unlockLevel: 5, description: "Atiende cobros y métodos de pago." },
@@ -85,11 +86,11 @@ export const HAIRSTYLES: { id: HairId; name: string }[] = [
 
 export const FRANCHISE_TEMPLATES = [
   { id: "barrio", name: "Mercado del Barrio", city: "Distrito inicial", unlockLevel: 1, purchaseCostMinor: 0 },
-  { id: "estacion", name: "Market Estación", city: "Centro", unlockLevel: 5, purchaseCostMinor: 850000 },
-  { id: "marina", name: "Market Marina", city: "Zona costera", unlockLevel: 10, purchaseCostMinor: 2200000 },
-  { id: "aeropuerto", name: "Market Terminal", city: "Aeropuerto", unlockLevel: 16, purchaseCostMinor: 5800000 },
-  { id: "campus", name: "Market Campus", city: "Ciudad universitaria", unlockLevel: 24, purchaseCostMinor: 14500000 },
-  { id: "megastore", name: "Olcas Mega Market", city: "Distrito financiero", unlockLevel: 30, purchaseCostMinor: 42000000 },
+  { id: "estacion", name: "Market Estación", city: "Centro", unlockLevel: 5, purchaseCostMinor: 1000000 },
+  { id: "marina", name: "Market Marina", city: "Zona costera", unlockLevel: 10, purchaseCostMinor: 2500000 },
+  { id: "aeropuerto", name: "Market Terminal", city: "Aeropuerto", unlockLevel: 16, purchaseCostMinor: 7000000 },
+  { id: "campus", name: "Market Campus", city: "Ciudad universitaria", unlockLevel: 24, purchaseCostMinor: 17000000 },
+  { id: "megastore", name: "Olcas Mega Market", city: "Distrito financiero", unlockLevel: 30, purchaseCostMinor: 50000000 },
 ] as const;
 
 export const EMPLOYEE_NAMES = ["Luna", "Mateo", "Sofía", "Leo", "Emma", "Nico", "Vera", "Bruno", "Mía", "Teo", "Alma", "Gael"];

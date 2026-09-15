@@ -1301,3 +1301,240 @@
   .character-options strong {font-size:11px}
   .customizer-section>header small {font-size:10px}
 }
+
+/* === Campaña reorganizada: barra superior mínima, tarjetas y celebraciones === */
+
+/* La barra sólo lleva número de dinero, hora, nivel, estado y guardado. */
+.hud-stat.clock strong,
+.hud-stat.level strong { font-variant-numeric: tabular-nums }
+.hud-stat.money strong { font-size: 18px; letter-spacing: -0.03em }
+.hud-stat.clock, .hud-stat.level { min-width: 72px }
+
+.save-badge {
+  display: grid;
+  grid-template-columns: 26px auto;
+  grid-template-rows: auto auto;
+  align-items: center;
+  gap: 0 8px;
+  min-height: 44px;
+  margin-left: 6px;
+  padding: 5px 12px;
+  border: 1px solid #ded8ca;
+  border-radius: 14px;
+  background: linear-gradient(145deg, #fffdf6, #f2ede1);
+  box-shadow: inset 0 -2px rgba(20, 64, 53, 0.07);
+  color: var(--game-ui-ink);
+  cursor: pointer;
+  text-align: left;
+}
+.save-badge-mark { grid-row: 1 / 3; display: grid; place-items: center; width: 26px; height: 26px; color: #2f7a4f }
+.save-badge-mark svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round }
+.save-badge strong { font-size: 9px; font-weight: 900; letter-spacing: 0.09em }
+.save-badge small { color: var(--game-ui-muted); font-size: 9px; font-variant-numeric: tabular-nums }
+.save-badge.saving .save-badge-mark { color: #b7862c; animation: save-badge-pulse 1s ease-in-out infinite alternate }
+.save-badge.dirty .save-badge-mark { color: #b7862c }
+.save-badge.offline .save-badge-mark, .save-badge.conflict .save-badge-mark, .save-badge.error .save-badge-mark { color: #b4573c }
+@keyframes save-badge-pulse { to { opacity: 0.45 } }
+
+/* Aviso único al subir de nivel: qué se puede desbloquear y dónde está. */
+.level-hint {
+  position: absolute;
+  z-index: 14;
+  top: max(84px, calc(env(safe-area-inset-top) + 74px));
+  left: 50%;
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) 32px;
+  align-items: center;
+  gap: 10px;
+  width: min(420px, calc(100% - 32px));
+  padding: 11px 12px;
+  border-radius: 18px;
+  transform: translateX(-50%);
+  animation: level-hint-in 320ms cubic-bezier(0.22, 1.2, 0.4, 1) both;
+}
+.level-hint-pin { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 13px; background: linear-gradient(145deg, #ffe9ae, #f6cd6a); color: #8a5f12; font-size: 20px }
+.level-hint small { color: var(--game-ui-muted); font-size: 8px; font-weight: 900; letter-spacing: 0.09em }
+.level-hint strong { display: block; color: var(--game-ui-ink); font-size: 13px }
+.level-hint p { margin: 2px 0 0; color: var(--game-ui-muted); font-size: 9px; line-height: 1.4 }
+.level-hint button { width: 32px; height: 32px; border: 0; border-radius: 10px; background: #eee8d9; color: #4d5c3c; font-size: 15px; cursor: pointer }
+@keyframes level-hint-in { from { opacity: 0; transform: translate(-50%, -12px) } to { opacity: 1; transform: translate(-50%, 0) } }
+
+/* Inventario en tarjetas: imagen grande, nombre y las dos cantidades. */
+.stock-card-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px }
+.stock-card {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 16px 12px;
+  border: 1px solid #ded8ca;
+  border-radius: 18px;
+  background: linear-gradient(145deg, #fffdf8, #f4efe5);
+  box-shadow: 0 2px 4px rgba(127, 121, 91, 0.07);
+  text-align: center;
+}
+.stock-card-art { display: grid; place-items: center; width: 74px; height: 74px; border-radius: 22px; background: radial-gradient(circle at 50% 35%, #fffdf2, #eae4d2); font-size: 42px }
+.stock-card strong { font-size: 14px }
+.stock-card-counts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; width: 100%; margin-top: 2px }
+.stock-card-counts div { display: grid; gap: 1px; padding: 7px 4px; border-radius: 11px; background: #f1ece0 }
+.stock-card-counts small { color: var(--game-ui-muted); font-size: 8px; font-weight: 900; letter-spacing: 0.08em }
+.stock-card-counts b { color: var(--game-ui-ink); font-size: 18px; font-variant-numeric: tabular-nums }
+
+/* Pedidos: encargos, trabajo personal, almacén y proveedores. */
+.orders-layout { display: grid; gap: 16px }
+.orders-block h3 { margin: 0 0 9px; color: var(--game-ui-ink); font-size: 12px; letter-spacing: 0.02em }
+.orders-block > article {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  margin-bottom: 7px; padding: 11px 13px;
+  border: 1px solid #ded8ca; border-radius: 13px; background: #fffdf8;
+}
+.orders-block > article.done { opacity: 0.66 }
+.orders-block > article strong { display: block; font-size: 11px }
+.orders-block > article small { color: var(--game-ui-muted); font-size: 9px }
+.orders-block > article b { color: #2f7a4f; font-size: 11px; font-weight: 900 }
+.orders-block > article button { padding: 9px 12px; border: 1px solid #d0cbb9; border-radius: 10px; background: #faf7ef; color: #485234; font-size: 9px; font-weight: 900; cursor: pointer }
+.orders-empty { margin: 0 0 8px; color: var(--game-ui-muted); font-size: 10px }
+.warehouse-picks { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px }
+.warehouse-picks button {
+  display: grid; justify-items: center; gap: 2px; min-height: 84px; padding: 10px 6px;
+  border: 1px solid #ded8ca; border-radius: 13px; background: #fffdf8; cursor: pointer;
+}
+.warehouse-picks span { font-size: 26px }
+.warehouse-picks strong { font-size: 10px }
+.warehouse-picks small { color: var(--game-ui-muted); font-size: 8px }
+.pending-orders { display: grid; gap: 6px; margin: 0 0 10px; padding: 0; list-style: none }
+.pending-orders li { display: flex; align-items: center; gap: 9px; padding: 8px 11px; border-radius: 11px; background: #f1ece0 }
+.pending-orders strong { font-size: 10px }
+.pending-orders small { margin-left: auto; color: var(--game-ui-muted); font-size: 9px }
+
+/* Equipo: una ficha por personaje, animal o máquina, con sus cuatro mejoras. */
+.roster-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px }
+.roster-card {
+  display: grid; justify-items: center; gap: 4px; padding: 15px 13px 13px;
+  border: 1px solid #ded8ca; border-radius: 18px;
+  background: linear-gradient(145deg, #fffdf8, #f4efe5);
+  box-shadow: 0 2px 4px rgba(127, 121, 91, 0.07); text-align: center;
+}
+.roster-portrait {
+  display: grid; place-items: center; width: 86px; height: 86px; overflow: hidden;
+  border-radius: 50%; background: radial-gradient(circle at 50% 30%, #fffdf2, #e6e0cd);
+}
+.roster-portrait .avatar-thumbnail { width: 86px; height: 86px; object-fit: cover }
+.roster-emoji { font-size: 40px }
+.roster-card strong { font-size: 13px }
+.roster-card small { color: var(--game-ui-muted); font-size: 9px }
+.roster-card p { margin: 1px 0 6px; color: #47705f; font-size: 9px; font-weight: 800 }
+.roster-upgrades { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; width: 100% }
+.roster-upgrades button {
+  display: grid; justify-items: center; gap: 1px; min-height: 46px; padding: 6px 2px;
+  border: 1px solid #d0cbb9; border-radius: 11px; background: #faf7ef; color: #485234; cursor: pointer;
+}
+.roster-upgrades button b { font-size: 12px }
+.roster-upgrades button small { font-size: 7px; font-weight: 800 }
+.roster-upgrades button.bought { border-color: #8fae6c; background: #e9edd8; color: #3f5a2c }
+.roster-upgrades button.next { border-color: #e0b455; background: #fff4dc }
+.roster-upgrades button.locked { opacity: 0.45 }
+
+/* Retratos reales: se hornean de uno en uno fuera de pantalla. */
+.avatar-thumbnail-baker { position: fixed; top: -400px; left: -400px; width: 192px; height: 192px; pointer-events: none; opacity: 0 }
+.avatar-thumbnail { display: block; width: 100%; height: auto; border-radius: 12px }
+.avatar-thumbnail.pending { aspect-ratio: 1; background: radial-gradient(circle at 50% 35%, #fffdf2, #e3ddca); animation: save-badge-pulse 1.1s ease-in-out infinite alternate }
+.character-options .avatar-thumbnail { width: 100%; max-width: 74px }
+.hair-options .avatar-thumbnail { width: 30px; height: 30px; border-radius: 50% }
+
+/* Pantalla de carga vertical. */
+.loading-curtain {
+  position: fixed; inset: 0; z-index: 120; display: grid; place-items: center; padding: 24px;
+  background: radial-gradient(circle at 50% 22%, #f3ecd9, #ded7c1 68%, #cfc9b2);
+}
+.loading-card {
+  display: grid; justify-items: center; gap: 7px;
+  width: min(330px, 86vw); padding: 26px 24px 22px;
+  border: 1px solid #ffffffb8; border-radius: 28px;
+  background: linear-gradient(160deg, #fffdf7, #efe8d8);
+  box-shadow: 0 10px 0 rgba(19, 59, 49, 0.08), 0 26px 60px rgba(17, 54, 45, 0.22);
+  text-align: center;
+}
+.loading-art { position: relative; display: grid; place-items: center; width: 100%; padding: 6px 0 10px }
+.loading-glow { position: absolute; width: 190px; height: 190px; border-radius: 50%; background: radial-gradient(circle, rgba(255, 246, 214, 0.95), rgba(255, 246, 214, 0)) }
+.loading-store { position: relative; width: 190px; height: auto; animation: loading-bob 1.6s ease-in-out infinite alternate }
+.loading-crates { animation: loading-crate 1.6s ease-in-out infinite alternate }
+.loading-card strong { color: var(--game-ui-ink); font-size: 19px; letter-spacing: -0.02em }
+.loading-card > span { color: var(--game-ui-muted); font-size: 11px; line-height: 1.45 }
+.loading-rail { width: 100%; height: 9px; margin-top: 8px; overflow: hidden; border-radius: 999px; background: #ddd6c2; box-shadow: inset 0 1px 3px rgba(16, 62, 50, 0.16) }
+.loading-rail i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #7fa858, #5c8a3f); transition: width 240ms ease }
+.loading-rail i.indeterminate { width: 42%; animation: loading-slide 1.25s ease-in-out infinite }
+.loading-card b { color: #5c7a4a; font-size: 11px; font-variant-numeric: tabular-nums }
+@keyframes loading-bob { to { transform: translateY(-7px) } }
+@keyframes loading-crate { to { transform: translateY(-3px) rotate(-2deg) } }
+@keyframes loading-slide { 0% { transform: translateX(-110%) } 100% { transform: translateX(240%) } }
+
+/* Misión completada: tres segundos, sin botones. */
+.mission-complete {
+  position: fixed; inset: 0; z-index: 140; display: grid; place-items: center; padding: 20px;
+  background: rgba(20, 44, 34, 0.55); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+  animation: mission-fade 260ms ease both; pointer-events: none;
+}
+.mission-complete-card {
+  position: relative; display: grid; justify-items: center; align-content: start;
+  width: min(320px, 84vw); padding: 0 0 26px; overflow: hidden;
+  border: 1px solid #ffffffc4; border-radius: 30px;
+  background: linear-gradient(180deg, #d7e2c4 0 54%, #2f6b45 54% 100%);
+  box-shadow: 0 14px 0 rgba(19, 59, 49, 0.18), 0 30px 70px rgba(17, 54, 45, 0.34);
+  text-align: center;
+  animation: mission-pop 480ms cubic-bezier(0.18, 1.3, 0.38, 1) both;
+}
+.mission-complete-crate {
+  display: grid; place-items: center; width: 100%; height: 238px;
+  background: radial-gradient(circle at 50% 42%, #eef2df, #cfdcbc 68%, #b9ccA2);
+}
+.mission-complete-crate svg { width: 184px; height: auto; filter: drop-shadow(0 10px 16px rgba(24, 56, 34, 0.24)); animation: mission-crate 620ms cubic-bezier(0.2, 1.4, 0.4, 1) both }
+.mission-complete h2 { margin: 20px 0 0; color: #fdf8e6; font-size: 20px; letter-spacing: 0.02em; text-shadow: 0 2px 0 rgba(11, 43, 26, 0.35) }
+.mission-complete h2 span { display: inline-block; animation: mission-letter 380ms cubic-bezier(0.2, 1.5, 0.4, 1) both }
+.mission-complete p { margin: 7px 0 0; color: #e6f2dd; font-size: 12px; font-weight: 800 }
+.mission-complete small { margin-top: 3px; color: #b9d8b8; font-size: 10px; font-weight: 800; letter-spacing: 0.08em }
+.mission-complete-burst { position: absolute; inset: 0; overflow: hidden; border-radius: inherit; pointer-events: none }
+.mission-complete-burst i {
+  position: absolute; top: 50%; left: 50%; width: 9px; height: 9px; border-radius: 2px;
+  background: #f4c65c; opacity: 0;
+  animation: mission-spark 1.5s cubic-bezier(0.2, 0.8, 0.3, 1) infinite;
+  animation-delay: calc(var(--spark) * 90ms);
+  transform: rotate(calc(var(--spark) * 30deg)) translateY(0);
+}
+@keyframes mission-fade { from { opacity: 0 } to { opacity: 1 } }
+@keyframes mission-pop { from { opacity: 0; transform: scale(0.82) translateY(18px) } to { opacity: 1; transform: none } }
+@keyframes mission-crate { from { opacity: 0; transform: scale(0.6) rotate(-8deg) } to { opacity: 1; transform: none } }
+@keyframes mission-letter { from { opacity: 0; transform: translateY(14px) scale(0.72) } to { opacity: 1; transform: none } }
+@keyframes mission-spark { 0% { opacity: 0; transform: rotate(calc(var(--spark) * 30deg)) translateY(0) scale(0.4) } 30% { opacity: 1 } 100% { opacity: 0; transform: rotate(calc(var(--spark) * 30deg)) translateY(-150px) scale(1) } }
+
+@media (max-width: 1050px) {
+  .stock-card-grid { grid-template-columns: repeat(3, minmax(0, 1fr)) }
+  .roster-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) }
+  .warehouse-picks { grid-template-columns: repeat(3, minmax(0, 1fr)) }
+}
+
+@media (max-width: 580px) {
+  /* The bar keeps the hour the owner asked for; the shop name lives in the
+     franchise map, so it is the brand block that gives up its space. */
+  .game-shell .hud-brand { display: none }
+  .hud-stat { min-width: 0; padding: 0 6px }
+  .hud-stat.clock { min-width: 0 }
+  .hud-stat.money strong { font-size: 14px }
+  .save-badge { grid-template-columns: 22px auto; min-height: 38px; padding: 4px 8px }
+  .save-badge-mark { width: 22px; height: 22px }
+  .save-badge strong { font-size: 8px }
+  .save-badge small { font-size: 8px }
+  .level-hint { top: max(74px, calc(env(safe-area-inset-top) + 64px)); grid-template-columns: 32px minmax(0, 1fr) 28px; padding: 9px 10px }
+  .level-hint-pin { width: 32px; height: 32px; font-size: 16px }
+  .stock-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) }
+  .stock-card-art { width: 58px; height: 58px; font-size: 32px }
+  .roster-grid { grid-template-columns: 1fr }
+  .warehouse-picks { grid-template-columns: repeat(2, minmax(0, 1fr)) }
+  .mission-complete h2 { font-size: 17px }
+  .loading-card { padding: 22px 18px 18px }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .level-hint, .mission-complete, .mission-complete-card, .mission-complete h2 span,
+  .mission-complete-crate svg, .loading-store, .loading-crates, .loading-rail i.indeterminate,
+  .mission-complete-burst i, .save-badge.saving .save-badge-mark { animation: none !important }
+}

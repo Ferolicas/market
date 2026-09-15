@@ -15,6 +15,7 @@
     "qa:character-performance": "node scripts/qa-character-lod-cart.mjs",
     "qa:avatar-panel": "node scripts/qa-avatar-panel.mjs",
     "qa:workers": "node scripts/qa-worker-runtime.mjs",
+    "qa:campaign-rework": "node scripts/qa-campaign-rework.mjs",
     "qa:mobile-render": "node scripts/qa-mobile-render-budget.mjs",
     "qa:production-surface": "node scripts/qa-production-surface.mjs",
     "qa:save-lost-ack": "node scripts/qa-save-lost-ack.mjs",

@@ -1,16 +1,14 @@
-import { COUNTRIES, ROLE_INFO } from "../catalog";
+import { COUNTRIES } from "../catalog";
 import type { CountryCode } from "../types";
 import { PRODUCT_IDS, type ProductId } from "../economy/ProductRegistry";
 
-/** Normative opening supplied in NIVELES SUPERMERCADO.zip. Missing values
- * use explicitly authorized original balance, not purported reference prices.
- * This domain module is staged independently until save migration and scene
- * consumers can switch atomically. It does not change the live campaign yet. */
+/** Opening purchase graph of the live campaign. Order and prices are the
+ * owner's authored level list: index + 2 is the level each purchase grants. */
 export const MART_CAMPAIGN_VERSION = 1 as const;
 export type OpeningPurchaseId =
-  | "cashier-1" | "egg-display-1" | "chicken-1" | "player-2"
-  | "farmer-1" | "tomato-2" | "tomato-3" | "chicken-1-tier-2"
-  | "chicken-1-tier-3" | "expansion-1" | "farmer-2" | "wheat-1"
+  | "farmer-1" | "egg-display-1" | "chicken-1" | "player-2"
+  | "tomato-2" | "farmer-2" | "expansion-1" | "chicken-1-tier-3"
+  | "tomato-3" | "chicken-1-tier-2" | "farmer-3" | "wheat-1"
   | "chicken-2" | "flour-mill-1" | "bread-oven-1" | "dairy-display-1"
   | "cow-1" | "cow-1-tier-2" | "cow-1-tier-3" | "cheese-maker-1"
   | "apple-1" | "corn-1" | "coffee-supply-1" | "orange-1" | "juice-machine-1" | "preserves-supply-1" | "corn-canner-1";
@@ -19,40 +17,47 @@ interface OpeningPurchase {
   id: OpeningPurchaseId;
   label: string;
   requires: readonly OpeningPurchaseId[];
-  /** Price relative to the current cashier signing price, not its salary. */
-  cashierCostRatio: number | null;
+  /** Authored price in Spanish minor units; other countries scale it. */
+  baseCostMinor: number;
 }
 
+/** Level order authored by the owner: one purchase per level from 2 to 28.
+ * The dependency graph follows that same spine, so the cheapest available
+ * purchase is always the next level. Prices are final amounts, not ratios. */
 export const OPENING_PURCHASES: readonly OpeningPurchase[] = [
-  { id: "cashier-1", label: "Primer cajero", requires: [], cashierCostRatio: 1 },
-  { id: "egg-display-1", label: "Estante de huevos", requires: ["cashier-1"], cashierCostRatio: 1 },
-  { id: "chicken-1", label: "Primera gallina", requires: ["egg-display-1"], cashierCostRatio: 1.5 },
-  { id: "player-2", label: "Carga 4 y velocidad +3 %", requires: ["egg-display-1"], cashierCostRatio: 1.5 },
-  { id: "farmer-1", label: "Granjero-reponedor", requires: ["chicken-1"], cashierCostRatio: 3 },
-  { id: "tomato-2", label: "Segunda planta de tomate", requires: ["chicken-1"], cashierCostRatio: 1.5 },
-  { id: "tomato-3", label: "Tercera planta de tomate", requires: ["tomato-2"], cashierCostRatio: 2.625 },
-  { id: "chicken-1-tier-2", label: "Gallina: un huevo por segundo", requires: ["chicken-1"], cashierCostRatio: 3 },
-  // Original balance below, authorized by the owner; not reference transcription.
-  { id: "chicken-1-tier-3", label: "Gallina: comedero de seis tomates", requires: ["chicken-1-tier-2"], cashierCostRatio: 4.5 },
-  { id: "expansion-1", label: "Ampliación: cereales y segunda granja", requires: ["farmer-1"], cashierCostRatio: 6 },
-  { id: "farmer-2", label: "Segundo granjero-reponedor", requires: ["expansion-1"], cashierCostRatio: 4.5 },
-  { id: "wheat-1", label: "Primer bancal de trigo", requires: ["expansion-1"], cashierCostRatio: 3 },
-  { id: "chicken-2", label: "Segunda gallina", requires: ["expansion-1"], cashierCostRatio: 4 },
-  { id: "flour-mill-1", label: "Molino y venta de harina", requires: ["wheat-1"], cashierCostRatio: 8 },
-  { id: "bread-oven-1", label: "Horno y venta de pan", requires: ["flour-mill-1"], cashierCostRatio: 12 },
-  { id: "dairy-display-1", label: "Departamento de lácteos", requires: ["bread-oven-1"], cashierCostRatio: 10 },
-  { id: "cow-1", label: "Primera vaca", requires: ["dairy-display-1", "wheat-1"], cashierCostRatio: 15 },
-  { id: "cow-1-tier-2", label: "Vaca: producción mejorada", requires: ["cow-1"], cashierCostRatio: 12 },
-  { id: "cow-1-tier-3", label: "Vaca: comedero ampliado", requires: ["cow-1-tier-2"], cashierCostRatio: 18 },
-  { id: "cheese-maker-1", label: "Quesería", requires: ["cow-1"], cashierCostRatio: 20 },
-  { id: "apple-1", label: "Manzano y venta de manzanas", requires: ["expansion-1"], cashierCostRatio: 5 },
-  { id: "corn-1", label: "Maizal y venta de maíz", requires: ["wheat-1"], cashierCostRatio: 6 },
-  { id: "coffee-supply-1", label: "Suministro de café y góndolas", requires: ["bread-oven-1"], cashierCostRatio: 9 },
-  { id: "orange-1", label: "Naranjo y venta de naranjas", requires: ["apple-1"], cashierCostRatio: 8 },
-  { id: "juice-machine-1", label: "Exprimidora y venta de zumos", requires: ["orange-1"], cashierCostRatio: 14 },
-  { id: "preserves-supply-1", label: "Conservas: expositor y suministro", requires: ["corn-1", "coffee-supply-1"], cashierCostRatio: 12 },
-  { id: "corn-canner-1", label: "Enlatadora de maíz", requires: ["preserves-supply-1"], cashierCostRatio: 18 },
+  { id: "farmer-1", label: "Primer granjero-reponedor", requires: [], baseCostMinor: 2_000 },
+  { id: "egg-display-1", label: "Estante de huevos", requires: ["farmer-1"], baseCostMinor: 2_500 },
+  { id: "chicken-1", label: "Primera gallina", requires: ["egg-display-1"], baseCostMinor: 2_000 },
+  { id: "player-2", label: "Carga 4 y velocidad +3 %", requires: ["chicken-1"], baseCostMinor: 2_500 },
+  { id: "tomato-2", label: "Segunda planta de tomate", requires: ["chicken-1"], baseCostMinor: 5_000 },
+  { id: "farmer-2", label: "Segundo granjero-reponedor", requires: ["tomato-2"], baseCostMinor: 9_000 },
+  { id: "expansion-1", label: "Ampliación: cereales y segunda granja", requires: ["farmer-2"], baseCostMinor: 40_000 },
+  { id: "chicken-1-tier-3", label: "Gallina: comedero de seis tomates", requires: ["chicken-1", "expansion-1"], baseCostMinor: 5_000 },
+  { id: "tomato-3", label: "Tercera planta de tomate", requires: ["tomato-2", "expansion-1"], baseCostMinor: 9_000 },
+  { id: "chicken-1-tier-2", label: "Gallina: un huevo por segundo", requires: ["chicken-1-tier-3"], baseCostMinor: 9_000 },
+  { id: "farmer-3", label: "Tercer granjero-reponedor", requires: ["expansion-1"], baseCostMinor: 12_000 },
+  { id: "wheat-1", label: "Primer bancal de trigo", requires: ["expansion-1"], baseCostMinor: 10_000 },
+  { id: "chicken-2", label: "Segunda gallina", requires: ["expansion-1"], baseCostMinor: 10_000 },
+  { id: "flour-mill-1", label: "Molino y venta de harina", requires: ["wheat-1"], baseCostMinor: 20_000 },
+  { id: "bread-oven-1", label: "Horno y venta de pan", requires: ["flour-mill-1"], baseCostMinor: 50_000 },
+  { id: "dairy-display-1", label: "Departamento de lácteos", requires: ["bread-oven-1"], baseCostMinor: 70_000 },
+  { id: "cow-1", label: "Primera vaca", requires: ["dairy-display-1", "wheat-1"], baseCostMinor: 100_000 },
+  { id: "cow-1-tier-2", label: "Vaca: producción mejorada", requires: ["cow-1"], baseCostMinor: 120_000 },
+  { id: "cow-1-tier-3", label: "Vaca: comedero ampliado", requires: ["cow-1-tier-2"], baseCostMinor: 150_000 },
+  { id: "cheese-maker-1", label: "Quesería", requires: ["cow-1"], baseCostMinor: 160_000 },
+  { id: "apple-1", label: "Manzano y venta de manzanas", requires: ["expansion-1"], baseCostMinor: 30_000 },
+  { id: "corn-1", label: "Maizal y venta de maíz", requires: ["wheat-1"], baseCostMinor: 60_000 },
+  { id: "coffee-supply-1", label: "Suministro de café y góndolas", requires: ["bread-oven-1"], baseCostMinor: 70_000 },
+  { id: "orange-1", label: "Naranjo y venta de naranjas", requires: ["apple-1"], baseCostMinor: 90_000 },
+  { id: "juice-machine-1", label: "Exprimidora y venta de zumos", requires: ["orange-1"], baseCostMinor: 200_000 },
+  { id: "preserves-supply-1", label: "Conservas: expositor y suministro", requires: ["corn-1", "coffee-supply-1"], baseCostMinor: 120_000 },
+  { id: "corn-canner-1", label: "Enlatadora de maíz", requires: ["preserves-supply-1"], baseCostMinor: 180_000 },
 ];
+
+/** Purchase that grants the level reached once it is completed. */
+export const OPENING_PURCHASE_LEVEL = new Map<OpeningPurchaseId, number>(
+  OPENING_PURCHASES.map((purchase, index) => [purchase.id, index + 2]),
+);
 
 /** Exhaustive by type: adding a catalog product requires an explicit purchase path. */
 export const CAMPAIGN_PRODUCT_REQUIREMENTS = {
@@ -91,11 +96,9 @@ function nonnegativeInteger(value: number) {
 
 export function openingPurchaseCost(id: OpeningPurchaseId, country: CountryCode): number | null {
   const definition = OPENING_PURCHASES.find((purchase) => purchase.id === id);
-  if (!definition || definition.cashierCostRatio === null) return null;
-  // Round the signing quote before applying ratios, matching employeeHiringQuote.
+  if (!definition) return null;
   const scale = COUNTRIES[country].startingCapitalMinor / COUNTRIES.ES.startingCapitalMinor;
-  const cashierSigning = Math.round(ROLE_INFO.cashier.salaryMinor * scale) * 2;
-  return Math.round(cashierSigning * definition.cashierCostRatio);
+  return Math.round(definition.baseCostMinor * scale);
 }
 
 export function openingPurchaseQuote(state: OpeningCampaignState, id: OpeningPurchaseId, country: CountryCode) {

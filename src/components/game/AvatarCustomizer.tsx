@@ -2,14 +2,15 @@
 
 import { Canvas, useThree } from "@react-three/fiber";
 import { ContactShadows, Environment, Lightformer, OrbitControls } from "@react-three/drei";
-import { Component, Suspense, useEffect, type CSSProperties, type ErrorInfo, type ReactNode } from "react";
+import { Component, Suspense, useEffect, type ErrorInfo, type ReactNode } from "react";
 import { CHARACTERS, HAIRSTYLES, HATS } from "@/game/catalog";
 import type { AvatarConfig, AvatarHatId } from "@/game/types";
 import { Avatar } from "./Avatar";
+import { AvatarGallery, AvatarThumbnail } from "./AvatarThumbnails";
 import { safeCanvasEvents } from "./safeCanvasEvents";
 
 export function AvatarCustomizer({ avatar, onChange, compact = false }: { avatar: AvatarConfig; onChange: (change: Partial<AvatarConfig>) => void; compact?: boolean }) {
-  return <div className={`avatar-customizer ${compact ? "compact" : ""}`}>
+  return <AvatarGallery><div className={`avatar-customizer ${compact ? "compact" : ""}`}>
     <div className="avatar-preview-3d" aria-label="Vista previa tridimensional del personaje">
       <PreviewErrorBoundary>
         <Canvas events={safeCanvasEvents} shadows="percentage" dpr={[1, 1.5]} camera={{ position: [0, 0.72, 2.9], fov: 34 }} gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}>
@@ -31,7 +32,7 @@ export function AvatarCustomizer({ avatar, onChange, compact = false }: { avatar
       <CustomizerSection title="Personaje" note="Puedes cambiarlo siempre">
         <div className="character-options">
           {CHARACTERS.map((character) => <button key={character.id} type="button" className={avatar.body === character.id ? "selected" : ""} aria-pressed={avatar.body === character.id} onClick={() => onChange({ body: character.id })}>
-            <span className={`character-silhouette ${character.id}`}><i /><b /></span>
+            <AvatarThumbnail alt={character.name} request={{ id: `body:${character.id}:${avatar.hair}:${avatar.hat}:${avatar.hairColor}`, framing: "body", avatar: { ...avatar, body: character.id } }} />
             <strong>{character.name}</strong><small>{character.description}</small>
           </button>)}
         </div>
@@ -39,8 +40,8 @@ export function AvatarCustomizer({ avatar, onChange, compact = false }: { avatar
 
       <CustomizerSection title="Peinado" note={`${HAIRSTYLES.length} estilos`}>
         <div className="hair-options">
-          {HAIRSTYLES.map((style, index) => <button key={style.id} type="button" className={avatar.hair === style.id ? "selected" : ""} aria-pressed={avatar.hair === style.id} title={style.name} onClick={() => onChange({ hair: style.id, hat: "none" })}>
-            <span className={`hair-thumbnail hair-${(index % 6) + 1}`} style={{ "--hair-preview": avatar.hairColor } as CSSProperties} />
+          {HAIRSTYLES.map((style) => <button key={style.id} type="button" className={avatar.hair === style.id ? "selected" : ""} aria-pressed={avatar.hair === style.id} title={style.name} onClick={() => onChange({ hair: style.id, hat: "none" })}>
+            <AvatarThumbnail alt={style.name} request={{ id: `hair:${avatar.body}:${style.id}:${avatar.hairColor}`, framing: "head", avatar: { ...avatar, hair: style.id, hat: "none" } }} />
             <small>{style.name}</small>
           </button>)}
         </div>
@@ -53,15 +54,16 @@ export function AvatarCustomizer({ avatar, onChange, compact = false }: { avatar
         </div>
       </CustomizerSection>
 
-      <CustomizerSection title="Colores" note="Tu estilo">
+      {/* The delivered bodies carry one baked texture atlas with no separate
+          skin or shirt material, so only the hair can really be tinted. The
+          dead colour pickers are gone instead of pretending to work. */}
+      <CustomizerSection title="Color del pelo" note="Se aplica al instante">
         <div className="avatar-color-options">
-          <ColorField label="Piel" value={avatar.skin} onChange={(skin) => onChange({ skin })} />
           <ColorField label="Pelo" value={avatar.hairColor} onChange={(hairColor) => onChange({ hairColor })} />
-          <ColorField label="Camisa" value={avatar.shirt} onChange={(shirt) => onChange({ shirt })} />
         </div>
       </CustomizerSection>
     </div>
-  </div>;
+  </div></AvatarGallery>;
 }
 
 /**

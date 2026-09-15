@@ -12,7 +12,9 @@ function masteredOpening() {
   state.franchises[0].purchases!.purchased = OPENING_PURCHASES.map((purchase) => purchase.id);
   state.franchises[0].purchases!.personalProgress = Object.fromEntries(CAMPAIGN_TASK_IDS.map((id) => [id, CAMPAIGN_TASKS[id].target]));
   state.franchises[0].purchases!.completedContracts = campaignContracts(state.franchises[0]).map((contract) => contract.id);
-  return state;
+  // Level 30 already handed this store its three cashiers; normalize so the
+  // snapshot under test is the one a reload would produce.
+  return normalizeGameState(JSON.parse(JSON.stringify(state)));
 }
 
 describe("campaign locations", () => {

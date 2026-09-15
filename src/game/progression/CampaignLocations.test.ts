@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CAMPAIGN_LOCATIONS, campaignShoppingList } from "./CampaignLocations";
+import { CAMPAIGN_LOCATIONS, campaignBasketUnits, campaignCustomerLimit, campaignShoppingList } from "./CampaignLocations";
 import { CAMPAIGN_TASK_IDS, campaignTaskStatus, campaignTaskTarget, purchaseTasks } from "./CampaignTasks";
 import { PRODUCT_IDS } from "../economy/ProductRegistry";
 import { applyGameAction, campaignPersonalTasks, createCampaignGame, normalizeGameState, advanceWorld } from "../engine";
@@ -42,24 +42,53 @@ describe("location specialties", () => {
     for (const location of Object.keys(CAMPAIGN_LOCATIONS)) {
       for (let seed = 1; seed <= 500; seed++) {
         const available = ["coffee", "bread", "tomatoes"] as const;
-        const list = campaignShoppingList(location, available, seed * 2654435761, true);
-        expect(list).toEqual(campaignShoppingList(location, available, seed * 2654435761, true));
+        const list = campaignShoppingList(location, available, seed * 2654435761, 28);
+        expect(list).toEqual(campaignShoppingList(location, available, seed * 2654435761, 28));
         expect(new Set(list.map((line) => line.productId)).size).toBe(list.length);
         expect(list.every((line) => available.includes(line.productId as typeof available[number]))).toBe(true);
         expect(list.reduce((sum, line) => sum + line.requested, 0)).toBeLessThanOrEqual(15);
       }
     }
-    expect(campaignShoppingList("megastore", [], 2, true)).toEqual([]);
+    expect(campaignShoppingList("megastore", [], 2, 28)).toEqual([]);
+    // Before the eggs open only tomatoes are on sale: one unit, sometimes two.
     for (let seed = 1; seed <= 100; seed++) {
-      const list = campaignShoppingList("megastore", PRODUCT_IDS, seed, false);
+      const list = campaignShoppingList("megastore", ["tomatoes"], seed, 3);
       expect(list).toHaveLength(1);
       expect([1, 2]).toContain(list[0].requested);
     }
   });
+
+  it("buys four units spread over every product on sale once the eggs open", () => {
+    expect(campaignBasketUnits(3)).toEqual({ base: 1, bonus: 1 });
+    expect(campaignBasketUnits(4)).toEqual({ base: 4, bonus: 1 });
+    expect(campaignBasketUnits(7)).toEqual({ base: 5, bonus: 1 });
+    expect(campaignBasketUnits(28)).toEqual({ base: 12, bonus: 1 });
+    for (let seed = 1; seed <= 300; seed++) {
+      const list = campaignShoppingList("barrio", ["tomatoes", "eggs"], seed * 2654435761, 4);
+      const units = list.reduce((sum, line) => sum + line.requested, 0);
+      expect([4, 5]).toContain(units);
+      // Both products on sale are always in the basket, in any distribution.
+      expect(new Set(list.map((line) => line.productId))).toEqual(new Set(["tomatoes", "eggs"]));
+    }
+    for (let seed = 1; seed <= 300; seed++) {
+      const list = campaignShoppingList("barrio", ["tomatoes", "eggs", "bread", "milk"], seed, 13);
+      expect(list).toHaveLength(4);
+      expect([7, 8]).toContain(list.reduce((sum, line) => sum + line.requested, 0));
+    }
+  });
+
+  it("adds one shopper every five levels up to eight", () => {
+    expect([1, 2, 3, 4].map(campaignCustomerLimit)).toEqual([2, 2, 2, 2]);
+    expect(campaignCustomerLimit(5)).toBe(3);
+    expect(campaignCustomerLimit(10)).toBe(4);
+    expect(campaignCustomerLimit(15)).toBe(5);
+    expect(campaignCustomerLimit(29)).toBe(7);
+    expect(campaignCustomerLimit(30)).toBe(8);
+  });
   it("increases specialty demand while retaining every other available product", () => {
     const counts = Object.fromEntries(PRODUCT_IDS.map((id) => [id, 0]));
     for (let seed = 1; seed <= 4_000; seed++) {
-      counts[campaignShoppingList("estacion", PRODUCT_IDS, seed * 2654435761, true)[0].productId]++;
+      counts[campaignShoppingList("estacion", PRODUCT_IDS, seed * 2654435761, 28)[0].productId]++;
     }
     expect(Object.values(counts).every((count) => count > 0)).toBe(true);
     expect(counts.coffee).toBeGreaterThan(counts.tomatoes * 2);

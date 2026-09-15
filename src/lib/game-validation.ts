@@ -31,7 +31,7 @@ const employeeRuntimeSchema = z.object({
 });
 const employeeSchema = z.object({
   id: z.string().min(1).max(100), name: z.string().min(1).max(80),
-  role: z.enum(["farmer", "operator", "stocker", "cashier", "builder", "manager"]),
+  role: z.enum(["farmer", "feeder", "operator", "stocker", "cashier", "builder", "manager"]),
   level: z.number().int().min(1).max(10), salaryMinor: z.number().int().min(0), energy: z.number().finite().min(0).max(100),
   hat: z.enum(["red-panda", "red-fox", "chicken", "frog", "elephant", "rhino", "giraffe", "panda", "owl", "cow", "rabbit", "capybara"]),
   runtime: employeeRuntimeSchema.optional(),

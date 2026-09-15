@@ -32,7 +32,7 @@ describe("one produce display at the campaign opening", () => {
     state.balanceMinor = 100_000;
     // This layout fixture starts with the expansion's personal tasks completed.
     state.franchises[0].purchases!.personalProgress = { "player:harvest:tomatoes": 8, "player:stock:tomatoes": 8, "player:feed:chicken": 4, "player:stock:eggs": 4 };
-    for (const purchaseId of ["cashier-1", "egg-display-1", "chicken-1", "farmer-1", "expansion-1"] as const) {
+    for (const purchaseId of ["farmer-1", "egg-display-1", "chicken-1", "tomato-2", "farmer-2", "expansion-1"] as const) {
       const result = applyGameAction(state, { type: "CONTRIBUTE_PURCHASE", purchaseId, amountMinor: 100_000 });
       expect(result.ok).toBe(true);
       state = result.state;

@@ -160,6 +160,31 @@ export const FARM_FACILITIES = {
   waterTank: { position: [-0.7, 0, -16.55] },
 } as const satisfies Record<string, FarmFacilityLayout>;
 
+/** Solid footprint of each paddock, in authored layout units; shared by the
+ * navigation obstacles and by the interaction magnet that wraps them. */
+export const FARM_ANIMAL_FOOTPRINTS = {
+  chicken: { halfX: 1.49, halfZ: 1.09 },
+  chicken2: { halfX: 1.49, halfZ: 1.09 },
+  cow: { halfX: 1.79, halfZ: 1.24 },
+} as const;
+
+/** Reach measured outwards from every side of a paddock, in element units. */
+export const FARM_ANIMAL_MAGNET_REACH = { enter: 0.7, exit: 0.92 } as const;
+
+/** The animal itself is the magnet: standing anywhere around its pen works,
+ * instead of hitting one authored socket in front of the gate. */
+export function farmAnimalMagnet(id: keyof typeof FARM_ANIMAL_FOOTPRINTS, layoutScale: number, elementScale: number) {
+  const station = FARM_ANIMAL_STATIONS[id];
+  const footprint = FARM_ANIMAL_FOOTPRINTS[id];
+  return {
+    x: station.position[0] * layoutScale,
+    z: station.position[2] * layoutScale,
+    halfExtents: [footprint.halfX * layoutScale, footprint.halfZ * layoutScale] as const,
+    enterRadius: FARM_ANIMAL_MAGNET_REACH.enter * elementScale,
+    exitRadius: FARM_ANIMAL_MAGNET_REACH.exit * elementScale,
+  };
+}
+
 export const FARM_ANIMAL_STATIONS = {
   chicken: { position: [1.2, 0, -14.15], workPosition: [1.2, 0, -12.45], facing: Math.PI },
   chicken2: { position: [8.8, 0, -13.5], workPosition: [8.8, 0, -12], facing: Math.PI },

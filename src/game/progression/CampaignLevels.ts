@@ -17,15 +17,25 @@ export function campaignGlobalLevel(state: GameState) {
   return Math.max(1, ...state.franchises.filter((item) => item.owned).map(campaignLevel));
 }
 
-/** Total slots, including staff granted by purchases. Shared by UI and engine. */
+/** Levels that hand the store a dedicated cashier, on top of the purchases. */
+export const CASHIER_UNLOCK_LEVELS = [10, 20, 30] as const;
+
+export function campaignCashierSlots(level: number) {
+  return CASHIER_UNLOCK_LEVELS.filter((threshold) => level >= threshold).length;
+}
+
+/** Total slots, including staff granted by purchases and by level rewards. */
 export function campaignEmployeeLimit(franchise: FranchiseState, role: EmployeeRole) {
   const owns = (id: string) => franchise.purchases?.purchased.some((item) => item === id) ?? false;
   switch (role) {
-    case "cashier": return owns("expansion-1") ? 2 : owns("cashier-1") ? 1 : 0;
-    case "farmer": return owns("farmer-2") ? 2 : owns("farmer-1") ? 1 : 0;
+    case "cashier": return campaignCashierSlots(campaignLevel(franchise));
+    case "farmer": return owns("farmer-3") ? 3 : owns("farmer-2") ? 2 : owns("farmer-1") ? 1 : 0;
+    case "feeder": return owns("cow-1") ? 1 : 0;
     case "operator": return owns("cheese-maker-1") ? 2 : owns("flour-mill-1") ? 1 : 0;
-    case "stocker": return owns("expansion-1") ? 1 : 0;
-    case "builder": return owns("expansion-1") ? 1 : 0;
-    case "manager": return owns("cheese-maker-1") && owns("juice-machine-1") && owns("coffee-supply-1") ? 1 : 0;
+    // Stocking is the granjero-reponedor's own job and building is automatic,
+    // so the campaign no longer opens these desks.
+    case "stocker": return 0;
+    case "builder": return 0;
+    case "manager": return 0;
   }
 }

@@ -1,25 +1,30 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { authClient } from "@/lib/auth-client";
-import { COUNTRIES, HATS, PRODUCTS, ROLE_INFO, SUPPLIERS } from "@/game/catalog";
-import { canHireEmployee, canOperateMachine, canProcessCheckoutUnit, countryMoneyScale, employeeHiringQuote, formatMoney, isCampaignGame, upgradeQuote } from "@/game/engine";
-import { levelObjectiveTasks, type LevelObjectiveTask } from "@/game/progression/objectives";
-import { campaignExpansionQuote, campaignMasteryProgress } from "@/game/progression/CampaignExpansion";
+import { COUNTRIES, HATS, PRODUCTS, SUPPLIERS } from "@/game/catalog";
+import { canOperateMachine, canProcessCheckoutUnit, countryMoneyScale, formatMoney, isCampaignGame } from "@/game/engine";
+import { levelObjectiveTasks } from "@/game/progression/objectives";
+import { campaignExpansionQuote } from "@/game/progression/CampaignExpansion";
 import { campaignLocation } from "@/game/progression/CampaignLocations";
-import { campaignLevel, campaignEmployeeLimit } from "@/game/progression/CampaignLevels";
+import { campaignLevel } from "@/game/progression/CampaignLevels";
 import { campaignContracts } from "@/game/progression/CampaignContracts";
-import { buildFundingQuote, LEVELS } from "@/game/progression/levels";
+
 import { useMarketStore } from "@/game/store";
-import type { AvatarConfig, CountryCode, EmployeeRole, FranchiseState, GameState, ProductId } from "@/game/types";
-import { MarketScene, type InteractionId, type InteractionPrompt, type InteractionVisualEvent } from "./MarketScene";
+import type { AvatarConfig, CountryCode, FranchiseState, GameState, ProductId } from "@/game/types";
+import { MarketScene, type InteractionId, type InteractionVisualEvent, type PurchaseMarker } from "./MarketScene";
 import { GameRuntime } from "./GameRuntime";
 import { AvatarCustomizer } from "./AvatarCustomizer";
 import { GameInputSurface } from "./GameInputSurface";
 import { feedbackBus, type FeedbackCue } from "@/game/feedback/FeedbackBus";
 import { notificationOccurrenceKey, notificationPresentation } from "@/game/feedback/NotificationPolicy";
 import type { RendererMetrics } from "@/game/debug/PerformanceMonitor";
-import { canPickupWarehouse, carriedProductIds, carryQuantity, carryTotal, departmentStockingPulses } from "@/game/player/CarrySystem";
+import { carriedProductIds, carryQuantity, carryTotal, departmentStockingPulses } from "@/game/player/CarrySystem";
+import { rosterEntries } from "@/game/progression/RosterUpgrades";
+import { isPurchaseInteractionId, purchaseIdFromInteraction } from "@/game/stations/purchase-layout";
+import { AvatarGallery, AvatarThumbnail } from "./AvatarThumbnails";
+import { MissionComplete } from "./MissionComplete";
+import { LoadingCurtain } from "./LoadingCurtain";
 import { deriveVisualTransferPresentation, updateVisualTransferRemaining } from "@/game/player/VisualTransferLedger";
 import { cropIdFromFarmInteraction, isFarmInteractionId } from "@/game/stations/farm-layout";
 import { isStockingInteractionId, retailDepartmentFromStockingInteraction, RETAIL_DEPARTMENTS } from "@/game/stations/retail-layout";
@@ -28,9 +33,9 @@ import { clearRecoverySnapshot } from "@/game/persistence/RecoveryStorage";
 import { businessDayIsClosing } from "@/game/time/BusinessDay";
 import { isRegisterInteractionId, registerLane } from "@/game/stations/register-layout";
 import { campaignPersonalTasks, campaignPurchaseQuotes, canOrderProduct } from "@/game/engine";
-import type { OpeningPurchaseId } from "@/game/progression/MartCampaign";
+import { OPENING_PURCHASES, type OpeningPurchaseId } from "@/game/progression/MartCampaign";
 
-type Panel = "stock" | "suppliers" | "team" | "map" | "finance" | "build" | "avatar" | "help" | null;
+type Panel = "stock" | "orders" | "team" | "map" | "finance" | "avatar" | "help" | null;
 
 export function GameShell({ playerName }: { playerName: string }) {
   const game = useMarketStore((state) => state.game);
@@ -43,8 +48,8 @@ export function GameShell({ playerName }: { playerName: string }) {
   const queueInteraction = useMarketStore((state) => state.queueInteraction);
   const saveGame = useMarketStore((state) => state.saveGame);
   const [panel, setPanel] = useState<Panel>(null);
-  const [selectedPurchaseId, setSelectedPurchaseId] = useState<OpeningPurchaseId | null>(null);
-  const [prompt, setPrompt] = useState<InteractionPrompt | null>(null);
+  const [completedPurchase, setCompletedPurchase] = useState<{ id: string; label: string } | null>(null);
+  const [levelHint, setLevelHint] = useState<{ level: number; purchase: OpeningPurchaseId; label: string } | null>(null);
   const [lastInteraction, setLastInteraction] = useState<InteractionVisualEvent | null>(null);
   const [transferEvents, setTransferEvents] = useState<InteractionVisualEvent[]>([]);
   const [debug] = useState(() => typeof window !== "undefined" && marketQaQueryEnabled(window.location.search));
@@ -66,6 +71,45 @@ export function GameShell({ playerName }: { playerName: string }) {
   useEffect(() => () => {
     if (interactionTimer.current) clearTimeout(interactionTimer.current);
   }, []);
+
+  // Celebration and hint are driven by the authoritative save, not by the
+  // action that happened to be dispatched, so a reload never replays them.
+  const activeFranchise = game?.franchises.find((item) => item.id === game.currentFranchiseId) ?? game?.franchises[0];
+  const purchasedSignature = (activeFranchise?.purchases?.purchased ?? []).join("|");
+  const previousPurchased = useRef<string[] | null>(null);
+  useEffect(() => {
+    if (!activeFranchise) return;
+    const purchased = purchasedSignature ? purchasedSignature.split("|") : [];
+    const previous = previousPurchased.current;
+    previousPurchased.current = purchased;
+    if (!previous) return;
+    const added = purchased.find((id) => !previous.includes(id));
+    const definition = OPENING_PURCHASES.find((purchase) => purchase.id === added);
+    if (definition) setCompletedPurchase({ id: definition.id, label: definition.label });
+  }, [purchasedSignature, activeFranchise]);
+
+  const availablePurchases = game ? campaignPurchaseQuotes(game).filter((purchase) => purchase.available) : [];
+  const availableSignature = availablePurchases.map((purchase) => purchase.id).join("|");
+  const currentLevel = activeFranchise ? campaignLevel(activeFranchise) : 1;
+  const previousAvailable = useRef<string[] | null>(null);
+  const loaded = Boolean(game);
+  useEffect(() => {
+    // The first snapshot after loading is the baseline: opening a saved game
+    // is not a level-up and must not announce what was already available.
+    if (!loaded) return;
+    const available = availableSignature ? availableSignature.split("|") : [];
+    const previous = previousAvailable.current;
+    previousAvailable.current = available;
+    if (!previous) return;
+    const fresh = available.find((id) => !previous.includes(id));
+    const definition = OPENING_PURCHASES.find((purchase) => purchase.id === fresh);
+    if (definition) setLevelHint({ level: currentLevel, purchase: definition.id, label: definition.label });
+  }, [availableSignature, currentLevel, loaded]);
+  useEffect(() => {
+    if (!levelHint) return;
+    const timer = setTimeout(() => setLevelHint(null), 9_000);
+    return () => clearTimeout(timer);
+  }, [levelHint]);
   useEffect(() => {
     if (notificationLifecycle !== "transient" || notificationDurationMs === null || notificationDurationMs === undefined) return;
     const timeoutId = window.setTimeout(() => setExpiredNotificationKey(notificationKey), notificationDurationMs);
@@ -193,9 +237,12 @@ export function GameShell({ playerName }: { playerName: string }) {
       if (current && currentFranchise?.open && canProcessCheckoutUnit(current, currentFranchise)) queueInteraction({ type: "CHECKOUT", paymentMethod: currentFranchise.customersToday % 2 ? "card" : "cash" });
       else performed = false;
     }
-    if (id === "purchase") {
+    if (isPurchaseInteractionId(id)) {
+      // Each ring pays for the thing standing on it, so walking into it is the
+      // whole interaction: no selection step and no menu.
       const current = useMarketStore.getState().game;
-      const quote = current && campaignPurchaseQuotes(current).find((purchase) => purchase.id === selectedPurchaseId);
+      const purchaseId = purchaseIdFromInteraction(id);
+      const quote = current && campaignPurchaseQuotes(current).find((purchase) => purchase.id === purchaseId);
       if (current && quote?.available && current.balanceMinor > 0) queueInteraction({ type: "CONTRIBUTE_PURCHASE", purchaseId: quote.id });
       else performed = false;
     }
@@ -205,16 +252,6 @@ export function GameShell({ playerName }: { playerName: string }) {
       const lane = registerLane(id);
       if (currentFranchise && currentFranchise.registerCashMinor[lane] > 0) queueInteraction({ type: "COLLECT_REGISTER", lane });
       else performed = false;
-    }
-    if (id === "supplier") {
-      // Re-read the live authoritative snapshot at the sensor tick. The prop
-      // only controls presentation; this guard prevents stale renders from
-      // queueing repeated failures while the dock is empty or the basket full.
-      const current = useMarketStore.getState().game;
-      const currentFranchise = current?.franchises.find((item) => item.id === current.currentFranchiseId);
-      if (currentFranchise && canPickupWarehouse(currentFranchise.warehouse, currentFranchise.carry)) {
-        queueInteraction({ type: "PICKUP_WAREHOUSE" });
-      } else performed = false;
     }
     if (id === "warehouseReturn") {
       const current = useMarketStore.getState().game;
@@ -258,11 +295,11 @@ export function GameShell({ playerName }: { playerName: string }) {
         setLastInteraction(null);
       }, 1050);
     }
-    const cue: Partial<Record<InteractionId, FeedbackCue>> = { mill: "machine", bakery: "machine", chicken: "pickup", cow: "pickup", cheese: "machine", juice: "machine", checkout: "scanner", supplier: "pickup", door: "door" };
+    const cue: Partial<Record<InteractionId, FeedbackCue>> = { mill: "machine", bakery: "machine", chicken: "pickup", cow: "pickup", cheese: "machine", juice: "machine", checkout: "scanner", door: "door" };
     if (performed && visualEvents.some((event) => event.kind === "harvest")) feedbackBus.emit("harvest", { source: "player", actorId: "player" });
     else if (performed && visualEvents.some((event) => event.kind === "stock" || event.kind === "return")) feedbackBus.emit("stock", { source: "player", actorId: "player" });
     else if (cue[id] && performed) feedbackBus.emit(cue[id], { source: "player", actorId: "player" });
-  }, [queueInteraction, selectedPurchaseId]);
+  }, [queueInteraction]);
   // Product flights report each landing from inside the frame loop. Coalesce
   // them into one state update per animation frame so a twenty-unit burst
   // cannot re-render the shell and the furniture twenty times in a second.
@@ -310,11 +347,16 @@ export function GameShell({ playerName }: { playerName: string }) {
     </div>
     : null;
 
-  if (!game) return <><GameRuntime/><div className="game-loading"><div className="loading-shop">🏪</div><strong>Preparando tu mercado…</strong><span>Sincronizando caja, empleados e inventario</span></div>{notificationToast}</>;
+  if (!game) return <><GameRuntime/><LoadingCurtain title="Preparando la tienda…" detail="Sincronizando caja, empleados e inventario" />{notificationToast}</>;
   const franchise = game.franchises.find((item) => item.id === game.currentFranchiseId) ?? game.franchises[0];
-  const warehousePickupEnabled = canPickupWarehouse(franchise.warehouse, franchise.carry);
-  const selectedPurchase = campaignPurchaseQuotes(game).find((purchase) => purchase.id === selectedPurchaseId && purchase.available);
-  const purchaseLabel = selectedPurchase ? `${selectedPurchase.label}\nFaltan ${formatMoney(selectedPurchase.remainingMinor!, game)}` : undefined;
+  const purchaseQuotes = campaignPurchaseQuotes(game);
+  const purchaseMarkers: PurchaseMarker[] = purchaseQuotes.filter((purchase) => purchase.available).map((purchase) => ({
+    id: purchase.id,
+    label: purchase.label,
+    remainingLabel: formatMoney(purchase.remainingMinor ?? 0, game),
+    funded: purchase.costMinor ? purchase.contributedMinor / purchase.costMinor : 0,
+    highlighted: levelHint?.purchase === purchase.id,
+  }));
   const visualTransfer = deriveVisualTransferPresentation(franchise.carry, franchise.crops, franchise.shelves, transferEvents);
   const displayMinuteOfDay = Math.floor(game.minuteOfDay);
   const hour = `${String(Math.floor(displayMinuteOfDay / 60) % 24).padStart(2, "0")}:${String(displayMinuteOfDay % 60).padStart(2, "0")}`;
@@ -322,101 +364,48 @@ export function GameShell({ playerName }: { playerName: string }) {
   const avatarHat = HATS.find((item) => item.id === game.avatar.hat);
   const carriedProducts = carriedProductIds(visualTransfer.carry);
   const carriedQuantity = carryTotal(visualTransfer.carry);
-  const completedMissions = game.missions.filter((mission) => mission.completed).length;
-  const claimableMissions = game.missions.filter((mission) => mission.completed && !mission.claimed).length;
-  const objectiveTasks = franchise.purchases ? campaignPersonalTasks(game) : levelObjectiveTasks(game.level, game);
-  const contracts = campaignContracts(franchise);
-  const nextProject = !franchise.purchases && game.level < 30 ? franchise.buildProjects.find((candidate) => candidate.level === game.level + 1) : undefined;
-  const nextFunding = nextProject ? buildFundingQuote(game.balanceMinor, nextProject) : undefined;
-  const objectiveStepsCompleted = objectiveTasks.filter((task) => task.progress >= task.target).length;
-  const levelRequirementCount = objectiveTasks.length + contracts.length + (nextProject ? 1 : 0);
-  const levelRequirementsCompleted = objectiveStepsCompleted + contracts.filter((contract) => contract.completed).length + (nextProject?.completed ? 1 : 0);
-  const progressParts = [
-    ...objectiveTasks.map((task) => Math.min(1, task.progress / Math.max(task.target, Number.EPSILON))),
-    ...(nextProject ? [Math.min(1, nextProject.contributedMinor / Math.max(1, nextProject.costMinor))] : []),
-  ];
-  const levelProgress = franchise.purchases ? campaignMasteryProgress(franchise) : progressParts.length ? progressParts.reduce((total, value) => total + value, 0) / progressParts.length * 100 : 100;
   const levelLabel = `Nivel ${franchise.purchases ? campaignLevel(franchise) : game.level}`;
-  const nextUnlock = game.level < 30 ? LEVELS[game.level]?.unlock : undefined;
-  const saveLabel = status === "saving" ? "Guardando…"
-    : status === "offline" ? "Copia local"
-      : status === "dirty" ? "Cambios pendientes"
-        : status === "conflict" ? "Conflicto de guardado"
-          : status === "error" ? "Error al guardar"
-            : "Guardado";
-  const showSaveStatus = status === "offline" || status === "conflict" || status === "error";
 
   return (<>
     <GameRuntime />
     <main className="game-shell">
-      {worldReady && <div className={`world${sceneReady ? " scene-ready" : " scene-preparing"}`} aria-hidden={!sceneReady}><MarketScene purchaseLabel={purchaseLabel} registerCashMinor={franchise.registerCashMinor} avatar={game.avatar} carry={franchise.carry} visualCarry={visualTransfer.carry} warehousePickupEnabled={warehousePickupEnabled} checkoutLevel={franchise.checkoutLevel} playerSpeedTier={franchise.playerSpeedTier} customers={franchise.customers} checkoutTransactions={franchise.checkoutTransactions} returnsBin={franchise.returnsBin} returnedCartCount={franchise.returnedCartCount} crops={franchise.crops} visualCrops={visualTransfer.crops} productionMachines={franchise.productionMachines} shelves={franchise.shelves} visualShelves={visualTransfer.shelves} shelfTier={franchise.stationTiers["shelves-1"] ?? franchise.shelvesLevel} unlockedAreas={franchise.unlockedAreas} lightsOn={franchise.lightsOn} minuteOfDay={game.minuteOfDay} simulationTimeMs={game.simulationTimeMs} employees={franchise.employees} open={franchise.open} doorState={franchise.doorState} doorProgress={franchise.doorProgress} onPrompt={setPrompt} onInteract={interact} onDistance={recordDistance} onDoorPresence={setDoorPresence} onSceneReady={revealScene} lastInteraction={lastInteraction} transferEvents={transferEvents} onTransferProgress={updateTransferProgress} debug={debug} />{sceneReady && <GameInputSurface />}</div>}
-      {worldReady && !sceneReady && <div className="game-loading world-preparing" role="status" aria-live="polite"><div className="loading-shop">🏪</div><strong>Preparando la tienda…</strong><span>Cargando personajes y maquinaria sin interrupciones</span></div>}
+      {worldReady && <div className={`world${sceneReady ? " scene-ready" : " scene-preparing"}`} aria-hidden={!sceneReady}><MarketScene purchaseMarkers={purchaseMarkers} registerCashMinor={franchise.registerCashMinor} avatar={game.avatar} carry={franchise.carry} visualCarry={visualTransfer.carry} checkoutLevel={franchise.checkoutLevel} playerSpeedTier={franchise.playerSpeedTier} customers={franchise.customers} checkoutTransactions={franchise.checkoutTransactions} returnsBin={franchise.returnsBin} returnedCartCount={franchise.returnedCartCount} crops={franchise.crops} visualCrops={visualTransfer.crops} productionMachines={franchise.productionMachines} shelves={franchise.shelves} visualShelves={visualTransfer.shelves} shelfTier={franchise.stationTiers["shelves-1"] ?? franchise.shelvesLevel} unlockedAreas={franchise.unlockedAreas} lightsOn={franchise.lightsOn} minuteOfDay={game.minuteOfDay} simulationTimeMs={game.simulationTimeMs} employees={franchise.employees} open={franchise.open} doorState={franchise.doorState} doorProgress={franchise.doorProgress} onInteract={interact} onDistance={recordDistance} onDoorPresence={setDoorPresence} onSceneReady={revealScene} lastInteraction={lastInteraction} transferEvents={transferEvents} onTransferProgress={updateTransferProgress} debug={debug} />{sceneReady && <GameInputSurface />}</div>}
+      {worldReady && !sceneReady && <LoadingCurtain title="Preparando la tienda…" detail="Cargando personajes y maquinaria sin interrupciones" />}
       <header className="hud-top glass-panel" data-game-ui-interactive="true" aria-label="Estado de la tienda">
         <div className="hud-brand"><span><GameIcon name="store" /></span><div><strong>{franchise.name}</strong><small>{franchise.city}</small></div></div>
-        <div className="hud-stat money"><small>Dinero disponible</small><strong>{formatMoney(game.balanceMinor, game)}</strong><small>Pendiente en cajas: {formatMoney(franchise.registerCashMinor[0] + franchise.registerCashMinor[1], game)}</small></div>
-        <div className="hud-stat earnings"><small>Ventas hoy</small><strong>{formatMoney(franchise.revenueTodayMinor, game)}</strong><small>Día {game.day} · {hour}</small></div>
-        <div className="hud-stat level"><small>{levelLabel}</small><div className="xp-track" role="progressbar" aria-label={`Progreso real de ${levelLabel}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(Math.min(100, levelProgress))}><i style={{ width: `${Math.min(100, levelProgress)}%` }}/></div></div>
+        {/* Only the number: the till total and the daily sales moved out of
+            the bar, where they were competing with the money that matters. */}
+        <div className="hud-stat money"><strong>{formatMoney(game.balanceMinor, game)}</strong></div>
+        <div className="hud-stat clock"><strong>{hour}</strong></div>
+        <div className="hud-stat level"><strong>{levelLabel}</strong></div>
         <button className={`store-status ${franchise.open ? "open" : "closed"}`} disabled={dayClosing} aria-pressed={franchise.open} aria-label={dayClosing ? "Cierre de caja en curso" : franchise.open ? "Cerrar el supermercado y terminar el día" : "Abrir el supermercado"} onClick={() => dispatch({ type: "TOGGLE_STORE" })}><i/>{dayClosing ? "CERRANDO" : franchise.open ? "ABIERTO" : "CERRADO"}</button>
+        <SaveBadge status={status} lastSavedAt={game.lastSavedAt} onSave={() => void saveGame()} />
       </header>
 
-      <details className={`mission-card glass-panel${claimableMissions ? " has-reward" : ""}`} data-game-ui-interactive="true">
-        <summary className="panel-heading">
-          <span><GameIcon name={claimableMissions ? "gift" : "target"} /></span>
-          <div><strong>{franchise.purchases ? "Compras y expansión" : game.level >= 30 ? "Nivel máximo alcanzado" : `Progreso al nivel ${game.level + 1}`}</strong><small>{levelRequirementsCompleted}/{levelRequirementCount} requisitos · {!isCampaignGame(game) && <><span>Objetivos del día</span> {completedMissions}/{game.missions.length}</>}</small></div>
-          <b className="mission-chevron"><GameIcon name="chevron" /></b>
-        </summary>
-        <div className="mission-list">
-          {franchise.purchases && campaignPurchaseQuotes(game).filter((purchase) => purchase.available).map((purchase) => <LevelRequirement key={purchase.id}
-            task={{ id: purchase.id, label: purchase.label, progress: purchase.contributedMinor, target: purchase.costMinor!, unit: "money" }} game={game}
-            action={{ label: "Señalar en el mundo", disabled: false, onClick: () => setSelectedPurchaseId(purchase.id) }} />)}
-          <div className="mission-section-title"><div><strong>{franchise.purchases ? "TU TRABAJO PERSONAL" : game.level >= 30 ? "PROGRESIÓN COMPLETADA" : `PARA SUBIR AL NIVEL ${game.level + 1}`}</strong>{!franchise.purchases && nextUnlock && <small>Desbloqueas: {nextUnlock}</small>}</div></div>
-          {objectiveTasks.map((task) => <LevelRequirement key={task.id} task={task} />)}
-          {contracts.length > 0 && <div className="mission-section-title"><div><strong>ENCARGOS PERSONALES</strong><small>Reúne los productos en tu cesta y entrega aquí. Se consumen una vez; no dan bonos de dinero.</small></div></div>}
-          {contracts.map((contract) => <LevelRequirement key={contract.id}
-            task={{ id: contract.id, label: `${contract.label}: ${contract.products.map((product) => `1 ${PRODUCTS[product].name}`).join(" + ")}`, progress: contract.completed ? 1 : 0, target: 1, unit: "count" }}
-            action={contract.completed ? undefined : { label: !contract.previousDone ? "Completa el encargo anterior" : !contract.unlocked ? "Desbloquea sus productos" : contract.ready ? "Entregar cesta" : "Reúne los 3 productos en tu cesta", disabled: !contract.ready, onClick: () => dispatch({ type: "DELIVER_CONTRACT", contractId: contract.id }) }} />)}
-          {nextProject && nextFunding && <LevelRequirement
-            task={{ id: nextProject.id, label: `Financia la ampliación al nivel ${nextProject.level}`, progress: nextFunding.contributedMinor, target: nextFunding.costMinor, unit: "money" }}
-            game={game}
-            action={nextFunding.completed ? undefined : {
-              disabled: nextFunding.contributionMinor <= 0,
-              label: nextFunding.contributionMinor <= 0
-                ? "Necesitas dinero en caja"
-                : `${nextFunding.contributionMinor < nextFunding.remainingMinor ? "Aportar" : "Financiar"} ${formatMoney(nextFunding.contributionMinor, game)}`,
-              onClick: () => dispatch({ type: "CONTRIBUTE_BUILD", amountMinor: nextFunding.contributionMinor }),
-            }}
-          />}
-          {!isCampaignGame(game) && <div className="mission-section-title daily"><div><strong>BONOS DEL DÍA</strong><small>No bloquean tu avance de nivel</small></div>{claimableMissions > 0 && <b>{claimableMissions} por cobrar</b>}</div>}
-          {game.missions.map((mission) => {
-            const missionProgress = Math.min(100, mission.progress / mission.target * 100);
-            const canClaim = mission.completed && !mission.claimed;
-            return <button key={mission.id} className={`mission ${mission.completed ? "done" : ""}`} disabled={!canClaim} aria-label={canClaim ? `${mission.label}. Cobrar recompensa` : mission.label} onClick={() => canClaim && dispatch({ type: "CLAIM_MISSION", missionId: mission.id })}>
-              <span><GameIcon name={mission.claimed ? "check" : canClaim ? "gift" : "circle"} /></span><div><strong>{mission.label}</strong><div className="mission-track" role="progressbar" aria-label={`Progreso de ${mission.label}`} aria-valuemin={0} aria-valuemax={mission.target} aria-valuenow={mission.progress}><i style={{ width: `${missionProgress}%` }}/></div><small>{mission.progress}/{mission.target} · {mission.claimed ? "Cobrada" : canClaim ? "Toca para cobrar" : formatMoney(mission.rewardMinor, game)}</small></div>
-            </button>;
-          })}
-        </div>
-      </details>
+      {levelHint && <div className="level-hint glass-panel" data-game-ui-interactive="true" role="status" aria-live="polite">
+        <span className="level-hint-pin" aria-hidden="true"><GameIcon name="target" /></span>
+        <div><small>NIVEL {levelHint.level} · YA PUEDES DESBLOQUEAR</small><strong>{levelHint.label}</strong><p>Busca el círculo dorado en su sitio y entra en él con dinero recogido.</p></div>
+        <button aria-label="Entendido" onClick={() => setLevelHint(null)}>×</button>
+      </div>}
+
 
       {game.level === 1 && game.tutorialStep > 0 && <LevelOneGuide game={game} franchise={franchise} />}
 
       <nav className="quick-menu glass-panel" data-game-ui-interactive="true" aria-label="Menú del supermercado">
         <QuickButton icon="inventory" label="Inventario" onClick={() => setPanel("stock")} />
-        <QuickButton icon="suppliers" label="Proveedores" onClick={() => setPanel("suppliers")} />
+        <QuickButton icon="suppliers" label="Pedidos" onClick={() => setPanel("orders")} />
         <QuickButton icon="team" label="Equipo" onClick={() => setPanel("team")} />
         <QuickButton icon="map" label="Franquicias" onClick={() => setPanel("map")} />
         <QuickButton icon="finance" label="Finanzas" onClick={() => setPanel("finance")} />
-        <QuickButton icon="build" label="Construir" onClick={() => setPanel("build")} />
         <QuickButton icon="avatar" label="Avatar" onClick={() => setPanel("avatar")} />
         <QuickButton icon="help" label="Cómo jugar" onClick={() => setPanel("help")} />
       </nav>
 
       <footer className="game-bottom" data-game-ui-interactive="true" aria-label="Estado del jugador">
-        <div className={`save-chip ${status}`} data-visible={showSaveStatus} role="status" aria-live="polite" aria-hidden={!showSaveStatus}><i/>{saveLabel}</div>
         {carriedQuantity > 0 && <div className="carry-chip" role="status" aria-label={`Cesta: ${carriedQuantity} de ${visualTransfer.carry.capacity}. ${carriedProducts.map((productId) => PRODUCTS[productId].name).join(", ")}`}><span className="carry-preview" aria-hidden="true">{carriedProducts.slice(0, 3).map((productId) => <i key={productId}>{PRODUCTS[productId].emoji}</i>)}</span><div><small>Cesta · {carriedProducts.length} {carriedProducts.length === 1 ? "producto" : "productos"}</small><strong>{carriedQuantity}/{visualTransfer.carry.capacity}</strong></div></div>}
         <div className="player-chip"><span title={avatarHat ? `Gorro ${avatarHat.name}` : "Sin gorro"}>{avatarHat?.emoji ?? "👤"}</span><div><strong>{playerName}</strong><small>Reputación {game.reputation}</small></div><button aria-label="Guardar ahora" title="Guardar ahora" onClick={() => void saveGame()}><GameIcon name="cloud" /></button></div>
       </footer>
 
-      {prompt && <div className="interaction-prompt" role="status" aria-live="polite"><span className="prompt-signal" aria-hidden="true"><i /></span><strong>{prompt.label}</strong><small>{prompt.id === "door" ? "Sensor automático de la puerta" : "Actividad automática por proximidad"}</small></div>}
       {notificationToast}
       {debug && <aside className="debug-overlay" data-game-ui-interactive="true"><strong>QA 3D EN VIVO</strong><span>FPS {metrics?.fps ?? "—"} · frame {metrics?.averageFrameMs ?? "—"} ms · p95 {metrics?.p95FrameMs ?? "—"} ms</span><span>Draw calls {metrics?.drawCalls ?? "—"} · triángulos {metrics?.triangles.toLocaleString() ?? "—"}</span><span>Geometrías {metrics?.geometries ?? "—"} · texturas {metrics?.textures ?? "—"} · programas {metrics?.programs ?? "—"}</span><span>Puntos {metrics?.points ?? "—"} · líneas {metrics?.lines ?? "—"}</span><span>Clientes {franchise.customers.length} · rutas {franchise.customers.filter((customer) => customer.path.length > customer.pathIndex).length}</span><span>NavMesh rev. {franchise.structureRevision} · colisiones/sensores visibles</span></aside>}
       {game.tutorialStep === 0 && <SetupPanel campaign={isCampaignGame(game)} gameCountry={game.countryCode} gameAvatar={game.avatar} onComplete={(avatar, countryCode) => {
@@ -424,7 +413,8 @@ export function GameShell({ playerName }: { playerName: string }) {
         dispatch({ type: "SET_COUNTRY", countryCode });
         void saveGame();
       }} />}
-      {panel && <ManagementPanel panel={panel} close={() => setPanel(null)} selectPurchase={(id) => { setSelectedPurchaseId(id); setPanel(null); }} />}
+      {panel && <ManagementPanel panel={panel} close={() => setPanel(null)} />}
+      {completedPurchase && <MissionComplete label={completedPurchase.label} onDone={() => setCompletedPurchase(null)} />}
     </main>
   </>
   );
@@ -457,30 +447,6 @@ function GameIcon({ name }: { name: GameIconName }) {
 
 function QuickButton({ icon, label, onClick }: { icon: GameIconName; label: string; onClick: () => void }) {
   return <button aria-label={label} title={label} onClick={onClick}><span><GameIcon name={icon} /></span><small>{label}</small></button>;
-}
-
-type LevelRequirementTask = LevelObjectiveTask | { id: string; label: string; progress: number; target: number; unit: "money" };
-
-function LevelRequirement({ task, game, action }: {
-  task: LevelRequirementTask;
-  game?: GameState;
-  action?: { disabled: boolean; label: string; onClick: () => void };
-}) {
-  const completed = task.progress >= task.target;
-  const progress = Math.min(100, task.progress / Math.max(task.target, Number.EPSILON) * 100);
-  const value = task.unit === "money" && game
-    ? `${formatMoney(Math.min(task.progress, task.target), game)} aportados · faltan ${formatMoney(Math.max(0, task.target - task.progress), game)}`
-    : task.unit === "percent"
-      ? `${Math.round(Math.min(task.progress, task.target) * 100)} % / ${Math.round(task.target * 100)} %`
-      : task.unit === "rating"
-        ? `${Math.min(task.progress, task.target).toFixed(2)} / ${task.target.toFixed(2)}`
-        : task.unit === "distance"
-          ? `${Math.floor(Math.min(task.progress, task.target))} / ${task.target} m`
-          : `${Math.floor(Math.min(task.progress, task.target))} / ${task.target}`;
-  return <div className={`mission level-requirement ${completed ? "done" : ""}`}>
-    <span><GameIcon name={completed ? "check" : "circle"} /></span>
-    <div><strong>{task.label}</strong><div className="mission-track" role="progressbar" aria-label={`Progreso de ${task.label}`} aria-valuemin={0} aria-valuemax={task.target} aria-valuenow={Math.min(task.progress, task.target)}><i style={{ width: `${progress}%` }} /></div><small>{completed ? "Completado" : value}</small>{task.unit === "money" && !completed && <small className="funding-explanation">Las ventas llenan tu caja; la obra avanza al confirmar este aporte.</small>}{action && <button className="level-funding-action" disabled={action.disabled} onClick={action.onClick}>{action.label}</button>}</div>
-  </div>;
 }
 
 function LevelOneGuide({ game, franchise }: { game: GameState; franchise: FranchiseState }) {
@@ -521,7 +487,7 @@ function LevelOneGuide({ game, franchise }: { game: GameState; franchise: Franch
     progress = waiting ? 75 : 35;
   } else {
     activeStep = 5; eyebrow = "NIVEL 1 COMPLETADO"; title = "Tu primera venta está lista";
-    description = "Has cerrado el ciclo campo → estante → cliente → caja. Financia la ampliación cuando quieras avanzar.";
+    description = "Has cerrado el ciclo campo → estante → cliente → caja. Recoge el dinero de la caja y entra en un círculo dorado para comprar tu siguiente mejora.";
     progress = 100;
   }
 
@@ -543,22 +509,72 @@ function SetupPanel({ campaign, gameCountry, gameAvatar, onComplete }: { campaig
   return <div className="modal-backdrop"><section className="setup-panel setup-panel-expanded"><div className="setup-copy"><span className="eyebrow">BIENVENIDO, FUNDADOR</span><h2>Crea tu empresa</h2><p>{campaign ? "El país determina la moneda y la escala de precios. Sin impuestos ni cargos diarios en la campaña." : "El país determina la moneda, la fiscalidad y los costes."} Después no podrá cambiarse en esta partida.</p><div className="country-grid">{Object.values(COUNTRIES).map((item) => <button key={item.code} className={country === item.code ? "selected" : ""} onClick={() => setCountry(item.code)}><strong>{flag(item.code)} {item.name}</strong><small>{item.currency}{!campaign && <> · renta {Math.round(item.corporateTaxRate * 1000) / 10}%</>}</small></button>)}</div></div><div className="avatar-setup"><AvatarCustomizer avatar={avatar} compact onChange={(change) => setAvatar((current) => ({ ...current, ...change }))} /><button className="primary-button" onClick={() => onComplete(avatar, country)}>Abrir mi primer Mini Market</button></div></section></div>;
 }
 
-function ManagementPanel({ panel, close, selectPurchase }: { panel: Exclude<Panel, null>; close: () => void; selectPurchase: (id: OpeningPurchaseId) => void }) {
+function ManagementPanel({ panel, close }: { panel: Exclude<Panel, null>; close: () => void }) {
   const game = useMarketStore((state) => state.game)!; const dispatch = useMarketStore((state) => state.dispatch); const franchise = game.franchises.find((item) => item.id === game.currentFranchiseId)!;
   const dayClosing = businessDayIsClosing(game.minuteOfDay);
-  const project = franchise.buildProjects.find((candidate) => candidate.level === game.level + 1);
   const supplierUnlocked = (id: string) => (Object.keys(PRODUCTS) as ProductId[]).some((product) => PRODUCTS[product].supplier === id && canOrderProduct(game, product));
-  const projectFunding = project ? buildFundingQuote(game.balanceMinor, project) : null;
-  const stationQuote = upgradeQuote(game, "station");
-  const speedQuote = upgradeQuote(game, "player-speed");
-  const capacityQuote = upgradeQuote(game, "player-capacity");
-  const employeeQuote = upgradeQuote(game, "employee");
-  const title = { stock: "Inventario y estanterías", suppliers: "Central de proveedores", team: "Equipo y delegación", map: "Mapa de franquicias", finance: "Dirección financiera", build: "Obras y mobiliario", avatar: "Vestuario del fundador", help: "Cómo jugar" }[panel];
+  const title = { stock: "Inventario y estanterías", orders: "Pedidos", team: "Equipo y mejoras", map: "Mapa de franquicias", finance: "Dirección financiera", avatar: "Vestuario del fundador", help: "Cómo jugar" }[panel];
+  const contracts = campaignContracts(franchise);
+  const personalTasks = franchise.purchases ? campaignPersonalTasks(game) : levelObjectiveTasks(game.level, game);
+  const warehouseProducts = (Object.keys(PRODUCTS) as ProductId[]).filter((id) => franchise.warehouse[id] > 0);
+  const freeCarry = Math.max(0, franchise.carry.capacity - carryTotal(franchise.carry));
   return <div className="management-wrap" onMouseDown={(event) => event.target === event.currentTarget && close()}><section className="management-panel"><header><div><span className="eyebrow">MINI MARKET OS</span><h2>{title}</h2></div><button className="close-button" onClick={close}>×</button></header>
     <div className="management-body">
-      {panel === "stock" && <div className="product-grid">{(Object.keys(PRODUCTS) as ProductId[]).map((id) => <article className="product-card" key={id}><span>{PRODUCTS[id].emoji}</span><div><strong>{PRODUCTS[id].name}</strong><small>Almacén {franchise.warehouse[id]} · Tienda {franchise.shelves[id]}</small></div><b>Repón acercándote al estante con la carga</b></article>)}</div>}
-      {panel === "suppliers" && <div className="supplier-list">{SUPPLIERS.map((supplier) => <article key={supplier.id} className={!supplierUnlocked(supplier.id) ? "locked" : ""}><div className="supplier-head"><div><strong>{supplier.name}</strong><small>{supplier.leadMinutes} min · descuento {Math.round(supplier.discount * 100)}%</small></div>{!supplierUnlocked(supplier.id) && <b>{franchise.purchases ? "Desbloquea su cadena" : `Nivel ${supplier.unlockLevel}`}</b>}</div><div className="supplier-products">{(Object.keys(PRODUCTS) as ProductId[]).filter((id) => PRODUCTS[id].supplier === supplier.id).map((id) => <button key={id} disabled={!canOrderProduct(game, id)} onClick={() => dispatch({ type: "ORDER", supplierId: supplier.id, productId: id, quantity: 10 })}><span>{PRODUCTS[id].emoji}</span><strong>{PRODUCTS[id].name}</strong><small>10 × {formatMoney(PRODUCTS[id].wholesaleMinor * countryMoneyScale(game.countryCode) * (1 - supplier.discount), game)}</small></button>)}</div></article>)}</div>}
-      {panel === "team" && <div className="team-grid">{(Object.keys(ROLE_INFO) as EmployeeRole[]).map((role) => { const info = ROLE_INFO[role]; const available = canHireEmployee(game, role); const hired = franchise.employees.filter((employee) => employee.role === role); const { salaryMinor, signingCostMinor } = employeeHiringQuote(role, game.countryCode); return <article key={role} className={!available ? "locked" : ""}><span className="role-icon">{roleIcon(role)}</span><div><strong>{info.name}</strong><p>{info.description}</p><small>{hired.length ? `${hired.map((item) => `${item.name} T${item.level}`).join(", ")} · ` : ""}{franchise.purchases ? "Contratación de pago único · sin nómina diaria" : `Nómina ${formatMoney(salaryMinor, game)}/día`}</small></div>{!available ? <b>{franchise.purchases ? `Cupos ${hired.length}/${campaignEmployeeLimit(franchise, role)} · según compras` : `Nivel ${info.unlockLevel}`}</b> : <button disabled={game.balanceMinor < signingCostMinor} onClick={() => dispatch({ type: "HIRE", role })}>Contratar · {formatMoney(signingCostMinor, game)}</button>}</article>; })}</div>}
+      {/* Inventory is a board of product cards: the picture, the name and the
+          two numbers. Where to restock is taught by the world, not by a line
+          of copy repeated on every card. */}
+      {panel === "stock" && <div className="stock-card-grid">{(Object.keys(PRODUCTS) as ProductId[]).map((id) => <article className="stock-card" key={id}>
+        <span className="stock-card-art" aria-hidden="true">{PRODUCTS[id].emoji}</span>
+        <strong>{PRODUCTS[id].name}</strong>
+        <div className="stock-card-counts">
+          <div><small>ALMACÉN</small><b>{franchise.warehouse[id]}</b></div>
+          <div><small>TIENDA</small><b>{franchise.shelves[id]}</b></div>
+        </div>
+      </article>)}</div>}
+
+      {panel === "orders" && <div className="orders-layout">
+        <section className="orders-block">
+          <h3>Encargos de clientes</h3>
+          {contracts.length === 0 && <p className="orders-empty">Todavía no hay encargos en este local.</p>}
+          {contracts.map((contract) => <article key={contract.id} className={contract.completed ? "done" : ""}>
+            <div><strong>{contract.label}</strong><small>{contract.products.map((product) => `1 ${PRODUCTS[product].name}`).join(" + ")}</small></div>
+            {contract.completed
+              ? <b>Entregado</b>
+              : <button disabled={!contract.ready} onClick={() => dispatch({ type: "DELIVER_CONTRACT", contractId: contract.id })}>{!contract.previousDone ? "Completa el anterior" : !contract.unlocked ? "Desbloquea sus productos" : contract.ready ? "Entregar cesta" : "Reúne los 3 en tu cesta"}</button>}
+          </article>)}
+        </section>
+
+        <section className="orders-block">
+          <h3>Tu trabajo personal</h3>
+          {personalTasks.map((task) => <article key={task.id} className={task.progress >= task.target ? "done" : ""}>
+            <div><strong>{task.label}</strong><small>{Math.floor(Math.min(task.progress, task.target))} / {task.target}</small></div>
+            <b>{task.progress >= task.target ? "✓" : `${Math.round(Math.min(100, task.progress / Math.max(task.target, 1) * 100))} %`}</b>
+          </article>)}
+        </section>
+
+        {/* Warehouse goods are taken here, deliberately: walking past the dock
+            used to drop produce into the basket that nobody asked for. */}
+        <section className="orders-block">
+          <h3>Retirar del almacén</h3>
+          <p className="orders-empty">Espacio libre en tu cesta: {freeCarry} de {franchise.carry.capacity}.</p>
+          <div className="warehouse-picks">{warehouseProducts.map((id) => <button key={id} disabled={freeCarry <= 0} onClick={() => dispatch({ type: "PICKUP_WAREHOUSE", productId: id, quantity: Math.min(freeCarry, franchise.warehouse[id]) })}>
+            <span aria-hidden="true">{PRODUCTS[id].emoji}</span><strong>{PRODUCTS[id].name}</strong><small>{franchise.warehouse[id]} en almacén</small>
+          </button>)}
+          {warehouseProducts.length === 0 && <p className="orders-empty">El almacén está vacío.</p>}</div>
+        </section>
+
+        <section className="orders-block">
+          <h3>Pedidos a proveedores</h3>
+          {game.pendingOrders.length > 0 && <ul className="pending-orders">{game.pendingOrders.map((order) => <li key={order.id}><span aria-hidden="true">{PRODUCTS[order.productId].emoji}</span><strong>{order.quantity} × {PRODUCTS[order.productId].name}</strong><small>En camino</small></li>)}</ul>}
+          <div className="supplier-list">{SUPPLIERS.map((supplier) => <article key={supplier.id} className={!supplierUnlocked(supplier.id) ? "locked" : ""}>
+            <div className="supplier-head"><div><strong>{supplier.name}</strong><small>{supplier.leadMinutes} min · descuento {Math.round(supplier.discount * 100)}%</small></div>{!supplierUnlocked(supplier.id) && <b>{franchise.purchases ? "Desbloquea su cadena" : `Nivel ${supplier.unlockLevel}`}</b>}</div>
+            <div className="supplier-products">{(Object.keys(PRODUCTS) as ProductId[]).filter((id) => PRODUCTS[id].supplier === supplier.id).map((id) => <button key={id} disabled={!canOrderProduct(game, id)} onClick={() => dispatch({ type: "ORDER", supplierId: supplier.id, productId: id, quantity: 10 })}><span>{PRODUCTS[id].emoji}</span><strong>{PRODUCTS[id].name}</strong><small>10 × {formatMoney(PRODUCTS[id].wholesaleMinor * countryMoneyScale(game.countryCode) * (1 - supplier.discount), game)}</small></button>)}</div>
+          </article>)}</div>
+        </section>
+      </div>}
+
+      {panel === "team" && <TeamPanel />}
+
       {panel === "map" && <div className="franchise-map"><div className="map-line"/>{game.franchises.map((item, index) => {
         const campaign = isCampaignGame(game);
         const quote = campaignExpansionQuote(game, item.id);
@@ -576,29 +592,91 @@ function ManagementPanel({ panel, close, selectPurchase }: { panel: Exclude<Pane
         </article>;
       })}</div>}
       {panel === "finance" && <FinancePanel />}
-      {panel === "build" && <div className="upgrade-grid">
-        {campaignPurchaseQuotes(game).map((purchase) => <article key={purchase.id}><span>🏗️</span><div><strong>{purchase.label}</strong><p>{purchase.completed ? "Ya disponible en tu tienda" : purchase.available ? `Faltan ${formatMoney(purchase.remainingMinor!, game)}. Selecciona y entra en el círculo dorado junto a la entrada para aportar.` : purchase.dependenciesMet ? "Completa el trabajo personal indicado para abrir esta compra." : "Completa antes las compras de esta cadena."}</p>{!purchase.completed && purchase.dependenciesMet && purchase.tasks.map((task) => <p key={task.id}>{task.completed ? "✓" : "○"} {task.label}: {task.progress}/{task.target}</p>)}{purchase.contributedMinor > 0 && <small>Aportado: {formatMoney(purchase.contributedMinor, game)}</small>}</div>{purchase.available ? <button onClick={() => selectPurchase(purchase.id)}>Señalar compra</button> : <b>{purchase.completed ? "Completada" : "Bloqueada"}</b>}</article>)}
-        {!franchise.purchases && <article><span>🏗️</span><div><strong>Ampliación de nivel</strong><p>{buildProgress(franchise, game.level)}. Las ventas aumentan la caja; la obra avanza al confirmar un aporte y se inaugura al completar también el objetivo.</p></div>{project && projectFunding && !projectFunding.completed ? <button disabled={projectFunding.contributionMinor <= 0} onClick={() => dispatch({ type: "CONTRIBUTE_BUILD", amountMinor: projectFunding.contributionMinor })}>{projectFunding.contributionMinor <= 0 ? "Sin caja disponible" : `${projectFunding.contributionMinor < projectFunding.remainingMinor ? "Aportar" : "Financiar"} · ${formatMoney(projectFunding.contributionMinor, game)}`}</button> : <b>{projectFunding?.completed ? "Financiada" : "Rango máximo"}</b>}</article>}
-        <UpgradePurchase icon="⚙️" title="Estación prioritaria" description="Mejora primero la estación desbloqueada con menor nivel." quote={stationQuote} game={game} onBuy={() => stationQuote && dispatch({ type: "CONTRIBUTE_UPGRADE", upgrade: "station", amountMinor: stationQuote.remainingMinor })} />
-        <UpgradePurchase icon="🏃" title="Velocidad del vendedor" description={`Movimiento actual T${franchise.playerSpeedTier}.`} quote={speedQuote} lockedMessage={game.level < 3 ? "Se desbloquea en nivel 3" : "Velocidad máxima alcanzada"} game={game} onBuy={() => speedQuote && dispatch({ type: "CONTRIBUTE_UPGRADE", upgrade: "player-speed", amountMinor: speedQuote.remainingMinor })} />
-        <UpgradePurchase icon="🧺" title="Capacidad de cesta" description={`Carga actual: ${franchise.carry.capacity} unidades mezcladas.`} quote={capacityQuote} game={game} onBuy={() => capacityQuote && dispatch({ type: "CONTRIBUTE_UPGRADE", upgrade: "player-capacity", amountMinor: capacityQuote.remainingMinor })} />
-        <UpgradePurchase icon="👥" title="Formación del equipo" description="Contrata el siguiente puesto o forma al empleado de menor nivel." quote={employeeQuote} game={game} onBuy={() => employeeQuote && dispatch({ type: "CONTRIBUTE_UPGRADE", upgrade: "employee", amountMinor: employeeQuote.remainingMinor })} />
-        <article><span>📜</span><div><strong>Licencia comercial</strong><p>{franchise.purchases ? "Permanente · incluida en tu supermercado" : `${franchise.licenseDaysLeft} días restantes. Obligatoria para abrir.`}</p></div>{!franchise.purchases && <button onClick={() => dispatch({ type: "BUY_LICENSE" })}>Renovar 14 días</button>}</article>
-      </div>}
       {panel === "avatar" && <AvatarCustomizer avatar={game.avatar} onChange={(change) => dispatch({ type: "SET_AVATAR", ...change })} />}
-      {panel === "help" && <div className="help-grid"><article><kbd>ARRASTRA</kbd><kbd>WASD</kbd><strong>Moverse</strong><p>Arrastra desde cualquier punto libre con ratón, dedo o lápiz. El teclado sigue disponible.</p></article><article><kbd>🧺</kbd><strong>Cosecha magnética</strong><p>Cruza un bancal maduro sin detenerte. Cada verdura vuela a la cesta y la parcela vuelve a crecer automáticamente.</p></article><article><kbd>◎</kbd><strong>Trabajo por proximidad</strong><p>Acércate al mueble correcto para cargar máquinas, colocar mercancía o atender la caja.</p></article><article><kbd>📦</kbd><strong>Pedidos y gestión</strong><p>Compra a proveedores, contrata personal y mejora mobiliario desde este tablet; no hay botones de compra en el suelo.</p></article><article><kbd>🎮</kbd><strong>Mando</strong><p>El stick izquierdo controla el movimiento; las actividades se activan por proximidad.</p></article><div className="tutorial-flow"><b>1. Cosecha</b><span>→</span><b>2. Surte</b><span>→</span><b>3. Abre</b><span>→</span><b>4. Atiende</b><span>→</span><b>5. Crece</b></div></div>}
+      {panel === "help" && <div className="help-grid"><article><kbd>ARRASTRA</kbd><kbd>WASD</kbd><strong>Moverse</strong><p>Arrastra desde cualquier punto libre con ratón, dedo o lápiz. El teclado sigue disponible.</p></article><article><kbd>🧺</kbd><strong>Cosecha magnética</strong><p>Cruza un bancal maduro sin detenerte. Cada verdura vuela a la cesta y la parcela vuelve a crecer automáticamente.</p></article><article><kbd>◎</kbd><strong>El elemento es el imán</strong><p>Acércate a cualquier lado de la máquina, el corral o el expositor: no hay casillas exactas ni avisos que pulsar.</p></article><article><kbd>🟡</kbd><strong>Círculos dorados</strong><p>Cada compra se paga en el sitio donde va a estar. Entra en su círculo con dinero recogido de la caja.</p></article><article><kbd>📦</kbd><strong>Pedidos</strong><p>Encargos, trabajo personal, retirada del almacén y compras a proveedores viven en el panel de Pedidos.</p></article><div className="tutorial-flow"><b>1. Cosecha</b><span>→</span><b>2. Surte</b><span>→</span><b>3. Abre</b><span>→</span><b>4. Atiende</b><span>→</span><b>5. Crece</b></div></div>}
     </div>
     <footer className="panel-footer"><span>Empresa: {COUNTRIES[game.countryCode].name} · {game.currency}</span><div className="panel-actions"><button className="danger-soft" disabled={!franchise.open || dayClosing} onClick={() => dispatch({ type: "CLOSE_DAY" })}>Cerrar tienda y jornada</button><button className="danger-soft" onClick={async () => { localStorage.removeItem("mini-market-offline-player-v1"); await clearRecoverySnapshot(); navigator.serviceWorker?.controller?.postMessage({ type: "CLEAR_PRIVATE_CACHE" }); await authClient.signOut(); window.location.reload(); }}>Cerrar sesión</button></div></footer>
   </section></div>;
 }
 
-function UpgradePurchase({ icon, title, description, quote, lockedMessage = "Aún no disponible", game, onBuy }: { icon: string; title: string; description: string; quote: ReturnType<typeof upgradeQuote>; lockedMessage?: string; game: GameState; onBuy: () => void }) {
-  return <article className={quote ? "" : "locked"}>
-    <span>{icon}</span>
-    <div><strong>{title}</strong><p>{quote ? `${quote.label} · T${quote.currentTier} → T${quote.nextTier}. ${description}` : description}</p>{quote && quote.contributedMinor > 0 && <small>{formatMoney(quote.contributedMinor, game)} ya financiados</small>}</div>
-    {quote ? <button disabled={game.balanceMinor < quote.remainingMinor} onClick={onBuy}>{game.balanceMinor < quote.remainingMinor ? `Faltan ${formatMoney(quote.remainingMinor - game.balanceMinor, game)}` : `Mejorar · ${formatMoney(quote.remainingMinor, game)}`}</button> : <b>{lockedMessage}</b>}
-  </article>;
+/**
+ * The roster: one card per person, animal, machine and crop bed, each with the
+ * same four upgrade steps. Hiring and staffing quotas are gone from here —
+ * staff arrives with its purchase or its level, so this panel is only about
+ * making what you already own faster and bigger.
+ */
+function TeamPanel() {
+  const game = useMarketStore((state) => state.game)!;
+  const dispatch = useMarketStore((state) => state.dispatch);
+  const franchise = game.franchises.find((item) => item.id === game.currentFranchiseId)!;
+  const entries = rosterEntries(franchise, countryMoneyScale(game.countryCode));
+  const bodies: AvatarConfig["body"][] = ["adult-woman", "adult-man", "adult-woman", "adult-man"];
+  const hairs: AvatarConfig["hair"][] = ["ponytail", "fade", "bun", "waves"];
+  const employeeOrdinal = new Map(entries.filter((entry) => entry.kind === "employee").map((entry, index) => [entry.id, index]));
+  return <AvatarGallery><div className="roster-grid">
+    {entries.map((entry) => {
+      const portraitIndex = employeeOrdinal.get(entry.id) ?? 0;
+      const portrait = entry.kind === "player"
+        ? { ...game.avatar }
+        : entry.kind === "employee"
+          ? { ...game.avatar, body: bodies[portraitIndex % bodies.length], hair: hairs[portraitIndex % hairs.length], hat: "none" as const }
+          : null;
+      return <article key={entry.id} className={`roster-card ${entry.kind}`}>
+        <div className="roster-portrait">
+          {portrait
+            ? <AvatarThumbnail alt={entry.label} request={{ id: `roster:${entry.id}:${portrait.body}:${portrait.hair}`, framing: "head", avatar: portrait }} />
+            : <span className="roster-emoji" aria-hidden="true">{entry.icon}</span>}
+        </div>
+        <strong>{entry.label}</strong>
+        <small>{entry.detail}</small>
+        <p>Velocidad ×{entry.speed.toFixed(2)} · capacidad ×{entry.capacity.toFixed(2)}</p>
+        <div className="roster-upgrades" role="group" aria-label={`Mejoras de ${entry.label}`}>
+          {entry.stepCostsMinor.map((costMinor, index) => {
+            const bought = index < entry.step;
+            const next = index === entry.step;
+            return <button
+              key={index}
+              className={bought ? "bought" : next ? "next" : "locked"}
+              disabled={!next || game.balanceMinor < costMinor}
+              aria-label={`Mejora ${index + 1} de ${entry.label}`}
+              onClick={() => dispatch({ type: "UPGRADE_ROSTER", entryId: entry.id })}
+            >
+              <b>{index + 1}</b>
+              <small>{bought ? "Hecho" : formatMoney(costMinor, game)}</small>
+            </button>;
+          })}
+        </div>
+      </article>;
+    })}
+  </div></AvatarGallery>;
 }
+
+
+/**
+ * Saved state lives in the top bar next to OPEN/CLOSED, with the time of the
+ * last confirmed save, instead of a toast at the bottom of the screen.
+ */
+function SaveBadge({ status, lastSavedAt, onSave }: { status: string; lastSavedAt: string; onSave: () => void }) {
+  const saved = status === "saved" || status === "idle";
+  const time = useMemo(() => {
+    const parsed = new Date(lastSavedAt);
+    return Number.isNaN(parsed.getTime()) ? "--:--:--" : parsed.toLocaleTimeString("es-ES", { hour12: false });
+  }, [lastSavedAt]);
+  const label = status === "saving" ? "GUARDANDO"
+    : status === "dirty" ? "SIN GUARDAR"
+      : status === "offline" ? "COPIA LOCAL"
+        : status === "conflict" ? "CONFLICTO"
+          : status === "error" ? "ERROR"
+            : "GUARDADO";
+  return <button type="button" className={`save-badge ${status}`} onClick={onSave} title="Guardar ahora" aria-label={`${label}. Guardar ahora`}>
+    <span className="save-badge-mark" aria-hidden="true">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path d="m7.5 12.4 3 3 6-6.4" /></svg>
+    </span>
+    <strong>{label}</strong>
+    <small>{saved ? time : "—"}</small>
+  </button>;
+}
+
 
 function FinancePanel() {
   const game = useMarketStore((state) => state.game)!; const country = COUNTRIES[game.countryCode]; const f = game.finances;
@@ -607,8 +685,3 @@ function FinancePanel() {
 }
 
 function flag(code: CountryCode) { return ({ ES: "🇪🇸", US: "🇺🇸", CO: "🇨🇴", MX: "🇲🇽", AR: "🇦🇷", CL: "🇨🇱", PE: "🇵🇪" })[code]; }
-function roleIcon(role: EmployeeRole) { return ({ farmer: "🌾", operator: "⚙️", stocker: "📦", cashier: "🧾", builder: "🔨", manager: "📋" })[role]; }
-function buildProgress(franchise: { buildProjects: { level: number; costMinor: number; contributedMinor: number }[] }, level: number) {
-  const project = franchise.buildProjects.find((candidate) => candidate.level === level + 1);
-  return project ? `${Math.floor(project.contributedMinor / Math.max(1, project.costMinor) * 100)} % financiado` : "Sin ampliaciones pendientes";
-}

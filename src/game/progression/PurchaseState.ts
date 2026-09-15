@@ -28,10 +28,10 @@ export function migratePurchases(franchise: FranchiseState, legacyLevel: number)
   for (const [station, purchase] of Object.entries(crops)) if (franchise.crops.some((crop) => crop.id === station && crop.status !== "LOCKED")) grant(purchase);
   const machines = { "flour-mill-1": "flour-mill-1", "bread-oven-1": "bread-oven-1", "chicken-coop-1": "chicken-1", "chicken-coop-2": "chicken-2", "cow-station-1": "cow-1", "cheese-maker-1": "cheese-maker-1", "juice-machine-1": "juice-machine-1" } as const;
   for (const [station, purchase] of Object.entries(machines)) if (franchise.productionMachines.some((machine) => machine.id === station && machine.status !== "LOCKED")) grant(purchase);
-  if (franchise.employees.some((employee) => employee.role === "cashier")) grant("cashier-1");
   const farmers = franchise.employees.filter((employee) => employee.role === "farmer").length;
   if (farmers >= 1) grant("farmer-1");
   if (farmers >= 2) grant("farmer-2");
+  if (farmers >= 3) grant("farmer-3");
   if (franchise.carry.capacity >= 4) grant("player-2");
   if (legacyLevel >= 9) grant("coffee-supply-1");
   for (const [station, prefix] of [["chicken-coop-1", "chicken-1"], ["cow-station-1", "cow-1"]] as const) {

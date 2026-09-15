@@ -4,7 +4,7 @@ import type { OpeningPurchaseId } from "./progression/MartCampaign";
 export type { ProductId } from "./economy/ProductRegistry";
 
 export type CountryCode = "ES" | "US" | "CO" | "MX" | "AR" | "CL" | "PE";
-export type EmployeeRole = "farmer" | "operator" | "stocker" | "cashier" | "builder" | "manager";
+export type EmployeeRole = "farmer" | "feeder" | "operator" | "stocker" | "cashier" | "builder" | "manager";
 export type HatId = "red-panda" | "red-fox" | "chicken" | "frog" | "elephant" | "rhino" | "giraffe" | "panda" | "owl" | "cow" | "rabbit" | "capybara";
 export type AvatarHatId = HatId | "none";
 export type CharacterId = "adult-man" | "adult-woman" | "boy" | "girl";
@@ -288,6 +288,7 @@ export type GameAction =
   | { type: "UPGRADE"; upgrade: "shelves" | "checkout" | "expansion" | "mill" | "bakery" }
   | { type: "CONTRIBUTE_BUILD"; amountMinor?: number }
   | { type: "CONTRIBUTE_UPGRADE"; upgrade: "station" | "player-speed" | "player-capacity" | "employee"; amountMinor?: number }
+  | { type: "UPGRADE_ROSTER"; entryId: string }
   | { type: "DOOR_SENSOR"; active: boolean }
   | { type: "BUY_LICENSE" }
   | { type: "BUY_FRANCHISE"; franchiseId: string }

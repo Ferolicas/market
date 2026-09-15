@@ -37,18 +37,37 @@ describe("30 connected campaign levels", () => {
     expect(campaignLevel(travelled.state.franchises[1])).toBe(1);
   });
 
-  it("caps hires including purchased staff and refuses forged levels", () => {
+  it("grants cashiers at levels 10, 20 and 30, closes the other desks and refuses forged levels", () => {
     let state = createCampaignGame();
     state.balanceMinor = 100_000_000;
-    state.franchises[0].purchases!.purchased = ["cashier-1", "expansion-1"];
-    expect(campaignEmployeeLimit(state.franchises[0], "cashier")).toBe(2);
-    for (let index = 0; index < 2; index++) {
-      const result = applyGameAction(state, { type: "HIRE", role: "cashier" });
-      expect(result.ok).toBe(true);
-      expect(validateSaveTransition(state, result.state, result.events)).toEqual({ ok: true });
-      state = result.state;
-    }
+    const reachLevel = (purchaseCount: number) => {
+      state.franchises[0].purchases!.purchased = OPENING_PURCHASES.slice(0, purchaseCount).map((purchase) => purchase.id);
+      state = normalizeGameState(JSON.parse(JSON.stringify(state)));
+    };
+    const cashiers = () => state.franchises[0].employees.filter((employee) => employee.role === "cashier").length;
+
+    reachLevel(8);
+    expect(campaignLevel(state.franchises[0])).toBe(9);
+    expect(campaignEmployeeLimit(state.franchises[0], "cashier")).toBe(0);
+    expect(cashiers()).toBe(0);
+
+    reachLevel(9);
+    expect(campaignLevel(state.franchises[0])).toBe(10);
+    expect(campaignEmployeeLimit(state.franchises[0], "cashier")).toBe(1);
+    expect(cashiers()).toBe(1);
     expect(applyGameAction(state, { type: "HIRE", role: "cashier" }).ok).toBe(false);
+
+    reachLevel(19);
+    expect(campaignLevel(state.franchises[0])).toBe(20);
+    expect(cashiers()).toBe(2);
+
+    // Stocking and building belong to the granjero-reponedor and the purchases.
+    expect(campaignEmployeeLimit(state.franchises[0], "stocker")).toBe(0);
+    expect(campaignEmployeeLimit(state.franchises[0], "builder")).toBe(0);
+    expect(campaignEmployeeLimit(state.franchises[0], "manager")).toBe(0);
+    expect(campaignEmployeeLimit(state.franchises[0], "feeder")).toBe(1);
+    expect(campaignEmployeeLimit(state.franchises[0], "farmer")).toBe(3);
+
     const forged = structuredClone(state);
     forged.level = 30;
     expect(validateSaveTransition(state, forged, []).ok).toBe(false);
