@@ -244,7 +244,11 @@ export function normalizeGameState(input: unknown): GameState {
   // A restored campaign must already show the staff its levels granted, before
   // any tick runs: the level reward is state, not a live-session side effect.
   if (state.franchises.some((franchise) => franchise.owned && franchise.purchases)) {
-    for (const franchise of state.franchises) syncCampaignCashiers(state as GameState, franchise);
+    for (const franchise of state.franchises) {
+      sanitizeCampaignPurchases(franchise);
+      syncCampaignCashiers(state as GameState, franchise);
+      trimCampaignStaff(franchise);
+    }
     state.level = campaignGlobalLevel(state as GameState);
   }
   state.missions = reconcileMissionsForCurrentLevel(state as GameState);
@@ -294,6 +298,39 @@ export function canOrderProduct(state: GameState, productId: ProductId) {
   if (productId === "cannedCorn") return false;
   const supplier = SUPPLIERS.find((candidate) => candidate.id === PRODUCTS[productId].supplier);
   return Boolean(supplier && supplier.unlockLevel <= state.level);
+}
+
+/**
+ * A save written before the campaign was reordered can name purchases that no
+ * longer exist (the cashier used to be one). Both the save schema and the
+ * server's transition check reject an unknown id, so a stale entry would make
+ * every future save fail: drop it here, on load, instead.
+ */
+function sanitizeCampaignPurchases(franchise: FranchiseState) {
+  const purchases = franchise.purchases;
+  if (!purchases) return;
+  const known = new Set<string>(OPENING_PURCHASES.map((purchase) => purchase.id));
+  purchases.purchased = purchases.purchased.filter((id) => known.has(id));
+  purchases.inherited = (purchases.inherited ?? []).filter((id) => known.has(id));
+  purchases.contributions = Object.fromEntries(
+    Object.entries(purchases.contributions ?? {}).filter(([id]) => known.has(id)),
+  ) as typeof purchases.contributions;
+}
+
+/** Desks the current rules no longer open (a cashier hired under the old
+ * campaign, staff of a retired role) are retired on load, so the state the
+ * client sends can pass the server's quota check. */
+function trimCampaignStaff(franchise: FranchiseState) {
+  if (!franchise.purchases) return;
+  const kept: Employee[] = [];
+  const countByRole = new Map<Employee["role"], number>();
+  for (const employee of franchise.employees) {
+    const count = countByRole.get(employee.role) ?? 0;
+    if (count >= campaignEmployeeLimit(franchise, employee.role)) continue;
+    countByRole.set(employee.role, count + 1);
+    kept.push(employee);
+  }
+  if (kept.length !== franchise.employees.length) franchise.employees = kept;
 }
 
 /** Campaign staff is granted, never bought: a purchase or a level reward adds

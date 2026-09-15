@@ -1,65 +1,47 @@
 import type { OpeningPurchaseId } from "../progression/MartCampaign";
-import { FARM_ANIMAL_STATIONS, FARM_PLOTS, FARM_WORKER_HOME } from "./farm-layout";
-import { productionFixtureForWorkstation } from "./production-layout";
-import { RETAIL_DEPARTMENTS } from "./retail-layout";
-import { STORE_REAR_DOOR } from "./storefront-layout";
 
 /** Clear front-of-store service space, away from checkout and pantry sockets. */
 export const PURCHASE_POINT: [number, number, number] = [-3.8, 0.06, 4.8];
 
-const plot = (id: string): [number, number, number] => {
-  const found = FARM_PLOTS.find((candidate) => candidate.id === id)!;
-  return [found.position[0], 0.06, found.position[2]];
-};
-const machine = (id: Parameters<typeof productionFixtureForWorkstation>[0]): [number, number, number] => {
-  const fixture = productionFixtureForWorkstation(id);
-  return [fixture.operatorWorkPoint[0], 0.06, fixture.operatorWorkPoint[1]];
-};
-const department = (id: keyof typeof RETAIL_DEPARTMENTS): [number, number, number] => {
-  const service = RETAIL_DEPARTMENTS[id].service;
-  return [service[0], 0.06, service[1]];
-};
-const animal = (id: keyof typeof FARM_ANIMAL_STATIONS, offsetX = 0): [number, number, number] => {
-  const station = FARM_ANIMAL_STATIONS[id];
-  return [station.workPosition[0] + offsetX, 0.06, station.workPosition[2]];
-};
-const worker = (offsetX: number): [number, number, number] => [FARM_WORKER_HOME[0] + offsetX, 0.06, FARM_WORKER_HOME[1]];
-
 /**
- * Every purchase is paid where the thing itself will stand, so the golden
- * ring is a permanent price tag on the floor instead of one shared socket
- * beside the entrance. Points are authored layout units, pre-scale, and are
- * chosen on walkable cells (service points, operator work points, crop beds).
+ * Measured, walkable spots **beside or behind** each element, never on the
+ * path the owner uses to work it: paying is something you choose to do by
+ * stepping aside, not a toll you pay while collecting eggs. Every point is
+ * checked by purchase-layout.test.ts against the NavMesh, the obstacles and
+ * the distance to every work and service socket.
  */
 export const PURCHASE_POSITIONS: Record<OpeningPurchaseId, [number, number, number]> = {
-  "farmer-1": worker(0),
-  "farmer-2": worker(1.4),
-  "farmer-3": worker(2.8),
-  "egg-display-1": department("eggs"),
-  "chicken-1": animal("chicken"),
-  "chicken-1-tier-2": animal("chicken", -1.1),
-  "chicken-1-tier-3": animal("chicken", 1.1),
-  "chicken-2": animal("chicken2"),
-  "cow-1": animal("cow"),
-  "cow-1-tier-2": animal("cow", -1.1),
-  "cow-1-tier-3": animal("cow", 1.1),
+  // Farm hands are signed on the open apron inside the gate, clear of the beds.
+  "farmer-1": [-7.2, 0.06, -11],
+  "farmer-2": [-5.6, 0.06, -11],
+  "farmer-3": [-4, 0.06, -11],
+  // Behind the pens: the front of each pen stays free to feed and collect.
+  "chicken-1": [1.2, 0.06, -15.9],
+  "chicken-1-tier-2": [1.2, 0.06, -15.9],
+  "chicken-1-tier-3": [1.2, 0.06, -15.9],
+  "chicken-2": [8.8, 0.06, -15.4],
+  "cow-1": [5.35, 0.06, -16.4],
+  "cow-1-tier-2": [5.35, 0.06, -16.4],
+  "cow-1-tier-3": [5.35, 0.06, -16.4],
+  // A bed that does not exist yet has no harvest pass to block.
+  "tomato-2": [-3.55, 0.06, -12.72],
+  "tomato-3": [-0.6, 0.06, -11.2],
+  "wheat-1": [-6.3, 0.06, -15.45],
+  "corn-1": [-3.55, 0.06, -15.45],
+  "apple-1": [-9, 0.06, -15.45],
+  "orange-1": [-0.75, 0.06, -14],
+  // Store floor, always off the aisle and away from the service sockets.
   "player-2": [...PURCHASE_POINT],
-  "tomato-2": plot("crop-tomato-2"),
-  "tomato-3": plot("crop-tomato-3"),
-  "wheat-1": plot("crop-wheat-1"),
-  "corn-1": plot("crop-corn-1"),
-  "apple-1": plot("crop-apple-1"),
-  "orange-1": plot("crop-orange-1"),
-  // The expansion is signed at the rear service door it opens.
-  "expansion-1": [STORE_REAR_DOOR.insideApproach[0], 0.06, STORE_REAR_DOOR.insideApproach[1]],
-  "flour-mill-1": machine("mill"),
-  "bread-oven-1": machine("bakery"),
-  "cheese-maker-1": machine("cheese"),
-  "juice-machine-1": machine("juice"),
-  "corn-canner-1": machine("canner"),
-  "dairy-display-1": department("dairy"),
-  "coffee-supply-1": department("pantry"),
-  "preserves-supply-1": department("preserves"),
+  "egg-display-1": [-8.6, 0.06, -1.75],
+  "dairy-display-1": [-9.5, 0.06, 4.3],
+  "coffee-supply-1": [-0.5, 0.06, -1.2],
+  "preserves-supply-1": [10.2, 0.06, -2.8],
+  "expansion-1": [5.2, 0.06, -7.8],
+  "flour-mill-1": [-10.9, 0.06, -5.2],
+  "bread-oven-1": [-7.3, 0.06, -5.9],
+  "cheese-maker-1": [-6.4, 0.06, -2.6],
+  "juice-machine-1": [-5.4, 0.06, -7.6],
+  "corn-canner-1": [10.6, 0.06, -5.6],
 };
 
 export type PurchaseInteractionId = `purchase:${OpeningPurchaseId}`;

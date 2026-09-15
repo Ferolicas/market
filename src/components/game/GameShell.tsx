@@ -92,6 +92,7 @@ export function GameShell({ playerName }: { playerName: string }) {
   const availableSignature = availablePurchases.map((purchase) => purchase.id).join("|");
   const currentLevel = activeFranchise ? campaignLevel(activeFranchise) : 1;
   const previousAvailable = useRef<string[] | null>(null);
+  const previousLevel = useRef<number | null>(null);
   const loaded = Boolean(game);
   useEffect(() => {
     // The first snapshot after loading is the baseline: opening a saved game
@@ -99,9 +100,13 @@ export function GameShell({ playerName }: { playerName: string }) {
     if (!loaded) return;
     const available = availableSignature ? availableSignature.split("|") : [];
     const previous = previousAvailable.current;
+    const previousLevelValue = previousLevel.current;
     previousAvailable.current = available;
-    if (!previous) return;
-    const fresh = available.find((id) => !previous.includes(id));
+    previousLevel.current = currentLevel;
+    if (previous === null || previousLevelValue === null || currentLevel <= previousLevelValue) return;
+    // Every level shows a pointer: what it just opened, or failing that what
+    // the owner can already pay for next.
+    const fresh = available.find((id) => !previous.includes(id)) ?? available[0];
     const definition = OPENING_PURCHASES.find((purchase) => purchase.id === fresh);
     if (definition) setLevelHint({ level: currentLevel, purchase: definition.id, label: definition.label });
   }, [availableSignature, currentLevel, loaded]);
@@ -252,6 +257,12 @@ export function GameShell({ playerName }: { playerName: string }) {
       const lane = registerLane(id);
       if (currentFranchise && currentFranchise.registerCashMinor[lane] > 0) queueInteraction({ type: "COLLECT_REGISTER", lane });
       else performed = false;
+    }
+    if (id === "orders") {
+      // The PEDIDOS terminal is the counter for the warehouse and the
+      // suppliers: stepping up to it opens that panel instead of silently
+      // dropping goods into the basket.
+      setPanel((current) => current ?? "orders");
     }
     if (id === "warehouseReturn") {
       const current = useMarketStore.getState().game;

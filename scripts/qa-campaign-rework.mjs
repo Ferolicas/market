@@ -12,9 +12,10 @@ const require = createRequire(import.meta.url);
 const vitePath = require.resolve("vite", { paths: [path.dirname(require.resolve("vitest/package.json"))] });
 const { createServer } = await import(pathToFileURL(vitePath));
 const modules = await createServer({ configFile: false, envDir: false, server: { middlewareMode: true }, appType: "custom" });
-const { createCampaignGame, normalizeGameState } = await modules.ssrLoadModule("/src/game/engine.ts");
+const { applyGameAction, createCampaignGame, normalizeGameState } = await modules.ssrLoadModule("/src/game/engine.ts");
 const { PURCHASE_POSITIONS } = await modules.ssrLoadModule("/src/game/stations/purchase-layout.ts");
 const { STOCKROOM_POINT } = await modules.ssrLoadModule("/src/game/stations/warehouse-layout.ts");
+const { FARM_ANIMAL_STATIONS } = await modules.ssrLoadModule("/src/game/stations/farm-layout.ts");
 const { validateSaveTransition } = await modules.ssrLoadModule("/src/game/persistence/SaveAuthority.ts");
 const { savePayloadSchema } = await modules.ssrLoadModule("/src/lib/game-validation.ts");
 const { STORE_LAYOUT_SCALE } = await modules.ssrLoadModule("/src/game/world-scale.ts");
@@ -27,10 +28,19 @@ const browser = await chromium.launch({ headless: true, executablePath: "/home/f
 const report = [];
 try {
   for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844 }]) {
+    // The coop is already built, through the real purchase path, so its work
+    // point must stay free of payment rings.
     let saved = createCampaignGame();
     saved.tutorialStep = 1;
+    saved.balanceMinor = 406_500;
+    for (const purchaseId of ["farmer-1", "egg-display-1", "chicken-1"]) {
+      const result = applyGameAction(saved, { type: "CONTRIBUTE_PURCHASE", purchaseId, amountMinor: 10_000 });
+      if (!result.ok) throw new Error(`Fixture could not buy ${purchaseId}: ${result.message}`);
+      saved = result.state;
+    }
     saved.balanceMinor = 400_000;
     saved.franchises[0].warehouse.tomatoes = 6;
+    saved.franchises[0].productionMachines.find((machine) => machine.id === "chicken-coop-1").output = 2;
     let revision = 1;
     const errors = [];
     const context = await browser.newContext({ viewport, serviceWorkers: "block" });
@@ -70,30 +80,55 @@ try {
     if (!(await page.locator(".save-badge").isVisible())) throw new Error("Save badge missing from the bar");
     if (await page.locator(".mission-card").count()) throw new Error("The purchases card is still floating");
 
-    // Walking through the stockroom must not fill the basket by itself.
+    // Standing at the PEDIDOS counter opens its panel and never fills the
+    // basket by itself with goods nobody asked for.
     await moveTo(page, [STOCKROOM_POINT[0] * STORE_LAYOUT_SCALE, STOCKROOM_POINT[1] * STORE_LAYOUT_SCALE]);
-    await page.waitForTimeout(1_200);
+    await page.evaluate(() => window.__MARKET_SET_PLAYER_INPUT__(0, 0));
+    await page.locator(".management-panel").waitFor({ timeout: 10_000 });
+    if (!(await page.locator(".management-panel h2").innerText()).includes("Pedidos")) throw new Error("The orders terminal opened the wrong panel");
+    await page.screenshot({ path: `${output}/${viewport.width}-orders-terminal.png` });
+    await page.locator(".close-button").click();
     const afterDock = await page.evaluate(() => window.__MARKET_QA__.state.franchises[0]);
     const carriedAtDock = Object.values(afterDock.carry.items).reduce((sum, value) => sum + value, 0);
     if (carriedAtDock !== 0) throw new Error(`The dock filled the basket on its own: ${JSON.stringify(afterDock.carry.items)}`);
     if (await page.locator(".interaction-prompt").count()) throw new Error("Proximity prompts are still rendered");
 
-    // The first purchase is paid on its own ring, where the farmer will work.
-    const ring = PURCHASE_POSITIONS["farmer-1"];
+    // Collecting eggs must never cost money: the coop work point is clear.
+    const coop = FARM_ANIMAL_STATIONS.chicken.workPosition;
+    await moveTo(page, [coop[0] * STORE_LAYOUT_SCALE, coop[2] * STORE_LAYOUT_SCALE]);
+    await page.waitForTimeout(1_500);
+    const atCoop = await page.evaluate(() => window.__MARKET_QA__.state);
+    if (atCoop.balanceMinor !== 400_000) throw new Error(`Standing at the coop spent money: ${atCoop.balanceMinor}`);
+    if ((await page.evaluate(() => window.__MARKET_QA__.activeZones ?? [])).some((zone) => String(zone).startsWith("purchase:"))) {
+      throw new Error("A payment ring reaches the coop work point");
+    }
+    if (await page.locator(".management-panel").count()) throw new Error("Walking past the orders terminal opened its panel");
+    await page.screenshot({ path: `${output}/${viewport.width}-coop-signs.png` });
+    // A farm ring in the open, to read its floor price tag.
+    const farmRing = PURCHASE_POSITIONS["tomato-2"];
+    await moveTo(page, [farmRing[0] * STORE_LAYOUT_SCALE, farmRing[2] * STORE_LAYOUT_SCALE - 3]);
+    await page.evaluate(() => window.__MARKET_SET_PLAYER_INPUT__(0, 0));
+    await page.waitForTimeout(600);
+    await page.screenshot({ path: `${output}/${viewport.width}-floor-price.png` });
+
+    // Each purchase is paid on its own ring, beside the thing it will build.
+    const ring = PURCHASE_POSITIONS["player-2"];
     await moveTo(page, [ring[0] * STORE_LAYOUT_SCALE, ring[2] * STORE_LAYOUT_SCALE]);
-    await page.waitForFunction(() => window.__MARKET_QA__.state.franchises[0].purchases.purchased.includes("farmer-1"), null, { timeout: 20_000 });
+    await page.waitForFunction(() => window.__MARKET_QA__.state.franchises[0].purchases.purchased.includes("player-2"), null, { timeout: 20_000 });
     await page.screenshot({ path: `${output}/${viewport.width}-purchase-paid.png` });
     await page.locator(".mission-complete").waitFor({ timeout: 4_000 });
     await page.screenshot({ path: `${output}/${viewport.width}-mission-complete.png` });
     await page.locator(".level-hint").waitFor({ timeout: 6_000 });
     const hint = await page.locator(".level-hint").innerText();
-    if (!hint.includes("Estante de huevos")) throw new Error(`Level hint does not point at the new unlock: ${hint}`);
+    if (!hint.includes("NIVEL 5")) throw new Error(`Level hint does not announce the new level: ${hint}`);
     // The celebration clears itself in three seconds, with no button.
     await page.locator(".mission-complete").waitFor({ state: "detached", timeout: 9_000 });
     const paid = await page.evaluate(() => window.__MARKET_QA__.state);
-    if (paid.balanceMinor !== 398_000) throw new Error(`Wrong wallet after the ring: ${paid.balanceMinor}`);
-    if (paid.franchises[0].employees.filter((employee) => employee.role === "farmer").length !== 1) throw new Error("The purchase did not bring its granjero");
-    if (paid.level !== 2) throw new Error(`Level did not advance: ${paid.level}`);
+    if (paid.balanceMinor !== 397_500) throw new Error(`Wrong wallet after the ring: ${paid.balanceMinor}`);
+    if (paid.franchises[0].carry.capacity !== 4) throw new Error("The purchase did not apply its content");
+    if (paid.level !== 5) throw new Error(`Level did not advance: ${paid.level}`);
+
+
 
     // Panels: inventory cards, orders, roster with four upgrade steps.
     const openPanel = async (name) => {
@@ -123,7 +158,7 @@ try {
     await page.locator(".roster-card").first().locator(".roster-upgrades button.next").click();
     await page.waitForFunction((previous) => window.__MARKET_QA__.state.balanceMinor === previous - 8_000, beforeUpgrade.balanceMinor, { timeout: 8_000 });
     const upgraded = await page.evaluate(() => window.__MARKET_QA__.state.franchises[0]);
-    if (upgraded.carry.capacity !== 4 || upgraded.playerSpeedTier !== 2) throw new Error(`Roster upgrade did not raise speed and capacity: ${upgraded.carry.capacity}/${upgraded.playerSpeedTier}`);
+    if (upgraded.carry.capacity !== 5 || upgraded.playerSpeedTier !== 3) throw new Error(`Roster upgrade did not raise speed and capacity: ${upgraded.carry.capacity}/${upgraded.playerSpeedTier}`);
     await page.screenshot({ path: `${output}/${viewport.width}-roster.png` });
     await page.locator(".close-button").click();
 
@@ -141,9 +176,9 @@ try {
       throw error;
     });
     await page.reload();
-    await page.waitForFunction(() => window.__MARKET_QA__?.state?.franchises?.[0]?.purchases?.purchased?.includes("farmer-1"), null, { timeout: 60_000 });
+    await page.waitForFunction(() => window.__MARKET_QA__?.state?.franchises?.[0]?.purchases?.purchased?.includes("player-2"), null, { timeout: 60_000 });
     const restored = await page.evaluate(() => window.__MARKET_QA__.state);
-    if (restored.franchises[0].carry.capacity !== 4) throw new Error("The roster upgrade was lost on reload");
+    if (restored.franchises[0].carry.capacity !== 5) throw new Error("The roster upgrade was lost on reload");
     await page.screenshot({ path: `${output}/${viewport.width}-reloaded.png` });
 
     report.push({ viewport, level: restored.level, balanceMinor: restored.balanceMinor, carryCapacity: restored.franchises[0].carry.capacity, errors });

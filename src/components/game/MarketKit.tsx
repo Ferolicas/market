@@ -867,15 +867,19 @@ function ProductionMachineIdentity({ fixture, machine }: { fixture: ProductionFi
   return <group>
     <Box args={[1.22, 0.13, 1.05]} position={[0, 0.065, -0.53]} color="#55635f" radius={0.035} />
     <Box args={[1.08, 0.06, 0.9]} position={[0, 0.145, -0.53]} color="#c7ceca" radius={0.02} />
-    <group position={[0, 2.08, 0.12]}>
-      <Box args={[1.24, 0.48, 0.12]} color="#223832" radius={0.045} />
-      <Text position={[0, 0.09, 0.068]} fontSize={0.155} color="#fff5d8" anchorX="center" anchorY="middle" fontWeight={900}>{fixture.label}</Text>
-      <Text position={[0, -0.095, 0.069]} fontSize={0.073} color={fixture.accent} anchorX="center" anchorY="middle" fontWeight={800}>{fixture.processLabel}</Text>
-      <Text position={[0, 0.09, -0.068]} rotation={[0, Math.PI, 0]} fontSize={0.155} color="#fff5d8" anchorX="center" anchorY="middle" fontWeight={900}>{fixture.label}</Text>
-    </group>
-    <group name="dynamic:machine-status" position={[0.49, 1.79, 0.16]}>
-      <mesh><sphereGeometry args={[0.045, 12, 8]} /><meshBasicMaterial color={status.color} toneMapped={false} /></mesh>
-      <Text position={[-0.12, 0, 0.008]} fontSize={0.064} color={status.color} anchorX="right" anchorY="middle" fontWeight={800}>{status.label}</Text>
+    {/* One readable board: what the machine is, what it has ready and what it
+        is waiting for, at a size that can be read while walking past. */}
+    <group position={[0, 2.22, 0.12]}>
+      <Box args={[1.52, 0.92, 0.12]} color="#223832" radius={0.06} />
+      <Text position={[0, 0.3, 0.068]} fontSize={0.19} color="#fff5d8" anchorX="center" anchorY="middle" fontWeight={900}>{fixture.label}</Text>
+      <Text position={[0, 0.13, 0.069]} fontSize={0.082} color={fixture.accent} anchorX="center" anchorY="middle" fontWeight={800}>{fixture.processLabel}</Text>
+      <group name="dynamic:machine-status">
+        <Text position={[-0.63, -0.1, 0.07]} fontSize={0.13} color="#bcd9cc" anchorX="left" anchorY="middle" fontWeight={800}>LISTO</Text>
+        <Text position={[0.63, -0.1, 0.07]} fontSize={0.26} color={machine && machine.output > 0 ? "#8ce6a1" : "#ffffff"} anchorX="right" anchorY="middle" fontWeight={900}>{`${machine?.output ?? 0}/${machine?.outputCapacity ?? 0}`}</Text>
+        <Text position={[0.63, -0.34, 0.07]} fontSize={0.155} color={status.color} anchorX="right" anchorY="middle" fontWeight={900}>{status.label}</Text>
+        <mesh position={[-0.6, -0.34, 0.07]}><sphereGeometry args={[0.05, 12, 8]} /><meshBasicMaterial color={status.color} toneMapped={false} /></mesh>
+      </group>
+      <Text position={[0, 0.3, -0.068]} rotation={[0, Math.PI, 0]} fontSize={0.19} color="#fff5d8" anchorX="center" anchorY="middle" fontWeight={900}>{fixture.label}</Text>
     </group>
   </group>;
 }
@@ -1152,6 +1156,7 @@ export const KitFarm = memo(function KitFarm({ crops, machines, nowMs, unlockedA
               available={crop.available}
               yieldCapacity={cropHarvestYield(crop.productId, crop.tier, crop.baseYield)}
               accent={plot.accent}
+              label={PRODUCTS_LABELS[crop.productId]}
             />}
       </StoreElement>;
     })}
@@ -1254,10 +1259,18 @@ function FarmEntranceGate() {
   </group>;
 }
 
-function CropPlot({ position, crop, status, progress, available, yieldCapacity, accent }: { position: Position; crop: FarmCropKind; status: CropState["status"]; progress: number; available: number; yieldCapacity: number; accent: string }) {
+function CropPlot({ position, crop, status, progress, available, yieldCapacity, accent, label }: { position: Position; crop: FarmCropKind; status: CropState["status"]; progress: number; available: number; yieldCapacity: number; accent: string; label: string }) {
   const stage = status === "READY" ? 4 : Math.max(0, Math.min(3, Math.floor(progress * 4)));
   const growth = [0.18, 0.4, 0.66, 0.86, 1][stage];
   return <group name="dynamic:farm-crop" position={position}>
+    <StationSign
+      position={[1.35, 0, 0.25]}
+      height={1.05}
+      title={label}
+      rows={status === "READY"
+        ? [{ label: "LISTOS", value: `${available}/${yieldCapacity}`, tone: available > 0 ? "#8ce6a1" : "#ffffff" }]
+        : [{ label: status === "EMPTY" ? "SEMBRANDO" : "CRECIENDO", value: `${Math.round(Math.max(0, Math.min(1, progress)) * 100)} %`, tone: "#ffd98a" }]}
+    />
     <RaisedCropBed status={status} />
     {status === "EMPTY" ? <SeedBed /> : <CropCanopy crop={crop} growth={growth} ready={status === "READY"} available={available} yieldCapacity={yieldCapacity} />}
     {status === "READY" && available > 0 && <ReadyHarvestGlow accent={accent} />}
@@ -1375,10 +1388,45 @@ function AnimalPaddock({ kind }: { kind: "chicken" | "cow" }) {
   </group>;
 }
 
+
+/**
+ * Readable board on a post, facing the camera: the numbers the owner plays
+ * with (feed in the trough, eggs ready, units on the bed) belong in the world
+ * at a size that can be read while walking, not in 13 cm of floating text.
+ */
+function StationSign({ position, title, rows, height = 1.35 }: {
+  position: Position;
+  title: string;
+  rows: readonly { label: string; value: string; tone?: string }[];
+  height?: number;
+}) {
+  const boardHeight = 0.42 + rows.length * 0.36;
+  return <group name="dynamic:station-sign" position={position}>
+    <mesh position={[0, height / 2 - 0.1, 0]} castShadow><cylinderGeometry args={[0.055, 0.065, height, 8]} /><meshStandardMaterial color="#6d5136" roughness={0.9} /></mesh>
+    <group position={[0, height + boardHeight / 2 - 0.16, 0.04]} rotation={[-0.16, 0, 0]}>
+      <RoundedBox args={[1.42, boardHeight, 0.09]} radius={0.08} smoothness={3} castShadow><meshStandardMaterial color="#1f3b33" roughness={0.78} /></RoundedBox>
+      <RoundedBox args={[1.32, boardHeight - 0.1, 0.02]} position={[0, 0, 0.05]} radius={0.06} smoothness={3}><meshStandardMaterial color="#2c5749" roughness={0.7} /></RoundedBox>
+      <Text position={[0, boardHeight / 2 - 0.18, 0.07]} fontSize={0.155} color="#ffe6a8" anchorX="center" anchorY="middle" fontWeight={900}>{title}</Text>
+      {rows.map((row, index) => <group key={row.label} position={[0, boardHeight / 2 - 0.52 - index * 0.36, 0.07]}>
+        <Text position={[-0.58, 0, 0]} fontSize={0.125} color="#bcd9cc" anchorX="left" anchorY="middle" fontWeight={800}>{row.label}</Text>
+        <Text position={[0.58, 0, 0]} fontSize={0.23} color={row.tone ?? "#ffffff"} anchorX="right" anchorY="middle" fontWeight={900}>{row.value}</Text>
+      </group>)}
+    </group>
+  </group>;
+}
+
 function AnimalStation({ kind, machine }: { kind: "chicken" | "cow"; machine: ProductionMachineState }) {
   const feed = chickenFeedStatus(machine);
+  const hungry = feed.occupied === 0;
   return <group name="dynamic:farm-animal">
-    <Text position={[0, kind === "cow" ? 1.8 : 1.45, 0.45]} fontSize={0.13} color="#28483e" outlineWidth={0.012} outlineColor="#fff9df" textAlign="center">{`${kind === "cow" ? "TRIGO" : "TOMATES"} ${feed.occupied}/${feed.capacity}\n${kind === "cow" ? "LECHE" : "HUEVOS"} ${machine.output}/${machine.outputCapacity}`}</Text>
+    <StationSign
+      position={[kind === "cow" ? 1.95 : 1.75, 0, 0.1]}
+      title={kind === "cow" ? "VACA" : "GALLINA"}
+      rows={[
+        { label: kind === "cow" ? "TRIGO" : "TOMATES", value: `${feed.occupied}/${feed.capacity}`, tone: hungry ? "#ffb27a" : "#ffffff" },
+        { label: kind === "cow" ? "LECHE" : "HUEVOS", value: `${machine.output}/${machine.outputCapacity}`, tone: machine.output > 0 ? "#8ce6a1" : "#ffffff" },
+      ]}
+    />
     <EnvironmentModel id={kind === "chicken" ? "chicken_coop" : "cow_station"} />
     {kind === "chicken" ? <ChickenCharacter active={machine.status === "PROCESSING"} /> : <CowCharacter active={machine.status === "PROCESSING"} />}
     <group position={[kind === "cow" ? 0.62 : 0.44, 0.02, 0.42]} scale={0.72} visible={machine.output > 0}><EnvironmentModel id={kind === "chicken" ? "egg_output_tray" : "milk_output_can"} /></group>

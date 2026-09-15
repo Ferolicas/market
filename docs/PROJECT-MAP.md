@@ -1,5 +1,19 @@
 # Mini Market — mapa vivo
 
+## Anillos fuera del paso, letreros legibles y guardado migrado — 15-09-2026
+
+Los círculos de compra dejan de estar en los puntos de trabajo. `PURCHASE_POSITIONS` fija ahora un sitio medido **detrás o al lado** de cada elemento: los corrales se pagan por detrás ([1,2, −15,9], [8,8, −15,4], [5,35, −16,4]), los granjeros en el apron interior de la verja, las máquinas a un lado de su cubículo y los expositores fuera de su punto de servicio. `purchase-layout.test.ts` bloquea la regla: cada anillo tiene que caer en celda navegable, sin solapar obstáculo, a 1,6 unidades o más de cualquier punto de trabajo, de servicio, de la puerta trasera y del bancal inicial, y dos anillos sólo comparten sitio si uno depende del otro. Cruzar el corral para recoger huevos ya no cuesta dinero.
+
+El precio de cada compra se lee en el suelo, no flotando: el rótulo va tumbado y girado `FLOOR_LABEL_YAW` (el ángulo de la cámara isométrica) para que salga horizontal en pantalla, sobre una placa clara, con el nombre arriba y el importe en grande debajo.
+
+Letreros de información en el mundo (`StationSign`): tablero sobre poste, inclinado hacia la cámara, con título y filas de valor grande. Los corrales muestran TOMATES/TRIGO ocupado/capacidad y HUEVOS/LECHE producido/capacidad; los bancales muestran LISTOS n/rendimiento o el porcentaje de crecimiento; las máquinas amplían su propio cartel con LISTO salida/capacidad y el estado (CARGAR / EN PROCESO / RECOGER). Sustituyen a los textos de 13 cm que no se leían.
+
+El terminal PEDIDOS vuelve a funcionar: es una zona de interacción propia (`orders`) que abre el panel de Pedidos cuando el propietario **se detiene** en él (700 ms de permanencia y sólo con el mando en reposo), nunca al cruzar la planta hacia la puerta trasera. Desde ahí se retira la mercancía del almacén eligiendo el producto.
+
+Migración de guardados anteriores al reordenamiento: `normalizeGameState` limpia las compras que ya no existen (`cashier-1`) de `purchased`, `inherited` y `contributions`, y retira las plazas que las reglas actuales no abren (un cajero contratado antes del nivel 10, oficios retirados). Sin esa limpieza el esquema del guardado rechazaba la clave desconocida y el validador del servidor devolvía `INVALID_STATE_TRANSITION`, de modo que la partida dejaba de guardarse; `CampaignMigration.test.ts` reproduce ese guardado y comprueba que vuelve a pasar esquema y validador.
+
+Verificación: 601 pruebas en 78 archivos, typecheck, lint y build PASS. QA de navegador `pnpm qa:campaign-rework` en 1440×1000 y 390×844 con la tienda ya construida por el camino real de compras: pararse en el corral no gasta dinero ni activa ningún anillo, el letrero de la gallina se lee en la captura, el terminal de PEDIDOS abre su panel al detenerse y no al pasar, el anillo cobra en su sitio, y el rótulo del suelo aparece horizontal y legible. Evidencia en `/tmp/market-campaign-rework`.
+
 ## Campaña reordenada, clientes escalados y HUD mínimo — 15-09-2026
 
 Orden y precios de nivel autorizados por el propietario. Las 27 compras definen los niveles 2–28 en el orden del array `OPENING_PURCHASES`, que ahora empieza por el granjero-reponedor (20 €) y termina en la enlatadora (1.800 €); cada compra guarda su precio final en unidades menores españolas (`baseCostMinor`) y se escala por país con `startingCapitalMinor`, sin ratios sobre el cajero. `OPENING_PURCHASE_LEVEL` publica el nivel que otorga cada compra y una prueba comprueba que todas las dependencias se pagan antes. Desaparece `cashier-1`; entra `farmer-3`. Locales: 10.000, 25.000, 70.000, 170.000 y 500.000 €.
