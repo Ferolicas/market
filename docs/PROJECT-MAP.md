@@ -1,5 +1,13 @@
 # Mini Market — mapa vivo
 
+## Flujo continuo de compradores — 15-09-2026
+
+CustomerTraffic separa compradores en entrada/compra de los que ya van a caja o salen. La campaña llena dos plazas iniciales sin la antigua espera de 3 s: un nuevo actor por tick hasta completar el objetivo, contando también los entrantes para no duplicar relevos. Ir a caja libera la plaza de compra antes de desaparecer; el objetivo aumentado por expansiones sigue vigente. Hay solapamiento deliberado con pago/salida (no es un máximo de dos actores visibles). Tope de seguridad 3×objetivo, máximo 30 actores, para evitar acumulación ilimitada con cajas abandonadas; no se crean clientes con tienda cerrada. Entrada inicial y relevos conservan recorrido y puerta, no teletransportan al interior.
+
+Velocidad de todos los compradores +40 %: (1,2 + identidad×0,045)×1,4, tanto al crear como al normalizar guardados; asignación absoluta e idempotente, nunca multiplicación repetida. Jugador/empleados, paciencia de 2 min, inventario y reglas de pago no cambian. Pruebas cubren apertura, reemplazo al dirigirse a caja/pagar/salir, cupo reservado por entrantes, límite de acumulación, cierre y recarga.
+
+Aceptación de dominio: tres minutos simulados con reposición de tomate y servicio de caja continuo; después de los primeros 30 s nunca menos de dos clientes físicamente dentro del umbral de puerta, más de cinco ventas, máximo seis actores vivos. DESPAWN conservados brevemente para presentación no cuentan como actores vivos. Verificación completa: 581 pruebas/74 archivos, typecheck/lint/build. Esta comprobación no equivale a un benchmark físico de móvil.
+
 ## Velocidad −20 % y cámara solidaria — 15-09-2026
 
 La calibración vigente reduce un 20 % todos los tiers de velocidad de campaña: T1 8,316 y máximo 11,088 unidades/s. Se conserva el inicio al 75 % del máximo y la progresión de mejoras, con aceleración/frenado proporcionales. Sin reinicios ni cambios de economía o guardado.

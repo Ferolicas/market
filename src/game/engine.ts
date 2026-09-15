@@ -12,6 +12,7 @@ import { campaignAvailableProducts, OPENING_PURCHASES, type OpeningPurchaseId } 
 import { PRODUCT_CONFIG } from "./economy/products";
 import { createEmptyInventory } from "./economy/ProductRegistry";
 import { createCustomerMind } from "./ai/CustomerBrain";
+import { campaignNeedsCustomer, customerWalkSpeed } from "./ai/CustomerTraffic";
 import { CUSTOMER_PATIENCE_MS, customerShowingAnger } from "./ai/CustomerPatience";
 import { LEVELS, stationTierModifiers } from "./progression/levels";
 import { averageShelfAvailability, levelObjectiveSatisfied, levelObjectiveTasks, unlockedCustomerProducts } from "./progression/objectives";
@@ -193,6 +194,7 @@ export function normalizeGameState(input: unknown): GameState {
       customer.queueLane ??= 0;
       customer.queueJoinedAt ??= null;
       customer.currentSpeed ??= 0;
+      customer.speed = customerWalkSpeed(customer.identity);
       customer.checkoutPatienceMs = CHECKOUT_PATIENCE_MS;
       customer.patienceMs = CUSTOMER_PATIENCE_MS;
       customer.hasCart ??= !["SPAWN", "ENTER_STORE", "GET_CART", "EXIT_STORE", "DESPAWN"].includes(customer.state);
@@ -1508,7 +1510,9 @@ function spawnCustomerIfNeeded(state: GameState, franchise: FranchiseState, path
   const active = franchise.customers.filter((customer) => customer.state !== "DESPAWN");
   const maximum = franchise.purchases ? franchise.purchases.purchased.includes("expansion-1") ? Math.min(12, 3 + Math.floor(franchise.purchases.purchased.length / 8)) : 2
     : state.level < 20 ? Math.min(12, 3 + Math.floor(state.level / 2)) : Math.min(30, 12 + Math.floor((state.level - 20) * 1.8));
-  if (active.length >= maximum || state.simulationTimeMs - franchise.lastCustomerSpawnAt < 3_000) return;
+  if (franchise.purchases) {
+    if (!campaignNeedsCustomer(active, maximum)) return;
+  } else if (active.length >= maximum || state.simulationTimeMs - franchise.lastCustomerSpawnAt < 3_000) return;
   const sequence = franchise.nextCustomerSequence++;
   const identity = ((sequence - 1) % 6 + 1) as CustomerRuntimeState["identity"];
   const id = `${franchise.id}-customer-${sequence}`;
@@ -1521,7 +1525,7 @@ function spawnCustomerIfNeeded(state: GameState, franchise: FranchiseState, path
     id, identity, state: "ENTER_STORE", shoppingList: mind.shoppingList, currentLine: 0, basket: {}, patienceMs: mind.patienceMs,
     checkoutPatienceMs: CHECKOUT_PATIENCE_MS, waitingSince: null, queueSlot: null, queueLane: 0, queueJoinedAt: null, transactionId: null,
     hasCart: false, hasBag: false, angry: false, x: entryX, z: 15.2, targetX: entryX, targetZ: 5.6,
-    path: navigatePath(pathfinder, [entryX, 15.2], [...CART_RETURN_POINT]), pathIndex: 0, speed: 1.2 + identity * 0.045, currentSpeed: 0, stateSince: state.simulationTimeMs, reservedSocketId: null, blockedSince: null, routeFailures: 0,
+    path: navigatePath(pathfinder, [entryX, 15.2], [...CART_RETURN_POINT]), pathIndex: 0, speed: customerWalkSpeed(identity), currentSpeed: 0, stateSince: state.simulationTimeMs, reservedSocketId: null, blockedSince: null, routeFailures: 0,
   };
   franchise.customers.push(customer);
   franchise.lastCustomerSpawnAt = state.simulationTimeMs;
