@@ -437,6 +437,13 @@
   font-size: 8px;
 }
 
+/* Personal requirements and purchase amounts must remain readable on phones. */
+.mission.level-requirement small {
+  display: block;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
 .mission .funding-explanation {
   color: #536f66;
   line-height: 1.35;

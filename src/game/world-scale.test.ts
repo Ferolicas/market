@@ -76,7 +76,7 @@ describe("store scale system", () => {
       expect(obstacle?.z).toBeCloseTo(expectedZ);
       expect(obstacle?.halfX).toBeCloseTo(fixture.localFootprint.halfX * STORE_ELEMENT_SCALE);
       expect(obstacle?.halfZ).toBeCloseTo(fixture.localFootprint.halfZ * STORE_ELEMENT_SCALE);
-      expect(overlapsStoreObstacle([expectedX, expectedZ], 0), fixture.obstacleId).toBe(true);
+      expect(overlapsStoreObstacle([expectedX, expectedZ], 0, ["corn-canner"]), fixture.obstacleId).toBe(true);
     }
   });
 

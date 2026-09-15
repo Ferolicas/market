@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { createEmptyInventory } from "../economy/ProductRegistry";
 import { collectMachineOutput, collectMachineOutputBatch, createCrop, createEmptyCrop, createMachine, cropGrowthDurationMs, cropHarvestYield, harvestCrop, harvestCropBatch, loadMachine, plantCrop, updateCrop, updateMachine } from "./StationSystem";
-import type { Inventory } from "../types";
 
-const emptyInventory = (): Inventory => ({ wheat: 0, flour: 0, bread: 0, corn: 0, milk: 0, eggs: 0, cheese: 0, apples: 0, tomatoes: 0, oranges: 0, coffee: 0, juice: 0 });
+const emptyInventory = createEmptyInventory;
 
 describe("station systems", () => {
   it("replants automatically after the last unit is harvested", () => {

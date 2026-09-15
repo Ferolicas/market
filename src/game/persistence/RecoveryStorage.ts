@@ -1,10 +1,11 @@
 import type { GameEvent, GameState } from "../types";
+import { CAMPAIGN_RELEASE } from "./CampaignRelease";
 
-export const LEGACY_RECOVERY_KEY = "mini-market-recovery-v1";
-export const RECOVERY_MARKER_KEY = "mini-market-recovery-available-v2";
-export const RECOVERY_SCOPE_KEY = "mini-market-recovery-scope-v1";
+export const LEGACY_RECOVERY_KEY = `mini-market-recovery-${CAMPAIGN_RELEASE}`;
+export const RECOVERY_MARKER_KEY = `mini-market-recovery-available-${CAMPAIGN_RELEASE}`;
+export const RECOVERY_SCOPE_KEY = `mini-market-recovery-scope-${CAMPAIGN_RELEASE}`;
 
-const DATABASE_NAME = "mini-market-recovery";
+const DATABASE_NAME = `mini-market-recovery-${CAMPAIGN_RELEASE}`;
 const DATABASE_VERSION = 1;
 const STORE_NAME = "snapshots";
 const SNAPSHOT_KEY = "current";

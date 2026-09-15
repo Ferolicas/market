@@ -1,7 +1,7 @@
 import type { CropState } from "../types";
 import { STORE_REAR_DOOR } from "./storefront-layout";
 
-export type FarmPlotId = "crop-tomato-1" | "crop-tomato-2" | "crop-wheat-1" | "crop-corn-1" | "crop-orange-1" | "crop-apple-1";
+export type FarmPlotId = "crop-tomato-1" | "crop-tomato-2" | "crop-tomato-3" | "crop-wheat-1" | "crop-corn-1" | "crop-orange-1" | "crop-apple-1";
 export type FarmInteractionId = `farm:${FarmPlotId}`;
 
 export interface FarmPlotLayout {
@@ -21,6 +21,7 @@ export interface FarmAnimalStationLayout extends FarmFacilityLayout {
 }
 
 export interface FarmObstacleLayout {
+  id?: string;
   x: number;
   z: number;
   halfX: number;
@@ -142,6 +143,7 @@ export function scaledFarmHarvestSensor(elementScale: number) {
 export const FARM_PLOTS: readonly FarmPlotLayout[] = [
   { id: "crop-tomato-1", productId: "tomatoes", position: [-6.3, 0, -12.72], accent: "#e34f3f" },
   { id: "crop-tomato-2", productId: "tomatoes", position: [-3.55, 0, -12.72], accent: "#ef6a4b" },
+  { id: "crop-tomato-3", productId: "tomatoes", position: [0.25, 0, -11.5], accent: "#e34f3f" },
   { id: "crop-wheat-1", productId: "wheat", position: [-6.3, 0, -15.45], accent: "#e9b83f" },
   { id: "crop-corn-1", productId: "corn", position: [-3.55, 0, -15.45], accent: "#f0c438" },
   { id: "crop-orange-1", productId: "oranges", position: [-0.75, 0, -14], accent: "#D58236" },
@@ -160,8 +162,9 @@ export const FARM_FACILITIES = {
 
 export const FARM_ANIMAL_STATIONS = {
   chicken: { position: [1.2, 0, -14.15], workPosition: [1.2, 0, -12.45], facing: Math.PI },
+  chicken2: { position: [8.8, 0, -13.5], workPosition: [8.8, 0, -12], facing: Math.PI },
   cow: { position: [5.35, 0, -14.45], workPosition: [5.35, 0, -12.45], facing: Math.PI },
-} as const satisfies Record<"chicken" | "cow", FarmAnimalStationLayout>;
+} as const satisfies Record<"chicken" | "chicken2" | "cow", FarmAnimalStationLayout>;
 
 export const FARM_ACCESS_WAYPOINTS = [
   [...STORE_REAR_DOOR.insideApproach],
@@ -324,8 +327,9 @@ export const FARM_OBSTACLES = [
   { x: FARM_FACILITIES.scarecrow.position[0], z: FARM_FACILITIES.scarecrow.position[2], halfX: 0.38, halfZ: 0.38 },
   { x: FARM_FACILITIES.waterTank.position[0], z: FARM_FACILITIES.waterTank.position[2], halfX: 0.52, halfZ: 0.52 },
   { x: FARM_FACILITIES.waterTank.position[0] + 0.9, z: FARM_FACILITIES.waterTank.position[2], halfX: 0.4, halfZ: 0.26 },
-  { x: FARM_ANIMAL_STATIONS.chicken.position[0], z: FARM_ANIMAL_STATIONS.chicken.position[2], halfX: 1.49, halfZ: 1.09 },
-  { x: FARM_ANIMAL_STATIONS.cow.position[0], z: FARM_ANIMAL_STATIONS.cow.position[2], halfX: 1.79, halfZ: 1.24 },
+  { id: "fixture:chicken-coop", x: FARM_ANIMAL_STATIONS.chicken.position[0], z: FARM_ANIMAL_STATIONS.chicken.position[2], halfX: 1.49, halfZ: 1.09 },
+  { id: "fixture:chicken-coop-2", x: FARM_ANIMAL_STATIONS.chicken2.position[0], z: FARM_ANIMAL_STATIONS.chicken2.position[2], halfX: 1.49, halfZ: 1.09 },
+  { id: "fixture:cow-station", x: FARM_ANIMAL_STATIONS.cow.position[0], z: FARM_ANIMAL_STATIONS.cow.position[2], halfX: 1.79, halfZ: 1.24 },
   { x: 0, z: -17.725, halfX: 13.25, halfZ: 0.07 },
   { x: FARM_GATE.leftFrontFence.center[0], z: FARM_GATE.leftFrontFence.center[2], halfX: FARM_GATE.leftFrontFence.halfX, halfZ: FARM_GATE.leftFrontFence.halfZ },
   { x: FARM_GATE.rightFrontFence.center[0], z: FARM_GATE.rightFrontFence.center[2], halfX: FARM_GATE.rightFrontFence.halfX, halfZ: FARM_GATE.rightFrontFence.halfZ },

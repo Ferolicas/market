@@ -23,6 +23,7 @@ export const PRODUCTS: Record<ProductId, { name: string; emoji: string; wholesal
   oranges: { name: "Naranjas", emoji: "🍊", wholesaleMinor: 90, saleMinor: 210, supplier: "fresco" },
   coffee: { name: "Café", emoji: "☕", wholesaleMinor: 280, saleMinor: 540, supplier: "andes" },
   juice: { name: "Zumo", emoji: "🧃", wholesaleMinor: 170, saleMinor: 330, supplier: "fresco" },
+  cannedCorn: { name: "Maíz en conserva", emoji: "🥫", wholesaleMinor: 160, saleMinor: 360, supplier: "campo" },
 };
 
 export const SUPPLIERS = [

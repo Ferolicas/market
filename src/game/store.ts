@@ -8,6 +8,7 @@ import { chooseRecovery, restorePendingEventOrigins } from "./persistence/Snapsh
 import { persistRecoverySnapshot, queueRecoverySnapshot, readRecoverySnapshot, setRecoveryScope, type SaveAttempt } from "./persistence/RecoveryStorage";
 import { marketQaFreezeEnabled } from "./debug/QaAccess";
 import { gameDeviceId, gameSessionId } from "./persistence/ClientIdentity";
+import { CAMPAIGN_RELEASE } from "./persistence/CampaignRelease";
 
 type SaveStatus = "idle" | "loading" | "dirty" | "saving" | "saved" | "offline" | "conflict" | "error";
 
@@ -165,7 +166,7 @@ export const useMarketStore = create<MarketStore>((set, get) => {
     const game = get().game;
     if (!game) return;
     const franchise = game.franchises.find((candidate) => candidate.id === game.currentFranchiseId) ?? game.franchises[0];
-    void ensureStoreNavigation(franchise.structureRevision);
+    void ensureStoreNavigation(franchise.structureRevision, franchise.unlockedAreas);
     const playerDistanceMeters = pendingPlayerDistanceMeters;
     const interactions = pendingInteractions;
     const result = advanceWorld(game, deltaMs, storePathfinder, { playerDistanceMeters, interactions });
@@ -202,7 +203,7 @@ export const useMarketStore = create<MarketStore>((set, get) => {
       const requestBody = JSON.stringify(attempt);
       const response = await fetch("/api/game/save", {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-market-release": CAMPAIGN_RELEASE },
         body: requestBody,
         // Browsers cap the aggregate keepalive queue near 64 KiB. Larger
         // snapshots remain protected in IndexedDB and retry on next launch.

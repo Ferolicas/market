@@ -5,6 +5,7 @@ import { STORE_LAYOUT_SCALE, STORE_OBSTACLES } from "../world-scale";
 import { FARM_ACCESS_WAYPOINTS, FARM_ANIMAL_STATIONS, FARM_FIELD, FARM_PLOTS, FARM_WORKER_HOME, farmInteriorRouteBetween, isRetiredFrontFarmPoint } from "./farm-layout";
 import { PRODUCTION_MACHINE_POINTS } from "./production-layout";
 import { STOCKROOM_POINT } from "./warehouse-layout";
+import { createMachine } from "./StationSystem";
 
 function employee(role: Employee["role"]): Employee {
   return { id: `${role}-farm-layout`, name: "Luna", role, level: 1, salaryMinor: 3_000, energy: 100, hat: "frog" };
@@ -74,7 +75,8 @@ describe("farm employee destinations", () => {
     Object.entries(FARM_ANIMAL_STATIONS).forEach(([kind, station]) => {
       const state = createInitialGame();
       const franchise = state.franchises[0];
-      const machineId = kind === "chicken" ? "chicken-coop-1" : "cow-station-1";
+      const machineId = kind === "chicken" ? "chicken-coop-1" : kind === "chicken2" ? "chicken-coop-2" : "cow-station-1";
+      if (kind === "chicken2") franchise.productionMachines.push(createMachine(machineId, "eggs"));
       franchise.productionMachines.forEach((machine) => {
         machine.output = machine.id === machineId ? 1 : 0;
         if (machine.id === machineId) machine.status = "OUTPUT_READY";

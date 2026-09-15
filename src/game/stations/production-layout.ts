@@ -1,5 +1,5 @@
-export type ProductionWorkstationId = "mill" | "bakery" | "cheese" | "juice";
-export type ProductionFixtureId = "flourMill" | "breadOven" | "cheeseMaker" | "juiceMachine";
+export type ProductionWorkstationId = "mill" | "bakery" | "cheese" | "juice" | "canner";
+export type ProductionFixtureId = "flourMill" | "breadOven" | "cheeseMaker" | "juiceMachine" | "cornCanner";
 
 export interface ProductionFixtureLayout {
   fixtureId: ProductionFixtureId;
@@ -26,6 +26,13 @@ export const PRODUCTION_MAGNET_REACH = { enter: 0.72, exit: 0.9 } as const;
  * negative Z, matching the authored GLB orientation.
  */
 export const STORE_PRODUCTION_FIXTURES: Record<ProductionFixtureId, ProductionFixtureLayout> = {
+  cornCanner: {
+    fixtureId: "cornCanner", workstationId: "canner", machineId: "corn-canner-1",
+    obstacleId: "fixture:corn-canner", label: "ENLATADORA", processLabel: "MAÍZ · CONSERVA",
+    accent: "#65833d", position: [10, 0, -7.4],
+    localFootprint: { centerX: 0, centerZ: -0.55, halfX: 0.6, halfZ: 0.55 },
+    operatorWorkPoint: [9, -6.6],
+  },
   flourMill: {
     fixtureId: "flourMill",
     workstationId: "mill",
@@ -78,7 +85,7 @@ export const STORE_PRODUCTION_FIXTURES: Record<ProductionFixtureId, ProductionFi
 };
 
 export const PRODUCTION_FIXTURE_IDS = Object.keys(STORE_PRODUCTION_FIXTURES) as ProductionFixtureId[];
-export const PRODUCTION_WORKSTATION_IDS = ["mill", "bakery", "cheese", "juice"] as const satisfies readonly ProductionWorkstationId[];
+export const PRODUCTION_WORKSTATION_IDS = ["mill", "bakery", "cheese", "juice", "canner"] as const satisfies readonly ProductionWorkstationId[];
 
 export const PRODUCTION_MACHINE_POINTS: Record<string, [number, number]> = Object.fromEntries(
   PRODUCTION_FIXTURE_IDS.map((fixtureId) => {

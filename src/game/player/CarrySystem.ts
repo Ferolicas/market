@@ -8,7 +8,7 @@ export const MAX_WAREHOUSE_PICKUP_BATCH = CAPACITY_TIERS[CAPACITY_TIERS.length -
  * is taken per round, so a single proximity pass can build a mixed basket
  * instead of letting the first warehouse key monopolise all free capacity. */
 export const WAREHOUSE_PICKUP_PRODUCT_ORDER: readonly ProductId[] = [
-  "wheat", "flour", "bread", "corn", "milk", "eggs", "cheese", "apples", "tomatoes", "oranges", "coffee", "juice",
+  "wheat", "flour", "bread", "corn", "milk", "eggs", "cheese", "apples", "tomatoes", "oranges", "coffee", "juice", "cannedCorn",
 ];
 
 export function createCarryContainer(tier = 0): CarryState {
@@ -43,13 +43,14 @@ export function preferredStockingProduct(
   shelves: Partial<Inventory>,
   shelfTier = 1,
   allowedProducts?: readonly ProductId[],
+  areas: readonly string[] = [],
 ): ProductId | null {
   let selected: ProductId | null = null;
   let selectedFill = Number.POSITIVE_INFINITY;
   const allowed = allowedProducts ? new Set<ProductId>(allowedProducts) : null;
   for (const productId of carriedProductIds(container)) {
     if (allowed && !allowed.has(productId)) continue;
-    const capacity = retailShelfCapacityForTier(shelfTier, productId);
+    const capacity = retailShelfCapacityForTier(shelfTier, productId, areas);
     const quantity = Math.max(0, shelves[productId] ?? 0);
     if (quantity >= capacity) continue;
     const fill = quantity / capacity;
@@ -73,10 +74,11 @@ export function nextStockingPulse(
   shelves: Partial<Inventory>,
   shelfTier = 1,
   allowedProducts?: readonly ProductId[],
+  areas: readonly string[] = [],
 ) {
-  const productId = preferredStockingProduct(container, shelves, shelfTier, allowedProducts);
+  const productId = preferredStockingProduct(container, shelves, shelfTier, allowedProducts, areas);
   if (!productId) return null;
-  const shelfCapacity = retailShelfCapacityForTier(shelfTier, productId);
+  const shelfCapacity = retailShelfCapacityForTier(shelfTier, productId, areas);
   const shelfQuantity = Math.max(0, Math.floor(shelves[productId] ?? 0));
   const quantity = Math.min(carryQuantity(container, productId), Math.max(0, shelfCapacity - shelfQuantity));
   return quantity > 0 ? { productId, quantity } : null;
@@ -93,6 +95,7 @@ export function departmentStockingPulses(
   shelves: Partial<Inventory>,
   shelfTier = 1,
   allowedProducts?: readonly ProductId[],
+  areas: readonly string[] = [],
 ) {
   const remaining = { items: { ...container.items } };
   const projectedShelves: Partial<Inventory> = { ...shelves };
@@ -100,7 +103,7 @@ export function departmentStockingPulses(
   const maximumPulses = carriedProductIds(container).length;
 
   while (pulses.length < maximumPulses) {
-    const pulse = nextStockingPulse(remaining, projectedShelves, shelfTier, allowedProducts);
+    const pulse = nextStockingPulse(remaining, projectedShelves, shelfTier, allowedProducts, areas);
     if (!pulse) break;
     pulses.push(pulse);
     const left = carryQuantity(remaining, pulse.productId) - pulse.quantity;

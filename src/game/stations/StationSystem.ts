@@ -1,23 +1,26 @@
 import type { Inventory, ProductId } from "../types";
+import type { CropProductId, MachineProductId } from "../economy/ProductRegistry";
 import { PRODUCT_CONFIG } from "../economy/products";
 import { stationTierModifiers } from "../progression/levels";
+import { advanceAnimal, animalProduction, collectAnimal, feedAnimal, type FedAnimalState } from "./FedAnimal";
 
 export type CropStatus = "LOCKED" | "EMPTY" | "GROWING" | "READY" | "HARVESTING";
 export type MachineStatus = "LOCKED" | "IDLE" | "WAITING_INPUT" | "PROCESSING" | "OUTPUT_READY" | "FULL";
 
 export interface CropStation {
   id: string;
-  productId: "tomatoes" | "apples" | "oranges" | "wheat" | "corn";
+  productId: CropProductId;
   status: CropStatus;
   plantedAt: number;
   readyAt: number;
   available: number;
   tier: number;
+  baseYield?: number;
 }
 
 export interface MachineStation {
   id: string;
-  productId: "flour" | "bread" | "cheese" | "juice" | "eggs" | "milk";
+  productId: MachineProductId;
   status: MachineStatus;
   input: Partial<Inventory>;
   output: number;
@@ -33,14 +36,14 @@ export function cropGrowthDurationMs(productId: CropStation["productId"], tier =
   return Math.max(1_500, Math.round(growMs / stationTierModifiers(tier).speed / levelSpeed));
 }
 
-export function cropHarvestYield(productId: CropStation["productId"], tier = 1) {
-  const baseBedUnits = 3;
+export function cropHarvestYield(productId: CropStation["productId"], tier = 1, baseYield = 3) {
+  const baseBedUnits = baseYield;
   const productYield = PRODUCT_CONFIG[productId]?.yield ?? 1;
   return Math.max(1, Math.round(baseBedUnits * productYield * stationTierModifiers(tier).capacity));
 }
 
-export function createCrop(id: string, productId: CropStation["productId"], nowMs: number, tier = 1, gameLevel = 1): CropStation {
-  return { id, productId, status: "GROWING", plantedAt: nowMs, readyAt: nowMs + cropGrowthDurationMs(productId, tier, gameLevel), available: 0, tier };
+export function createCrop(id: string, productId: CropStation["productId"], nowMs: number, tier = 1, gameLevel = 1, baseYield?: number): CropStation {
+  return { id, productId, status: "GROWING", plantedAt: nowMs, readyAt: nowMs + cropGrowthDurationMs(productId, tier, gameLevel), available: 0, tier, ...(baseYield === undefined ? {} : { baseYield }) };
 }
 
 export function createEmptyCrop(id: string, productId: CropStation["productId"], tier = 1): CropStation {
@@ -49,12 +52,12 @@ export function createEmptyCrop(id: string, productId: CropStation["productId"],
 
 export function plantCrop(crop: CropStation, nowMs: number, gameLevel = 1) {
   if (crop.status !== "EMPTY") return { crop, planted: false };
-  return { crop: createCrop(crop.id, crop.productId, nowMs, crop.tier, gameLevel), planted: true };
+  return { crop: createCrop(crop.id, crop.productId, nowMs, crop.tier, gameLevel, crop.baseYield), planted: true };
 }
 
 export function updateCrop(crop: CropStation, nowMs: number): CropStation {
   if (crop.status !== "GROWING" || nowMs < crop.readyAt) return crop;
-  return { ...crop, status: "READY", available: cropHarvestYield(crop.productId, crop.tier) };
+  return { ...crop, status: "READY", available: cropHarvestYield(crop.productId, crop.tier, crop.baseYield) };
 }
 
 export function cropProgress(crop: CropStation, nowMs: number) {
@@ -68,7 +71,7 @@ export function harvestCrop(cropInput: CropStation, nowMs: number, gameLevel = 1
   if (crop.status !== "READY" || crop.available < 1) return { crop, harvested: 0 };
   const remaining = crop.available - 1;
   if (remaining > 0) return { crop: { ...crop, status: "READY" as const, available: remaining }, harvested: 1 };
-  return { crop: createCrop(crop.id, crop.productId, nowMs, crop.tier, gameLevel), harvested: 1 };
+  return { crop: createCrop(crop.id, crop.productId, nowMs, crop.tier, gameLevel, crop.baseYield), harvested: 1 };
 }
 
 /** Composes the authoritative one-unit transition into one capacity-bounded trip. */
@@ -92,6 +95,12 @@ export function createMachine(id: string, productId: MachineStation["productId"]
 }
 
 export function loadMachine(machine: MachineStation, inventory: Inventory, nowMs: number) {
+  const policy = animalProduction(machine.productId, machine.tier);
+  if (policy) {
+    if (machine.status === "LOCKED") return { machine, inventory, loaded: false };
+    const result = feedAnimal(animalState(machine, nowMs), inventory[policy.input], Math.floor(nowMs), policy);
+    return { machine: animalMachine(machine, result.state), inventory: result.consumed ? { ...inventory, [policy.input]: inventory[policy.input] - result.consumed } : inventory, loaded: result.consumed > 0 };
+  }
   const config = PRODUCT_CONFIG[machine.productId];
   const recipe = config?.recipe ?? {};
   const canAcceptInput = machine.status === "IDLE" || machine.status === "WAITING_INPUT";
@@ -109,6 +118,8 @@ export function loadMachine(machine: MachineStation, inventory: Inventory, nowMs
 }
 
 export function updateMachine(machine: MachineStation, nowMs: number): MachineStation {
+  const policy = animalProduction(machine.productId, machine.tier);
+  if (policy && machine.status !== "LOCKED") return animalMachine(machine, advanceAnimal(animalState(machine, nowMs), Math.floor(nowMs), policy));
   if (machine.status !== "PROCESSING" || machine.completesAt === null || nowMs < machine.completesAt) return machine;
   const produced = PRODUCT_CONFIG[machine.productId]?.yield ?? 1;
   const output = Math.min(machine.outputCapacity, machine.output + produced);
@@ -116,6 +127,12 @@ export function updateMachine(machine: MachineStation, nowMs: number): MachineSt
 }
 
 export function collectMachineOutput(machineInput: MachineStation, nowMs: number) {
+  const policy = animalProduction(machineInput.productId, machineInput.tier);
+  if (policy) {
+    if (machineInput.status === "LOCKED") return { machine: machineInput, collected: 0 };
+    const result = collectAnimal(animalState(machineInput, nowMs), 1, Math.floor(nowMs), policy);
+    return { machine: animalMachine(machineInput, result.state), collected: result.collected };
+  }
   const machine = updateMachine(machineInput, nowMs);
   if (machine.output < 1) return { machine, collected: 0 };
   const output = machine.output - 1;
@@ -136,3 +153,33 @@ export function collectMachineOutputBatch(machineInput: MachineStation, nowMs: n
   }
   return { machine, collected };
 }
+
+/** Persist only existing input/output/deadline fields; never replay a consumed input. */
+function animalState(machine: MachineStation, nowMs: number): FedAnimalState {
+  const policy = animalProduction(machine.productId, machine.tier)!;
+  return {
+    feed: machine.input[policy.input] ?? 0, output: machine.output,
+    outputCapacity: machine.outputCapacity,
+    nextAtMs: machine.status === "PROCESSING" && machine.completesAt !== null ? Math.floor(machine.completesAt) : null,
+    updatedAtMs: Math.max(0, Math.floor(Math.min(nowMs, machine.startedAt ?? nowMs))),
+  };
+}
+
+function animalMachine(machine: MachineStation, animal: FedAnimalState): MachineStation {
+  const policy = animalProduction(machine.productId, machine.tier)!;
+  const processing = animal.nextAtMs !== null;
+  return { ...machine, input: { ...machine.input, [policy.input]: animal.feed }, output: animal.output,
+    completesAt: animal.nextAtMs,
+    startedAt: processing ? animal.nextAtMs! - policy.cycleMs : null,
+    status: processing ? "PROCESSING" : animal.output >= animal.outputCapacity ? "FULL" : animal.output > 0 ? "OUTPUT_READY" : "WAITING_INPUT" };
+}
+
+export function animalFeedStatus(machine: MachineStation) {
+  const capacity = animalProduction(machine.productId, machine.tier)?.capacity ?? 0;
+  const input = animalProduction(machine.productId, machine.tier)?.input;
+  const occupied = (input ? machine.input[input] ?? 0 : 0) + Number(machine.status === "PROCESSING" && machine.completesAt !== null);
+  return { capacity, occupied, free: Math.max(0, capacity - occupied) };
+}
+
+/** Compatibility for the initial chicken fixtures. */
+export const chickenFeedStatus = animalFeedStatus;

@@ -1,7 +1,8 @@
 import type { ProductId } from "../types";
 import { stationTierModifiers } from "../progression/levels";
+import { fixtureAvailable } from "./fixture-availability";
 
-export type RetailDepartmentId = "bakery" | "pantry" | "eggs" | "produce" | "dairy" | "drinks";
+export type RetailDepartmentId = "bakery" | "pantry" | "eggs" | "produce" | "dairy" | "drinks" | "preserves";
 export type StockingInteractionId = `stock:${RetailDepartmentId}`;
 
 export interface RetailDepartment {
@@ -42,6 +43,7 @@ export const PRODUCE_DISPLAY_POSITIONS = [
 ] as const;
 
 export const RETAIL_DEPARTMENTS: Record<RetailDepartmentId, RetailDepartment> = {
+  preserves: { id: "preserves", label: "CONSERVAS", color: "#65833d", display: [10.1, 0, -4.8], yaw: 90, fixtureHalfExtents: [1.2, 0.78], service: [8.7, -4.8], products: ["cannedCorn"] },
   // Service points remain useful route destinations, but the actual stocking
   // volume wraps the complete fixture footprint so every walkable side works.
   bakery: { id: "bakery", label: "PAN Y HARINAS", color: "#b96d39", display: [-4.3, 0, -5], yaw: 90, fixtureHalfExtents: [1.2, 0.78], service: [-3.05, -5], products: ["bread", "flour", "wheat"] },
@@ -58,9 +60,9 @@ export const RETAIL_DEPARTMENTS: Record<RetailDepartmentId, RetailDepartment> = 
 export const RETAIL_DEPARTMENT_IDS = Object.keys(RETAIL_DEPARTMENTS) as RetailDepartmentId[];
 
 /** Every visible fixture of a department, in the order units are dealt to them. */
-export function retailFixtureDisplayPositions(departmentId: RetailDepartmentId): readonly (readonly [number, number, number])[] {
+export function retailFixtureDisplayPositions(departmentId: RetailDepartmentId, areas: readonly string[] = []): readonly (readonly [number, number, number])[] {
   if (departmentId === "pantry") return PANTRY_DISPLAY_POSITIONS;
-  if (departmentId === "produce") return PRODUCE_DISPLAY_POSITIONS;
+  if (departmentId === "produce") return fixtureAvailable("fixture:retail-produce-2", areas) ? PRODUCE_DISPLAY_POSITIONS : PRODUCE_DISPLAY_POSITIONS.slice(0, 1);
   return [RETAIL_DEPARTMENTS[departmentId].display];
 }
 
@@ -73,8 +75,8 @@ export function distributedFixtureQuantity(total: number, fixtureIndex: number, 
 
 /** Fixture and fixture-local ordinal of one authoritative shelf ordinal, so a
  * stocking flight lands exactly where the rendered unit will appear. */
-export function retailStockFixtureSlot(departmentId: RetailDepartmentId, ordinalInput: number, shelfEndInput: number) {
-  const fixtureCount = retailFixtureDisplayPositions(departmentId).length;
+export function retailStockFixtureSlot(departmentId: RetailDepartmentId, ordinalInput: number, shelfEndInput: number, areas: readonly string[] = []) {
+  const fixtureCount = retailFixtureDisplayPositions(departmentId, areas).length;
   const ordinal = Math.max(0, Math.floor(Number.isFinite(ordinalInput) ? ordinalInput : 0));
   const shelfEnd = Math.max(ordinal + 1, Math.floor(Number.isFinite(shelfEndInput) ? shelfEndInput : ordinal + 1));
   const fixtureIndex = ordinal % fixtureCount;
@@ -135,6 +137,7 @@ export interface RetailShelfGrid {
 }
 
 export const RETAIL_SHELF_GRIDS: Record<Exclude<ProductId, "tomatoes" | "apples" | "oranges" | "corn">, RetailShelfGrid> = {
+  cannedCorn: { levels: RETAIL_FIXTURE_LEVELS.pantry, across: 8, pitch: 0.24, originX: 0, frontZ: 0.4, depthPitch: 0.15, depthRows: 3, lift: 0.11 },
   bread: { levels: [RETAIL_FIXTURE_LEVELS.bakery[0], RETAIL_FIXTURE_LEVELS.bakery[1], RETAIL_FIXTURE_LEVELS.bakery[4]], across: 8, pitch: 0.22, originX: 0, frontZ: 0.16, depthPitch: 0.16, depthRows: 3, lift: 0.14 },
   flour: { levels: [RETAIL_FIXTURE_LEVELS.bakery[2]], across: 12, pitch: 0.15, originX: 0, frontZ: 0.18, depthPitch: 0.14, depthRows: 3, lift: 0.14 },
   wheat: { levels: [RETAIL_FIXTURE_LEVELS.bakery[3]], across: 12, pitch: 0.15, originX: 0, frontZ: 0.18, depthPitch: 0.14, depthRows: 3, lift: 0.14 },
@@ -156,6 +159,7 @@ function shelfGridFrontCapacity(grid: RetailShelfGrid) {
  * (or the complete produce deck). The store capacity of a SKU is this times
  * the number of fixtures of its department; higher tiers fill deeper rows. */
 export const RETAIL_FRONT_CAPACITY: Record<ProductId, number> = {
+  cannedCorn: shelfGridFrontCapacity(RETAIL_SHELF_GRIDS.cannedCorn),
   bread: shelfGridFrontCapacity(RETAIL_SHELF_GRIDS.bread),
   flour: shelfGridFrontCapacity(RETAIL_SHELF_GRIDS.flour),
   wheat: shelfGridFrontCapacity(RETAIL_SHELF_GRIDS.wheat),
@@ -176,6 +180,7 @@ const PRODUCE_VISUAL_CAPACITY = PRODUCE_LAYERS.reduce((sum, [across, rows]) => s
 
 /** Every tier-10 authoritative unit of one fixture still has a visible slot. */
 export const RETAIL_VISUAL_CAPACITY: Record<ProductId, number> = {
+  cannedCorn: RETAIL_FRONT_CAPACITY.cannedCorn * RETAIL_SHELF_GRIDS.cannedCorn.depthRows,
   bread: RETAIL_FRONT_CAPACITY.bread * RETAIL_SHELF_GRIDS.bread.depthRows,
   flour: RETAIL_FRONT_CAPACITY.flour * RETAIL_SHELF_GRIDS.flour.depthRows,
   wheat: RETAIL_FRONT_CAPACITY.wheat * RETAIL_SHELF_GRIDS.wheat.depthRows,
@@ -191,6 +196,7 @@ export const RETAIL_VISUAL_CAPACITY: Record<ProductId, number> = {
 };
 
 export const PRODUCT_RETAIL_DEPARTMENT: Record<ProductId, RetailDepartmentId> = {
+  cannedCorn: "preserves",
   tomatoes: "produce",
   apples: "produce",
   oranges: "produce",
@@ -206,15 +212,15 @@ export const PRODUCT_RETAIL_DEPARTMENT: Record<ProductId, RetailDepartmentId> = 
 };
 
 /** Store-wide physical capacity of a SKU at display tier 1. */
-export function retailShelfCapacity(productId: ProductId) {
-  return RETAIL_FRONT_CAPACITY[productId] * retailFixtureDisplayPositions(PRODUCT_RETAIL_DEPARTMENT[productId]).length;
+export function retailShelfCapacity(productId: ProductId, areas: readonly string[] = []) {
+  return RETAIL_FRONT_CAPACITY[productId] * retailFixtureDisplayPositions(PRODUCT_RETAIL_DEPARTMENT[productId], areas).length;
 }
 
 /** The one authoritative shelf capacity rule: physical slots at tier 1,
  * deeper rows as the display tier grows. Engine, carry planning, objectives
  * and presentation all read this. */
-export function retailShelfCapacityForTier(tier: number, productId: ProductId) {
-  return Math.max(1, Math.round(retailShelfCapacity(productId) * stationTierModifiers(tier).capacity));
+export function retailShelfCapacityForTier(tier: number, productId: ProductId, areas: readonly string[] = []) {
+  return Math.max(1, Math.round(retailShelfCapacity(productId, areas) * stationTierModifiers(tier).capacity));
 }
 
 export function retailServicePoint(productId: ProductId): [number, number] {
@@ -267,8 +273,8 @@ export function retailStockingMagnet(
   };
 }
 
-export function retailStockingMagnets(departmentId: RetailDepartmentId, layoutScale: number, elementScale: number) {
-  return retailFixtureDisplayPositions(departmentId).map((_, fixtureIndex) => retailStockingMagnet(departmentId, layoutScale, elementScale, fixtureIndex));
+export function retailStockingMagnets(departmentId: RetailDepartmentId, layoutScale: number, elementScale: number, areas: readonly string[] = []) {
+  return retailFixtureDisplayPositions(departmentId, areas).map((_, fixtureIndex) => retailStockingMagnet(departmentId, layoutScale, elementScale, fixtureIndex));
 }
 
 function centeredSlot(index: number, count: number, spacing: number) {

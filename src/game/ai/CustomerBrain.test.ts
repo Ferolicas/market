@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
+import { createEmptyInventory } from "../economy/ProductRegistry";
 import { commitPickedProduct, createCustomerMind, transitionCustomer } from "./CustomerBrain";
 import { QueueManager } from "./QueueManager";
 import type { Inventory } from "../types";
 
-const stock = (): Inventory => ({ wheat: 0, flour: 0, bread: 0, corn: 0, milk: 0, eggs: 0, cheese: 0, apples: 0, tomatoes: 0, oranges: 0, coffee: 0, juice: 0 });
+const stock = createEmptyInventory;
 
 describe("customer AI", () => {
   it("builds deterministic lists and only picks real shelf stock", () => {

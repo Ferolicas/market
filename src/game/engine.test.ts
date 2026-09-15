@@ -882,9 +882,12 @@ describe("motor económico", () => {
     for (let tick = 0; tick < 500; tick += 1) state = advanceWorld(state, 100).state;
 
     const next = state.franchises[0];
-    expect(next.shelves.wheat).toBe(0);
+    // Wheat now has retail demand, but the stocker must reserve a mill batch.
+    expect(next.shelves.wheat).toBeLessThanOrEqual(4);
     expect(state.progression.counters["production:flour"]).toBeGreaterThan(0);
-    expect(next.warehouse.flour + next.productionMachines.find((machine) => machine.id === "flour-mill-1")!.output).toBeGreaterThan(0);
+    expect(next.warehouse.flour + next.shelves.flour
+      + next.employees.reduce((sum, employee) => sum + (employee.runtime?.carry.items.flour ?? 0), 0)
+      + next.productionMachines.find((machine) => machine.id === "flour-mill-1")!.output).toBeGreaterThan(0);
   });
 
   it("no cobra solo y envía la compra a devoluciones al agotar cinco minutos", () => {
@@ -960,7 +963,8 @@ describe("motor económico", () => {
       if (transaction?.paymentCommitted) paymentCommitted = true;
     }
     expect(paymentCommitted).toBe(true);
-    expect(state.balanceMinor).toBeGreaterThan(balanceBefore);
+    expect(state.balanceMinor).toBe(balanceBefore);
+    expect(state.franchises[0].registerCashMinor[0]).toBeGreaterThan(0);
   });
 
   it("el botón de cerrar inicia el cierre del día y no permite saltar jornadas cerradas", () => {

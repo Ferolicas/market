@@ -1,17 +1,19 @@
 "use client";
 
+import { fixtureAvailable } from "@/game/stations/fixture-availability";
+
 import { PerspectiveCamera, RenderTexture, RoundedBox, RoundedBoxGeometry, useGLTF, useTexture } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { memo, useCallback, useEffect, useMemo, useRef, type ReactNode } from "react";
 import * as THREE from "three";
 import { scaleStorePosition, STORE_ELEMENT_SCALE, STORE_LAYOUT_SCALE } from "@/game/world-scale";
 import type { CheckoutTransaction, CropState, Inventory, ProductId, ProductionMachineState } from "@/game/types";
-import { cropHarvestYield, cropProgress } from "@/game/stations/StationSystem";
+import { chickenFeedStatus, cropHarvestYield, cropProgress } from "@/game/stations/StationSystem";
 import { CHECKOUT_LANES, activeCheckoutForLane, checkoutBagLocation, checkoutHandoffForLane } from "@/game/stations/checkout-layout";
 import { cropVisualSlotIndices } from "@/game/stations/crop-visual";
 import { FARM_ANIMAL_STATIONS, FARM_FACILITIES, FARM_FIELD, FARM_GATE, FARM_PLOTS, farmGateOpenLeafTerminalPost } from "@/game/stations/farm-layout";
 import { STORE_REAR_DOOR } from "@/game/stations/storefront-layout";
-import { distributedFixtureQuantity, PANTRY_DISPLAY_POSITIONS, PRODUCE_BIN_COLUMNS, PRODUCE_BIN_PITCH, PRODUCE_DECK, PRODUCE_DISPLAY_POSITIONS, produceDeckLocalPoint, PRODUCT_RETAIL_DEPARTMENT, RETAIL_DEPARTMENTS, RETAIL_FIXTURE_LEVELS, RETAIL_VISUAL_CAPACITY, retailDisplayPosition, retailFixtureDisplayPositions, retailStockLandingLocalPosition } from "@/game/stations/retail-layout";
+import { distributedFixtureQuantity, PANTRY_DISPLAY_POSITIONS, PRODUCE_BIN_COLUMNS, PRODUCE_BIN_PITCH, PRODUCE_DECK, produceDeckLocalPoint, PRODUCT_RETAIL_DEPARTMENT, RETAIL_DEPARTMENTS, RETAIL_FIXTURE_LEVELS, RETAIL_VISUAL_CAPACITY, retailDisplayPosition, retailFixtureDisplayPositions, retailStockLandingLocalPosition } from "@/game/stations/retail-layout";
 import { shelfCapacityForTier } from "@/game/engine";
 import { STORE_SERVICE_FIXTURES } from "@/game/stations/store-service-layout";
 import { WAREHOUSE_RETURN_STATION } from "@/game/stations/warehouse-layout";
@@ -20,6 +22,7 @@ import { marketAsset } from "@/game/assets/AssetRegistry";
 import { sameFarmPresentation, sameFurniturePresentation, type FarmPresentationProps, type FurniturePresentationProps } from "@/game/render/MarketPresentation";
 import { createStaticMeshBatch } from "@/game/render/StaticMeshBatch";
 import { BasketProduct } from "./HarvestBasket";
+import { CannedCornModel, cornTinGeometry, cornLabelGeometry, cornTinMaterial, cornLabelMaterial } from "./CannedCornModel";
 import { MarketText as Text } from "./MarketText";
 import { useGlassTransmission } from "./MarketRenderProfile";
 import { DeliveredModel, DeliveredProductInstances, deliveredProductId } from "./DeliveredModel";
@@ -192,6 +195,7 @@ function ScreenRail({ barY, railY, halfWidth, z }: { barY: number; railY: number
 }
 
 function RetailProduct({ productId, position, scale = 1 }: { productId: ProductId; position: Position; scale?: number }) {
+  if (productId === "cannedCorn") return <CannedCornModel position={position} scale={scale} />;
   const delivered = deliveredProductId(productId);
   if (delivered) return <group name={`retail-product:${productId}`}><DeliveredModel id={delivered} position={position} scale={scale} /></group>;
   if (productId === "oranges") return <mesh name={`retail-product:${productId}`} castShadow position={position} scale={scale}>
@@ -261,6 +265,11 @@ function RetailProductBatch({ productId, transforms, capacity }: { productId: Pr
   if (transforms.length === 0) return <group name={`retail-stock:${productId}`} />;
   const delivered = deliveredProductId(productId);
   if (delivered) return <group name={`retail-stock:${productId}`}>{anchors}<DeliveredProductInstances id={delivered} transforms={transforms} capacity={capacity} /></group>;
+  if (productId === "cannedCorn") return <group name="retail-stock:cannedCorn">
+    {anchors}
+    <StaticInstances transforms={transforms} capacity={capacity} castShadow><primitive object={cornTinGeometry} attach="geometry" /><primitive object={cornTinMaterial} attach="material" /></StaticInstances>
+    <StaticInstances transforms={transforms} capacity={capacity}><primitive object={cornLabelGeometry} attach="geometry" /><primitive object={cornLabelMaterial} attach="material" /></StaticInstances>
+  </group>;
   if (productId === "tomatoes") return <group name={`retail-stock:${productId}`}>
     {anchors}
     <StaticInstances transforms={transforms} capacity={capacity} component={TOMATO_BODY} castShadow><sphereGeometry args={[0.09, 14, 10]} /><meshStandardMaterial color="#d94838" roughness={0.78} /></StaticInstances>
@@ -334,8 +343,8 @@ type ProduceCounts = StockCounts;
 const PRODUCE_PRODUCTS = RETAIL_DEPARTMENTS.produce.products;
 
 /** Share of one produce table (stock or capacity) for every produce SKU. */
-function produceFixtureCounts(source: (productId: ProductId) => number, fixtureIndex: number): ProduceCounts {
-  return Object.fromEntries(PRODUCE_PRODUCTS.map((productId) => [productId, distributedFixtureQuantity(source(productId), fixtureIndex, PRODUCE_DISPLAY_POSITIONS.length)]));
+function produceFixtureCounts(source: (productId: ProductId) => number, fixtureIndex: number, fixtureCount: number): ProduceCounts {
+  return Object.fromEntries(PRODUCE_PRODUCTS.map((productId) => [productId, distributedFixtureQuantity(source(productId), fixtureIndex, fixtureCount)]));
 }
 
 type EnvironmentFrameHandler = (model: THREE.Group, delta: number, elapsed: number) => void;
@@ -381,9 +390,9 @@ export const KitFurniture = memo(function KitFurniture({ shelves, shelfTier, mac
   const machine = (id: string) => machines.find((candidate) => candidate.id === id);
   // Every fixture shows its own share of the store capacity of each SKU.
   const fixtureCapacity = (productId: ProductId, fixtureIndex = 0) => distributedFixtureQuantity(
-    shelfCapacityForTier(shelfTier, productId),
+    shelfCapacityForTier(shelfTier, productId, unlockedAreas),
     fixtureIndex,
-    retailFixtureDisplayPositions(PRODUCT_RETAIL_DEPARTMENT[productId]).length,
+    retailFixtureDisplayPositions(PRODUCT_RETAIL_DEPARTMENT[productId], unlockedAreas).length,
   );
   const coldDoorActive = customers.some((customer) => ["WAIT_FOR_ACCESS", "PICK_PRODUCT"].includes(customer.state) && ["milk", "cheese"].includes(customer.shoppingList[customer.currentLine]?.productId ?? ""));
   const activeCheckouts = useMemo(() => [activeCheckoutForLane(checkoutTransactions, 0), activeCheckoutForLane(checkoutTransactions, 1)] as const, [checkoutTransactions]);
@@ -399,24 +408,26 @@ export const KitFurniture = memo(function KitFurniture({ shelves, shelfTier, mac
     }
   }, [activeCheckouts, checkoutHandoffs, checkoutHandoffLocations, coldDoorActive]);
   return <group ref={root}>
-    <StoreElement position={retailDisplayPosition("bakery")} yaw={RETAIL_DEPARTMENTS.bakery.yaw}><MemoBakeryDisplay stock={{ bread: shelves.bread, flour: shelves.flour, wheat: shelves.wheat }} capacity={{ bread: fixtureCapacity("bread"), flour: fixtureCapacity("flour"), wheat: fixtureCapacity("wheat") }} /></StoreElement>
-    {PANTRY_DISPLAY_POSITIONS.map((position, index) => <StoreElement key={`pantry-${index}`} position={[...position]} yaw={RETAIL_DEPARTMENTS.pantry.yaw}><MemoGondola position={[0, 0, 0]} count={distributedFixtureQuantity(shelves.coffee, index, PANTRY_DISPLAY_POSITIONS.length)} capacity={fixtureCapacity("coffee", index)} /></StoreElement>)}
-    <StoreElement position={retailDisplayPosition("eggs")} yaw={RETAIL_DEPARTMENTS.eggs.yaw}><MemoEggDisplay count={shelves.eggs} capacity={fixtureCapacity("eggs")} /></StoreElement>
-    {PRODUCE_DISPLAY_POSITIONS.map((position, index) => <StoreElement key={`produce-${index}`} position={[...position]} yaw={RETAIL_DEPARTMENTS.produce.yaw}><MemoProduceTable position={[0, 0, 0]} stock={produceFixtureCounts((productId) => shelves[productId], index)} capacity={produceFixtureCounts((productId) => shelfCapacityForTier(shelfTier, productId), index)} /></StoreElement>)}
-    <StoreElement position={retailDisplayPosition("dairy")} yaw={RETAIL_DEPARTMENTS.dairy.yaw}><MemoChilledDisplay position={[0, 0, 0]} stock={{ milk: shelves.milk, cheese: shelves.cheese }} capacity={{ milk: fixtureCapacity("milk"), cheese: fixtureCapacity("cheese") }} open={coldDoorActive} /></StoreElement>
-    <StoreElement position={retailDisplayPosition("drinks")} yaw={RETAIL_DEPARTMENTS.drinks.yaw}><MemoDrinksDisplay position={[0, 0, 0]} count={shelves.juice} capacity={fixtureCapacity("juice")} /></StoreElement>
+    {fixtureAvailable("fixture:retail-preserves-1", unlockedAreas) && <StoreElement position={retailDisplayPosition("preserves")} yaw={RETAIL_DEPARTMENTS.preserves.yaw}><MemoGondola position={[0, 0, 0]} productId="cannedCorn" count={shelves.cannedCorn} capacity={fixtureCapacity("cannedCorn")} /></StoreElement>}
+    {fixtureAvailable("fixture:retail-bakery-1", unlockedAreas) && (<StoreElement position={retailDisplayPosition("bakery")} yaw={RETAIL_DEPARTMENTS.bakery.yaw}><MemoBakeryDisplay stock={{ bread: shelves.bread, flour: shelves.flour, wheat: shelves.wheat }} capacity={{ bread: fixtureCapacity("bread"), flour: fixtureCapacity("flour"), wheat: fixtureCapacity("wheat") }} /></StoreElement>)}
+    {fixtureAvailable("fixture:retail-pantry-1", unlockedAreas) && (PANTRY_DISPLAY_POSITIONS.map((position, index) => <StoreElement key={`pantry-${index}`} position={[...position]} yaw={RETAIL_DEPARTMENTS.pantry.yaw}><MemoGondola position={[0, 0, 0]} count={distributedFixtureQuantity(shelves.coffee, index, PANTRY_DISPLAY_POSITIONS.length)} capacity={fixtureCapacity("coffee", index)} /></StoreElement>))}
+    {fixtureAvailable("fixture:retail-eggs-1", unlockedAreas) && (<StoreElement position={retailDisplayPosition("eggs")} yaw={RETAIL_DEPARTMENTS.eggs.yaw}><MemoEggDisplay count={shelves.eggs} capacity={fixtureCapacity("eggs")} /></StoreElement>)}
+    {retailFixtureDisplayPositions("produce", unlockedAreas).map((position, index, fixtures) => <StoreElement key={`produce-${index}`} position={[...position]} yaw={RETAIL_DEPARTMENTS.produce.yaw}><MemoProduceTable position={[0, 0, 0]} stock={produceFixtureCounts((productId) => shelves[productId], index, fixtures.length)} capacity={produceFixtureCounts((productId) => shelfCapacityForTier(shelfTier, productId, unlockedAreas), index, fixtures.length)} /></StoreElement>)}
+    {fixtureAvailable("fixture:retail-dairy-1", unlockedAreas) && (<StoreElement position={retailDisplayPosition("dairy")} yaw={RETAIL_DEPARTMENTS.dairy.yaw}><MemoChilledDisplay position={[0, 0, 0]} stock={{ milk: shelves.milk, cheese: shelves.cheese }} capacity={{ milk: fixtureCapacity("milk"), cheese: fixtureCapacity("cheese") }} open={coldDoorActive} /></StoreElement>)}
+    {fixtureAvailable("fixture:retail-drinks-1", unlockedAreas) && (<StoreElement position={retailDisplayPosition("drinks")} yaw={RETAIL_DEPARTMENTS.drinks.yaw}><MemoDrinksDisplay position={[0, 0, 0]} count={shelves.juice} capacity={fixtureCapacity("juice")} /></StoreElement>)}
     <StoreElement position={[...CHECKOUT_LANES[0].counter]}><MemoCheckoutKit position={[0, 0, 0]} lane={0} transaction={activeCheckouts[0]} handoffTransaction={checkoutHandoffs[0]} handoffBagAtCounter={checkoutHandoffLocations[0] === "counter"} /></StoreElement>
     <StoreElement position={[...CHECKOUT_LANES[0].cashierWork]}><MemoCashierWorkArea /></StoreElement>
     {unlockedAreas.includes("checkout-2")
       ? <><StoreElement position={[...CHECKOUT_LANES[1].counter]}><MemoCheckoutKit position={[0, 0, 0]} lane={1} transaction={activeCheckouts[1]} handoffTransaction={checkoutHandoffs[1]} handoffBagAtCounter={checkoutHandoffLocations[1] === "counter"} /></StoreElement><StoreElement position={[...CHECKOUT_LANES[1].cashierWork]}><MemoCashierWorkArea /></StoreElement></>
-      : <StoreElement position={[...CHECKOUT_LANES[1].counter]}><MemoClosedCheckoutKit lane={1} /></StoreElement>}
+      : !unlockedAreas.includes("purchase-campaign") && <StoreElement position={[...CHECKOUT_LANES[1].counter]}><MemoClosedCheckoutKit lane={1} /></StoreElement>}
     <StoreElement position={[...STORE_SERVICE_FIXTURES.returns.position]}><MemoReturnsCubicle inventory={returnsBin} /></StoreElement>
     <StoreElement position={[...STORE_SERVICE_FIXTURES.cartBay.position]}><MemoCartBay position={[0, 0, 0]} count={returnedCartCount} /></StoreElement>
-    <MemoProductionBakeryCubicle />
-    <StoreElement position={[...STORE_PRODUCTION_FIXTURES.breadOven.position]}><MemoBakeryKit position={[0, 0, 0]} machine={machine("bread-oven-1")} /></StoreElement>
-    <StoreElement position={[...STORE_PRODUCTION_FIXTURES.flourMill.position]}><MemoMillMachine position={[0, 0, 0]} machine={machine("flour-mill-1")} /></StoreElement>
-    <StoreElement position={[...STORE_PRODUCTION_FIXTURES.cheeseMaker.position]}><MemoProcessMachine kind="cheese" machine={machine("cheese-maker-1")} /></StoreElement>
-    <StoreElement position={[...STORE_PRODUCTION_FIXTURES.juiceMachine.position]}><MemoProcessMachine kind="juice" machine={machine("juice-machine-1")} /></StoreElement>
+    {fixtureAvailable("fixture:production-cubicle-shell", unlockedAreas) && (<MemoProductionBakeryCubicle />)}
+    {fixtureAvailable("fixture:bread-oven", unlockedAreas) && (<StoreElement position={[...STORE_PRODUCTION_FIXTURES.breadOven.position]}><MemoBakeryKit position={[0, 0, 0]} machine={machine("bread-oven-1")} /></StoreElement>)}
+    {fixtureAvailable("fixture:flour-mill", unlockedAreas) && (<StoreElement position={[...STORE_PRODUCTION_FIXTURES.flourMill.position]}><MemoMillMachine position={[0, 0, 0]} machine={machine("flour-mill-1")} /></StoreElement>)}
+    {fixtureAvailable("fixture:cheese-maker", unlockedAreas) && (<StoreElement position={[...STORE_PRODUCTION_FIXTURES.cheeseMaker.position]}><MemoProcessMachine kind="cheese" machine={machine("cheese-maker-1")} /></StoreElement>)}
+    {fixtureAvailable("fixture:juice-machine", unlockedAreas) && (<StoreElement position={[...STORE_PRODUCTION_FIXTURES.juiceMachine.position]}><MemoProcessMachine kind="juice" machine={machine("juice-machine-1")} /></StoreElement>)}
+    {fixtureAvailable("fixture:corn-canner", unlockedAreas) && <StoreElement position={[...STORE_PRODUCTION_FIXTURES.cornCanner.position]}><CornCanner machine={machine("corn-canner-1")} /></StoreElement>}
     <StoreElement position={[...STORE_SERVICE_FIXTURES.orders.position]}><MemoSupplierCorner position={[0, 0, 0]} /></StoreElement>
     <StoreElement position={[...WAREHOUSE_RETURN_STATION.position]}><MemoWarehouseReturnBasket /></StoreElement>
     <MemoStoreUtilities lightsOn={lightsOn} dynamicCeilingLights={dynamicCeilingLights} />
@@ -484,6 +495,7 @@ const MemoAnimalPaddock = memo(AnimalPaddock, sameFixtureProps);
 const MemoAnimalStation = memo(AnimalStation, sameFixtureProps);
 
 const PRODUCTS_LABELS: Record<ProductId, string> = {
+  cannedCorn: "MAÍZ EN LATA",
   tomatoes: "TOMATES",
   apples: "MANZANAS",
   oranges: "NARANJAS",
@@ -533,21 +545,22 @@ function CommercialBackPanel({ width, height, z, color = "#c5cac7" }: { width: n
   </group>;
 }
 
-function Gondola({ position, count, capacity }: { position: Position; count: number; capacity: number }) {
-  const accent = RETAIL_DEPARTMENTS.pantry.color;
+function Gondola({ position, count, capacity, productId = "coffee" }: { position: Position; count: number; capacity: number; productId?: "coffee" | "cannedCorn" }) {
+  const department = RETAIL_DEPARTMENTS[PRODUCT_RETAIL_DEPARTMENT[productId]];
+  const accent = department.color;
   // Fill the service-facing side first so the visible stock and its proximity
   // magnet share one face of the gondola at low inventory.
   const sides = [1, -1] as const;
-  return <group name="retail-department:pantry" position={position}>
+  return <group name={`retail-department:${department.id}`} position={position}>
     <Box args={[2.24, 0.16, 1.12]} position={[0, 0.08, 0]} color={palette.fixtureSteel} radius={0.035} />
     <CommercialBackPanel width={2.08} height={1.82} z={0} color="#b69a77" />
     <FixtureUprights width={2.18} height={1.92} z={0} />
     {sides.map((side) => <CommercialShelfBank key={side} levels={RETAIL_FIXTURE_LEVELS.pantry} width={2.08} depth={0.52} z={side * 0.28} front={side} accent={accent} />)}
-    <AuthoritativeRetailStock productId="coffee" count={count} />
+    <AuthoritativeRetailStock productId={productId} count={count} />
     <Box args={[2.3, 0.14, 1.08]} position={[0, 1.88, 0]} color={palette.fixtureSteel} radius={0.03} />
     <ScreenRail barY={1.95} railY={2.43} halfWidth={1.1} z={0.12} />
-    <StockScreen productId="coffee" count={count} capacity={capacity} position={[0, 2.9, 0.12]} fixtureYaw={RETAIL_DEPARTMENTS.pantry.yaw} />
-    <DepartmentSign label={RETAIL_DEPARTMENTS.pantry.label} color={accent} position={[0, 2.15, 0]} width={2.02} />
+    <StockScreen productId={productId} count={count} capacity={capacity} position={[0, 2.9, 0.12]} fixtureYaw={department.yaw} />
+    <DepartmentSign label={department.label} color={accent} position={[0, 2.15, 0]} width={2.02} />
   </group>;
 }
 
@@ -903,6 +916,23 @@ function ProcessMachine({ kind, machine }: { kind: "cheese" | "juice"; machine?:
   </group>;
 }
 
+/** Original compact machine; existing delivered models are never replaced. */
+function CornCanner({ machine }: { machine?: ProductionMachineState }) {
+  return <group name="fixture:corn-canner">
+    <ProductionMachineIdentity fixture={STORE_PRODUCTION_FIXTURES.cornCanner} machine={machine} />
+    <Box args={[1.2, 0.85, 1.1]} position={[0, 0.6, -0.55]} color="#97aaa4" radius={0.04} />
+    <Box args={[1.1, 0.12, 0.7]} position={[0, 1.09, -0.48]} color="#334840" radius={0.02} />
+    <Box args={[0.14, 0.65, 0.14]} position={[0.4, 1.45, -0.8]} color="#65833d" radius={0.02} />
+    <Box args={[0.65, 0.15, 0.4]} position={[0.12, 1.74, -0.65]} color="#65833d" radius={0.02} />
+    <mesh position={[-0.03, 1.47, -0.55]}><cylinderGeometry args={[0.1, 0.1, 0.35, 12]} /><meshStandardMaterial color="#c2cdca" metalness={0.6} roughness={0.4} /></mesh>
+    <mesh position={[0.44, 0.85, 0.012]}><sphereGeometry args={[0.045, 8, 6]} /><meshStandardMaterial color={machine?.status === "PROCESSING" ? "#77e686" : "#d1ae56"} /></mesh>
+    <group name="dynamic:machine-output">
+      {Array.from({ length: Math.min(4, machine?.output ?? 0) }, (_, index) => <CannedCornModel key={index} position={[-0.4 + index * 0.2, 1.26, -0.3]} />)}
+    </group>
+    <CannedCornModel position={[-0.03, 1.26, -0.55]} />
+  </group>;
+}
+
 /** Orders block on the rear wall: the PEDIDOS terminal faces the sales floor
  * while the delivery dock and pallet back onto the wall behind it. The group
  * origin is the shared physics/NavMesh footprint centre. */
@@ -1104,11 +1134,13 @@ export const KitFarm = memo(function KitFarm({ crops, machines, nowMs, unlockedA
   const structureRevision = unlockedAreas.join("|");
   const cropsById = useMemo(() => new Map(crops.map((crop) => [crop.id, crop])), [crops]);
   const chicken = machines.find((machine) => machine.id === "chicken-coop-1");
+  const secondChicken = machines.find((machine) => machine.id === "chicken-coop-2");
   const cow = machines.find((machine) => machine.id === "cow-station-1");
   return <group ref={root}>
     <StoreElement position={[...FARM_FIELD.center]}><MemoGardenFloor /></StoreElement>
     {FARM_PLOTS.map((plot) => {
       const crop = cropsById.get(plot.id);
+      if (unlockedAreas.includes("purchase-campaign") && (!crop || crop.status === "LOCKED")) return null;
       return <StoreElement key={plot.id} position={[plot.position[0], plot.position[1], plot.position[2]]}>
         {!crop || crop.status === "LOCKED"
           ? <MemoDormantCropPlot />
@@ -1118,7 +1150,7 @@ export const KitFarm = memo(function KitFarm({ crops, machines, nowMs, unlockedA
               status={crop.status}
               progress={cropProgress(crop, nowMs)}
               available={crop.available}
-              yieldCapacity={cropHarvestYield(crop.productId, crop.tier)}
+              yieldCapacity={cropHarvestYield(crop.productId, crop.tier, crop.baseYield)}
               accent={plot.accent}
             />}
       </StoreElement>;
@@ -1128,14 +1160,18 @@ export const KitFarm = memo(function KitFarm({ crops, machines, nowMs, unlockedA
     <StoreElement position={[...FARM_FACILITIES.greenhouse.position]}><MemoMiniGreenhouse position={[0, 0, 0]} /></StoreElement>
     <StoreElement position={[...FARM_FACILITIES.scarecrow.position]}><MemoScarecrow position={[0, 0, 0]} /></StoreElement>
     <StoreElement position={[...FARM_FACILITIES.waterTank.position]}><MemoFarmWaterTank /></StoreElement>
-    <StoreElement position={[...FARM_ANIMAL_STATIONS.chicken.position]}>
+    {fixtureAvailable("fixture:chicken-coop", unlockedAreas) && <StoreElement position={[...FARM_ANIMAL_STATIONS.chicken.position]}>
       <MemoAnimalPaddock kind="chicken" />
       {unlockedAreas.includes("chicken-coop") && chicken && <MemoAnimalStation kind="chicken" machine={chicken} />}
-    </StoreElement>
-    <StoreElement position={[...FARM_ANIMAL_STATIONS.cow.position]}>
+    </StoreElement>}
+    {fixtureAvailable("fixture:cow-station", unlockedAreas) && <StoreElement position={[...FARM_ANIMAL_STATIONS.cow.position]}>
       <MemoAnimalPaddock kind="cow" />
       {unlockedAreas.includes("cow-station") && cow && <MemoAnimalStation kind="cow" machine={cow} />}
-    </StoreElement>
+    </StoreElement>}
+    {fixtureAvailable("fixture:chicken-coop-2", unlockedAreas) && <StoreElement position={[...FARM_ANIMAL_STATIONS.chicken2.position]}>
+      <MemoAnimalPaddock kind="chicken" />
+      {unlockedAreas.includes("chicken-coop-2") && secondChicken && <MemoAnimalStation kind="chicken" machine={secondChicken} />}
+    </StoreElement>}
     {/* Last child: its effect runs after every sibling placed its instances. */}
     <StaticBatchOptimizer rootRef={root} structureRevision={structureRevision} />
   </group>;
@@ -1340,7 +1376,9 @@ function AnimalPaddock({ kind }: { kind: "chicken" | "cow" }) {
 }
 
 function AnimalStation({ kind, machine }: { kind: "chicken" | "cow"; machine: ProductionMachineState }) {
+  const feed = chickenFeedStatus(machine);
   return <group name="dynamic:farm-animal">
+    <Text position={[0, kind === "cow" ? 1.8 : 1.45, 0.45]} fontSize={0.13} color="#28483e" outlineWidth={0.012} outlineColor="#fff9df" textAlign="center">{`${kind === "cow" ? "TRIGO" : "TOMATES"} ${feed.occupied}/${feed.capacity}\n${kind === "cow" ? "LECHE" : "HUEVOS"} ${machine.output}/${machine.outputCapacity}`}</Text>
     <EnvironmentModel id={kind === "chicken" ? "chicken_coop" : "cow_station"} />
     {kind === "chicken" ? <ChickenCharacter active={machine.status === "PROCESSING"} /> : <CowCharacter active={machine.status === "PROCESSING"} />}
     <group position={[kind === "cow" ? 0.62 : 0.44, 0.02, 0.42]} scale={0.72} visible={machine.output > 0}><EnvironmentModel id={kind === "chicken" ? "egg_output_tray" : "milk_output_can"} /></group>

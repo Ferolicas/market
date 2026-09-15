@@ -125,6 +125,9 @@ describe("real supermarket loop", () => {
       if (state.franchises[0].checkoutTransactions.find((transaction) => transaction.id === transactionId)?.state === "COMPLETE") break;
     }
     expect(saleEvents).toBe(1);
+    expect(state.balanceMinor).toBe(balanceBefore);
+    expect(state.franchises[0].registerCashMinor[0]).toBeGreaterThan(0);
+    state = act(state, { type: "COLLECT_REGISTER", lane: 0 });
     expect(state.balanceMinor).toBeGreaterThan(balanceBefore);
   });
 
@@ -308,7 +311,10 @@ describe("real supermarket loop", () => {
     expect(payment.events.filter((event) => event.category === "sales")).toHaveLength(1);
     const idempotent = advanceWorld(payment.state, 1_000);
     expect(idempotent.events.filter((event) => event.category === "sales")).toHaveLength(0);
-    expect(idempotent.state.balanceMinor).toBeGreaterThan(before);
+    expect(idempotent.state.balanceMinor).toBe(before);
+    expect(idempotent.state.franchises[0].registerCashMinor).toEqual(payment.state.franchises[0].registerCashMinor);
+    const collected = act(idempotent.state, { type: "COLLECT_REGISTER", lane: 0 });
+    expect(collected.balanceMinor).toBeGreaterThan(before);
   });
 
   it("processes milk into cheese and sells the exact picked unit", () => {

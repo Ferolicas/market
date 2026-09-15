@@ -1,13 +1,22 @@
 import { z } from "zod";
 import type { GameEvent, GameState } from "@/game/types";
+import { CROP_PRODUCT_IDS, MACHINE_PRODUCT_IDS, PRODUCT_IDS } from "../game/economy/ProductRegistry";
+import { OPENING_PURCHASES } from "../game/progression/MartCampaign";
+import { CAMPAIGN_TASK_IDS } from "../game/progression/CampaignTasks";
+import { CAMPAIGN_CONTRACT_IDS } from "../game/progression/CampaignContracts";
 
-const productIdSchema = z.enum(["wheat", "flour", "bread", "corn", "milk", "eggs", "cheese", "apples", "tomatoes", "oranges", "coffee", "juice"]);
-const inventoryQuantitySchema = z.number().int().min(0).max(1_000_000);
-const inventorySchema = z.strictObject({
-  wheat: inventoryQuantitySchema, flour: inventoryQuantitySchema, bread: inventoryQuantitySchema, corn: inventoryQuantitySchema,
-  milk: inventoryQuantitySchema, eggs: inventoryQuantitySchema, cheese: inventoryQuantitySchema, apples: inventoryQuantitySchema,
-  tomatoes: inventoryQuantitySchema, oranges: inventoryQuantitySchema, coffee: inventoryQuantitySchema, juice: inventoryQuantitySchema,
+const purchaseIdSchema = z.enum(OPENING_PURCHASES.map((purchase) => purchase.id));
+const purchaseStateSchema = z.object({
+  version: z.literal(1), inherited: z.array(purchaseIdSchema).max(100),
+  purchased: z.array(purchaseIdSchema).max(100),
+  contributions: z.partialRecord(purchaseIdSchema, z.number().int().nonnegative().safe()),
+  personalProgress: z.partialRecord(z.enum(CAMPAIGN_TASK_IDS), z.number().int().min(0).max(100)).optional(),
+  completedContracts: z.array(z.enum(CAMPAIGN_CONTRACT_IDS)).max(18).optional(),
 });
+
+const productIdSchema = z.enum(PRODUCT_IDS);
+const inventoryQuantitySchema = z.number().int().min(0).max(1_000_000);
+const inventorySchema = z.record(productIdSchema, inventoryQuantitySchema);
 const carrySchema = z.object({
   capacity: z.number().int().min(1).max(20),
   items: z.partialRecord(productIdSchema, inventoryQuantitySchema),
@@ -52,12 +61,13 @@ const transactionSchema = z.object({
   checkoutLane: z.union([z.literal(0), z.literal(1)]).optional(), handledByPlayer: z.boolean().optional(),
 });
 const cropSchema = z.object({
-  id: z.string().min(1).max(100), productId: z.enum(["tomatoes", "apples", "oranges", "wheat", "corn"]),
+  id: z.string().min(1).max(100), productId: z.enum(CROP_PRODUCT_IDS),
   status: z.enum(["LOCKED", "EMPTY", "GROWING", "READY", "HARVESTING"]), plantedAt: z.number().finite(), readyAt: z.number().finite(),
   available: inventoryQuantitySchema, tier: z.number().int().min(1).max(10),
+  baseYield: z.number().int().min(1).max(20).optional(),
 });
 const productionMachineSchema = z.object({
-  id: z.string().min(1).max(100), productId: z.enum(["flour", "bread", "cheese", "juice", "eggs", "milk"]),
+  id: z.string().min(1).max(100), productId: z.enum(MACHINE_PRODUCT_IDS),
   status: z.enum(["LOCKED", "IDLE", "WAITING_INPUT", "PROCESSING", "OUTPUT_READY", "FULL"]), input: z.partialRecord(productIdSchema, inventoryQuantitySchema),
   output: inventoryQuantitySchema, outputCapacity: z.number().int().min(1).max(1_000_000), startedAt: z.number().finite().nullable(), completesAt: z.number().finite().nullable(), tier: z.number().int().min(1).max(10),
 });
@@ -69,7 +79,10 @@ const franchiseSchema = z.object({
   machines: z.object({ flourMillLevel: z.number().int().min(1).max(10), bakeryLevel: z.number().int().min(1).max(10), flourQueue: inventoryQuantitySchema, breadQueue: inventoryQuantitySchema }),
   carry: carrySchema, crops: z.array(cropSchema).max(20), productionMachines: z.array(productionMachineSchema).max(20),
   buildProjects: z.array(z.object({ id: z.string().min(1).max(100), level: z.number().int().min(2).max(30), costMinor: z.number().int().min(0), contributedMinor: z.number().int().min(0), completed: z.boolean() })).max(30),
-  checkoutTransactions: z.array(transactionSchema).max(100), returnsBin: inventorySchema, returnedCartCount: z.number().int().min(0).max(1_000_000),
+  checkoutTransactions: z.array(transactionSchema).max(100),
+  registerCashMinor: z.tuple([z.number().int().nonnegative(), z.number().int().nonnegative()]).default([0, 0]),
+  purchases: purchaseStateSchema.optional(),
+  returnsBin: inventorySchema, returnedCartCount: z.number().int().min(0).max(1_000_000),
   customers: z.array(customerSchema).max(100), nextCustomerSequence: z.number().int().min(1), lastCustomerSpawnAt: z.number().finite(), queueCustomerIds: z.array(z.string().max(120)).max(100),
   unlockedAreas: z.array(z.string().min(1).max(100)).max(100), stationTiers: z.record(z.string().min(1).max(100), z.number().int().min(1).max(10)),
   upgradeContributions: z.record(z.string().min(1).max(100), z.number().int().min(0)), playerSpeedTier: z.number().int().min(1).max(10),

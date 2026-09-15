@@ -85,7 +85,9 @@ describe("store and rear-farm navigation", () => {
 
     destinations.forEach(([id, destination]) => {
       const path = storePathfinder(start, destination);
-      expect(path.length, `${id} needs a complete route`).toBeGreaterThan(3);
+      // A nearby destination can need only three corners; endpoint and doorway
+      // crossing below prove completeness, not an arbitrary minimum detour.
+      expect(path.length, `${id} needs a complete route`).toBeGreaterThanOrEqual(3);
       expect(Math.hypot(path.at(-1)![0] - destination[0], path.at(-1)![1] - destination[1]), `${id} endpoint`).toBeLessThan(0.9);
       expect(path.some(([x]) => x > 11.58), `${id} cannot circle around the exterior lane`).toBe(false);
       const crossingX = crossingXAtZ(start, path, STORE_REAR_DOOR.z);
@@ -120,7 +122,7 @@ describe("store and rear-farm navigation", () => {
     cases.forEach(({ id, start, destination, maxLength }) => {
       const path = storePathfinder(start, destination);
       expect(path.length, `${id} route`).toBeGreaterThan(1);
-      expect(path.every(isStoreNavigationPoint), `${id} waypoints`).toBe(true);
+      expect(path.every((point) => isStoreNavigationPoint(point)), `${id} waypoints`).toBe(true);
       expect(Math.hypot(path.at(-1)![0] - destination[0], path.at(-1)![1] - destination[1]), `${id} endpoint`).toBeLessThan(0.9);
       expect(pathLength(start, path), `${id} detour`).toBeLessThan(maxLength);
     });

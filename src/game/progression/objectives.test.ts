@@ -110,11 +110,11 @@ describe("level objectives", () => {
     const franchise = state.franchises[0];
 
     expect(unlockedCustomerProducts(1)).toEqual(["tomatoes"]);
-    expect(unlockedCustomerProducts(10)).toEqual(["tomatoes", "apples", "bread", "eggs", "coffee"]);
-    expect(averageShelfAvailability(franchise)).toBeCloseTo((8 / 30 + 6 / 24) / 5);
+    expect(unlockedCustomerProducts(10)).toEqual(["tomatoes", "apples", "wheat", "flour", "bread", "eggs", "coffee"]);
+    expect(averageShelfAvailability(franchise)).toBeCloseTo((8 / 30 + 6 / 24) / 7);
 
     franchise.stationTiers["shelves-1"] = 2;
-    expect(averageShelfAvailability(franchise)).toBeCloseTo((8 / 38 + 6 / 30) / 5);
+    expect(averageShelfAvailability(franchise)).toBeCloseTo((8 / 38 + 6 / 30) / 7);
   });
 });
 

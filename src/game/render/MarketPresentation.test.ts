@@ -10,6 +10,13 @@ function fixture() {
 }
 
 describe("market presentation reconciliation", () => {
+  it("refreshes the feeder label when tomatoes change during an active cycle", () => {
+    const { franchise } = fixture();
+    const base = { crops: [], machines: franchise.productionMachines, nowMs: 0, unlockedAreas: franchise.unlockedAreas };
+    const machines = structuredClone(base.machines);
+    machines.find((machine) => machine.id === "chicken-coop-1")!.input.tomatoes = 3;
+    expect(sameFarmPresentation(base, { ...base, machines })).toBe(false);
+  });
   it("ignores world motion snapshots that cannot change a fixture", () => {
     const { franchise } = fixture();
     const customer = {

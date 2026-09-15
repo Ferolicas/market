@@ -1,6 +1,6 @@
 // Bump whenever same-path 3D assets change. Activation removes the previous
 // cache so installed PWAs cannot keep serving the retired character cast.
-const CACHE = "mini-market-v9";
+const CACHE = "mini-market-v10-campaign30";
 const PRIVATE_CACHE = "mini-market-private-v1";
 const SHELL = ["/", "/manifest.webmanifest", "/icon.svg", "/icon-maskable.svg"];
 

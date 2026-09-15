@@ -54,7 +54,7 @@ const CART_HANDLE_Y = 0.82;
 const CART_HANDLE_BASE_WIDTH = 0.44;
 const CART_MAX_FOLLOW_LAG = 0.075;
 const CART_BAY_POSITION = scaleStorePoint([...CART_BAY_POINT]);
-const PICKUP_HEIGHT: Record<ProductId, number> = { tomatoes: 0.86, apples: 0.86, oranges: 0.86, corn: 0.92, eggs: 0.92, milk: 1.02, cheese: 1.02, juice: 1.02, bread: 0.9, flour: 0.9, wheat: 0.9, coffee: 0.9 };
+const PICKUP_HEIGHT: Record<ProductId, number> = { tomatoes: 0.86, apples: 0.86, oranges: 0.86, corn: 0.92, eggs: 0.92, milk: 1.02, cheese: 1.02, juice: 1.02, bread: 0.9, flour: 0.9, wheat: 0.9, coffee: 0.9, cannedCorn: 0.9 };
 
 /** One customer body. React re-renders it only when its presentation key
  * changes (state, cart, basket, transaction); each world tick's fresh

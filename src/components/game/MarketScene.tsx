@@ -1,5 +1,7 @@
 "use client";
 
+import { fixtureAvailable } from "@/game/stations/fixture-availability";
+
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { ContactShadows, Environment, Lightformer, Line, OrthographicCamera, useGLTF } from "@react-three/drei";
 import { BallCollider, CapsuleCollider, CuboidCollider, CylinderCollider, Physics, RigidBody, useBeforePhysicsStep, useRapier, type RapierCollider, type RapierRigidBody } from "@react-three/rapier";
@@ -15,7 +17,7 @@ import { BasketProduct, HarvestBasket } from "./HarvestBasket";
 import { MarketText as Text } from "./MarketText";
 import { dampFactor, frameDelta, turnTowards } from "@/game/locomotion";
 import type { AvatarConfig, CarryState, CharacterId, CheckoutTransaction, CropState, CustomerRuntimeState, Employee, EmployeeRole, EmployeeRuntimeState, HairId, Inventory, ProductId, ProductionMachineState } from "@/game/types";
-import { scaleStorePoint, scaleStorePosition, STORE_ELEMENT_SCALE, STORE_LAYOUT_SCALE, STORE_OBSTACLES, WORLD_SCALE } from "@/game/world-scale";
+import { scaleStorePoint, scaleStorePosition, STORE_ELEMENT_SCALE, STORE_LAYOUT_SCALE, storeObstaclesForAreas, WORLD_SCALE } from "@/game/world-scale";
 import { inputManager } from "@/game/input/InputManager";
 import { InteractionDirector } from "@/game/interaction/InteractionDirector";
 import { WorkstationController } from "@/game/interaction/WorkstationController";
@@ -54,8 +56,10 @@ import { customerPresentationKey, employeePresentationKey, liveActors, publishLi
 import { daylightPresentation } from "@/game/time/BusinessDay";
 import { flushRecoverySnapshot } from "@/game/persistence/RecoveryStorage";
 import { reportClientTelemetry } from "@/lib/client-telemetry";
+import { isRegisterInteractionId, REGISTER_INTERACTION_IDS, registerLane, registerPickupPosition, type RegisterInteractionId } from "@/game/stations/register-layout";
 
-export type InteractionId = Exclude<WorkstationId, "shelf"> | StockingInteractionId | FarmInteractionId | "supplier" | "warehouseReturn" | "door";
+import { PURCHASE_POINT } from "@/game/stations/purchase-layout";
+export type InteractionId = Exclude<WorkstationId, "shelf"> | StockingInteractionId | FarmInteractionId | RegisterInteractionId | "supplier" | "warehouseReturn" | "door" | "purchase";
 export interface InteractionPrompt { id: InteractionId; label: string; }
 export interface InteractionVisualEvent {
   id: InteractionId;
@@ -104,6 +108,8 @@ function visualTransferDelta(delta: number) {
 }
 
 const ZONES: { id: InteractionId; label: string; position: [number, number, number]; facing?: number }[] = ([
+  { id: "purchase", label: "Aportar a la compra seleccionada", position: PURCHASE_POINT },
+  ...REGISTER_INTERACTION_IDS.map((id) => ({ id, label: `Recoger dinero de caja ${registerLane(id) + 1}`, position: registerPickupPosition(registerLane(id)) })),
   ...WORKSTATION_IDS.filter((id) => id !== "shelf").map((id) => {
     const station = WORKSTATIONS[id];
     return { id: id as Exclude<WorkstationId, "shelf">, label: station.label, position: [...station.position] as [number, number, number], facing: station.facing };
@@ -126,6 +132,8 @@ interface MarketSceneProps {
   playerSpeedTier: number;
   customers: CustomerRuntimeState[];
   checkoutTransactions: CheckoutTransaction[];
+  registerCashMinor: [number, number];
+  purchaseLabel?: string;
   returnsBin: Inventory;
   returnedCartCount: number;
   crops: CropState[];
@@ -153,7 +161,7 @@ interface MarketSceneProps {
   debug?: boolean;
 }
 
-export const MarketScene = memo(function MarketScene({ avatar, carry, visualCarry, warehousePickupEnabled, customers, checkoutTransactions, returnsBin, returnedCartCount, crops, visualCrops, productionMachines, shelves, visualShelves, shelfTier, unlockedAreas, lightsOn, minuteOfDay, simulationTimeMs, employees, onPrompt, onInteract, onDistance, onDoorPresence, onSceneReady, lastInteraction, transferEvents, onTransferProgress, open, doorState, doorProgress, checkoutLevel, playerSpeedTier, debug = false }: MarketSceneProps) {
+export const MarketScene = memo(function MarketScene({ avatar, carry, visualCarry, warehousePickupEnabled, customers, checkoutTransactions, registerCashMinor, purchaseLabel, returnsBin, returnedCartCount, crops, visualCrops, productionMachines, shelves, visualShelves, shelfTier, unlockedAreas, lightsOn, minuteOfDay, simulationTimeMs, employees, onPrompt, onInteract, onDistance, onDoorPresence, onSceneReady, lastInteraction, transferEvents, onTransferProgress, open, doorState, doorProgress, checkoutLevel, playerSpeedTier, debug = false }: MarketSceneProps) {
   const playerFocus = useRef(new THREE.Vector3(...PLAYER_START));
   const playerMotionActiveRef = useRef(false);
   const sceneSettledRef = useRef(false);
@@ -170,15 +178,19 @@ export const MarketScene = memo(function MarketScene({ avatar, carry, visualCarr
   const daylight = daylightPresentation(minuteOfDay);
   const stockableByDepartment = Object.fromEntries(RETAIL_DEPARTMENT_IDS.map((departmentId) => [
     departmentId,
-    preferredStockingProduct(carry, shelves, shelfTier, RETAIL_DEPARTMENTS[departmentId].products),
+    preferredStockingProduct(carry, shelves, shelfTier, RETAIL_DEPARTMENTS[departmentId].products, unlockedAreas),
   ])) as Record<(typeof RETAIL_DEPARTMENT_IDS)[number], ProductId | null>;
   const interactionLabels = Object.fromEntries(RETAIL_DEPARTMENT_IDS.flatMap((departmentId) => {
     const productId = stockableByDepartment[departmentId];
     return productId ? [[stockingInteractionId(departmentId), `Surtir ${PRODUCTS[productId].name.toLowerCase()}`]] : [];
   })) as Partial<Record<InteractionId, string>>;
+  if (purchaseLabel) interactionLabels.purchase = purchaseLabel;
   if (warehousePickupEnabled) interactionLabels.supplier = WAREHOUSE_PICKUP_STATION.label;
   if (carryTotal(carry) > 0) interactionLabels.warehouseReturn = WAREHOUSE_RETURN_STATION.label;
-  const stockableProduct = preferredStockingProduct(carry, shelves, shelfTier);
+  for (const id of REGISTER_INTERACTION_IDS) {
+    if (registerCashMinor[registerLane(id)] > 0) interactionLabels[id] = `Recoger dinero de caja ${registerLane(id) + 1}`;
+  }
+  const stockableProduct = preferredStockingProduct(carry, shelves, shelfTier, undefined, unlockedAreas);
   publishLiveActors(customers, checkoutTransactions, employees, simulationTimeMs);
   // Authoritative ticks structured-clone the whole save, so array identity
   // changes every 200 ms. Children that only depend on membership compare
@@ -283,6 +295,11 @@ export const MarketScene = memo(function MarketScene({ avatar, carry, visualCarr
       <ambientLight intensity={daylight.ambientIntensity} />
       <MarketKeyLight shadowMapSize={renderProfile.shadowMapSize} publishDiagnostics={performanceProbe} intensity={daylight.keyIntensity} color={daylight.keyColor} />
       <group scale={WORLD_SCALE}>
+        <RegisterCashMarkers amounts={registerCashMinor} />
+        {purchaseLabel && <group position={scaleStorePosition(PURCHASE_POINT)} scale={STORE_ELEMENT_SCALE}>
+          <mesh rotation={[-Math.PI / 2, 0, 0]}><ringGeometry args={[0.65, 0.76, 32]} /><meshBasicMaterial color="#e8ca6b" /></mesh>
+          <Text position={[0, 1, 0]} fontSize={0.15} maxWidth={2.8} textAlign="center" color="#28483e" outlineColor="#fff1bf" outlineWidth={0.012}>{purchaseLabel}</Text>
+        </group>}
         <group name="perf:ground" scale={[STORE_LAYOUT_SCALE, 1, STORE_LAYOUT_SCALE]}><MarketGround /></group>
         <Suspense fallback={null}>
           <group name="perf:city" scale={[STORE_LAYOUT_SCALE, 1, STORE_LAYOUT_SCALE]}><StaticCityPerimeter /></group>
@@ -300,11 +317,11 @@ export const MarketScene = memo(function MarketScene({ avatar, carry, visualCarr
           {transferEvents.map((event) => event.kind === "harvest" && event.cropId && event.productId
             ? <HarvestMagnetBurst key={event.sequence} sequence={event.sequence} cropId={event.cropId} productId={event.productId} quantity={event.quantity ?? 1} basketTarget={basketTarget} onProgress={onTransferProgress} />
             : event.kind === "stock" && event.productId
-              ? <StockMagnetBurst key={event.sequence} sequence={event.sequence} productId={event.productId} quantity={event.quantity ?? 1} shelfStart={event.shelfStart ?? 0} basketTarget={basketTarget} onProgress={onTransferProgress} />
+              ? <StockMagnetBurst key={event.sequence} sequence={event.sequence} productId={event.productId} quantity={event.quantity ?? 1} shelfStart={event.shelfStart ?? 0} basketTarget={basketTarget} onProgress={onTransferProgress} unlockedAreas={unlockedAreas} />
               : event.kind === "return" && event.productId
                 ? <ReturnMagnetBurst key={event.sequence} sequence={event.sequence} productId={event.productId} quantity={event.quantity ?? 1} basketTarget={basketTarget} onProgress={onTransferProgress} />
                 : null)}
-          {debug && <DebugWorld customers={customers} crops={crops} />}
+          {debug && <DebugWorld customers={customers} crops={crops} unlockedAreas={unlockedAreas} />}
         </Suspense>
         <group name="perf:employees"><Suspense fallback={null}><Employees employees={employees} /></Suspense></group>
         <group name="perf:customers">
@@ -314,7 +331,7 @@ export const MarketScene = memo(function MarketScene({ avatar, carry, visualCarr
         <group name="perf:contact-shadows"><StaticContactShadows frames={1} position={[0, 0.015, 2 * STORE_LAYOUT_SCALE]} opacity={0.24} scale={34 * STORE_LAYOUT_SCALE} blur={2.6} far={8} /></group>
       </group>
       <Physics timeStep={PHYSICS_STEP_SECONDS} gravity={[0, -9.81, 0]}>
-        <StoreColliders doorMotion={doorMotion} />
+        <StoreColliders doorMotion={doorMotion} unlockedAreas={unlockedAreas} />
         <RearDoorAssembly playerFocus={playerFocus} />
         <InteractionSensors checkoutLevel={checkoutLevel} unlockedSignature={unlockedSignature} cropSignature={cropSignature} warehousePickupEnabled={warehousePickupEnabled} />
         <group name="perf:player"><Suspense fallback={null}><Player avatar={avatar} carry={visualCarry} cropSignature={cropSignature} checkoutLevel={checkoutLevel} playerSpeedTier={playerSpeedTier} unlockedSignature={unlockedSignature} warehousePickupEnabled={warehousePickupEnabled} debug={debug} driveable={driveable} onPrompt={onPrompt} onInteract={onInteract} onDistance={onDistance} onDoorPresence={onDoorPresence} onCheckoutFocus={setCheckoutFocused} lastInteraction={lastInteraction} playerFocus={playerFocus} playerMotionActiveRef={playerMotionActiveRef} basketTarget={basketTarget} interactionLabels={interactionLabels} /></Suspense></group>
@@ -328,6 +345,8 @@ export const MarketScene = memo(function MarketScene({ avatar, carry, visualCarr
 }, sameMarketSceneProps);
 
 function sameMarketSceneProps(previous: MarketSceneProps, next: MarketSceneProps) {
+  if (previous.purchaseLabel !== next.purchaseLabel) return false;
+  if (previous.registerCashMinor[0] !== next.registerCashMinor[0] || previous.registerCashMinor[1] !== next.registerCashMinor[1]) return false;
   if (previous.debug !== next.debug || previous.onSceneReady !== next.onSceneReady || previous.warehousePickupEnabled !== next.warehousePickupEnabled || previous.checkoutLevel !== next.checkoutLevel || previous.playerSpeedTier !== next.playerSpeedTier || previous.shelfTier !== next.shelfTier || previous.open !== next.open || previous.doorState !== next.doorState || previous.doorProgress !== next.doorProgress) return false;
   if (previous.crops !== next.crops || previous.visualCrops !== next.visualCrops || previous.productionMachines !== next.productionMachines || previous.shelves !== next.shelves || previous.visualShelves !== next.visualShelves || previous.unlockedAreas !== next.unlockedAreas || previous.lightsOn !== next.lightsOn || previous.minuteOfDay !== next.minuteOfDay || previous.simulationTimeMs !== next.simulationTimeMs) return false;
   if (previous.customers !== next.customers || previous.checkoutTransactions !== next.checkoutTransactions || previous.returnsBin !== next.returnsBin || previous.returnedCartCount !== next.returnedCartCount) return false;
@@ -690,7 +709,7 @@ function HarvestMagnetBurst({ sequence, cropId, productId, quantity, basketTarge
   </group>)}</group>;
 }
 
-function StockMagnetBurst({ sequence, productId, quantity, shelfStart, basketTarget, onProgress }: { sequence: number; productId: ProductId; quantity: number; shelfStart: number; basketTarget: RefObject<THREE.Vector3>; onProgress: (sequence: number, remainingQuantity: number) => void }) {
+function StockMagnetBurst({ sequence, productId, quantity, shelfStart, basketTarget, onProgress, unlockedAreas }: { sequence: number; productId: ProductId; quantity: number; shelfStart: number; basketTarget: RefObject<THREE.Vector3>; onProgress: (sequence: number, remainingQuantity: number) => void; unlockedAreas: string[] }) {
   const particleCount = Math.min(20, Math.max(1, Math.floor(quantity)));
   const particles = useRef<Array<THREE.Group | null>>([]);
   const sources = useRef<Array<THREE.Vector3 | null>>([]);
@@ -703,8 +722,8 @@ function StockMagnetBurst({ sequence, productId, quantity, shelfStart, basketTar
   // Departments with several fixtures deal units round-robin across them, so
   // each flight lands on the fixture and slot where its unit will be drawn.
   const particleTargets = useMemo(() => Array.from({ length: particleCount }, (_, index): [number, number, number] => {
-    const slot = retailStockFixtureSlot(departmentId, shelfStart + index, shelfStart + particleCount);
-    const displayPosition = retailFixtureDisplayPositions(departmentId)[slot.fixtureIndex];
+    const slot = retailStockFixtureSlot(departmentId, shelfStart + index, shelfStart + particleCount, unlockedAreas);
+    const displayPosition = retailFixtureDisplayPositions(departmentId, unlockedAreas)[slot.fixtureIndex];
     const landing = retailStockLandingLocalPosition(productId, slot.localOrdinal, slot.localEnd);
     const localX = landing[0] * Math.cos(displayYaw) + landing[2] * Math.sin(displayYaw);
     const localZ = -landing[0] * Math.sin(displayYaw) + landing[2] * Math.cos(displayYaw);
@@ -713,7 +732,7 @@ function StockMagnetBurst({ sequence, productId, quantity, shelfStart, basketTar
       landing[1] * STORE_ELEMENT_SCALE,
       displayPosition[2] * STORE_LAYOUT_SCALE + localZ * STORE_ELEMENT_SCALE,
     ];
-  }), [departmentId, displayYaw, particleCount, productId, shelfStart]);
+  }), [departmentId, displayYaw, particleCount, productId, shelfStart, unlockedAreas]);
   const targetPosition = particleTargets[0];
   const [targetX, targetY, targetZ] = targetPosition;
 
@@ -823,8 +842,9 @@ function ReturnMagnetBurst({ sequence, productId, quantity, basketTarget, onProg
   </group>)}</group>;
 }
 
-function DebugWorld({ customers, crops }: { customers: CustomerRuntimeState[]; crops: CropState[] }) {
-  const navGeometry = useMemo(() => createWalkableStoreGeometry(), []);
+function DebugWorld({ customers, crops, unlockedAreas }: { customers: CustomerRuntimeState[]; crops: CropState[]; unlockedAreas: string[] }) {
+  const areaSignature = unlockedAreas.join("|");
+  const navGeometry = useMemo(() => createWalkableStoreGeometry(areaSignature.split("|")), [areaSignature]);
   useEffect(() => () => navGeometry.dispose(), [navGeometry]);
   const sockets: [string, number, number][] = [
     ["tomato/pan", -4.1, -0.9], ["maíz", -4, 4.15], ["frío", 0, -3.35],
@@ -839,7 +859,7 @@ function DebugWorld({ customers, crops }: { customers: CustomerRuntimeState[]; c
     <mesh geometry={navGeometry} scale={[STORE_LAYOUT_SCALE, 1, STORE_LAYOUT_SCALE]} position={[0, 0.052, 0]}>
       <meshBasicMaterial color="#54e7b1" wireframe transparent opacity={0.17} depthWrite={false} />
     </mesh>
-    {STORE_OBSTACLES.map((obstacle, index) => <mesh key={`collider-${index}`} position={[obstacle.x, 0.9, obstacle.z]}>
+    {storeObstaclesForAreas(unlockedAreas).map((obstacle, index) => <mesh key={`collider-${index}`} position={[obstacle.x, 0.9, obstacle.z]}>
       <boxGeometry args={[obstacle.halfX * 2, 1.8, obstacle.halfZ * 2]} />
       <meshBasicMaterial color="#ff6f61" wireframe transparent opacity={0.65} />
     </mesh>)}
@@ -1150,14 +1170,14 @@ function Player({ avatar, carry, cropSignature, checkoutLevel, playerSpeedTier, 
     warehousePickupEnabled,
   )), [checkoutLevel, unlockedSignature, cropSignature, warehousePickupEnabled]);
   const playerMotion = useMemo(() => {
-    const config = playerMotionForTier(playerSpeedTier);
+    const config = playerMotionForTier(playerSpeedTier, unlockedSignature.split("|").includes("purchase-campaign"));
     return {
       ...config,
       walkSpeed: config.walkSpeed * WORLD_SCALE,
       acceleration: config.acceleration * WORLD_SCALE,
       braking: config.braking * WORLD_SCALE,
     };
-  }, [playerSpeedTier]);
+  }, [playerSpeedTier, unlockedSignature]);
   const characterController = useRef<ReturnType<ReturnType<typeof useRapier>["world"]["createCharacterController"]> | null>(null);
   const { world, rapier } = useRapier();
   const [walking, setWalking] = useState(false);
@@ -1354,7 +1374,7 @@ function Player({ avatar, carry, cropSignature, checkoutLevel, playerSpeedTier, 
       if (qaWindow.__MARKET_QA__) qaWindow.__MARKET_QA__.activeZones = active;
     }
     const foundZone = ZONES.find((zone) => selected.includes(zone.id)
-      && (!(isStockingInteractionId(zone.id) || zone.id === "supplier" || zone.id === "warehouseReturn") || interactionLabels[zone.id]));
+      && (!(isStockingInteractionId(zone.id) || isRegisterInteractionId(zone.id) || zone.id === "purchase" || zone.id === "supplier" || zone.id === "warehouseReturn") || interactionLabels[zone.id]));
     const found = foundZone ? { id: foundZone.id, label: interactionLabels[foundZone.id] ?? foundZone.label } : null;
     if (found?.id !== nearest.current?.id || found?.label !== nearest.current?.label) { nearest.current = found; onPrompt(found); }
   });
@@ -1369,7 +1389,7 @@ function Player({ avatar, carry, cropSignature, checkoutLevel, playerSpeedTier, 
 /** Static store collision. The two storefront leaf colliders follow the
  * presentation door every frame through the Rapier API, so world ticks never
  * re-render forty colliders just to move two of them. */
-const StoreColliders = memo(function StoreColliders({ doorMotion }: { doorMotion: RefObject<{ progress: number }> }) {
+const StoreColliders = memo(function StoreColliders({ doorMotion, unlockedAreas }: { doorMotion: RefObject<{ progress: number }>; unlockedAreas: string[] }) {
   const leafColliders = useRef<(RapierCollider | null)[]>([null, null]);
   const presentedProgress = useRef(Number.NaN);
   useFrame(() => {
@@ -1389,7 +1409,7 @@ const StoreColliders = memo(function StoreColliders({ doorMotion }: { doorMotion
   const rearFrameHalfHeight = (rearDoor.leafHeight + 0.18) / 2;
   return <RigidBody type="fixed" colliders={false}>
     <CuboidCollider args={[13.35 * STORE_LAYOUT_SCALE * WORLD_SCALE, 0.08 * WORLD_SCALE, 17.15 * STORE_LAYOUT_SCALE * WORLD_SCALE]} position={[0, -0.08 * WORLD_SCALE, -1.25 * STORE_LAYOUT_SCALE * WORLD_SCALE]} friction={0.8} />
-    {STORE_OBSTACLES.map((obstacle, index) => <CuboidCollider key={index} args={[obstacle.halfX * WORLD_SCALE, 0.9 * WORLD_SCALE, obstacle.halfZ * WORLD_SCALE]} position={[obstacle.x * WORLD_SCALE, 0.9 * WORLD_SCALE, obstacle.z * WORLD_SCALE]} />)}
+    {storeObstaclesForAreas(unlockedAreas).map((obstacle, index) => <CuboidCollider key={obstacle.id ?? `fixed-${index}`} args={[obstacle.halfX * WORLD_SCALE, 0.9 * WORLD_SCALE, obstacle.halfZ * WORLD_SCALE]} position={[obstacle.x * WORLD_SCALE, 0.9 * WORLD_SCALE, obstacle.z * WORLD_SCALE]} />)}
     <CuboidCollider args={[0.17 * STORE_LAYOUT_SCALE * WORLD_SCALE, wallHalfHeight * WORLD_SCALE, 8.25 * STORE_LAYOUT_SCALE * WORLD_SCALE]} position={[-11.35 * STORE_LAYOUT_SCALE * WORLD_SCALE, wallHalfHeight * WORLD_SCALE, -0.35 * STORE_LAYOUT_SCALE * WORLD_SCALE]} />
     <CuboidCollider args={[0.17 * STORE_LAYOUT_SCALE * WORLD_SCALE, wallHalfHeight * WORLD_SCALE, 8.25 * STORE_LAYOUT_SCALE * WORLD_SCALE]} position={[11.35 * STORE_LAYOUT_SCALE * WORLD_SCALE, wallHalfHeight * WORLD_SCALE, -0.35 * STORE_LAYOUT_SCALE * WORLD_SCALE]} />
     {rearDoorWallSegments().map((segment, index) => <CuboidCollider
@@ -1587,14 +1607,31 @@ function InteractionSensorCollider({ zone }: { zone: InteractionZoneConfig }) {
   </>;
 }
 
+const RegisterCashMarkers = memo(function RegisterCashMarkers({ amounts }: { amounts: readonly [number, number] }) {
+  return <group name="register-cash-markers">
+    {REGISTER_INTERACTION_IDS.map((id) => {
+      const lane = registerLane(id);
+      if (amounts[lane] <= 0) return null;
+      return <group key={id} position={scaleStorePosition(registerPickupPosition(lane))} scale={STORE_ELEMENT_SCALE}>
+        <mesh rotation={[-Math.PI / 2, 0, 0]}><ringGeometry args={[0.42, 0.48, 32]} /><meshBasicMaterial color="#e8ca6b" /></mesh>
+        <mesh position={[0, 0.13, 0]}><boxGeometry args={[0.42, 0.14, 0.24]} /><meshStandardMaterial color="#73a95c" roughness={0.8} /></mesh>
+        <mesh position={[0, 0.205, 0]}><boxGeometry args={[0.09, 0.012, 0.25]} /><meshStandardMaterial color="#f0dfaa" roughness={0.9} /></mesh>
+        <Text position={[0, 0.45, 0]} fontSize={0.13} color="#28483e" outlineColor="#fff1bf" outlineWidth={0.01} anchorX="center">RECOGER</Text>
+      </group>;
+    })}
+  </group>;
+}, (previous, next) => previous.amounts[0] === next.amounts[0] && previous.amounts[1] === next.amounts[1]);
+
 function interactionZoneConfigs(checkoutLevel = 1, unlockedAreas: readonly string[] = [], activeCropIds: readonly string[] = [], warehousePickupEnabled = false): InteractionZoneConfig[] {
   const storeZones = ZONES.filter((zone) => (
     (zone.id !== "supplier" || warehousePickupEnabled)
+    && (!retailDepartmentFromStockingInteraction(zone.id) || fixtureAvailable(`fixture:retail-${retailDepartmentFromStockingInteraction(zone.id)}-1`, unlockedAreas))
+    && (zone.id !== "register-1" || unlockedAreas.includes("checkout-2"))
     && (!isWorkstationId(zone.id) || isWorkstationUnlocked(zone.id, unlockedAreas))
   )).flatMap((zone): InteractionZoneConfig[] => {
     const departmentId = retailDepartmentFromStockingInteraction(zone.id);
     const productionMagnet = isProductionWorkstationId(zone.id) ? productionMachineMagnet(zone.id, STORE_LAYOUT_SCALE, STORE_ELEMENT_SCALE) : null;
-    const magnets = departmentId ? retailStockingMagnets(departmentId, STORE_LAYOUT_SCALE, STORE_ELEMENT_SCALE) : [productionMagnet];
+    const magnets = departmentId ? retailStockingMagnets(departmentId, STORE_LAYOUT_SCALE, STORE_ELEMENT_SCALE, unlockedAreas) : [productionMagnet];
     return magnets.map((magnet) => {
     const doorSensor = zone.id === "door" ? STOREFRONT_LAYOUT.sensor : null;
     return {
@@ -1628,7 +1665,7 @@ function interactionZoneConfigs(checkoutLevel = 1, unlockedAreas: readonly strin
       dwellMs: zone.id === "supplier" ? WAREHOUSE_PICKUP_STATION.dwellMs : zone.id === "warehouseReturn" ? WAREHOUSE_RETURN_STATION.dwellMs : zone.id === "checkout" ? 180 : zone.id === "door" || isStockingInteractionId(zone.id) || isProductionWorkstationId(zone.id) ? 0 : 80,
       repeatEveryMs: zone.id === "supplier" ? WAREHOUSE_PICKUP_STATION.repeatEveryMs : zone.id === "warehouseReturn" ? WAREHOUSE_RETURN_STATION.repeatEveryMs : isStockingInteractionId(zone.id) || isProductionWorkstationId(zone.id) ? 180 : zone.id === "checkout" ? (checkoutLevel >= 2 ? 340 : 450) : zone.id === "door" ? 60_000 : 220,
       exitGraceMs: zone.id === "supplier" ? WAREHOUSE_PICKUP_STATION.exitGraceMs : zone.id === "warehouseReturn" ? WAREHOUSE_RETURN_STATION.exitGraceMs : 120,
-      channel: zone.id === "door" || zone.id === "supplier" ? "passive" : zone.id === "checkout" ? "hands" : "transfer",
+      channel: zone.id === "door" || zone.id === "supplier" || zone.id === "purchase" || isRegisterInteractionId(zone.id) ? "passive" : zone.id === "checkout" ? "hands" : "transfer",
     };
     });
   });

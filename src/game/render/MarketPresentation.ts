@@ -3,24 +3,10 @@ import type {
   CropState,
   CustomerRuntimeState,
   Inventory,
-  ProductId,
   ProductionMachineState,
 } from "../types";
 
-const PRODUCT_IDS: readonly ProductId[] = [
-  "wheat",
-  "flour",
-  "bread",
-  "corn",
-  "milk",
-  "eggs",
-  "cheese",
-  "apples",
-  "tomatoes",
-  "oranges",
-  "coffee",
-  "juice",
-];
+import { PRODUCT_IDS } from "../economy/ProductRegistry";
 
 export interface FurniturePresentationProps {
   shelves: Inventory;
@@ -81,10 +67,12 @@ export function sameFarmPresentation(
       || left.status !== right.status
       || left.available !== right.available
       || left.tier !== right.tier
+      || left.baseYield !== right.baseYield
       || cropPresentationStage(left, previous.nowMs) !== cropPresentationStage(right, next.nowMs)
     ) return false;
   }
   return sameFarmMachine(previous.machines, next.machines, "chicken-coop-1")
+    && sameFarmMachine(previous.machines, next.machines, "chicken-coop-2")
     && sameFarmMachine(previous.machines, next.machines, "cow-station-1");
 }
 
@@ -155,5 +143,7 @@ function sameFarmMachine(
 ) {
   const left = previous.find((machine) => machine.id === id);
   const right = next.find((machine) => machine.id === id);
-  return left?.status === right?.status && left?.output === right?.output;
+  return left?.status === right?.status && left?.output === right?.output
+    && left?.tier === right?.tier && left?.outputCapacity === right?.outputCapacity
+    && left?.input.tomatoes === right?.input.tomatoes && left?.input.wheat === right?.input.wheat;
 }

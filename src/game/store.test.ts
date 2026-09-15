@@ -122,7 +122,7 @@ describe("market store world queue", () => {
     const ordered = applyGameAction(initial, { type: "ORDER", supplierId: "campo", productId: "wheat", quantity: 1 });
     const legacyEvent = structuredClone(ordered.events[0]) as unknown as Record<string, unknown>;
     delete legacyEvent.franchiseId;
-    local.setItem("mini-market-recovery-v1", JSON.stringify({
+    local.setItem("mini-market-recovery-campaign-30-20260915", JSON.stringify({
       state: ordered.state,
       saveRevision: 4,
       pendingEvents: [legacyEvent],

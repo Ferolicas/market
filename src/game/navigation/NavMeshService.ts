@@ -64,15 +64,27 @@ let storeNavigationReady = false;
 let storeNavigationRevision = -1;
 let pendingBuild: Promise<boolean> | null = null;
 let pendingRevision = -1;
+let requestedSignature = "";
+let navigationGeneration = 0;
 
-export function ensureStoreNavigation(structureRevision: number): Promise<boolean> {
+export function ensureStoreNavigation(structureRevision: number, areas: readonly string[] = []): Promise<boolean> {
+  const signature = `${structureRevision}:${[...areas].sort().join("|")}`;
+  if (signature !== requestedSignature) {
+    requestedSignature = signature;
+    navigationGeneration += 1;
+    storeNavigationReady = false;
+  }
+  return ensureNavigationGeneration(navigationGeneration, [...areas]);
+}
+
+function ensureNavigationGeneration(structureRevision: number, areas: readonly string[]): Promise<boolean> {
   if (storeNavigationReady && storeNavigationRevision === structureRevision) return Promise.resolve(true);
   if (pendingBuild && pendingRevision === structureRevision) return pendingBuild;
-  if (pendingBuild) return pendingBuild.then(() => ensureStoreNavigation(structureRevision));
-  const mesh = createWalkableStoreMesh();
+  if (pendingBuild) return pendingBuild.then(() => structureRevision === navigationGeneration ? ensureNavigationGeneration(structureRevision, areas) : false);
+  const mesh = createWalkableStoreMesh(areas);
   pendingRevision = structureRevision;
   pendingBuild = storeNavigation.rebuild([mesh], structureRevision).then((success) => {
-    storeNavigationReady = success;
+    storeNavigationReady = success && structureRevision === navigationGeneration;
     if (success) storeNavigationRevision = structureRevision;
     mesh.geometry.dispose();
     (mesh.material as MeshBasicMaterial).dispose();
@@ -89,8 +101,8 @@ export function storePathfinder(start: [number, number], end: [number, number]):
   return path.map((point) => [point.x, point.z]);
 }
 
-function createWalkableStoreMesh() {
-  return new Mesh(createWalkableStoreGeometry(), new MeshBasicMaterial());
+function createWalkableStoreMesh(areas: readonly string[]) {
+  return new Mesh(createWalkableStoreGeometry(areas), new MeshBasicMaterial());
 }
 
 /**
@@ -99,10 +111,10 @@ function createWalkableStoreMesh() {
  * visible wall and Rapier colliders, so navigation can never target a false
  * decorative opening.
  */
-export function isStoreNavigationPoint(point: readonly [number, number]) {
+export function isStoreNavigationPoint(point: readonly [number, number], areas: readonly string[] = []) {
   const [x, z] = point;
   if (x < STORE_NAVIGATION_BOUNDS.minX || x > STORE_NAVIGATION_BOUNDS.maxX || z < STORE_NAVIGATION_BOUNDS.minZ || z > STORE_NAVIGATION_BOUNDS.maxZ) return false;
-  if (overlapsStoreObstacle(scaleStorePoint([x, z]), NAVMESH_FURNITURE_PADDING)) return false;
+  if (overlapsStoreObstacle(scaleStorePoint([x, z]), NAVMESH_FURNITURE_PADDING, areas)) return false;
 
   const absX = Math.abs(x);
   const front = STORE_WALL_BANDS.front;
@@ -116,14 +128,14 @@ export function isStoreNavigationPoint(point: readonly [number, number]) {
 }
 
 /** Geometry used by Recast and by the debug overlay, kept from one source. */
-export function createWalkableStoreGeometry() {
+export function createWalkableStoreGeometry(areas: readonly string[] = []) {
   const cell = NAVIGATION_CELL_SIZE;
   const positions: number[] = [];
   const indices: number[] = [];
   for (let z = STORE_NAVIGATION_BOUNDS.minZ; z < STORE_NAVIGATION_BOUNDS.maxZ; z += cell) {
     for (let x = STORE_NAVIGATION_BOUNDS.minX; x < STORE_NAVIGATION_BOUNDS.maxX; x += cell) {
       const center: [number, number] = [x + cell / 2, z + cell / 2];
-      if (!isStoreNavigationPoint(center)) continue;
+      if (!isStoreNavigationPoint(center, areas)) continue;
       const base = positions.length / 3;
       positions.push(x, 0, z, x + cell, 0, z, x + cell, 0, z + cell, x, 0, z + cell);
       indices.push(base, base + 2, base + 1, base, base + 3, base + 2);

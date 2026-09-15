@@ -1,10 +1,14 @@
+import type { CropProductId, MachineProductId, ProductId } from "./economy/ProductRegistry";
+import type { PurchaseState } from "./progression/PurchaseState";
+import type { OpeningPurchaseId } from "./progression/MartCampaign";
+export type { ProductId } from "./economy/ProductRegistry";
+
 export type CountryCode = "ES" | "US" | "CO" | "MX" | "AR" | "CL" | "PE";
 export type EmployeeRole = "farmer" | "operator" | "stocker" | "cashier" | "builder" | "manager";
 export type HatId = "red-panda" | "red-fox" | "chicken" | "frog" | "elephant" | "rhino" | "giraffe" | "panda" | "owl" | "cow" | "rabbit" | "capybara";
 export type AvatarHatId = HatId | "none";
 export type CharacterId = "adult-man" | "adult-woman" | "boy" | "girl";
 export type HairId = "side-part" | "fade" | "waves" | "swept" | "bob" | "ponytail" | "long-wavy" | "bun" | "messy" | "curls" | "short-fringe" | "quiff" | "blunt-bob" | "pigtails" | "braid" | "high-ponytail";
-export type ProductId = "wheat" | "flour" | "bread" | "corn" | "milk" | "eggs" | "cheese" | "apples" | "tomatoes" | "oranges" | "coffee" | "juice";
 export type PaymentMethod = "cash" | "card";
 
 export interface AvatarConfig {
@@ -70,17 +74,18 @@ export interface CarryState {
 
 export interface CropState {
   id: string;
-  productId: "tomatoes" | "apples" | "oranges" | "wheat" | "corn";
+  productId: CropProductId;
   status: "LOCKED" | "EMPTY" | "GROWING" | "READY" | "HARVESTING";
   plantedAt: number;
   readyAt: number;
   available: number;
   tier: number;
+  baseYield?: number;
 }
 
 export interface ProductionMachineState {
   id: string;
-  productId: "flour" | "bread" | "cheese" | "juice" | "eggs" | "milk";
+  productId: MachineProductId;
   status: "LOCKED" | "IDLE" | "WAITING_INPUT" | "PROCESSING" | "OUTPUT_READY" | "FULL";
   input: Partial<Inventory>;
   output: number;
@@ -178,6 +183,9 @@ export interface FranchiseState {
   productionMachines: ProductionMachineState[];
   buildProjects: BuildProject[];
   checkoutTransactions: CheckoutTransaction[];
+  /** Sales awaiting physical collection, one balance per checkout lane. */
+  registerCashMinor: [number, number];
+  purchases?: PurchaseState;
   returnsBin: Inventory;
   returnedCartCount: number;
   customers: CustomerRuntimeState[];
@@ -260,6 +268,7 @@ export interface GameState {
 }
 
 export type GameAction =
+  | { type: "DELIVER_CONTRACT"; contractId: string }
   | { type: "SET_COUNTRY"; countryCode: CountryCode }
   | { type: "SET_AVATAR"; body?: CharacterId; hair?: HairId; hairColor?: string; skin?: string; shirt?: string; hat?: AvatarHatId }
   | { type: "TOGGLE_STORE" }
@@ -272,6 +281,8 @@ export type GameAction =
   | { type: "RETURN_TO_WAREHOUSE" }
   | { type: "STOCK"; productId: ProductId; quantity?: number; source?: "warehouse" | "carry" }
   | { type: "CHECKOUT"; paymentMethod: PaymentMethod }
+  | { type: "COLLECT_REGISTER"; lane: 0 | 1 }
+  | { type: "CONTRIBUTE_PURCHASE"; purchaseId: OpeningPurchaseId; amountMinor?: number }
   | { type: "ORDER"; supplierId: string; productId: ProductId; quantity: number }
   | { type: "HIRE"; role: EmployeeRole }
   | { type: "UPGRADE"; upgrade: "shelves" | "checkout" | "expansion" | "mill" | "bakery" }
@@ -294,7 +305,9 @@ export type WorldInteractionAction = Extract<GameAction, { type:
   | "RETURN_TO_WAREHOUSE"
   | "STOCK"
   | "CHECKOUT"
+  | "COLLECT_REGISTER"
   | "CONTRIBUTE_BUILD"
+  | "CONTRIBUTE_PURCHASE"
   | "CONTRIBUTE_UPGRADE"
 }>;
 

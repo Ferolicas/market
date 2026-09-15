@@ -1,5 +1,6 @@
 import type { FranchiseState, GameState, ProductId } from "../types";
 import { retailShelfCapacityForTier } from "../stations/retail-layout";
+import { CUSTOMER_PRODUCT_UNLOCKS } from "../economy/ProductSupply";
 
 export type LevelObjectiveTaskUnit = "count" | "percent" | "distance" | "rating";
 
@@ -10,19 +11,6 @@ export interface LevelObjectiveTask {
   target: number;
   unit: LevelObjectiveTaskUnit;
 }
-
-const CUSTOMER_PRODUCT_UNLOCKS: readonly (readonly [ProductId, number])[] = [
-  ["tomatoes", 1],
-  ["apples", 2],
-  ["bread", 6],
-  ["eggs", 8],
-  ["coffee", 9],
-  ["corn", 11],
-  ["milk", 13],
-  ["cheese", 16],
-  ["oranges", 20],
-  ["juice", 21],
-];
 
 export function unlockedCustomerProducts(level: number): ProductId[] {
   const normalizedLevel = Math.max(1, Math.floor(Number.isFinite(level) ? level : 1));
@@ -170,5 +158,5 @@ function shelfFill(franchise: FranchiseState, productId: ProductId) {
 }
 
 function shelfCapacity(franchise: FranchiseState, productId: ProductId) {
-  return retailShelfCapacityForTier(franchise.stationTiers["shelves-1"] ?? franchise.shelvesLevel, productId);
+  return retailShelfCapacityForTier(franchise.stationTiers["shelves-1"] ?? franchise.shelvesLevel, productId, franchise.unlockedAreas);
 }

@@ -1,4 +1,5 @@
 import { CHECKOUT_LANES } from "./stations/checkout-layout";
+import { fixtureAvailable } from "./stations/fixture-availability";
 import { FARM_OBSTACLES } from "./stations/farm-layout";
 import { PANTRY_DISPLAY_POSITIONS, PRODUCE_DISPLAY_POSITIONS, RETAIL_DEPARTMENT_IDS, RETAIL_DEPARTMENTS } from "./stations/retail-layout";
 import { STORE_SERVICE_FIXTURE_IDS, STORE_SERVICE_FIXTURES } from "./stations/store-service-layout";
@@ -60,7 +61,7 @@ const retailObstacles: StoreObstacle[] = RETAIL_DEPARTMENT_IDS.flatMap((departme
 const BASE_STORE_OBSTACLES: StoreObstacle[] = [
   ...retailObstacles,
   { x: CHECKOUT_LANES[0].counter[0], z: CHECKOUT_LANES[0].counter[2], halfX: 2.25, halfZ: 0.65 },
-  { x: CHECKOUT_LANES[1].counter[0], z: CHECKOUT_LANES[1].counter[2], halfX: 2.25, halfZ: 0.65 },
+  { id: "fixture:checkout-2", x: CHECKOUT_LANES[1].counter[0], z: CHECKOUT_LANES[1].counter[2], halfX: 2.25, halfZ: 0.65 },
   ...productionObstacles,
   ...productionCubicleObstacles,
   {
@@ -113,8 +114,12 @@ export function storeSegmentIsClear(start: readonly [number, number], end: reado
   return true;
 }
 
-export function overlapsStoreObstacle(point: [number, number], radius: number) {
-  return STORE_OBSTACLES.some((obstacle) => (
+export function storeObstaclesForAreas(areas: readonly string[] = []) {
+  return STORE_OBSTACLES.filter((obstacle) => fixtureAvailable(obstacle.id, areas));
+}
+
+export function overlapsStoreObstacle(point: [number, number], radius: number, areas: readonly string[] = []) {
+  return STORE_OBSTACLES.some((obstacle) => fixtureAvailable(obstacle.id, areas) && (
     Math.abs(point[0] - obstacle.x) < obstacle.halfX + radius
     && Math.abs(point[1] - obstacle.z) < obstacle.halfZ + radius
   ));

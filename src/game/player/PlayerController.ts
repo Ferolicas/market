@@ -29,13 +29,14 @@ export const DEFAULT_PLAYER_MOTION: PlayerMotionConfig = {
 export const PLAYER_MAX_SPEED_MULTIPLIER = 2.7;
 export const PLAYER_TIER_ONE_SPEED_MULTIPLIER = PLAYER_MAX_SPEED_MULTIPLIER * 0.6;
 
-export function playerSpeedProgressForTier(tier: number) {
+export function playerSpeedProgressForTier(tier: number, campaign = false) {
   const safeTier = Math.max(1, Math.min(10, Math.floor(Number.isFinite(tier) ? tier : 1)));
+  if (campaign) return safeTier === 1 ? 0.7 : 0.721 + (safeTier - 2) / 8 * 0.279;
   return 0.6 + (safeTier - 1) / 9 * 0.4;
 }
 
-export function playerMotionForTier(tier: number): PlayerMotionConfig {
-  const tierMultiplier = playerSpeedProgressForTier(tier);
+export function playerMotionForTier(tier: number, campaign = false): PlayerMotionConfig {
+  const tierMultiplier = playerSpeedProgressForTier(tier, campaign);
   return {
     ...DEFAULT_PLAYER_MOTION,
     walkSpeed: DEFAULT_PLAYER_MOTION.walkSpeed * PLAYER_MAX_SPEED_MULTIPLIER * tierMultiplier,

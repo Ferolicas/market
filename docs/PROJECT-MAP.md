@@ -1,8 +1,188 @@
 # Mini Market — mapa vivo
 
+## Cambio de alcance vigente: reinicio desde nivel 1
+
+## Cierre de niveles, contratación y reinicio — release campaign-30-20260915
+
+Se conecta la campaña existente a 30 niveles: 1 inicial; cada una de las 27 compras completadas añade un nivel (hasta 28), conservando su grafo de requisitos y tareas; completar todas las tareas personales habilita 29 y completar también los encargos habilita 30. No hay pago separado para saltar de nivel ni avance por XP. Los requisitos previos siguen determinando qué compra está disponible; el número de nivel resume lo construido. CampaignLevels.ts es la fuente común del motor, HUD y validador. Cada local tiene su nivel; state.level conserva el máximo de los locales adquiridos para no retroceder al viajar. El HUD muestra el nivel del local actual. Se reutilizan las seis ubicaciones y su apertura secuencial existente.
+
+Cupos totales por local, incluyendo empleados incorporados en compras: cajeros 1 tras su compra y 2 tras ampliar; granjeros 1/2 según sus compras; operarios 1 con molino y 2 con quesería; reponedor y constructor 1 tras ampliar; gerente 1 tras completar queso, zumos y café. El motor bloquea nuevas altas cuando se agota el cupo, el panel muestra cupos y el servidor rechaza snapshots que los exceden.
+
+Reinicio sin migración: CampaignRelease.ts fija slot 2 y un espacio local nuevo para IndexedDB, fallback, scope y marcador. GET crea createCampaignGame con capacidad 3, saldo cero y compras vacías; slot 1 queda intacto pero no se carga. PUT exige x-market-release para impedir que una pestaña antigua escriba en la nueva campaña. Autenticación, revisión optimista e idempotencia se conservan. El historial contable visible empieza en la creación del nuevo guardado. Service worker v10 actualiza la caché; /api/health expone el identificador de release. No cambia el esquema Prisma ni se eliminan cuentas.
+
+Verificación local: recorrido de todas las compras, niveles 28/29/30, trabajo y encargos, guardado validado, cupos y rechazo de nivel falsificado. Navegador 1440×1000 y 390×844 PASS: cobro de ambas cajas, compra física de cajero, reposición personal y recarga; apertura de Estación, viaje, nuevo Nivel 1, Marina bloqueada y recarga. Evidencia: /tmp/market-release30-cash-qa/report.json y /tmp/market-release30-expansion-qa/report.json. API aislada con validador real. No certifica teléfonos físicos ni una campaña de un año.
+
+La prueba exploratoria de producción de conservas sigue separada con MARKET_QA_PRODUCTION=1; su recorrido anterior no pasó y no se presenta como aceptación completa. La release no añade más contenido que el ya trabajado; el cierre actual es niveles, cupos y reinicio. Pendiente registrar commit, despliegue y comprobación real del reinicio debajo.
+
+## Revisión de publicación: alcance confirmado de 30 niveles (15-09-2026)
+
+NO PUBLICABLE como reestructuración terminada. El usuario aclara: conservar el juego y sus 30 niveles/locales existentes; reorganizar condiciones, contratación limitada por avance, aparición de instalaciones al desbloquear y pagar, dinero en caja. No añadir más contenido como condición para cerrar.
+
+Comprobado directamente:
+- La capacidad inicial ya es 3 (createInitialGame y createCampaignGame).
+- src/app/api/game/save/route.ts sigue creando createInitialGame, devuelve guardados existentes del slot 1 y conserva el mismo recoveryScope. No hay activación ni reinicio versionado que impida recuperar el progreso anterior.
+- La campaña vacía buildProjects y rechaza CONTRIBUTE_BUILD. El avance numérico anterior depende de esos proyectos; no existe la conexión de las compras nuevas a los 30 niveles. El HUD muestra locales, no esa progresión.
+- canHireEmployee condiciona el oficio a compras, pero no limita su cantidad. Reproducción aislada: con cashier-1 y expansion-1 habilitados, cinco HIRE cashier consecutivos resultan true y dejan cinco cajeros. No hubo escrituras en cuentas ni en producción.
+- Las expansiones nuevas sí reutilizan FRANCHISE_TEMPLATES; falta integrarlas con los 30 niveles acordados, no crear ubicaciones.
+- QA previo de cesta/enlatadora no está cerrado; el contenido adicional no debe convertirse en requisito de esta entrega.
+
+Verificación ejecutada de nuevo: pnpm typecheck, pnpm lint, pnpm test (563 casos, 70 archivos), pnpm build y git diff --check PASS. Estas pruebas no cubren los huecos funcionales arriba y no certifican publicación.
+
+Decisión: sin push a main; no se cumple la condición del usuario «si no falta nada o falta poco». Son conexiones funcionales pendientes, no un error de compilación ni la falta de productos nuevos. Prioridad de cierre: conectar la progresión 1–30 a compras e instalaciones existentes; fijar cupos de contratación por avance; activar campaña/reinicio aislando la recuperación anterior; verificar inicio, compras, caja, guardado y expansión; publicar. No se borraron ni migraron partidas.
+
+## Enlatadora y producción propia — integración posterior (15-09-2026)
+
+Estado de aceptación al pausar para informar: 563 pruebas de dominio, typecheck y lint PASS. QA físico completo FAIL en /tmp/market-canner-qa-3: el jugador llega al sensor canner, pero su cesta está vacía y no cumple la recogida esperada. Falta determinar qué transferencia ocurre durante el recorrido; no atribuirlo todavía a la máquina ni dar por aprobado el flujo. La reposición previa sin enlatadora pasó en escritorio, pero falló la espera de reposición en móvil. Sin push ni producción modificada.
+
+corn-canner-1 añade una máquina original sin sustituir GLB ni muebles existentes. Compra posterior al expositor de conservas: 1.224 € en España (18 veces el primer cajero; escalado por país). Receta provisional propia: un maíz fresco produce tres latas en seis segundos; salida máxima nueve. El valor de tres latas (10,80 €) supera el maíz fresco (7 €); no se cambiaron precios de productos existentes. Sigue disponible el suministro externo de conservas.
+
+La interacción del jugador toma el maíz de su cesta; los operarios pueden buscarlo en el almacén, procesarlo y devolver las latas. El granjero calcula la necesidad de materia prima teniendo en cuenta las tres unidades por ciclo. Nueva tarea personal: recoger tres conservas de la máquina, con multiplicadores por local. El conjunto pasa a 27 compras, 18 tareas y tres encargos (48 requisitos). No se hereda progreso ni se activa aún la campaña en producción.
+
+Layout nuevo en la trasera derecha [10, 0, -7.4], sin mover los elementos anteriores. production-layout define huella, punto de operario y sensor; fixture-availability controla render y colisiones solo tras comprar. El modelo procedural propio representa cuerpo, prensa, indicador y latas terminadas; no hay todavía animación mecánica de la prensa. La lógica no depende de una animación.
+
+Impacto: ProductRegistry, products, MartCampaign, CampaignTasks, engine, production-layout, workstation-layout, fixture-availability, GameShell, MarketKit y pruebas. No hay migración de base de datos. La receta usa los estados/deadlines serializados existentes.
+
+Pruebas de dominio: consumo único, rechazo de operación repetida, recarga a mitad de proceso, recogida sin duplicar, operario con maíz en almacén y sin granjeros, no solapamiento y ruta almacén→máquina. QA físico y verificación final se registran a continuación; no dar por aceptada la escena solo por superar pruebas de dominio.
+
+## Conservas de maíz — integración posterior (15-09-2026)
+
+Navegador PASS a 1440×1000 y 390×844: ocho anclas de producto detectadas en el expositor de conservas, entrega de encargo, apertura, viaje y recarga conservando las ocho unidades. Evidencia: /tmp/market-preserves-qa-4/report.json y vídeos/capturas. API HTTP aislada con validador real, tienda preparada y stock sembrado: no prueba compra/reposición física de las latas, PostgreSQL, service worker ni teléfono real. La captura revisada muestra la entrada, no un primer plano del expositor; su aceptación visual cercana queda pendiente. Se corrigió una carrera del script al recargar y la espera de la pantalla de preparación.
+
+Se añade cannedCorn, distinto del maíz fresco, sin retirar ninguno de los doce productos anteriores. Catálogo actual: 13 productos, 26 compras, 17 tareas personales y tres encargos por local (46 requisitos de maestría). La compra preserves-supply-1 depende del maíz y del suministro de café; balance propio provisional de 816 € en España, coste mayorista 1,60 € y venta final 3,60 €, con escalado de país.
+
+Por ahora es suministro del proveedor Campo: pedido → entrega con tienda abierta → almacén → cesta → reposición → cliente → caja → recogida. No existe todavía una enlatadora ni se transforma maíz fresco en conserva. Una tarea exige reponer personalmente cuatro latas en Barrio, con multiplicadores existentes por local. El encargo terminal-destino incorpora conservas; el conjunto de encargos cubre los trece productos.
+
+Nuevo expositor adicional en el lateral este, sin sustituir ni desplazar los muebles actuales. Reutiliza la geometría propia de góndola, con lata procedural original y geometría/materiales compartidos e instancias para el stock. El área preserves-supply controla render, navegación y colisiones; no aparece en partidas legadas ni antes de comprar. Capacidad base: 40. Pruebas de navegación desde almacén, entrada y caja, sin solapamientos con otros obstáculos.
+
+Verificación de dominio: 558 pruebas en 70 archivos PASS; typecheck, lint sin avisos y build PASS. Se cubren bloqueo previo, precio, entrega única, recogida/reposición, recarga, conservación del maíz fresco, venta de 360 unidades menores y cobro no duplicable. El fallo inicial de entrega era un fixture con tienda cerrada, corregido sin cambiar las reglas de entrega.
+
+Impacto: ProductRegistry, catálogo, ProductSupply, CarrySystem, MartCampaign, CampaignTasks, CampaignContracts, engine, retail-layout, fixture-availability, MarketKit, HarvestBasket, Customer, CannedCornModel y pruebas. El inventario y los esquemas derivados del registro incluyen el nuevo ID. No se ha activado la campaña ni reiniciado ninguna cuenta; sigue pendiente la publicación versionada desde nivel 1, sin migrar progreso.
+
+Pendientes del proyecto completo: producción de conservas, otras cadenas/animales y contenido avanzado, balance prolongado, marcadores individuales, aceptación integral y publicación. Este bloque no acredita una campaña de un año ni calidad comercial final. Sin push.
+
+## Encargos compuestos personales — integración posterior
+
+Navegador PASS (1440×1000 y 390×844): entrega de «Despensa del vecino» desde el panel, cesta consumida, exactamente un evento de entrega y uno de apertura, viaje y recarga en Estación sin heredar compras. Captura móvil revisada. Evidencia `/tmp/market-campaign-contracts-qa-1/report.json`, capturas y vídeos. Fixture con Barrio preparado y dos encargos previos sembrados; el último se entrega realmente en navegador con el validador de guardado. No prueba PostgreSQL, service worker ni teléfono físico. Build normal de producción restaurado sin controles QA.
+
+CampaignContracts.ts añade 18 encargos originales, tres por cada local, combinando los doce productos existentes. Ejemplos: tomates+huevos+maíz; trigo+harina+pan; pan+café+leche; manzanas+naranjas+zumo. Cada receta exige una unidad de tres productos distintos y cabe en la cesta inicial. No añade todavía productos comerciales ni máquinas nuevas: introduce entregas compuestas con el surtido propio.
+
+DELIVER_CONTRACT exige pertenencia al local activo, productos desbloqueados, encargo anterior completado y las tres unidades en la cesta personal. La entrega se confirma desde el panel de objetivos, sin nuevo mueble ni desplazamiento obligatorio a un punto de entrega. Consume las tres unidades juntas, una sola vez; una cesta incompleta no pierde nada. No toma mercancía automáticamente del almacén ni de empleados. No concede dinero, por lo que no reintroduce bonos que descompensen la campaña.
+
+La lista ordenada purchases.completedContracts se guarda por franquicia (campo opcional del esquema existente). Apertura del siguiente local y porcentaje de maestría exigen estos tres encargos además de las 25 compras y 16 tareas. El HUD divide el avance entre 44 requisitos completos; el mapa muestra encargos pendientes del anterior. Los locales nuevos no heredan entregas.
+
+SaveAuthority reconstruye eventos contract_delivery de importe cero, verificando ID, local, orden, productos declarados y desbloqueos, y compara la lista de completados. Rechaza duplicados, lista inventada sin eventos y apertura anterior a la última entrega. Como el resto del guardado actual, esto no es una reproducción íntegra de inventarios/acciones en el servidor: no afirmar que impida todas las falsificaciones de mercancía. El motor sí prueba consumo real y conservación en los recorridos válidos.
+
+Pruebas: 552 casos en 69 archivos; incluye los 18 encargos mediante recogida personal del almacén y entrega, guardado/recarga, cesta incompleta, producto bloqueado, encargo ajeno, duplicados, ausencia de bonos y orden entrega→apertura. Typecheck y lint PASS. Archivos: CampaignContracts.ts/.test.ts, PurchaseState.ts, CampaignExpansion.ts, engine.ts, types.ts, SaveAuthority.ts, game-validation.ts, GameShell.tsx y QA de apertura. Los fixtures de local completado ahora incluyen encargos, sin sustituir las pruebas reales de entrega.
+
+Pendientes: productos, animales y máquinas adicionales; cadenas productivas nuevas; balance de costes/tiempos; marcadores de compra individuales y publicación con reinicio versionado. Este bloque no completa una campaña de un año ni cambia producción. Sin push.
+
+## Especialidades y maestría por local — integración posterior
+
+Verificación: 548 pruebas en 68 archivos, typecheck, lint y build normal PASS. Muestreo determinista de 3.000 cestas y distribución de 4.000 primeras elecciones; prueba de progreso 3→6 cafés en Estación con objetivo 12 y validación de guardado. Navegador PASS a 1440×1000 y 390×844: especialidad en mapa, HUD Local 2/progreso cero, apertura, viaje, guardado y recarga. Evidencia `/tmp/market-campaign-specialties-qa-1/report.json`, vídeos/capturas; captura móvil revisada. API aislada, sin PostgreSQL, service worker ni dispositivo físico. El navegador usa un local inicial preparado como completado; no acredita un recorrido integral de la campaña.
+
+CampaignLocations.ts define perfiles propios: Barrio/proximidad; Estación/desayunos y café; Marina/frutas y zumos; Terminal/cestas variadas; Campus/lácteos y cereales; Mega Market/todo el surtido. Después de la primera expansión, los productos de especialidad tienen peso 3 frente a 1 en una selección ponderada sin repetición; todos los demás productos desbloqueados permanecen disponibles. Máximo de tipos por cesta: 3, 3, 3, 4, 4, 5 respectivamente; entre 1 y 3 unidades por tipo y techo de 15 unidades. Antes de ampliar siguen las cestas de un tipo y una o dos unidades, sin exigir productos bloqueados ni aumentar aquí el límite simultáneo de personajes. La selección usa una semilla determinista, sin ordenar con un comparador aleatorio, y no depende del nivel legado.
+
+La maestría personal para abrir el local siguiente usa objetivos propios por ubicación: multiplicador general/especialidad de 1/1, 2/3, 2/4, 3/5, 3/6 y 8/8. Ejemplos: Estación pide reponer 12 cafés y hacer 3 pedidos; Marina pide 16 zumos. Las tareas cortas que enseñan una compra (por ejemplo cosechar 6 trigos para el molino) conservan sus cantidades iniciales, separadas de la maestría de salida. Los contadores se acumulan por local hasta su objetivo, como máximo 64, dentro del límite de guardado de 100. Motor, servidor, panel y mapa calculan el objetivo con el mismo ID estable de franquicia; recargar no recorta a la cantidad de Barrio.
+
+El HUD muestra Local 1–6 en campaña y el porcentaje del conjunto completo de 25 compras y 16 tareas, incluidas cadenas aún bloqueadas; completar solo tomates no muestra 100 %. El mapa añade la especialidad. No se modifican modelos ni se descartan productos. Archivos afectados: CampaignLocations.ts/.test.ts, CampaignTasks.ts, CampaignExpansion.ts, engine.ts, SaveAuthority.ts, GameShell.tsx y la prueba de navegador de apertura.
+
+Estas variaciones son balance propio provisional, no nuevos productos, recetas ni locales reproducidos de la referencia. Siguen pendientes contenido adicional, cadenas exclusivas, retos que no sean cantidades, calibración de precios/tiempos y la publicación con reinicio de partidas. No se ha acreditado duración de un año. Sin push ni producción modificada.
+
+## Apertura secuencial de locales — integración posterior
+
+Navegador PASS a 1440×1000 y 390×844: abrir Estación desde el mapa, viajar, guardar y recargar; exactamente un evento de apertura aceptado, compras/tareas nuevas vacías, sin proyectos legados y Marina bloqueada. Captura móvil revisada. Evidencia `/tmp/market-campaign-expansion-qa-1/report.json`, capturas y vídeos. Escenario preparado con Barrio completado mediante el motor y tareas sembradas para aislar la apertura: no es un recorrido completo de campaña. API HTTP simulada con validador real, sin base de datos ni teléfono físico.
+
+Los seis locales actuales (Barrio → Estación → Marina → Terminal → Campus → Mega Market) se conectan por finalización del anterior, no por XP ni nivel legado. CampaignExpansion.ts exige las 25 compras y las 16 tareas personales del local precedente: queso, maíz, pedido/reposición de café y zumos ya bloquean la apertura siguiente. Cantidades y regla de maestría son balance propio, no una transcripción de niveles desconocidos de la referencia. Se conservan provisionalmente los precios de apertura del catálogo, escalados por país; falta calibrarlos.
+
+createCampaignGame prepara compras vacías, cero stock y cultivo inicial en cada local, también los aún no adquiridos. BUY_FRANCHISE cobra una vez y abre sin importar compras, empleados ni trabajo personal; el dinero sigue siendo global y viajar conserva el local anterior. El servidor reconstruye el orden de compras, progreso y aperturas: rechaza propiedad sin evento, saltos de local, importes incorrectos y requisitos completados después del evento de apertura. No permite introducir campaña en una partida legada. La normalización ya no regenera proyectos de construcción del sistema antiguo dentro de la campaña.
+
+GameShell muestra número de local, condición del anterior, tareas completadas y compras pendientes. Archivos: progression/CampaignExpansion.ts y .test.ts, engine.ts, persistence/SaveAuthority.ts, GameShell.tsx y scripts/qa-campaign-expansion.mjs. Verificación de dominio: 542 pruebas en 67 archivos; typecheck, lint y build normal PASS. Pruebas de orden de eventos, apertura a nivel 1, doble compra, guardado/recarga, viaje, bloqueo del tercer local y tareas específicas de queso/maíz/café/zumos.
+
+Límite importante: son las seis ubicaciones existentes con el grafo de compras actual, todavía sin contenido diferenciado por local. No afirmar que estén diseñados los locales avanzados de la referencia ni completada una campaña larga. Quedan productos/animales adicionales, cadenas y desafíos propios por local, balance económico y espacial, marcadores individuales y publicación con reinicio versionado. Sin push ni modificación de producción.
+
+## Economía de campaña — revisión posterior
+
+Navegador PASS (1440×1000 y 390×844): cobro de dos cajas, compra física del cajero, reposición 1/8, guardado/recarga sin bonos restaurados, licencia permanente sin botón de renovación, equipo de pago único y panel financiero coherente. Capturas de finanzas revisadas en ambos tamaños. Evidencia `/tmp/market-campaign-economy-qa-1/report.json`, capturas y vídeos del mismo directorio. API HTTP aislada con validador real; no PostgreSQL, service worker ni teléfono físico. Sin push ni modificación de producción.
+
+Esta sección sustituye el hallazgo histórico de bonos y gastos pendientes que aparece más abajo. Balance propio autorizado: sin bonos diarios, nóminas recurrentes, alquiler automático ni impuestos de campaña. Contrataciones, mercancía, compras y mejoras siguen costando dinero; el personal se contrata con un pago único y la licencia es permanente. Los precios de venta son finales y se registran completos como ingresos, sin deducciones fiscales. Las partidas legadas conservan sus reglas hasta el reinicio de publicación.
+
+El constructor, la normalización y el cierre no regeneran misiones diarias. CLAIM_MISSION se rechaza en campaña, y SaveAuthority rechaza eventos de recompensa legados aunque el cliente introduzca una misión en su snapshot. El cierre conserva cajas pendientes de recoger, compras y trabajo personal; restaura energía y reinicia solo estadísticas diarias. No descontar costes del saldo cero ni gastar automáticamente el dinero de los mostradores. La jornada conserva su duración existente de tres horas reales; no se ha recalibrado aquí.
+
+Archivos responsables: engine.ts (reglas y cierre), persistence/SaveAuthority.ts (rechazo de bonos), GameShell.tsx (equipo/licencia/finanzas/configuración/objetivos), economy/CampaignEconomy.test.ts y register-cash.test.ts. El esquema de persistencia no cambia ni se migran partidas. Verificación de dominio: 532 pruebas en 66 archivos, typecheck, lint y build normal PASS; incluye siete países, ocho cierres con recarga, conservación de caja y progreso, rechazo de bonos falsificados y economía legada intacta. La duración de la campaña completa, locales posteriores y balance de precios productivos siguen pendientes; esto no certifica un año de juego ni autoriza activar la campaña incompleta.
+
+## Trabajo personal y requisitos de compra — integración posterior
+
+QA de interfaz: la captura móvil inicialmente estrecha se tomó durante la transición de ancho. La prueba espera ahora la apertura. Sí existía una regla móvil legada que ocultaba los textos `small`; `.mission.level-requirement small` vuelve a mostrar cantidades y progreso con tamaño de 11 px. El test exige que «1 / 8» sea visible y que `aria-valuenow` coincida con el guardado. No cambiar el ancho del panel para corregir una captura prematura.
+
+Verificación: 522 pruebas en 65 archivos, typecheck y lint PASS. Navegador PASS a 1440×1000 y 390×844: una reposición suma 1/8 personal, persiste al guardar/recargar y se muestra en el panel como texto y valor accesible. Captura móvil final revisada sin recortes; evidencia `/tmp/market-personal-tasks-qa-4/report.json` y vídeos/capturas del directorio. HTTP aislado con validador real, no dispositivo físico ni base de datos. Build normal de producción (sin controles QA) y git diff --check: PASS.
+
+Hallazgo pendiente de balance: siguen vigentes los bonos legados (120 € por reponer siete productos, superior a los 68 € del primer cajero), junto con nóminas, gastos y licencias diarios. Revisar ese sistema conjuntamente; no declarar calibrada la nueva campaña ni retirar solo las recompensas dejando intactos gastos potencialmente incompatibles con su inicio sin capital.
+
+`progression/CampaignTasks.ts` define 16 tareas personales que cubren los doce productos actuales, incluida alimentación de gallinas/vacas, recogida de harina y pedido de café. Solo se muestran las tareas cuyo producto ya está desbloqueado. Primera expansión: cosechar personalmente 8 tomates, reponer 8, alimentar gallinas con 4 y reponer 4 huevos. Molino: cosechar 6 trigos; horno: recoger 3 harinas; departamento lácteo: reponer 4 panes; quesería: alimentar vaca con 2 trigos y reponer 4 leches; naranjo: cosechar 4 manzanas; exprimidora: cosechar 4 naranjas. Son cantidades de balance propio autorizado.
+
+El motor y el panel leen los mismos requisitos. No se cobra ningún aporte antes de cumplirlos. Dinero, nivel legado y producción/reposición de empleados no completan tareas personales. El progreso pertenece a la franquicia en `purchases.personalProgress`, persiste al recargar y no se reinicia al cambiar de día. Los contadores se limitan al objetivo y dejan de producir eventos al completarlo. El resto de tareas (quesos, maíz, café y zumos) queda registrado para maestría; todavía no bloquea locales posteriores porque esos locales aún faltan.
+
+Cada avance personal real del motor emite un evento `player_progress` de importe cero; `SaveAuthority` reconstruye esos deltas y las compras en orden. Rechaza cambios de contador sin eventos y aportes anteriores al trabajo requerido. Esto no convierte el guardado en una simulación completa de todas las acciones en el servidor; no afirmar protección antitrampas total.
+
+Pruebas de esta etapa: empleados trabajando sin completar tareas; expansión rechazada con dinero de sobra; recorrido real de cosecha→reposición→alimentación→huevos→expansión con recarga y validación de todo el lote; interacción fallida sin avance; dependencias sin objetivos inaccesibles. La campaña completa y su balance a largo plazo siguen pendientes. Sin push ni reinicio de producción.
+
+## Desbloqueos espaciales por compra — integración local
+
+## Inicio con un expositor — integración posterior
+
+Typecheck, lint, build normal de producción y `git diff --check`: PASS. Sin push ni reinicio de partidas de producción.
+
+Verificación de esta etapa: 517 pruebas en 64 archivos. Navegador PASS a 1440×1000 y 390×844: recogida, compra del cajero, reposición limitada a 15 tomates, cesta con dos sobrantes y recarga. Evidencia en `/tmp/market-opening-produce-qa-1/report.json`, capturas y vídeos; captura móvil revisada. HTTP aislado, sin PostgreSQL ni teléfono físico. No constituye una prueba de rendimiento sostenido. La expansión conserva unidades en pruebas de dominio; falta su recorrido visual completo.
+
+La nueva campaña comienza con un solo expositor de frutas y un bancal activo. El segundo expositor aparece con la primera expansión (`expansion-side`), sin sustituir ni mover los modelos. La capacidad inicial de tomates pasa a 15 unidades (33 al máximo de mejora); con la expansión pasa a 30 (66 al máximo). Estas capacidades derivan de los huecos de los modelos propios, no se presentan como cifras verificadas de My Mini Mart.
+
+`retail-layout.ts` comparte el número de muebles activos entre capacidad del motor, planificación de reposición, reparto visual y destino de las animaciones. `fixture-availability.ts` elimina también el obstáculo del expositor ausente; solo existe su imán al desbloquearlo. Las pruebas comprueban que una cesta con tres tomates ante un estante con catorce entrega uno y conserva dos, y que expansión y recarga conservan todas las unidades. Siguen existiendo instalaciones auxiliares decorativas: no afirmar que todo el escenario mínimo esté terminado.
+
+### Departamentos y maquinaria
+
+`stations/fixture-availability.ts` comparte disponibilidad entre muebles, colisiones Rapier, sensores de reposición y malla de navegación. En campaña desaparecen hasta su compra los departamentos de huevos, lácteos, café, cereales/panadería y zumos; las cuatro máquinas interiores, el recinto de producción, la segunda caja y los tres corrales. Se mantienen modelos, dimensiones y posiciones. Bancales bloqueados no se dibujan; ya eran transitables y sus sensores se filtran por cultivos activos.
+
+La navegación distingue áreas desbloqueadas además del contador estructural: cambiar de tienda con el mismo contador no reutiliza una malla incompatible. La vista de depuración usa las mismas áreas y no regenera geometría en cada tick. No confundir esta integración con un inicio totalmente mínimo: siguen los expositores de frutas existentes y las instalaciones auxiliares; faltan el balance espacial final y la comprobación de aparición en todas las compras.
+
+Pruebas de dominio actuales: 514 pruebas en 63 archivos; typecheck, lint y build normal de producción correctos (sin controles QA habilitados). La campaña sigue sin publicar. Se mantiene la instrucción vigente de reiniciar desde nivel 1, sin migrar progreso.
+
+Navegador: PASS a 1440×1000 y 390×844, recogida de ambas cajas, compra física del cajero por 68 €, guardado y recarga sin errores de página. Evidencia: `/tmp/market-fixture-unlocks-qa-1/report.json`, capturas y vídeos en el mismo directorio. API HTTP aislada con validador real; no acredita PostgreSQL, service worker ni teléfono físico. Captura móvil revisada: desaparecieron los departamentos no comprados; aún se ven varios expositores de frutas.
+
+### Política de reinicio
+
+Verificación del cambio de alcance: 499 pruebas en 62 archivos, typecheck, lint y build correctos.
+
+Orden posterior del propietario: «no migres partidas, deja todo desde el nivel 1». Esta instrucción sustituye los apartados históricos que pedían heredar progreso. La nueva campaña empezará desde nivel 1, sin dinero, compras, empleados ni niveles heredados. Se conservan el catálogo y los recursos gráficos del proyecto.
+
+El motor ya no permite entrar en la campaña nueva mediante una compra desde una partida antigua; el servidor tampoco acepta introducir compras heredadas por esa vía. El reinicio de producción queda pendiente de la publicación completa: respaldo recuperable previo, nueva generación de guardado y aislamiento de la recuperación local para que una copia vieja no restaure progreso anterior. No se han borrado ni reiniciado partidas de producción. Las funciones de inferencia legada que aún queden en pruebas no se usarán para trasladar progreso.
+
 Actualizado: 2026-09-15.
 
+## Compras conectadas al motor — 15-09-2026
+
+La integración local ya no es solo un grafo aislado. `createCampaignGame` crea una partida sin dinero ni stock y `CONTRIBUTE_PURCHASE` aplica aportes parciales, descuenta el bolsillo y desbloquea estaciones/empleados una sola vez. `PurchaseState` conserva aportes y compras al recargar; el servidor reconstruye los aportes y rechaza compras heredadas o importes inventados.
+
+El inicio prueba ocho tomates por cosecha, dos clientes con cesta pequeña, tomate a 1 € y huevo a 2 € finales (escala por país). Velocidad inicial del jugador: 70 % del máximo; primera mejora: +3 % relativo y carga de cuatro. El granjero recoge cosecha y huevos, toma excedentes del almacén y repone, sin alimentar animales. Se han añadido anclajes de tercera tomatera y segunda gallina usando recursos existentes; las pruebas de rutas y separación de sensores pasan.
+
+El panel permite seleccionar una compra y señalar un círculo compartido en el mundo. Permanecer en él aporta dinero a esa compra; completar una no selecciona ni cobra automáticamente otra. No están terminados los marcadores individuales por instalación. El recorrido HTTP aislado de escritorio y viewport móvil comprobó compra de cajero, cobro exacto de 68 €, guardado y recarga: `/tmp/market-purchase-flow-qa-1/report.json`. Esa evidencia corresponde al build anterior a los últimos ajustes de contratación; no acredita producción ni dispositivos físicos.
+
+Las contrataciones auxiliares dependen ahora de compras, no de XP: operario tras molino; reponedor/constructor y cajeros adicionales tras ampliación (cajero inicial comprado); más granjeros después de comprar el segundo. Gerente tras quesería, zumos y café. Estos requisitos son balance propio autorizado. La compra inicial del jugador abre las mejoras siguientes aunque el nivel legado siga en 1. Mejoras genéricas no saltan la primera expansión ni los tiers dedicados de gallina/vaca; no mejoran máquinas bloqueadas.
+
+Verificación más reciente: **498 pruebas en 62 archivos**, typecheck, lint y build de producción correctos. Mantener resultados históricos de abajo como evidencia de etapas, no como estado actual.
+
+Pendientes de publicación: inicio visual vacío con obstáculos/sensores coherentes, migración integral (especialmente avance legado pendiente de sincronizar antes de primera compra), locales y productos nuevos, misiones personales y balance completo, UI de mapa/avance, recorrido de aceptación completo. La API de creación todavía usa el constructor legado; no activar hasta cerrar estos puntos. Sin push ni despliegue. No se ha certificado una campaña comercial completa ni un año de duración.
+
+## Reestructuración de campaña en preparación (sin activar)
+
+Cobertura completa del catálogo (integración local): `economy/ProductSupply.ts` registra fuente y nivel legado de los doce productos y alimenta `objectives.ts`. Trigo y harina antes tenían estantes pero faltaban en demanda: ahora se venden desde nivel 4 y 5 respectivamente, al abrir sus fuentes. Se conserva la reserva de recetas de los reponedores. Café mantiene Origen Andes; maíz y frutas mantienen sus cultivos y zumo su exprimidora. El grafo preparado de `MartCampaign.ts` contiene compras para los doce productos y `CAMPAIGN_PRODUCT_REQUIREMENTS` exige cobertura exhaustiva por tipo. `ProductSupply.test.ts` prueba dependencias, fuente antes de demanda, pedido de café con recarga, y cosecha/producción→cesta→estante para el resto. Última comprobación: 487 pruebas en 61 archivos, typecheck, lint y build PASS. No equivale a campaña nueva activada; sin push.
+
+El propietario autorizó añadir productos y máquinas propios que falten, conservando todos los modelos aprobados. `economy/ProductRegistry.ts` es ya la fuente compartida de IDs para tipos, inventarios del motor, recetas, estaciones y validación del guardado cliente/servidor. Mantiene los doce IDs existentes y el esquema 4; no activa productos nuevos sin sus demás consumidores. Pruebas de contrato en `economy/ProductRegistry.test.ts`. Usar imports relativos en código ejecutable de `lib/game-validation.ts`: Vitest no resuelve el alias `@/` actualmente.
+
+`docs/MY-MINI-MART-RESTRUCTURE.md` registra la referencia My Mini Mart y el inicio normativo del ZIP. `progression/MartCampaign.ts` sigue preparado pero sin activar: la campaña antigua aún gobierna niveles y compras. La rama local sí integra dinero retenido en cada caja (`registerCashMinor`, acción `COLLECT_REGISTER`, marcadores y HUD), validación de conservación por caja y migración de snapshots anteriores (`persistence/RegisterCompatibility.ts`). `stations/FedChicken.ts` ya lo consume `StationSystem.ts`: tomates → huevos, comedero 4/6, ciclos 2/1 s y recogida sin cancelar producción; `MarketKit` muestra alimento y salida. `scripts/qa-register-cash.mjs` prueba desplazamiento y recogida en navegador con HTTP aislado y validador real, sin base de datos. No publicar como campaña terminada hasta completar compras, expansión, migración integral, navegación y UI. Mantener intactos GLB y partidas existentes.
+
 ## Recursos entregados, animales y personalización (15-09-2026)
+
+Actualización local de campaña: autorizado balance propio y nuevas especies sin nuevas consultas rutinarias. `stations/FedAnimal.ts` es ahora el motor compartido de alimentación; `FedChicken.ts` es un adaptador compatible. Gallinas consumen tomates; vacas consumen trigo, comedero 6/6/8, ciclos 6/4/3 s. `engine.ts` no inicia leche sin insumos; las recogidas mantienen ciclos activos. `MartCampaign.ts` amplía el grafo preparado hasta quesería y asigna los precios antes desconocidos, pero no activa aún la campaña. Verificación: 461 pruebas, typecheck, lint y build; aceptación visual de vacas pendiente. No desplegado.
 
 - `public/models/market/delivered/`: horno, molino, exprimidora, lácteos, estante de huevos, leche, queso, huevo, gallina y vaca suministrados por el propietario. Los originales de Descargas no se modifican. Importadores reproducibles: `scripts/import-delivered-assets.mjs` y `scripts/build-delivered-animals.mjs`; hashes, tamaños y clips en `docs/delivered-*-manifest.json`.
 - `DeliveredModel.tsx` carga los modelos normalizados y dibuja stock mediante instancias compartidas. `retail-layout.ts` calibra las alturas de balda y conserva las capacidades de partidas guardadas. Los productos suministrados se usan también en cesta, vuelos y pantallas.

@@ -1,7 +1,14 @@
 import { COUNTRIES, PRODUCTS } from "../catalog";
+import { isProductId, PRODUCT_IDS } from "../economy/ProductRegistry";
 import { MAX_WAREHOUSE_PICKUP_BATCH } from "../player/CarrySystem";
-import type { CarryState, GameEvent, GameState, Inventory, ProductId } from "../types";
+import type { CarryState, GameEvent, GameState, Inventory } from "../types";
 import { validatePendingEvents } from "./Snapshot";
+import { contributePurchase } from "../progression/PurchaseState";
+import { addCampaignTaskProgress, CAMPAIGN_TASK_IDS, campaignTaskTarget, type CampaignTaskId, type CampaignTaskProgress } from "../progression/CampaignTasks";
+import { OPENING_PURCHASES, campaignAvailableProducts } from "../progression/MartCampaign";
+import { CAMPAIGN_CONTRACTS, type CampaignContractId } from "../progression/CampaignContracts";
+import { campaignExpansionQuote } from "../progression/CampaignExpansion";
+import { campaignGlobalLevel, campaignEmployeeLimit } from "../progression/CampaignLevels";
 
 export type SaveAuthorityCode =
   | "INVALID_EVENTS"
@@ -17,10 +24,12 @@ export type SaveAuthorityResult = { ok: true } | { ok: false; code: SaveAuthorit
  * replaying graphics or trusting a browser clock. Save revision locking is
  * handled by the API transaction; this verifies the enclosed domain stream.
  */
-export function validateSaveTransition(current: GameState, next: GameState, events: GameEvent[]): SaveAuthorityResult {
+export function validateSaveTransition(current: GameState, next: GameState, events: GameEvent[], options: { allowLegacyWalletSales?: boolean } = {}): SaveAuthorityResult {
   if (!validatePendingEvents(events)) return { ok: false, code: "INVALID_EVENTS" };
   if (next.schemaVersion !== 4 || next.revision < current.revision || next.day < current.day || next.simulationTimeMs < current.simulationTimeMs || next.lastServerTime < current.lastServerTime) return { ok: false, code: "INVALID_STATE_TRANSITION" };
-  if (next.level < current.level || next.level > Math.min(30, current.level + 2) || next.xp < current.xp || next.reputation < current.reputation) return { ok: false, code: "INVALID_STATE_TRANSITION" };
+  const campaign = current.franchises.some((item) => item.purchases);
+  if (next.level < current.level || (campaign ? next.level !== campaignGlobalLevel(next) : next.level > Math.min(30, current.level + 2)) || next.xp < current.xp || next.reputation < current.reputation) return { ok: false, code: "INVALID_STATE_TRANSITION" };
+  if (campaign && next.franchises.some((franchise) => franchise.employees.some((employee) => franchise.employees.filter((item) => item.role === employee.role).length > campaignEmployeeLimit(franchise, employee.role)))) return { ok: false, code: "INVALID_STATE_TRANSITION" };
   if (next.currency !== COUNTRIES[next.countryCode].currency) return { ok: false, code: "INVALID_STATE_TRANSITION" };
   if (current.tutorialStep > 0 && (next.countryCode !== current.countryCode || next.currency !== current.currency)) return { ok: false, code: "INVALID_STATE_TRANSITION" };
   if (!next.franchises.some((franchise) => franchise.id === next.currentFranchiseId && franchise.owned)) return { ok: false, code: "INVALID_STATE_TRANSITION" };
@@ -34,9 +43,11 @@ export function validateSaveTransition(current: GameState, next: GameState, even
       || candidate.unlockLevel !== franchise.unlockLevel
       || candidate.purchaseCostMinor !== (initialCountryConversion ? Math.round(franchise.purchaseCostMinor * initialCountryScale) : franchise.purchaseCostMinor)
       || (franchise.owned && !candidate.owned)
-      || (!franchise.owned && candidate.owned && next.level < candidate.unlockLevel);
+      || (!franchise.owned && candidate.owned && !franchise.purchases && next.level < candidate.unlockLevel);
   })) return { ok: false, code: "INVALID_STATE_TRANSITION" };
   if (!progressionIsMonotonic(current, next)) return { ok: false, code: "INVALID_STATE_TRANSITION" };
+  if (!purchaseTransfersAreConserved(current, next, events)) return { ok: false, code: "INVALID_STATE_TRANSITION" };
+  if (!campaignOpeningsAreConserved(current, next, events)) return { ok: false, code: "INVALID_STATE_TRANSITION" };
   if (next.franchises.some((franchise) => (
     hasInvalidInventory(franchise.warehouse)
     || hasInvalidInventory(franchise.shelves)
@@ -65,15 +76,131 @@ export function validateSaveTransition(current: GameState, next: GameState, even
   if (retainedCurrentIds.some((id) => !next.processedEventIds.includes(id))) return { ok: false, code: "INVALID_EVENT_CHAIN" };
 
   const declaredDelta = events.reduce((total, event) => total + event.amountMinor, 0);
-  if (next.balanceMinor - current.balanceMinor !== declaredDelta) return { ok: false, code: "INVALID_BALANCE_DELTA" };
+  const tillTotal = (state: GameState) => state.franchises.reduce((sum, franchise) => sum + (franchise.registerCashMinor?.[0] ?? 0) + (franchise.registerCashMinor?.[1] ?? 0), 0);
+  const wealthDelta = (next.balanceMinor - current.balanceMinor) + (tillTotal(next) - tillTotal(current));
+  if (!Number.isSafeInteger(wealthDelta) || !Number.isSafeInteger(declaredDelta) || !Number.isSafeInteger(tillTotal(current)) || !Number.isSafeInteger(tillTotal(next))
+    || wealthDelta !== declaredDelta || !registerTransfersAreConserved(current, next, events, options.allowLegacyWalletSales === true)) return { ok: false, code: "INVALID_BALANCE_DELTA" };
   if (!positiveEventsArePlausible(current, next, events)) return { ok: false, code: "INVALID_BALANCE_DELTA" };
   return { ok: true };
 }
 
-const PRODUCT_IDS: ProductId[] = ["wheat", "flour", "bread", "corn", "milk", "eggs", "cheese", "apples", "tomatoes", "oranges", "coffee", "juice"];
+/** Replay monetary transfers only. Collection is not a second sale and may
+ * not move funds between franchises or invent money by reducing a till. */
+function registerTransfersAreConserved(current: GameState, next: GameState, events: GameEvent[], allowLegacyWalletSales: boolean) {
+  const balances = new Map(current.franchises.map((franchise) => [franchise.id, [...(franchise.registerCashMinor ?? [0, 0])]]));
+  for (const event of events) {
+    if (event.category !== "sales" && event.category !== "cash_collection") continue;
+    // One-way upgrade: only the server may enable this, based on the stored
+    // pre-register snapshot. Old unsent sales already credited the wallet.
+    if (allowLegacyWalletSales && event.category === "sales" && event.payload?.lane === undefined) continue;
+    const lane = event.payload?.lane;
+    const balance = balances.get(event.franchiseId);
+    if (!balance || (lane !== 0 && lane !== 1)) return false;
+    if (event.category === "sales") {
+      if (event.amountMinor <= 0) return false;
+      balance[lane] += event.amountMinor;
+    } else {
+      const amount = event.payload?.collectedMinor;
+      if (event.amountMinor !== 0 || typeof amount !== "number" || !Number.isSafeInteger(amount) || amount <= 0 || amount > balance[lane]) return false;
+      balance[lane] -= amount;
+    }
+    if (!Number.isSafeInteger(balance[lane])) return false;
+  }
+  return next.franchises.every((franchise) => {
+    const expected = balances.get(franchise.id);
+    const actual = franchise.registerCashMinor;
+    return expected && Array.isArray(actual) && actual.length === 2
+      && actual.every((value, lane) => Number.isSafeInteger(value) && value >= 0 && value === expected[lane]);
+  });
+}
 
 function hasInvalidInventory(inventory: Inventory) {
   return PRODUCT_IDS.some((productId) => !Number.isSafeInteger(inventory[productId]) || inventory[productId] < 0 || inventory[productId] > 1_000_000);
+}
+
+function purchaseTransfersAreConserved(current: GameState, next: GameState, events: GameEvent[]) {
+  const known = new Map(OPENING_PURCHASES.map((purchase) => [purchase.id as string, purchase.id]));
+  for (const franchise of current.franchises) {
+    const candidate = next.franchises.find((item) => item.id === franchise.id);
+    const transfers = events.filter((event) => event.franchiseId === franchise.id && ["purchase", "player_progress", "contract_delivery"].includes(event.category));
+    if (!candidate?.purchases) {
+      if (franchise.purchases || transfers.length) return false;
+      continue;
+    }
+    // Campaign reset is a release operation, never a client-side inheritance.
+    if (!franchise.purchases) return false;
+    let expected = franchise.purchases;
+    if (current.countryCode !== next.countryCode && !(current.tutorialStep === 0 && !transfers.length
+      && !expected.purchased.length && !Object.keys(expected.contributions).length)) return false;
+    for (const transfer of transfers) {
+      if (transfer.category === "contract_delivery") {
+        const definitions = CAMPAIGN_CONTRACTS.filter((contract) => contract.location === franchise.id);
+        const index = definitions.findIndex((contract) => contract.id === transfer.payload?.contractId);
+        const contract = definitions[index];
+        const completed = expected.completedContracts ?? [];
+        if (!contract || transfer.amountMinor !== 0 || completed.includes(contract.id)
+          || !definitions.slice(0, index).every((previous) => completed.includes(previous.id))
+          || !contract.products.every((product) => campaignAvailableProducts(expected).includes(product))
+          || JSON.stringify(transfer.payload?.products) !== JSON.stringify(contract.products)) return false;
+        expected = { ...expected, completedContracts: [...completed, contract.id] };
+        continue;
+      }
+      if (transfer.category === "player_progress") {
+        const deltas = transfer.payload?.deltas;
+        if (transfer.amountMinor !== 0 || !deltas || typeof deltas !== "object" || Array.isArray(deltas)) return false;
+        const entries = Object.entries(deltas);
+        if (!entries.length || entries.some(([key, value]) => !CAMPAIGN_TASK_IDS.includes(key as CampaignTaskId)
+          || !Number.isSafeInteger(value) || (value as number) <= 0 || (value as number) > campaignTaskTarget(key as CampaignTaskId, franchise.id))) return false;
+        const personalProgress = addCampaignTaskProgress(expected.personalProgress ?? {}, deltas as CampaignTaskProgress, franchise.id);
+        if (entries.some(([key, delta]) => (personalProgress[key as keyof typeof personalProgress] ?? 0) - (expected.personalProgress?.[key as keyof typeof personalProgress] ?? 0) !== delta)) return false;
+        expected = { ...expected, personalProgress };
+        continue;
+      }
+      const rawId = transfer.payload?.purchaseId;
+      const id = typeof rawId === "string" ? known.get(rawId) : undefined;
+      if (!id || !Number.isSafeInteger(transfer.amountMinor) || transfer.amountMinor >= 0) return false;
+      const result = contributePurchase(expected, id, current.countryCode, -transfer.amountMinor, -transfer.amountMinor);
+      if (result.spentMinor !== -transfer.amountMinor || result.state.contributions[id] !== transfer.payload?.contributedMinor
+        || result.completedNow !== transfer.payload?.completed) return false;
+      expected = result.state;
+    }
+    const actual = candidate.purchases;
+    if (JSON.stringify(actual.completedContracts ?? []) !== JSON.stringify(expected.completedContracts ?? [])) return false;
+    if (Object.keys(actual.personalProgress ?? {}).some((id) => !CAMPAIGN_TASK_IDS.includes(id as CampaignTaskId))
+      || CAMPAIGN_TASK_IDS.some((id) => (actual.personalProgress?.[id] ?? 0) !== (expected.personalProgress?.[id] ?? 0))) return false;
+    if (actual.version !== 1 || JSON.stringify(actual.inherited) !== JSON.stringify(expected.inherited)
+      || JSON.stringify(actual.purchased) !== JSON.stringify(expected.purchased)
+      || Object.keys(actual.contributions).some((id) => !known.has(id))
+      || OPENING_PURCHASES.some(({ id }) => actual.contributions[id] !== expected.contributions[id])) return false;
+  }
+  return true;
+}
+
+/** Purchase/progress values have already been validated above. Replay their
+ * order here so finishing a task later cannot authorize an earlier opening. */
+function campaignOpeningsAreConserved(current: GameState, next: GameState, events: GameEvent[]) {
+  if (!current.franchises.some((franchise) => franchise.owned && franchise.purchases)) return true;
+  const cursor = structuredClone(current);
+  for (const event of events) {
+    const franchise = cursor.franchises.find((item) => item.id === event.franchiseId);
+    if (!franchise) return false;
+    if (event.category === "capital") {
+      const quote = campaignExpansionQuote(cursor, franchise.id);
+      if (event.payload?.campaignOpening !== true || !quote.available || event.amountMinor !== -quote.costMinor || !franchise.purchases) return false;
+      franchise.owned = true;
+    } else if (event.category === "purchase" || event.category === "player_progress" || event.category === "contract_delivery") {
+      if (!franchise.owned || !franchise.purchases) return false;
+      if (event.category === "contract_delivery") {
+        franchise.purchases.completedContracts = [...(franchise.purchases.completedContracts ?? []), event.payload!.contractId as CampaignContractId];
+      } else if (event.category === "player_progress") {
+        franchise.purchases.personalProgress = addCampaignTaskProgress(franchise.purchases.personalProgress ?? {}, event.payload!.deltas as CampaignTaskProgress, franchise.id);
+      } else {
+        const id = event.payload!.purchaseId as typeof OPENING_PURCHASES[number]["id"];
+        franchise.purchases = contributePurchase(franchise.purchases, id, current.countryCode, -event.amountMinor, -event.amountMinor).state;
+      }
+    }
+  }
+  return cursor.franchises.every((franchise) => next.franchises.find((item) => item.id === franchise.id)?.owned === franchise.owned);
 }
 
 function hasInvalidCarry(input: unknown) {
@@ -83,7 +210,7 @@ function hasInvalidCarry(input: unknown) {
   if (typeof capacity !== "number" || !Number.isSafeInteger(capacity) || capacity < 1 || capacity > MAX_WAREHOUSE_PICKUP_BATCH) return true;
   if (!carry.items || typeof carry.items !== "object" || Array.isArray(carry.items)) return true;
   const entries = Object.entries(carry.items);
-  if (entries.some(([productId, quantity]) => !PRODUCT_IDS.includes(productId as ProductId) || !Number.isSafeInteger(quantity) || quantity < 0 || quantity > 1_000_000)) return true;
+  if (entries.some(([productId, quantity]) => !isProductId(productId) || !Number.isSafeInteger(quantity) || quantity < 0 || quantity > 1_000_000)) return true;
   return entries.reduce((total, [, quantity]) => total + quantity, 0) > capacity;
 }
 
@@ -118,6 +245,7 @@ function positiveEventsArePlausible(current: GameState, next: GameState, events:
       continue;
     }
     if (event.category === "mission") {
+      if ([current, next].some((state) => state.franchises.some((franchise) => franchise.owned && franchise.purchases))) return false;
       const missionId = event.payload?.missionId;
       const mission = [...current.missions, ...next.missions].find((candidate) => candidate.id === missionId);
       if (!mission || event.amountMinor !== mission.rewardMinor) return false;
