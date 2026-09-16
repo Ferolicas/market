@@ -13,7 +13,7 @@ import { campaignAvailableProducts, OPENING_PURCHASES, type OpeningPurchaseId } 
 import { rosterBaseTier, rosterEntries, rosterPlayerBase, type RosterEntry } from "./progression/RosterUpgrades";
 import { PRODUCT_CONFIG } from "./economy/products";
 import { createEmptyInventory } from "./economy/ProductRegistry";
-import { createCustomerMind } from "./ai/CustomerBrain";
+import { createCustomerMind, MAX_SHOPPING_LINES, MAX_SHOPPING_LINE_UNITS } from "./ai/CustomerBrain";
 import { campaignNeedsCustomer, customerWalkSpeed } from "./ai/CustomerTraffic";
 import { CUSTOMER_PATIENCE_MS, customerShowingAnger } from "./ai/CustomerPatience";
 import { LEVELS, stationTierModifiers } from "./progression/levels";
@@ -202,15 +202,27 @@ export function normalizeGameState(input: unknown): GameState {
       customer.hasCart ??= !["SPAWN", "ENTER_STORE", "GET_CART", "EXIT_STORE", "DESPAWN"].includes(customer.state);
       customer.hasBag ??= ["TAKE_BAG", "NAVIGATE_TO_CART_RETURN", "RETURN_CART", "EXIT_STORE"].includes(customer.state);
       customer.angry ??= false;
+      // Baskets written by an older shopper generator can exceed the save
+      // schema (five lines of three units); trim them so the save is accepted.
+      customer.shoppingList = customer.shoppingList.slice(0, MAX_SHOPPING_LINES).map((line) => {
+        const requested = Math.max(0, Math.min(MAX_SHOPPING_LINE_UNITS, Math.floor(Number.isFinite(line.requested) ? line.requested : 0)));
+        return { ...line, requested, picked: Math.max(0, Math.min(requested, Math.floor(Number.isFinite(line.picked) ? line.picked : 0))) };
+      });
+      customer.currentLine = Math.max(0, Math.min(customer.currentLine, customer.shoppingList.length));
     });
     franchise.checkoutTransactions.forEach((transaction) => {
       transaction.checkoutLane ??= 0;
       transaction.lastLoadedAt ??= transaction.updatedAt;
       transaction.lastScannedAt ??= transaction.updatedAt;
       transaction.lastBaggedAt ??= transaction.updatedAt;
+      transaction.pendingItems = transaction.pendingItems.slice(0, MAX_SHOPPING_LINES);
       transaction.pendingItems.forEach((line) => {
+        line.quantity = Math.max(1, Math.min(MAX_SHOPPING_LINE_UNITS, Math.floor(Number.isFinite(line.quantity) ? line.quantity : 1)));
         line.loaded ??= line.quantity;
         line.bagged ??= transaction.state === "BAGGING" || transaction.state === "PAYMENT" || transaction.state === "COMPLETE" ? line.scanned : 0;
+        line.loaded = Math.min(line.loaded, line.quantity);
+        line.scanned = Math.min(line.scanned, line.quantity);
+        line.bagged = Math.min(line.bagged, line.quantity);
       });
     });
     franchise.nextCustomerSequence ??= 1;
@@ -1359,17 +1371,21 @@ function assignEmployeeTask(state: GameState, franchise: FranchiseState, employe
       .filter((candidate) => candidate.id !== employee.id && candidate.role === "farmer")
       .map((candidate) => candidate.runtime?.assignedStationId)
       .filter((stationId): stationId is string => Boolean(stationId)));
-    // The scarcest product first: the bed whose crop the store holds least of
-    // (shelves, warehouse, loaded feed and the baskets of workers already on
-    // their way) wins, so every product is levelled before anyone harvests a
-    // surplus, and whichever falls behind gets the next farmer. Ties prefer a
-    // ripe bed with the most to pick.
-    const crop = franchise.crops
+    // The scarcest product is the only one anyone harvests: every farmer
+    // works the crop the store holds least of (shelves, warehouse, loaded
+    // feed and the baskets of workers already on their way) until it catches
+    // up with the rest, and whichever falls behind next takes over. A surplus
+    // crop is never picked, so when the scarce bed is still growing or
+    // already taken, the farmer waits for it instead of piling up tomatoes.
+    const unlocked = franchise.crops.filter((candidate) => candidate.status !== "LOCKED");
+    if (!unlocked.length) return false;
+    const scarcest = Math.min(...unlocked.map((candidate) => productOnHand(franchise, candidate.productId)));
+    const crop = unlocked
       .map((candidate, index) => ({ candidate, index, onHand: productOnHand(franchise, candidate.productId) }))
-      .filter(({ candidate }) => !reservedCropIds.has(candidate.id)
+      .filter(({ candidate, onHand }) => onHand <= scarcest
+        && !reservedCropIds.has(candidate.id)
         && (candidate.status === "EMPTY" || (candidate.status === "READY" && candidate.available > 0)))
-      .sort((a, b) => a.onHand - b.onHand
-        || Number(b.candidate.status === "READY") - Number(a.candidate.status === "READY")
+      .sort((a, b) => Number(b.candidate.status === "READY") - Number(a.candidate.status === "READY")
         || b.candidate.available - a.candidate.available
         || a.index - b.index)[0]?.candidate;
     if (!crop) return false;
@@ -1739,7 +1755,8 @@ function updateCustomer(state: GameState, franchise: FranchiseState, customer: C
       break;
     case "UNLOAD":
       if (now - customer.stateSince >= 300 && !customer.transactionId) {
-        const pendingItems = (Object.entries(customer.basket) as [ProductId, number][]).filter(([, quantity]) => quantity > 0).map(([productId, quantity]) => ({ productId, quantity, loaded: 0, scanned: 0, bagged: 0 }));
+        const pendingItems = (Object.entries(customer.basket) as [ProductId, number][]).filter(([, quantity]) => quantity > 0).slice(0, MAX_SHOPPING_LINES)
+          .map(([productId, quantity]) => ({ productId, quantity: Math.min(MAX_SHOPPING_LINE_UNITS, quantity), loaded: 0, scanned: 0, bagged: 0 }));
         if (!pendingItems.length) {
           customer.queueJoinedAt = null;
           customer.queueSlot = null;

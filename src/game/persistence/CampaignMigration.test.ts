@@ -52,6 +52,25 @@ describe("campaign migration", () => {
     }
   });
 
+  it("trims baskets from the older shopper generator down to what the schema accepts", () => {
+    const state = legacySave(6);
+    state.franchises[0].customers.push({
+      id: "big-basket", identity: 2, state: "NAVIGATE_TO_PRODUCT", shoppingList: [{ productId: "tomatoes", requested: 4, picked: 4 }, { productId: "eggs", requested: 2, picked: 0 }], currentLine: 1,
+      basket: { tomatoes: 4 }, patienceMs: 120_000, checkoutPatienceMs: 120_000, waitingSince: null, queueSlot: null, transactionId: null, hasCart: true, hasBag: false, angry: false,
+      x: 0, z: 0, targetX: 0, targetZ: 0, path: [], pathIndex: 0, speed: 1.4, stateSince: 0, reservedSocketId: null, blockedSince: null, routeFailures: 0, queueLane: 0,
+    });
+    const restored = restore(state);
+    expect(restored.franchises[0].customers[0].shoppingList[0]).toEqual({ productId: "tomatoes", requested: 3, picked: 3 });
+    const payload = {
+      state: { ...restored, lastSavedAt: new Date().toISOString() }, events: [], expectedRevision: 1,
+      operationId: "00000000-0000-4000-8000-000000000000", sessionId: "00000000-0000-4000-8000-000000000001", deviceId: "00000000-0000-4000-8000-000000000002",
+    };
+    expect(savePayloadSchema.safeParse(JSON.parse(JSON.stringify(payload))).success).toBe(true);
+    let ticked = restored;
+    for (let index = 0; index < 8; index += 1) ticked = advanceWorld(ticked, 250).state;
+    expect(validateSaveTransition(restored, ticked, [])).toEqual({ ok: true });
+  });
+
   it("produces a state the schema and the server both accept", () => {
     const restored = restore(legacySave(6));
     const result = applyGameAction(restored, { type: "TOGGLE_STORE" });

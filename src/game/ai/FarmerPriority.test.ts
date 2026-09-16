@@ -41,10 +41,24 @@ describe("farmers harvest the scarcest product first", () => {
     const ticked = advanceWorld(state, 400).state;
     const assigned = assignments(ticked);
     expect(assigned).toHaveLength(2);
-    expect(assigned).toContain("crop-wheat-1");
-    // The wheat bed is taken; the second farmer levels the next scarcest crop.
+    // The single wheat bed is taken by one farmer; the other waits for it
+    // instead of piling up more tomatoes.
     expect(assigned.filter((id) => id === "crop-wheat-1")).toHaveLength(1);
-    expect(assigned.some((id) => id?.startsWith("crop-tomato"))).toBe(true);
+    expect(assigned.filter((id) => id === null)).toHaveLength(1);
+  });
+
+  it("waits for the scarce bed to ripen rather than harvesting a surplus", () => {
+    const state = farmWithWheat();
+    state.franchises[0].warehouse.tomatoes = 496;
+    state.franchises[0].warehouse.wheat = 0;
+    const wheat = state.franchises[0].crops.find((crop) => crop.id === "crop-wheat-1")!;
+    Object.assign(wheat, { status: "GROWING", available: 0, plantedAt: state.simulationTimeMs, readyAt: state.simulationTimeMs + 6_000 });
+    let ticked = advanceWorld(state, 400).state;
+    expect(assignments(ticked).every((id) => id === null)).toBe(true);
+    // Once ripe, the first free farmer goes straight to it.
+    for (let index = 0; index < 20; index += 1) ticked = advanceWorld(ticked, 400).state;
+    expect(assignments(ticked)).toContain("crop-wheat-1");
+    expect(assignments(ticked).some((id) => id?.startsWith("crop-tomato"))).toBe(false);
   });
 
   it("sends the first farmer to tomatoes when wheat is the surplus", () => {
@@ -57,9 +71,11 @@ describe("farmers harvest the scarcest product first", () => {
 
   it("counts what a farmer already carries, so two do not chase the same shortage", () => {
     const state = farmWithWheat();
-    state.franchises[0].warehouse.tomatoes = 30;
+    // Shelves hold 30 tomatoes and 12 wheat. Without the basket in flight,
+    // wheat (38) would be the scarcer crop and the second farmer would wait.
+    state.franchises[0].warehouse.tomatoes = 10;
     state.franchises[0].warehouse.wheat = 26;
-    // One farmer is already bringing back a basket of wheat.
+    // One farmer is already bringing back a basket of wheat: 46 on hand.
     const [first, second] = state.franchises[0].employees.filter((employee) => employee.role === "farmer");
     first.runtime!.carry.items = { wheat: 8 };
     first.runtime!.state = "NAVIGATE_DROPOFF";

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { CAMPAIGN_LOCATIONS, campaignBasketUnits, campaignCustomerLimit, campaignShoppingList } from "./CampaignLocations";
 import { CAMPAIGN_TASK_IDS, campaignTaskStatus, campaignTaskTarget, purchaseTasks } from "./CampaignTasks";
 import { PRODUCT_IDS } from "../economy/ProductRegistry";
+import { MAX_SHOPPING_LINES, MAX_SHOPPING_LINE_UNITS } from "../ai/CustomerBrain";
 import { applyGameAction, campaignPersonalTasks, createCampaignGame, normalizeGameState, advanceWorld } from "../engine";
 import { validateSaveTransition } from "../persistence/SaveAuthority";
 import { OPENING_PURCHASES } from "./MartCampaign";
@@ -74,6 +75,22 @@ describe("location specialties", () => {
       const list = campaignShoppingList("barrio", ["tomatoes", "eggs", "bread", "milk"], seed, 13);
       expect(list).toHaveLength(4);
       expect([7, 8]).toContain(list.reduce((sum, line) => sum + line.requested, 0));
+    }
+  });
+
+  it("never asks for more than three units of a product or more than five products, whatever the level", () => {
+    // Level 7 with two products on sale used to put four or more units on one
+    // line, which the save schema refuses and which stopped every save.
+    for (let seed = 1; seed <= 500; seed++) {
+      const list = campaignShoppingList("barrio", ["tomatoes", "eggs"], seed * 2654435761, 7);
+      expect(list.every((line) => line.requested >= 1 && line.requested <= MAX_SHOPPING_LINE_UNITS), `seed ${seed}`).toBe(true);
+      expect([5, 6]).toContain(list.reduce((sum, line) => sum + line.requested, 0));
+    }
+    for (let seed = 1; seed <= 500; seed++) {
+      const list = campaignShoppingList("megastore", PRODUCT_IDS, seed, 28);
+      expect(list.length).toBeLessThanOrEqual(MAX_SHOPPING_LINES);
+      expect(list.every((line) => line.requested <= MAX_SHOPPING_LINE_UNITS)).toBe(true);
+      expect(list.reduce((sum, line) => sum + line.requested, 0)).toBeLessThanOrEqual(MAX_SHOPPING_LINES * MAX_SHOPPING_LINE_UNITS);
     }
   });
 

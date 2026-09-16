@@ -1,5 +1,5 @@
 import type { ProductId } from "../economy/ProductRegistry";
-import type { ShoppingLine } from "../ai/CustomerBrain";
+import { MAX_SHOPPING_LINES, MAX_SHOPPING_LINE_UNITS, type ShoppingLine } from "../ai/CustomerBrain";
 
 interface LocationProfile {
   specialty: string;
@@ -59,11 +59,14 @@ export function campaignShoppingList(locationId: string, available: readonly Pro
   const candidates = [...new Set(available)];
   if (!candidates.length) return [];
   const budget = campaignBasketUnits(level);
-  const total = Math.min(CAMPAIGN_MAX_BASKET_UNITS, budget.base + (random() < 0.5 ? budget.bonus : 0));
+  // The basket can never exceed what the save schema accepts: five lines of
+  // three units, so with few products on sale the budget is trimmed.
+  const capacity = Math.min(candidates.length, MAX_SHOPPING_LINES) * MAX_SHOPPING_LINE_UNITS;
+  const total = Math.min(CAMPAIGN_MAX_BASKET_UNITS, capacity, budget.base + (random() < 0.5 ? budget.bonus : 0));
   const lines = new Map<ProductId, number>();
   const pool = [...candidates];
   // One unit each, in weighted order, for as many products as the budget holds.
-  while (pool.length && lines.size < total) {
+  while (pool.length && lines.size < Math.min(total, MAX_SHOPPING_LINES)) {
     const weights = pool.map((product) => profile.focus.includes(product) ? 3 : 1);
     let ticket = random() * weights.reduce((sum, weight) => sum + weight, 0);
     let index = 0;
@@ -73,11 +76,14 @@ export function campaignShoppingList(locationId: string, available: readonly Pro
   const ordered = [...lines.keys()];
   let remaining = total - ordered.length;
   while (remaining > 0) {
-    const weights = ordered.map((product) => profile.focus.includes(product) ? 3 : 1);
+    // Only lines with room left can take another unit.
+    const open = ordered.filter((product) => (lines.get(product) ?? 0) < MAX_SHOPPING_LINE_UNITS);
+    if (!open.length) break;
+    const weights = open.map((product) => profile.focus.includes(product) ? 3 : 1);
     let ticket = random() * weights.reduce((sum, weight) => sum + weight, 0);
     let index = 0;
     while (index < weights.length - 1 && ticket >= weights[index]) ticket -= weights[index++];
-    const product = ordered[index];
+    const product = open[index];
     lines.set(product, (lines.get(product) ?? 0) + 1);
     remaining -= 1;
   }

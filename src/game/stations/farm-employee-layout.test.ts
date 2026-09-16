@@ -58,6 +58,12 @@ describe("farm employee destinations", () => {
         available: plot.id === targetPlot.id ? 1 : 0,
         tier: 1,
       }));
+      // Farmers only harvest the scarcest crop: make the target the one the
+      // store is out of, so the assignment under test is the one that fires.
+      for (const plot of FARM_PLOTS) {
+        franchise.warehouse[plot.productId] = plot.productId === targetPlot.productId ? 0 : 99;
+        franchise.shelves[plot.productId] = plot.productId === targetPlot.productId ? 0 : 99;
+      }
       franchise.employees = [{
         ...employee("farmer"),
         runtime: {

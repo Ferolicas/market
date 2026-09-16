@@ -4,6 +4,12 @@ import { CUSTOMER_PATIENCE_MS } from "./CustomerPatience";
 export type CustomerState = "SPAWN" | "ENTER_STORE" | "GET_CART" | "BUILD_SHOPPING_LIST" | "NAVIGATE_TO_PRODUCT" | "WAIT_FOR_ACCESS" | "PICK_PRODUCT" | "NEXT_PRODUCT" | "NAVIGATE_TO_QUEUE" | "QUEUE_WAIT" | "MOVE_QUEUE" | "UNLOAD" | "WAIT_CHECKOUT" | "PAY" | "NAVIGATE_TO_BAG" | "TAKE_BAG" | "NAVIGATE_TO_RETURNS" | "LEAVE_RETURNS" | "NAVIGATE_TO_CART_RETURN" | "RETURN_CART" | "EXIT_STORE" | "DESPAWN" | "WAIT_RESTOCK";
 
 export interface ShoppingLine { productId: ProductId; requested: number; picked: number; }
+
+/** Hard bounds of a basket, shared by the shopper generators, the engine and
+ * the save schema: five products, three units each. A list outside them is
+ * refused by the server, so nothing may ever create one. */
+export const MAX_SHOPPING_LINES = 5;
+export const MAX_SHOPPING_LINE_UNITS = 3;
 export interface CustomerMind {
   id: string;
   state: CustomerState;

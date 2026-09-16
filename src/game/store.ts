@@ -224,7 +224,12 @@ export const useMarketStore = create<MarketStore>((set, get) => {
       }
       if (!response.ok) {
         const retryable = response.status === 429 || response.status >= 500;
-        set({ saveStatus: retryable ? "offline" : "error", ...messageOccurrence(retryable ? "El servidor está ocupado; el guardado local se reintentará" : `El guardado fue rechazado: ${payload.error ?? response.status}`) });
+        // Name the first offending field so a schema rejection can be traced
+        // from the badge and from the telemetry without a server dump.
+        const issue = Array.isArray(payload.issues) && payload.issues[0]
+          ? ` (${[Array.isArray(payload.issues[0].path) ? payload.issues[0].path.join(".") : "", payload.issues[0].message ?? ""].filter(Boolean).join(": ")})`
+          : "";
+        set({ saveStatus: retryable ? "offline" : "error", ...messageOccurrence(retryable ? "El servidor está ocupado; el guardado local se reintentará" : `El guardado fue rechazado: ${payload.error ?? response.status}${issue}`) });
         return;
       }
       const latest = get();

@@ -28,7 +28,7 @@ export function GameRuntime() {
 
   useEffect(() => {
     if (!(["offline", "conflict", "error"] as const).includes(saveStatus as "offline" | "conflict" | "error")) return;
-    void reportClientTelemetry({ kind: "save", name: saveStatus, severity: saveStatus === "error" ? "error" : "warning" });
+    void reportClientTelemetry({ kind: "save", name: saveStatus, severity: saveStatus === "error" ? "error" : "warning", message: useMarketStore.getState().message.slice(0, 1_000) });
   }, [saveStatus]);
 
   useEffect(() => {

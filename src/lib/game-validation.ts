@@ -4,6 +4,7 @@ import { CROP_PRODUCT_IDS, MACHINE_PRODUCT_IDS, PRODUCT_IDS } from "../game/econ
 import { OPENING_PURCHASES } from "../game/progression/MartCampaign";
 import { CAMPAIGN_TASK_IDS } from "../game/progression/CampaignTasks";
 import { CAMPAIGN_CONTRACT_IDS } from "../game/progression/CampaignContracts";
+import { MAX_SHOPPING_LINES, MAX_SHOPPING_LINE_UNITS } from "../game/ai/CustomerBrain";
 
 const purchaseIdSchema = z.enum(OPENING_PURCHASES.map((purchase) => purchase.id));
 const purchaseStateSchema = z.object({
@@ -39,7 +40,7 @@ const employeeSchema = z.object({
 const customerSchema = z.object({
   id: z.string().min(1).max(120), identity: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5), z.literal(6)]),
   state: z.string().min(1).max(40),
-  shoppingList: z.array(z.object({ productId: productIdSchema, requested: z.number().int().min(0).max(3), picked: z.number().int().min(0).max(3) })).max(5),
+  shoppingList: z.array(z.object({ productId: productIdSchema, requested: z.number().int().min(0).max(MAX_SHOPPING_LINE_UNITS), picked: z.number().int().min(0).max(MAX_SHOPPING_LINE_UNITS) })).max(MAX_SHOPPING_LINES),
   currentLine: z.number().int().min(0).max(5), basket: z.partialRecord(productIdSchema, inventoryQuantitySchema),
   patienceMs: z.number().finite().min(0).max(600_000), checkoutPatienceMs: z.number().finite().min(0).max(600_000),
   waitingSince: z.number().finite().min(0).nullable(), queueSlot: z.number().int().min(0).max(100).nullable(),
@@ -52,9 +53,9 @@ const customerSchema = z.object({
 const transactionSchema = z.object({
   id: z.string().min(1).max(120), customerId: z.string().min(1).max(120),
   pendingItems: z.array(z.object({
-    productId: productIdSchema, quantity: z.number().int().min(1).max(3), loaded: z.number().int().min(0).max(3),
-    scanned: z.number().int().min(0).max(3), bagged: z.number().int().min(0).max(3),
-  })).max(5),
+    productId: productIdSchema, quantity: z.number().int().min(1).max(MAX_SHOPPING_LINE_UNITS), loaded: z.number().int().min(0).max(MAX_SHOPPING_LINE_UNITS),
+    scanned: z.number().int().min(0).max(MAX_SHOPPING_LINE_UNITS), bagged: z.number().int().min(0).max(MAX_SHOPPING_LINE_UNITS),
+  })).max(MAX_SHOPPING_LINES),
   paymentMethod: z.enum(["cash", "card"]), state: z.enum(["CUSTOMER_LOADING", "SCANNING", "BAGGING", "PAYMENT", "COMPLETE", "ABANDONED"]),
   nextUnitIndex: z.number().int().min(0).max(20), paymentCommitted: z.boolean(),
   updatedAt: z.number().finite().min(0), lastLoadedAt: z.number().finite().min(0), lastScannedAt: z.number().finite().min(0), lastBaggedAt: z.number().finite().min(0),
