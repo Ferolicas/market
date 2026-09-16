@@ -19,6 +19,9 @@ interface MarketStore {
   message: string;
   messageRevision: number;
   pendingEvents: GameEvent[];
+  /** Wall-clock ms of the last save the server acknowledged (or of a fresh
+   * load). The HUD badge derives GUARDADO / SIN GUARDAR from its age. */
+  lastSaveConfirmedAt: number;
   loadGame: () => Promise<void>;
   dispatch: (action: GameAction) => ActionResult | null;
   recordPlayerDistance: (meters: number) => void;
@@ -54,6 +57,7 @@ export const useMarketStore = create<MarketStore>((set, get) => {
   message: "",
   messageRevision: 0,
   pendingEvents: [],
+  lastSaveConfirmedAt: 0,
 
   loadGame: async () => {
     const current = get();
@@ -84,7 +88,7 @@ export const useMarketStore = create<MarketStore>((set, get) => {
           pendingSaveAttempt = null;
           const selectedState = hasNewerLocalState ? localState : serverState;
           queueRecoverySnapshot(recoverySnapshot(selectedState, payload.saveRevision, remainingEvents));
-          set({ game: selectedState, saveRevision: payload.saveRevision, saveStatus: hasNewerLocalState || remainingEvents.length ? "dirty" : "saved", pendingEvents: remainingEvents, ...messageOccurrence("Confirmé un guardado cuya respuesta se había perdido") });
+          set({ game: selectedState, saveRevision: payload.saveRevision, saveStatus: hasNewerLocalState || remainingEvents.length ? "dirty" : "saved", pendingEvents: remainingEvents, lastSaveConfirmedAt: Date.now(), ...messageOccurrence("Confirmé un guardado cuya respuesta se había perdido") });
           return;
         }
         if (payload.saveRevision === pendingSaveAttempt.expectedRevision) {
@@ -106,13 +110,13 @@ export const useMarketStore = create<MarketStore>((set, get) => {
         );
         if (selected.source === "local") {
           queueRecoverySnapshot(recoverySnapshot(selected.envelope.state, payload.saveRevision, selected.envelope.pendingEvents));
-          set({ game: selected.envelope.state, saveRevision: payload.saveRevision, saveStatus: "dirty", pendingEvents: selected.envelope.pendingEvents, ...messageOccurrence("Recuperé cambios locales pendientes") });
+          set({ game: selected.envelope.state, saveRevision: payload.saveRevision, saveStatus: "dirty", pendingEvents: selected.envelope.pendingEvents, lastSaveConfirmedAt: Date.now(), ...messageOccurrence("Recuperé cambios locales pendientes") });
           return;
         }
       }
       pendingSaveAttempt = null;
       queueRecoverySnapshot(recoverySnapshot(serverState, payload.saveRevision, []));
-      set({ game: serverState, saveRevision: payload.saveRevision, saveStatus: "saved", ...messageOccurrence("Progreso sincronizado") });
+      set({ game: serverState, saveRevision: payload.saveRevision, saveStatus: "saved", lastSaveConfirmedAt: Date.now(), ...messageOccurrence("Progreso sincronizado") });
     } catch {
       const recovery = await readRecoverySnapshot();
       pendingSaveAttempt = recovery?.pendingSave ?? null;
@@ -247,7 +251,7 @@ export const useMarketStore = create<MarketStore>((set, get) => {
       const latestState = hasNewerState ? latest.game! : attempt.state;
       pendingSaveAttempt = null;
       await persistRecoverySnapshot(recoverySnapshot(latestState, payload.saveRevision, remainingEvents));
-      set({ game: latestState, saveRevision: payload.saveRevision, saveStatus: hasNewerState || remainingEvents.length ? "dirty" : "saved", pendingEvents: remainingEvents, ...messageOccurrence(hasNewerState || remainingEvents.length ? "Guardado parcial; sincronizando cambios nuevos" : "Partida guardada") });
+      set({ game: latestState, saveRevision: payload.saveRevision, saveStatus: hasNewerState || remainingEvents.length ? "dirty" : "saved", pendingEvents: remainingEvents, lastSaveConfirmedAt: Date.now(), ...messageOccurrence(hasNewerState || remainingEvents.length ? "Guardado parcial; sincronizando cambios nuevos" : "Partida guardada") });
     } catch {
       set({ saveStatus: "offline", ...messageOccurrence("Sin conexión: los cambios siguen protegidos en este dispositivo") });
     } finally {
@@ -290,7 +294,7 @@ export const useMarketStore = create<MarketStore>((set, get) => {
       }
       pendingSaveAttempt = null;
       await persistRecoverySnapshot(recoverySnapshot(state, payload.saveRevision, []));
-      set({ game: state, saveRevision: payload.saveRevision, saveStatus: "saved", pendingEvents: [], ...messageOccurrence("Esta copia es ahora la partida oficial") });
+      set({ game: state, saveRevision: payload.saveRevision, saveStatus: "saved", pendingEvents: [], lastSaveConfirmedAt: Date.now(), ...messageOccurrence("Esta copia es ahora la partida oficial") });
     } catch {
       set({ saveStatus: "conflict", ...messageOccurrence("Sin conexión: no se pudo adoptar esta copia") });
     } finally {
@@ -310,7 +314,7 @@ export const useMarketStore = create<MarketStore>((set, get) => {
       pendingSaveAttempt = null;
       pendingInteractions = [];
       await persistRecoverySnapshot(recoverySnapshot(serverState, payload.saveRevision, []));
-      set({ game: serverState, saveRevision: payload.saveRevision, saveStatus: "saved", pendingEvents: [], ...messageOccurrence("Partida del servidor restaurada") });
+      set({ game: serverState, saveRevision: payload.saveRevision, saveStatus: "saved", pendingEvents: [], lastSaveConfirmedAt: Date.now(), ...messageOccurrence("Partida del servidor restaurada") });
     } catch {
       set({ saveStatus: "conflict", ...messageOccurrence("Sin conexión: no se pudo cargar la partida del servidor") });
     } finally {

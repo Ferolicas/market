@@ -17,7 +17,7 @@ import { GameRuntime } from "./GameRuntime";
 import { AvatarCustomizer } from "./AvatarCustomizer";
 import { GameInputSurface } from "./GameInputSurface";
 import { feedbackBus, type FeedbackCue } from "@/game/feedback/FeedbackBus";
-import { notificationOccurrenceKey, notificationPresentation } from "@/game/feedback/NotificationPolicy";
+import { saveBadgePresentation, type SaveBadgeStatus } from "@/game/feedback/SaveBadgePolicy";
 import type { RendererMetrics } from "@/game/debug/PerformanceMonitor";
 import { carriedProductIds, carryQuantity, carryTotal, departmentStockingPulses } from "@/game/player/CarrySystem";
 import { rosterEntries } from "@/game/progression/RosterUpgrades";
@@ -49,6 +49,7 @@ export function GameShell({ playerName }: { playerName: string }) {
   const saveGame = useMarketStore((state) => state.saveGame);
   const adoptLocalCopy = useMarketStore((state) => state.adoptLocalCopy);
   const restoreServerCopy = useMarketStore((state) => state.restoreServerCopy);
+  const lastSaveConfirmedAt = useMarketStore((state) => state.lastSaveConfirmedAt);
   const [panel, setPanel] = useState<Panel>(null);
   const [completedPurchase, setCompletedPurchase] = useState<{ id: string; label: string } | null>(null);
   const [levelHint, setLevelHint] = useState<{ level: number; purchase: OpeningPurchaseId; label: string } | null>(null);
@@ -62,13 +63,6 @@ export function GameShell({ playerName }: { playerName: string }) {
   const interactionSequence = useRef(0);
   const activeInteractionId = useRef<InteractionId | null>(null);
   const interactionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const notification = notificationPresentation(message, status);
-  const notificationKey = notificationOccurrenceKey(notification, messageRevision);
-  const notificationLifecycle = notification?.lifecycle;
-  const notificationDurationMs = notification?.durationMs;
-  const [expiredNotificationKey, setExpiredNotificationKey] = useState("");
-  const showNotification = Boolean(notification)
-    && (notificationLifecycle === "persistent" || expiredNotificationKey !== notificationKey);
 
   useEffect(() => () => {
     if (interactionTimer.current) clearTimeout(interactionTimer.current);
@@ -117,11 +111,6 @@ export function GameShell({ playerName }: { playerName: string }) {
     const timer = setTimeout(() => setLevelHint(null), 9_000);
     return () => clearTimeout(timer);
   }, [levelHint]);
-  useEffect(() => {
-    if (notificationLifecycle !== "transient" || notificationDurationMs === null || notificationDurationMs === undefined) return;
-    const timeoutId = window.setTimeout(() => setExpiredNotificationKey(notificationKey), notificationDurationMs);
-    return () => window.clearTimeout(timeoutId);
-  }, [notificationDurationMs, notificationKey, notificationLifecycle]);
   useEffect(() => {
     if (tutorialStep === 0 || worldReady) return;
     let secondFrame = 0;
@@ -346,21 +335,10 @@ export function GameShell({ playerName }: { playerName: string }) {
     dispatch({ type: "DOOR_SENSOR", active });
   }, [debug, dispatch]);
 
-  const notificationToast = showNotification && notification
-    ? <div
-      key={notificationKey}
-      className={`toast ${notification.tone} ${notification.lifecycle}`}
-      data-notification-lifecycle={notification.lifecycle}
-      role={notification.tone === "danger" ? "alert" : "status"}
-      aria-live={notification.tone === "danger" ? "assertive" : "polite"}
-      aria-atomic="true"
-    >
-      <GameIcon name={notification.tone === "danger" ? "warning" : notification.tone === "warning" ? "cloud" : "check"} />
-      <span>{notification.message}</span>
-    </div>
-    : null;
+  // No floating notices: the world signs, the panels and the HUD badge carry
+  // every state, and "Misión completada" is a full screen, not a toast.
 
-  if (!game) return <><GameRuntime/><LoadingCurtain title="Preparando la tienda…" detail="Sincronizando caja, empleados e inventario" />{notificationToast}</>;
+  if (!game) return <><GameRuntime/><LoadingCurtain title="Preparando la tienda…" detail="Sincronizando caja, empleados e inventario" /></>;
   const franchise = game.franchises.find((item) => item.id === game.currentFranchiseId) ?? game.franchises[0];
   const purchaseQuotes = campaignPurchaseQuotes(game);
   const purchaseMarkers: PurchaseMarker[] = purchaseQuotes.filter((purchase) => purchase.available).map((purchase) => ({
@@ -392,14 +370,9 @@ export function GameShell({ playerName }: { playerName: string }) {
         <div className="hud-stat clock"><strong>{hour}</strong></div>
         <div className="hud-stat level"><strong>{levelLabel}</strong></div>
         <button className={`store-status ${franchise.open ? "open" : "closed"}`} disabled={dayClosing} aria-pressed={franchise.open} aria-label={dayClosing ? "Cierre de caja en curso" : franchise.open ? "Cerrar el supermercado y terminar el día" : "Abrir el supermercado"} onClick={() => dispatch({ type: "TOGGLE_STORE" })}><i/>{dayClosing ? "CERRANDO" : franchise.open ? "ABIERTO" : "CERRADO"}</button>
-        <SaveBadge status={status} lastSavedAt={game.lastSavedAt} onSave={() => void saveGame()} />
+        <SaveBadge status={status} lastSaveConfirmedAt={lastSaveConfirmedAt} lastSavedAt={game.lastSavedAt} detail={status === "error" || status === "conflict" || status === "offline" ? message : ""} onSave={() => void saveGame()} />
       </header>
 
-      {levelHint && <div className="level-hint glass-panel" data-game-ui-interactive="true" role="status" aria-live="polite">
-        <span className="level-hint-pin" aria-hidden="true"><GameIcon name="target" /></span>
-        <div><small>NIVEL {levelHint.level} · YA PUEDES DESBLOQUEAR</small><strong>{levelHint.label}</strong><p>Busca el círculo dorado en su sitio y entra en él con dinero recogido.</p></div>
-        <button aria-label="Entendido" onClick={() => setLevelHint(null)}>×</button>
-      </div>}
 
       {status === "conflict" && <div className="level-hint conflict glass-panel" data-game-ui-interactive="true" role="alertdialog" aria-live="assertive" aria-label="Partida distinta en otro dispositivo">
         <span className="level-hint-pin" aria-hidden="true"><GameIcon name="warning" /></span>
@@ -432,7 +405,6 @@ export function GameShell({ playerName }: { playerName: string }) {
         <div className="player-chip"><span title={avatarHat ? `Gorro ${avatarHat.name}` : "Sin gorro"}>{avatarHat?.emoji ?? "👤"}</span><div><strong>{playerName}</strong><small>Reputación {game.reputation}</small></div><button aria-label="Guardar ahora" title="Guardar ahora" onClick={() => void saveGame()}><GameIcon name="cloud" /></button></div>
       </footer>
 
-      {notificationToast}
       {debug && <aside className="debug-overlay" data-game-ui-interactive="true"><strong>QA 3D EN VIVO</strong><span>FPS {metrics?.fps ?? "—"} · frame {metrics?.averageFrameMs ?? "—"} ms · p95 {metrics?.p95FrameMs ?? "—"} ms</span><span>Draw calls {metrics?.drawCalls ?? "—"} · triángulos {metrics?.triangles.toLocaleString() ?? "—"}</span><span>Geometrías {metrics?.geometries ?? "—"} · texturas {metrics?.textures ?? "—"} · programas {metrics?.programs ?? "—"}</span><span>Puntos {metrics?.points ?? "—"} · líneas {metrics?.lines ?? "—"}</span><span>Clientes {franchise.customers.length} · rutas {franchise.customers.filter((customer) => customer.path.length > customer.pathIndex).length}</span><span>NavMesh rev. {franchise.structureRevision} · colisiones/sensores visibles</span></aside>}
       {game.tutorialStep === 0 && <SetupPanel campaign={isCampaignGame(game)} gameCountry={game.countryCode} gameAvatar={game.avatar} onComplete={(avatar, countryCode) => {
         dispatch({ type: "SET_AVATAR", ...avatar });
@@ -682,24 +654,26 @@ function TeamPanel() {
  * Saved state lives in the top bar next to OPEN/CLOSED, with the time of the
  * last confirmed save, instead of a toast at the bottom of the screen.
  */
-function SaveBadge({ status, lastSavedAt, onSave }: { status: string; lastSavedAt: string; onSave: () => void }) {
-  const saved = status === "saved" || status === "idle";
+function SaveBadge({ status, lastSaveConfirmedAt, lastSavedAt, detail, onSave }: { status: SaveBadgeStatus; lastSaveConfirmedAt: number; lastSavedAt: string; detail: string; onSave: () => void }) {
   const time = useMemo(() => {
     const parsed = new Date(lastSavedAt);
-    return Number.isNaN(parsed.getTime()) ? "--:--:--" : parsed.toLocaleTimeString("es-ES", { hour12: false });
+    return Number.isNaN(parsed.getTime()) ? "—" : parsed.toLocaleTimeString("es-ES", { hour12: false });
   }, [lastSavedAt]);
-  const label = status === "saving" ? "GUARDANDO"
-    : status === "dirty" ? "SIN GUARDAR"
-      : status === "offline" ? "COPIA LOCAL"
-        : status === "conflict" ? "CONFLICTO"
-          : status === "error" ? "ERROR"
-            : "GUARDADO";
-  return <button type="button" className={`save-badge ${status}`} onClick={onSave} title="Guardar ahora" aria-label={`${label}. Guardar ahora`}>
+  // The clock lives in state so the age check stays pure during render.
+  const [now, setNow] = useState(0);
+  useEffect(() => {
+    const update = () => setNow(Date.now());
+    update();
+    const timer = window.setInterval(update, 1_000);
+    return () => window.clearInterval(timer);
+  }, []);
+  const { label, tone } = saveBadgePresentation(status, lastSaveConfirmedAt, now);
+  return <button type="button" className={`save-badge ${tone}`} onClick={onSave} title={detail || "Guardar ahora"} aria-label={`${label}${detail ? `. ${detail}` : ""}. Guardar ahora`}>
     <span className="save-badge-mark" aria-hidden="true">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path d="m7.5 12.4 3 3 6-6.4" /></svg>
     </span>
     <strong>{label}</strong>
-    <small>{saved ? time : "—"}</small>
+    <small>{time}</small>
   </button>;
 }
 
