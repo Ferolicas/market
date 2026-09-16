@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { advanceWorld, createInitialGame, normalizeGameState, type WorldPathfinder } from "../engine";
 import type { Employee, GameState } from "../types";
 import { STORE_LAYOUT_SCALE, STORE_OBSTACLES } from "../world-scale";
-import { FARM_ACCESS_WAYPOINTS, FARM_ANIMAL_STATIONS, FARM_FIELD, FARM_PLOTS, FARM_WORKER_HOME, farmInteriorRouteBetween, isRetiredFrontFarmPoint } from "./farm-layout";
+import { FARM_ACCESS_WAYPOINTS, FARM_ANIMAL_STATIONS, FARM_FIELD, FARM_PLOTS, FARM_WORKER_HOME, farmInteriorRouteBetween, isRetiredFrontFarmPoint, FARM_BARN } from "./farm-layout";
 import { PRODUCTION_MACHINE_POINTS } from "./production-layout";
 import { STOCKROOM_POINT } from "./warehouse-layout";
 import { createMachine } from "./StationSystem";
@@ -348,8 +348,14 @@ describe("farm employee destinations", () => {
     expect([runtime.x, runtime.z]).toEqual([...currentSource]);
     expect(runtime.currentSpeed).toBe(0);
     expect(runtime.carry).toEqual({ capacity: 2, items: { [productId]: 1 } });
-    FARM_ACCESS_WAYPOINTS.forEach((waypoint) => expect(runtime.path).toContainEqual([...waypoint]));
-    expect(runtime.path.at(-1)).toEqual([...STOCKROOM_POINT]);
+    if (role === "farmer") {
+      // A farmer's harvest goes to the barn on the estate: no trip through the doors.
+      FARM_ACCESS_WAYPOINTS.forEach((waypoint) => expect(runtime.path).not.toContainEqual([...waypoint]));
+      expect(runtime.path.at(-1)).toEqual([...FARM_BARN.workerPosition]);
+    } else {
+      FARM_ACCESS_WAYPOINTS.forEach((waypoint) => expect(runtime.path).toContainEqual([...waypoint]));
+      expect(runtime.path.at(-1)).toEqual([...STOCKROOM_POINT]);
+    }
     expect(runtime.path.some((point) => isRetiredFrontFarmPoint(point))).toBe(false);
   });
 
@@ -371,7 +377,8 @@ describe("farm employee destinations", () => {
     expect([runtime.x, runtime.z]).toEqual([-7, 7]);
     expect(runtime.carry.items).toEqual({ tomatoes: 1 });
     expect(runtime.path.some((point) => isRetiredFrontFarmPoint(point))).toBe(false);
-    expect(runtime.path.at(-1)).toEqual([...STOCKROOM_POINT]);
+    // Harvest is handed over at the barn on the farm, never at the stockroom.
+    expect(runtime.path.at(-1)).toEqual([...FARM_BARN.workerPosition]);
   });
 
   it("repaths a persisted animal operator from the retired exterior lane through the rear door", () => {
@@ -424,7 +431,7 @@ describe("farm employee destinations", () => {
     expect(path.at(-1)).toEqual([FARM_PLOTS[0].position[0], FARM_PLOTS[0].position[2]]);
   });
 
-  it("preserves an idle legacy basket and routes it through the gate to stockroom", () => {
+  it("preserves an idle legacy basket and routes it to the barn without leaving the estate", () => {
     const legacy = createInitialGame();
     legacy.franchises[0].employees = [{
       ...employee("farmer"),
@@ -441,9 +448,7 @@ describe("farm employee destinations", () => {
     expect(runtime.carry.items).toEqual({ tomatoes: 2 });
     expect([runtime.x, runtime.z]).toEqual([...FARM_WORKER_HOME]);
     expect(runtime.state).toBe("NAVIGATE_DROPOFF");
-    expect(runtime.path).toContainEqual([...FARM_ACCESS_WAYPOINTS[2]]);
-    expect(runtime.path).toContainEqual([...FARM_ACCESS_WAYPOINTS[1]]);
-    expect(runtime.path).toContainEqual([...FARM_ACCESS_WAYPOINTS[0]]);
-    expect(runtime.path.at(-1)).toEqual([...STOCKROOM_POINT]);
+    FARM_ACCESS_WAYPOINTS.forEach((waypoint) => expect(runtime.path).not.toContainEqual([...waypoint]));
+    expect(runtime.path.at(-1)).toEqual([...FARM_BARN.workerPosition]);
   });
 });

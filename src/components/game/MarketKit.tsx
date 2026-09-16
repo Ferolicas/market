@@ -13,7 +13,7 @@ import { PRODUCTS } from "@/game/catalog";
 import { PRODUCT_CONFIG } from "@/game/economy/products";
 import { CHECKOUT_LANES, activeCheckoutForLane, checkoutBagLocation, checkoutHandoffForLane } from "@/game/stations/checkout-layout";
 import { cropVisualSlotIndices } from "@/game/stations/crop-visual";
-import { FARM_ANIMAL_STATIONS, FARM_FACILITIES, FARM_FIELD, FARM_GATE, FARM_PLOTS, farmGateOpenLeafTerminalPost } from "@/game/stations/farm-layout";
+import { FARM_ANIMAL_STATIONS, FARM_FACILITIES, FARM_FIELD, FARM_GATE, FARM_PLOTS, farmGateOpenLeafTerminalPost, FARM_BARN } from "@/game/stations/farm-layout";
 import { STORE_REAR_DOOR } from "@/game/stations/storefront-layout";
 import { distributedFixtureQuantity, PANTRY_DISPLAY_POSITIONS, PRODUCE_BIN_COLUMNS, PRODUCE_BIN_PITCH, PRODUCE_DECK, produceDeckLocalPoint, PRODUCT_RETAIL_DEPARTMENT, RETAIL_DEPARTMENTS, RETAIL_FIXTURE_LEVELS, RETAIL_VISUAL_CAPACITY, retailDisplayPosition, retailFixtureDisplayPositions, retailStockLandingLocalPosition } from "@/game/stations/retail-layout";
 import { shelfCapacityForTier } from "@/game/engine";
@@ -26,7 +26,7 @@ import { createStaticMeshBatch } from "@/game/render/StaticMeshBatch";
 import { BasketProduct } from "./HarvestBasket";
 import { CannedCornModel, cornTinGeometry, cornLabelGeometry, cornTinMaterial, cornLabelMaterial } from "./CannedCornModel";
 import { MarketText as Text } from "./MarketText";
-import { useGlassTransmission } from "./MarketRenderProfile";
+import {  } from "./MarketRenderProfile";
 import { DeliveredModel, DeliveredProductInstances, deliveredProductId } from "./DeliveredModel";
 import { FarmAnimal } from "./FarmAnimal";
 import { DeliveredDairy } from "./DeliveredDairy";
@@ -490,7 +490,7 @@ const MemoDormantCropPlot = memo(DormantCropPlot, sameFixtureProps);
 const MemoCropPlot = memo(CropPlot, sameFixtureProps);
 const MemoFarmTools = memo(FarmTools, sameFixtureProps);
 const MemoCompostBin = memo(CompostBin, sameFixtureProps);
-const MemoMiniGreenhouse = memo(MiniGreenhouse, sameFixtureProps);
+const MemoFarmBarn = memo(FarmBarn, sameFixtureProps);
 const MemoScarecrow = memo(Scarecrow, sameFixtureProps);
 const MemoFarmWaterTank = memo(FarmWaterTank, sameFixtureProps);
 const MemoAnimalPaddock = memo(AnimalPaddock, sameFixtureProps);
@@ -1139,7 +1139,6 @@ const READY_SPARKLES: readonly InstanceTransform[] = [
   { position: [0.62, 0.08, -0.48], scale: [0.42, 0.42, 0.42] },
 ];
 const FARM_BENCH_LEGS: readonly InstanceTransform[] = [-0.56, 0.56].flatMap((x) => [-0.24, 0.24].map((z): InstanceTransform => ({ position: [x, 0.48, z], scale: [0.09, 0.96, 0.09] })));
-const GREENHOUSE_SEEDLINGS: readonly InstanceTransform[] = TOMATO_GRID.slice(0, 6).map(([x, z]) => ({ position: [x * 0.55, 0.28, z * 0.52], scale: [0.5, 0.5, 0.5] }));
 
 export const KitFarm = memo(function KitFarm({ crops, machines, nowMs, unlockedAreas }: FarmPresentationProps) {
   const root = useRef<THREE.Group>(null);
@@ -1170,7 +1169,7 @@ export const KitFarm = memo(function KitFarm({ crops, machines, nowMs, unlockedA
     })}
     <StoreElement position={[...FARM_FACILITIES.tools.position]}><MemoFarmTools position={[0, 0, 0]} /></StoreElement>
     <StoreElement position={[...FARM_FACILITIES.compost.position]}><MemoCompostBin position={[0, 0, 0]} /></StoreElement>
-    <StoreElement position={[...FARM_FACILITIES.greenhouse.position]}><MemoMiniGreenhouse position={[0, 0, 0]} /></StoreElement>
+    <StoreElement position={[...FARM_BARN.position]}><MemoFarmBarn /></StoreElement>
     <StoreElement position={[...FARM_FACILITIES.scarecrow.position]}><MemoScarecrow position={[0, 0, 0]} /></StoreElement>
     <StoreElement position={[...FARM_FACILITIES.waterTank.position]}><MemoFarmWaterTank /></StoreElement>
     {fixtureAvailable("fixture:chicken-coop", unlockedAreas) && <StoreElement position={[...FARM_ANIMAL_STATIONS.chicken.position]}>
@@ -1489,14 +1488,35 @@ function CompostBin({ position }: { position: Position }) {
   return <group position={position}><Box args={[0.78, 0.72, 0.72]} position={[0, 0.36, 0]} color="#5f4934" radius={0.08} />{[-0.26, 0, 0.26].map((offset) => <Box key={offset} args={[0.85, 0.075, 0.78]} position={[0, 0.38 + offset, 0]} color="#89603c" />)}<Box args={[0.87, 0.1, 0.8]} position={[0, 0.77, 0]} rotation={[0.08, 0, 0]} color="#68462f" radius={0.04} /><mesh position={[0, 0.84, 0]}><sphereGeometry args={[0.18, 8, 6]} /><meshStandardMaterial color="#41633a" roughness={1} /></mesh></group>;
 }
 
-function MiniGreenhouse({ position }: { position: Position }) {
-  const paneTransmission = useGlassTransmission(0.12);
-  return <group position={position}>
-    <Box args={[1.12, 0.14, 0.88]} position={[0, 0.12, 0]} color="#68472f" radius={0.05} />
-    {[-0.46, 0.46].flatMap((x) => [-0.34, 0.34].map((z) => <Box key={`${x}-${z}`} args={[0.045, 0.85, 0.045]} position={[x, 0.55, z]} color={palette.frame} />))}
-    <mesh position={[0, 0.6, 0]}><boxGeometry args={[1, 0.8, 0.76]} /><meshPhysicalMaterial color="#b8e2d0" transparent opacity={0.2} roughness={0.12} transmission={paneTransmission} /></mesh>
-    <mesh position={[0, 1.06, 0]} rotation={[0, 0, Math.PI / 4]}><boxGeometry args={[0.76, 0.76, 0.78]} /><meshPhysicalMaterial color="#b8e2d0" transparent opacity={0.24} roughness={0.12} transmission={paneTransmission} /></mesh>
-    <StaticInstances transforms={GREENHOUSE_SEEDLINGS} castShadow><coneGeometry args={[0.06, 0.25, 6]} /><meshStandardMaterial color="#559147" roughness={0.95} /></StaticInstances>
+/**
+ * The barn: the farm's intake to the warehouse. A solid timber body on the
+ * FARM_BARN footprint (3 × 1.7 local units), open doors facing the middle
+ * corridor with a drop-off pallet, a gable roof and a board that says what
+ * it is for. Local units, scaled by STORE_ELEMENT_SCALE like every prop.
+ */
+function FarmBarn() {
+  const halfX = FARM_BARN.footprint.halfX;
+  const halfZ = FARM_BARN.footprint.halfZ;
+  const wallHeight = 1.42;
+  return <group name="static:farm-barn">
+    <Box args={[halfX * 2, 0.12, halfZ * 2]} position={[0, 0.06, 0]} color="#8d7154" radius={0.03} />
+    {/* Side and rear walls; the front stays open around a central post. */}
+    <Box args={[0.12, wallHeight, halfZ * 2]} position={[-halfX + 0.06, wallHeight / 2 + 0.1, 0]} color="#9c3f2e" />
+    <Box args={[0.12, wallHeight, halfZ * 2]} position={[halfX - 0.06, wallHeight / 2 + 0.1, 0]} color="#9c3f2e" />
+    <Box args={[halfX * 2, wallHeight, 0.12]} position={[0, wallHeight / 2 + 0.1, -halfZ + 0.06]} color="#a8452f" />
+    <Box args={[0.42, wallHeight, 0.1]} position={[-halfX + 0.27, wallHeight / 2 + 0.1, halfZ - 0.05]} color="#9c3f2e" />
+    <Box args={[0.42, wallHeight, 0.1]} position={[halfX - 0.27, wallHeight / 2 + 0.1, halfZ - 0.05]} color="#9c3f2e" />
+    <Box args={[halfX * 2, 0.22, 0.1]} position={[0, wallHeight - 0.01, halfZ - 0.05]} color="#f1e3c8" />
+    {/* Gable roof: two pitched slabs meeting on the ridge. */}
+    <Box args={[halfX * 1.16, 0.08, halfZ * 2 + 0.36]} position={[-halfX * 0.5, wallHeight + 0.5, 0]} rotation={[0, 0, 0.62]} color="#5d3b2a" />
+    <Box args={[halfX * 1.16, 0.08, halfZ * 2 + 0.36]} position={[halfX * 0.5, wallHeight + 0.5, 0]} rotation={[0, 0, -0.62]} color="#5d3b2a" />
+    <Box args={[0.1, 0.12, halfZ * 2 + 0.4]} position={[0, wallHeight + 0.98, 0]} color="#3d2619" />
+    {/* Drop-off pallet just inside the doors, where the baskets land. */}
+    <Box args={[1.1, 0.1, 0.7]} position={[0, 0.17, halfZ - 0.55]} color="#c9a36a" radius={0.02} />
+    <Box args={[0.42, 0.34, 0.42]} position={[-0.28, 0.39, halfZ - 0.55]} color="#d8b05c" radius={0.03} />
+    <Box args={[0.42, 0.28, 0.42]} position={[0.3, 0.36, halfZ - 0.5]} color="#c99f4d" radius={0.03} />
+    <Text position={[0, wallHeight + 0.18, halfZ + 0.02]} fontSize={0.2} color="#fff5d8" anchorX="center" anchorY="middle" fontWeight={900}>GRANERO</Text>
+    <Text position={[0, wallHeight - 0.02, halfZ + 0.02]} fontSize={0.085} color="#3d2619" anchorX="center" anchorY="middle" fontWeight={800}>ENTREGA AL ALMACÉN</Text>
   </group>;
 }
 

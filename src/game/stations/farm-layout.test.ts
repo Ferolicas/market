@@ -1,25 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { OPENING_PURCHASES } from "../progression/MartCampaign";
+import { PURCHASE_POSITIONS, PURCHASE_RING } from "./purchase-layout";
 import { isStoreNavigationPoint } from "../navigation/NavMeshService";
-import {
-  cropIdFromFarmInteraction,
-  FARM_ACCESS_WAYPOINTS,
-  FARM_ANIMAL_STATIONS,
-  FARM_FACILITIES,
-  FARM_FIELD,
-  FARM_GATE,
-  FARM_INTERIOR_WAYPOINTS,
-  FARM_OBSTACLES,
-  FARM_PLOTS,
-  FARM_WORKER_HOME,
-  farmInteriorRouteBetween,
-  farmInteriorRouteFromEntrance,
-  farmInteriorRouteToEntrance,
-  farmGateOpenLeafTerminalPost,
-  farmInteractionId,
-  farmPlotById,
-  isFarmInteractionId,
-  isRetiredFrontFarmPoint,
-} from "./farm-layout";
+import { cropIdFromFarmInteraction, FARM_ACCESS_WAYPOINTS, FARM_ANIMAL_STATIONS, FARM_FACILITIES, FARM_FIELD, FARM_GATE, FARM_INTERIOR_WAYPOINTS, FARM_OBSTACLES, FARM_PLOTS, FARM_WORKER_HOME, farmInteriorRouteBetween, farmInteriorRouteFromEntrance, farmInteriorRouteToEntrance, farmGateOpenLeafTerminalPost, farmInteractionId, farmPlotById, isFarmInteractionId, isRetiredFrontFarmPoint, FARM_WALL_SHADOW_DEPTH, FARM_VISIBLE_FRONT_Z, FARM_CORRIDOR_BACK_Z, FARM_PLOT_FOOTPRINT, FARM_ANIMAL_FOOTPRINTS, FARM_BARN } from "./farm-layout";
 import { STORE_REAR_DOOR } from "./storefront-layout";
 
 const STORE_REAR_WALL_Z = -8.55;
@@ -84,6 +67,30 @@ describe("rear farm layout", () => {
       expect(Math.abs(z - FARM_FIELD.center[2])).toBeLessThanOrEqual(halfDepth);
       expect(z).toBeLessThan(STORE_REAR_WALL_Z);
     });
+  });
+
+  it("keeps everything the owner uses or sees past the strip the rear wall hides from the camera", () => {
+    // Wall 5.6 high, camera rising 23 for every 25.75 it travels along z:
+    // the ground within 3.13 layout units behind the wall is invisible.
+    expect(FARM_WALL_SHADOW_DEPTH).toBeCloseTo(5.6 * 25.75 / 23 / STORE_LAYOUT_SCALE, 3);
+    expect(FARM_VISIBLE_FRONT_Z).toBeCloseTo(-8.55 - FARM_WALL_SHADOW_DEPTH, 3);
+    const margin = 0.3;
+    const mustBeVisible: [string, number][] = [
+      ...FARM_PLOTS.map((plot) => [plot.id, plot.position[2] + FARM_PLOT_FOOTPRINT.halfZ * 0.8] as [string, number]),
+      ...Object.entries(FARM_ANIMAL_STATIONS).map(([id, station]) => [id, station.position[2] + FARM_ANIMAL_FOOTPRINTS[id as keyof typeof FARM_ANIMAL_FOOTPRINTS].halfZ * 0.8] as [string, number]),
+      ["barn", FARM_BARN.position[2] + FARM_BARN.footprint.halfZ * 0.8],
+      ...Object.entries(FARM_FACILITIES).map(([id, facility]) => [id, facility.position[2]] as [string, number]),
+      ["worker-home", FARM_WORKER_HOME[1]],
+      ...Object.entries(FARM_INTERIOR_WAYPOINTS).map(([id, point]) => [id, point[1]] as [string, number]),
+      ...OPENING_PURCHASES.filter((purchase) => PURCHASE_POSITIONS[purchase.id][2] < STORE_REAR_WALL_Z).map((purchase) => [`ring:${purchase.id}`, PURCHASE_POSITIONS[purchase.id][2] + PURCHASE_RING.radius * 0.8] as [string, number]),
+    ];
+    for (const [id, frontZ] of mustBeVisible) {
+      expect(frontZ, `${id} front edge at z ${frontZ} is in the wall's shadow`).toBeLessThanOrEqual(FARM_VISIBLE_FRONT_Z - margin);
+    }
+    // The strip behind the wall is only a corridor: no bed, pen or barn edge in it.
+    for (const [id, frontZ] of mustBeVisible.filter(([id]) => !id.startsWith("ring:") && !id.startsWith("worker") && !["entranceApron", "cropJunction", "southCropJunction"].includes(id))) {
+      expect(frontZ, `${id} intrudes into the corridor strip`).toBeLessThanOrEqual(FARM_CORRIDOR_BACK_Z);
+    }
   });
 
   it("recognises every retired facade station without classifying the rear estate or main door", () => {

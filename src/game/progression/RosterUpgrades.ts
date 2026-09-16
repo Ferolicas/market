@@ -105,9 +105,12 @@ export function rosterEntries(franchise: FranchiseState, moneyScale: number): Ro
         ? `${employeeRoleLabel(employee.role)} · escaneo ×${cashierTillModifiers(employee.level).speed.toFixed(2)}`
         : `${employeeRoleLabel(employee.role)} · cesta ${employeeCarryCapacity(employee.level)}`,
       employeeRoleIcon(employee.role), employee.level - 1, employee.level, moneyScale);
-    // Cashiers work by the tier table (scan and bagging). Everyone else walks
-    // and carries by their own formulas: print those, not the table.
-    if (employee.role !== "cashier") {
+    // Print the worker's real multipliers, not the station tier table: the
+    // cashier's scan and bagging, everyone else's pace and basket.
+    if (employee.role === "cashier") {
+      card.speed = cashierTillModifiers(employee.level).speed;
+      card.capacity = cashierTillModifiers(employee.level).capacity;
+    } else {
       card.speed = Math.round(employeeWalkSpeed(employee.level) / employeeWalkSpeed(1) * 100) / 100;
       card.capacity = Math.round(employeeCarryCapacity(employee.level) / employeeCarryCapacity(1) * 100) / 100;
     }

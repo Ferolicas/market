@@ -32,7 +32,7 @@ import { ADULT_CHARACTER_SCENE_SCALE, characterSceneScale, CHILD_CHARACTER_SCENE
 import { CHECKOUT_CAMERA_FRAME, CHECKOUT_CAMERA_POSITION as CHECKOUT_CAMERA_POSITION_COORDS, CHECKOUT_CAMERA_TARGET as CHECKOUT_CAMERA_TARGET_COORDS, checkoutQueuePosition } from "@/game/stations/checkout-layout";
 import { isStockingInteractionId, PRODUCT_RETAIL_DEPARTMENT, retailDepartmentFromStockingInteraction, retailDisplayPosition, retailFixtureDisplayPositions, retailStockingMagnets, retailStockFixtureSlot, retailStockLandingLocalPosition, RETAIL_DEPARTMENT_IDS, RETAIL_DEPARTMENTS, stockingInteractionId, type StockingInteractionId } from "@/game/stations/retail-layout";
 import { isWorkstationId, isWorkstationUnlocked, WORKSTATIONS, WORKSTATION_IDS, type WorkstationId } from "@/game/stations/workstation-layout";
-import { farmAnimalMagnet, farmInteractionId, farmPlotById, FARM_ACCESS_WAYPOINTS, FARM_GATE, FARM_PLOTS, FARM_WORKER_HOME, scaledFarmHarvestSensor, type FarmInteractionId } from "@/game/stations/farm-layout";
+import { farmAnimalMagnet, farmInteractionId, farmPlotById, FARM_ACCESS_WAYPOINTS, FARM_BARN, FARM_GATE, FARM_PLOTS, FARM_WORKER_HOME, scaledFarmHarvestSensor, type FarmInteractionId } from "@/game/stations/farm-layout";
 import { carryTotal, preferredStockingProduct } from "@/game/player/CarrySystem";
 import {
   advanceRearDoorMotion,
@@ -54,12 +54,13 @@ import { createStaticMeshBatch } from "@/game/render/StaticMeshBatch";
 import { customerPresentationKey, employeePresentationKey, liveActors, publishLiveActors } from "@/game/render/LiveActors";
 import { daylightPresentation } from "@/game/time/BusinessDay";
 import { flushRecoverySnapshot } from "@/game/persistence/RecoveryStorage";
+import { OVERVIEW_CAMERA_OFFSET } from "@/game/render/overview-camera";
 import { reportClientTelemetry } from "@/lib/client-telemetry";
 import { isRegisterInteractionId, REGISTER_INTERACTION_IDS, registerLane, registerPickupPosition, type RegisterInteractionId } from "@/game/stations/register-layout";
 
 import { isPurchaseInteractionId, purchaseIdFromInteraction, purchaseInteractionId, PURCHASE_POSITIONS, PURCHASE_RING, type PurchaseInteractionId } from "@/game/stations/purchase-layout";
 import { OPENING_PURCHASES, type OpeningPurchaseId } from "@/game/progression/MartCampaign";
-export type InteractionId = Exclude<WorkstationId, "shelf"> | StockingInteractionId | FarmInteractionId | RegisterInteractionId | PurchaseInteractionId | "warehouseReturn" | "orders" | "door";
+export type InteractionId = Exclude<WorkstationId, "shelf"> | StockingInteractionId | FarmInteractionId | RegisterInteractionId | PurchaseInteractionId | "warehouseReturn" | "farmBarn" | "orders" | "door";
 export interface InteractionVisualEvent {
   id: InteractionId;
   sequence: number;
@@ -78,7 +79,6 @@ const PLAYER_START = scaleStorePosition([0, 0, 6.25]);
 const PLAYER_SCALE = CHILD_CHARACTER_SCENE_SCALE;
 const CAMERA_DISTANCE_FACTOR = 1.15;
 const CAMERA_PROXIMITY_FACTOR = 1.3;
-const OVERVIEW_CAMERA_OFFSET = { x: 16, y: 23, z: 25.75 } as const;
 const OVERVIEW_CAMERA_GROUND_FORWARD = { x: -OVERVIEW_CAMERA_OFFSET.x, y: -OVERVIEW_CAMERA_OFFSET.z } as const;
 /** Yaw that squares a floor label with the fixed isometric camera, so world
  * text on the ground reads horizontally instead of running diagonally. */
@@ -121,6 +121,7 @@ const ZONES: { id: InteractionId; label: string; position: [number, number, numb
     return { id: stockingInteractionId(departmentId), label: `Surtir ${department.label.toLowerCase()}`, position: [department.service[0], 0, department.service[1]] as [number, number, number] };
   }),
   { id: WAREHOUSE_RETURN_STATION.interactionId, label: WAREHOUSE_RETURN_STATION.label, position: [...WAREHOUSE_RETURN_STATION.position] },
+  { id: FARM_BARN.interactionId, label: FARM_BARN.label, position: [...FARM_BARN.position] },
   // The PEDIDOS terminal opens its panel when the owner steps up to it.
   { id: "orders", label: WAREHOUSE_ORDERS_TERMINAL.label, position: [...WAREHOUSE_ORDERS_TERMINAL.position] },
   { id: "door", label: "Sensor de entrada", position: [STOREFRONT_LAYOUT.sensor.centerX, 0, STOREFRONT_LAYOUT.sensor.centerZ] },
@@ -1721,9 +1722,17 @@ function interactionZoneConfigs(checkoutLevel = 1, unlockedAreas: readonly strin
       enterRadius: WAREHOUSE_RETURN_STATION.enterRadius,
       exitRadius: WAREHOUSE_RETURN_STATION.exitRadius,
     } : null;
+    // The barn is the farm's return crate: its solid footprint, contact reach.
+    const barnMagnet = zone.id === FARM_BARN.interactionId ? {
+      x: FARM_BARN.position[0] * STORE_LAYOUT_SCALE,
+      z: FARM_BARN.position[2] * STORE_LAYOUT_SCALE,
+      halfExtents: [FARM_BARN.footprint.halfX * STORE_ELEMENT_SCALE, FARM_BARN.footprint.halfZ * STORE_ELEMENT_SCALE] as const,
+      enterRadius: WAREHOUSE_RETURN_STATION.enterRadius,
+      exitRadius: WAREHOUSE_RETURN_STATION.exitRadius,
+    } : null;
     const magnets = departmentId
       ? retailStockingMagnets(departmentId, STORE_LAYOUT_SCALE, STORE_ELEMENT_SCALE, unlockedAreas)
-      : [productionMagnet ?? animalMagnet ?? returnMagnet];
+      : [productionMagnet ?? animalMagnet ?? returnMagnet ?? barnMagnet];
     return magnets.map((magnet) => {
     const doorSensor = zone.id === "door" ? STOREFRONT_LAYOUT.sensor : null;
     return {
@@ -1753,10 +1762,10 @@ function interactionZoneConfigs(checkoutLevel = 1, unlockedAreas: readonly strin
               ? WAREHOUSE_RETURN_STATION.exitRadius
               : isWorkstationId(zone.id) ? 1.0 : 0.9) * STORE_ELEMENT_SCALE),
       actorMask: ["player"],
-      priority: isStockingInteractionId(zone.id) ? 80 : isPurchaseInteractionId(zone.id) ? 30 : ({ orders: 25, checkout: 100, mill: 70, bakery: 70, cheese: 70, juice: 70, chicken: 65, cow: 65, door: 20, warehouseReturn: 6 } as Partial<Record<InteractionId, number>>)[zone.id] ?? 10,
-      dwellMs: zone.id === "warehouseReturn" ? WAREHOUSE_RETURN_STATION.dwellMs : zone.id === "checkout" ? 180 : zone.id === "orders" ? 700 : zone.id === "door" || isPurchaseInteractionId(zone.id) || isStockingInteractionId(zone.id) || isProductionWorkstationId(zone.id) ? 0 : 80,
-      repeatEveryMs: zone.id === "warehouseReturn" ? WAREHOUSE_RETURN_STATION.repeatEveryMs : zone.id === "orders" ? 60_000 : isPurchaseInteractionId(zone.id) ? 200 : isStockingInteractionId(zone.id) || isProductionWorkstationId(zone.id) ? 180 : zone.id === "checkout" ? (checkoutLevel >= 2 ? 340 : 450) : zone.id === "door" ? 60_000 : 220,
-      exitGraceMs: zone.id === "warehouseReturn" ? WAREHOUSE_RETURN_STATION.exitGraceMs : 120,
+      priority: isStockingInteractionId(zone.id) ? 80 : isPurchaseInteractionId(zone.id) ? 30 : ({ orders: 25, checkout: 100, mill: 70, bakery: 70, cheese: 70, juice: 70, chicken: 65, cow: 65, door: 20, warehouseReturn: 6, farmBarn: 6 } as Partial<Record<InteractionId, number>>)[zone.id] ?? 10,
+      dwellMs: zone.id === "warehouseReturn" || zone.id === "farmBarn" ? WAREHOUSE_RETURN_STATION.dwellMs : zone.id === "checkout" ? 180 : zone.id === "orders" ? 700 : zone.id === "door" || isPurchaseInteractionId(zone.id) || isStockingInteractionId(zone.id) || isProductionWorkstationId(zone.id) ? 0 : 80,
+      repeatEveryMs: zone.id === "warehouseReturn" || zone.id === "farmBarn" ? WAREHOUSE_RETURN_STATION.repeatEveryMs : zone.id === "orders" ? 60_000 : isPurchaseInteractionId(zone.id) ? 200 : isStockingInteractionId(zone.id) || isProductionWorkstationId(zone.id) ? 180 : zone.id === "checkout" ? (checkoutLevel >= 2 ? 340 : 450) : zone.id === "door" ? 60_000 : 220,
+      exitGraceMs: zone.id === "warehouseReturn" || zone.id === "farmBarn" ? WAREHOUSE_RETURN_STATION.exitGraceMs : 120,
       channel: zone.id === "door" || zone.id === "orders" || isPurchaseInteractionId(zone.id) || isRegisterInteractionId(zone.id) ? "passive" : zone.id === "checkout" ? "hands" : "transfer",
     };
     });

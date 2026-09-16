@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { FARM_BARN } from "./stations/farm-layout";
 import { advanceWorld, applyCustomerAvoidance, applyGameAction, canOperateMachine, canProcessCheckoutUnit, CHECKOUT_SCAN_UNIT_MS, countryMoneyScale, createInitialGame, employeeHiringQuote, normalizeGameState, shelfCapacityForTier, unlockedCustomerProducts, upgradeQuote } from "./engine";
 import type { CheckoutTransaction, CustomerRuntimeState, Employee, GameState, PaymentMethod } from "./types";
 import { CHECKOUT_LANES, checkoutQueueArrival } from "./stations/checkout-layout";
@@ -305,18 +306,18 @@ describe("motor económico", () => {
   it("mantiene la velocidad por nivel del trabajador sin frenar en waypoints cortos", () => {
     const state = createInitialGame("ES");
     state.franchises[0].employees = [{
-      id: "dense-worker", name: "Luna", role: "stocker", level: 3, salaryMinor: 3_000, energy: 100, hat: "frog",
+      id: "dense-worker", name: "Luna", role: "stocker", level: 1, salaryMinor: 3_000, energy: 100, hat: "frog",
       runtime: {
         state: "NAVIGATE_PICKUP", assignedProduct: "tomatoes", assignedStationId: "stockroom",
         carry: { capacity: 4, items: {} }, x: 0, z: 0, targetX: 0.04, targetZ: 0,
-        path: [[0.04, 0], [0.08, 0], [0.2, 0], [1, 0]], pathIndex: 0, speed: 1.66, currentSpeed: 1.66, stateSince: 0,
+        path: [[0.04, 0], [0.08, 0], [0.2, 0], [1, 0]], pathIndex: 0, speed: 1.5, currentSpeed: 1.5, stateSince: 0,
       },
     }];
 
     const next = advanceWorld(state, 100).state.franchises[0].employees[0].runtime!;
 
-    expect(next.speed).toBeCloseTo(1.66);
-    expect(next.x).toBeCloseTo(0.166);
+    expect(next.speed).toBeCloseTo(1.5);
+    expect(next.x).toBeCloseTo(0.15);
     expect(next.pathIndex).toBe(2);
     expect(next.targetX).toBe(0.2);
   });
@@ -470,7 +471,7 @@ describe("motor económico", () => {
     expect(runtime.carry).toEqual({ capacity: 3, items: { tomatoes: 3 } });
     expect(next.crops[0]).toMatchObject({ status: "READY", available: 5 });
     expect(runtime.state).toBe("NAVIGATE_DROPOFF");
-    expect(runtime.path.at(-1)).toEqual([...STOCKROOM_POINT]);
+    expect(runtime.path.at(-1)).toEqual([FARM_BARN.workerPosition[0], FARM_BARN.workerPosition[1]]);
   });
 
   it("el agricultor prioriza trigo cuando falta materia prima para el molino", () => {

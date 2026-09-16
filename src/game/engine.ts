@@ -20,17 +20,7 @@ import { LEVELS, stationTierModifiers } from "./progression/levels";
 import { averageShelfAvailability, levelObjectiveSatisfied, levelObjectiveTasks, unlockedCustomerProducts } from "./progression/objectives";
 import { CHECKOUT_LANES, checkoutQueueArrival, checkoutQueuePosition, type CheckoutLane } from "./stations/checkout-layout";
 import { pantryEntranceRowBand, retailServicePoint, retailShelfCapacityForTier } from "./stations/retail-layout";
-import {
-  FARM_ACCESS_WAYPOINTS,
-  FARM_ANIMAL_STATIONS,
-  FARM_FIELD,
-  FARM_PLOTS,
-  FARM_WORKER_HOME,
-  farmInteriorRouteBetween,
-  farmInteriorRouteFromEntrance,
-  farmInteriorRouteToEntrance,
-  isRetiredFrontFarmPoint,
-} from "./stations/farm-layout";
+import { FARM_ACCESS_WAYPOINTS, FARM_ANIMAL_STATIONS, FARM_FIELD, FARM_PLOTS, FARM_WORKER_HOME, farmInteriorRouteBetween, farmInteriorRouteFromEntrance, farmInteriorRouteToEntrance, isRetiredFrontFarmPoint, FARM_BARN } from "./stations/farm-layout";
 import { addToCarry, CAPACITY_TIERS, carryQuantity, carryTotal, MAX_WAREHOUSE_PICKUP_BATCH, primaryCarryProduct, removeFromCarry, transferCarryToShelf, transferWarehouseToCarry } from "./player/CarrySystem";
 import { CART_RETURN_POINT, RETURNS_POINT, RETURNS_TO_CART_FALLBACK, STORE_SERVICE_FIXTURES } from "./stations/store-service-layout";
 import { storefrontDoorActorPresent, STORE_REAR_DOOR, STOREFRONT_LAYOUT } from "./stations/storefront-layout";
@@ -1076,6 +1066,9 @@ const CASHIER_WORK_POINTS: Record<CheckoutLane, [number, number]> = {
   1: [CHECKOUT_LANES[1].cashierWork[0], CHECKOUT_LANES[1].cashierWork[2]],
 };
 const CROP_POINTS: Record<string, [number, number]> = Object.fromEntries(FARM_PLOTS.map((plot) => [plot.id, [plot.position[0], plot.position[2]]]));
+/** Where farm workers hand over harvest and draw feed: the barn is the
+ * warehouse's farm door, so the store is never crossed for a basket. */
+const FARM_BARN_POINT: [number, number] = [FARM_BARN.workerPosition[0], FARM_BARN.workerPosition[1]];
 const MACHINE_POINTS: Record<string, [number, number]> = {
   ...PRODUCTION_MACHINE_POINTS,
   "chicken-coop-1": [FARM_ANIMAL_STATIONS.chicken.workPosition[0], FARM_ANIMAL_STATIONS.chicken.workPosition[2]],
@@ -1143,7 +1136,7 @@ function normalizePersistedFarmEmployee(franchise: FranchiseState, employee: Emp
     || (runtime.state === "IDLE" && carryTotal(runtime.carry) > 0 && (retiredRoute || relocatedLegacyServiceLane));
   const expectedTarget = employee.role === "farmer"
     ? collecting ? runtime.assignedStationId === "stockroom" ? STOCKROOM_POINT : assignedCrop ?? assignedFarmMachinePoint
-      : delivering ? runtime.assignedStationId?.startsWith("retail:") && runtime.assignedProduct ? retailServicePoint(runtime.assignedProduct) : STOCKROOM_POINT : undefined
+      : delivering ? runtime.assignedStationId?.startsWith("retail:") && runtime.assignedProduct ? retailServicePoint(runtime.assignedProduct) : FARM_BARN_POINT : undefined
     : collecting ? assignedMachinePoint
       : delivering && assignedMachinePoint
         ? assignedMachine?.productId === runtime.assignedProduct ? STOCKROOM_POINT : assignedMachinePoint
@@ -1157,7 +1150,7 @@ function normalizePersistedFarmEmployee(franchise: FranchiseState, employee: Emp
     runtime.stateSince = now;
     if (carryTotal(runtime.carry) > 0) {
       runtime.state = "NAVIGATE_DROPOFF";
-      setEmployeePath(runtime, navigatePath(undefined, [runtime.x, runtime.z], STOCKROOM_POINT));
+      setEmployeePath(runtime, navigatePath(undefined, [runtime.x, runtime.z], employee.role === "farmer" ? FARM_BARN_POINT : STOCKROOM_POINT));
     } else {
       runtime.state = "IDLE";
       runtime.assignedProduct = null;
@@ -1180,7 +1173,9 @@ function normalizePersistedFarmEmployee(franchise: FranchiseState, employee: Emp
   const pathUsesRearDoor = runtime.path.some((point) => (
     Math.hypot(point[0] - STORE_REAR_DOOR.x, point[1] - STORE_REAR_DOOR.z) <= 2
   ));
-  const farmDeliveryNeedsFarmAccess = delivering && Boolean(assignedCrop || assignedFarmMachinePoint);
+  // A farmer's harvest stays on the farm (the barn); only an operator's
+  // animal delivery still crosses the rear door into the store.
+  const farmDeliveryNeedsFarmAccess = delivering && employee.role === "operator" && Boolean(assignedFarmMachinePoint);
   const actionAtWrongPlace = (runtime.state === "PICKUP" || runtime.state === "DROPOFF")
     && Math.hypot(runtime.x - expectedTarget[0], runtime.z - expectedTarget[1]) >= 0.6;
   if (!retiredRoute && !relocatedLegacyOperatorHome && !relocatedLegacyServiceLane && endpointMatches && (!(transitionNeedsFarmAccess || farmDeliveryNeedsFarmAccess) || pathUsesRearDoor) && !actionAtWrongPlace) return;
@@ -1347,7 +1342,7 @@ function assignEmployeeTask(state: GameState, franchise: FranchiseState, employe
     if (!target?.policy) return false;
     runtime.assignedProduct = target.policy.input;
     runtime.assignedStationId = target.machine.id;
-    setEmployeePath(runtime, navigatePath(pathfinder, [runtime.x, runtime.z], STOCKROOM_POINT));
+    setEmployeePath(runtime, navigatePath(pathfinder, [runtime.x, runtime.z], FARM_BARN_POINT));
     return true;
   }
   if (employee.role === "farmer") {
@@ -1527,9 +1522,10 @@ function employeePickup(state: GameState, franchise: FranchiseState, employee: E
   }
   const assignedMachine = franchise.productionMachines.find((machine) => machine.id === runtime.assignedStationId);
   const target = employee.role === "stocker" ? retailServicePoint(productId)
-    : employee.role === "feeder" ? MACHINE_POINTS[runtime.assignedStationId ?? ""] ?? STOCKROOM_POINT
-      : employee.role === "farmer" || assignedMachine?.productId === productId ? STOCKROOM_POINT
-        : MACHINE_POINTS[runtime.assignedStationId ?? ""] ?? STOCKROOM_POINT;
+    : employee.role === "feeder" ? MACHINE_POINTS[runtime.assignedStationId ?? ""] ?? FARM_BARN_POINT
+      : employee.role === "farmer" ? FARM_BARN_POINT
+        : assignedMachine?.productId === productId ? STOCKROOM_POINT
+          : MACHINE_POINTS[runtime.assignedStationId ?? ""] ?? STOCKROOM_POINT;
   runtime.state = "NAVIGATE_DROPOFF"; runtime.stateSince = state.simulationTimeMs;
   setEmployeePath(runtime, navigatePath(pathfinder, [runtime.x, runtime.z], target));
 }

@@ -11,25 +11,26 @@ export const PURCHASE_POINT: [number, number, number] = [-3.8, 0.06, 4.8];
  * the distance to every work and service socket.
  */
 export const PURCHASE_POSITIONS: Record<OpeningPurchaseId, [number, number, number]> = {
-  // Farm hands are signed on the open apron inside the gate, clear of the beds.
-  "farmer-1": [-7.2, 0.06, -11],
-  "farmer-2": [-5.6, 0.06, -11],
-  "farmer-3": [-4, 0.06, -11],
-  // Behind the pens: the front of each pen stays free to feed and collect.
-  "chicken-1": [1.2, 0.06, -15.9],
-  "chicken-1-tier-2": [1.2, 0.06, -15.9],
-  "chicken-1-tier-3": [1.2, 0.06, -15.9],
-  "chicken-2": [8.8, 0.06, -15.4],
-  "cow-1": [5.35, 0.06, -16.4],
-  "cow-1-tier-2": [5.35, 0.06, -16.4],
-  "cow-1-tier-3": [5.35, 0.06, -16.4],
+  // Farm rings sit on the visible corridor between the gate and the bed row,
+  // in the gaps between beds, never in the wall's shadow and never on a
+  // work point: FARM_VISIBLE_FRONT_Z and farm-layout.test.ts enforce both.
+  "farmer-1": [-7.65, 0.06, -12.5],
+  "farmer-2": [-4.95, 0.06, -12.5],
+  "farmer-3": [-2.25, 0.06, -12.5],
+  "chicken-1": [0.45, 0.06, -12.6],
+  "chicken-1-tier-2": [0.45, 0.06, -12.6],
+  "chicken-1-tier-3": [0.45, 0.06, -12.6],
+  "chicken-2": [8.8, 0.06, -12.6],
+  "cow-1": [5.85, 0.06, -12.6],
+  "cow-1-tier-2": [5.85, 0.06, -12.6],
+  "cow-1-tier-3": [5.85, 0.06, -12.6],
   // A bed that does not exist yet has no harvest pass to block.
-  "tomato-2": [-3.55, 0.06, -12.72],
-  "tomato-3": [-0.6, 0.06, -11.2],
-  "wheat-1": [-6.3, 0.06, -15.45],
-  "corn-1": [-3.55, 0.06, -15.45],
-  "apple-1": [-9, 0.06, -15.45],
-  "orange-1": [-0.75, 0.06, -14],
+  "tomato-2": [1.8, 0.06, -14],
+  "tomato-3": [4.5, 0.06, -14],
+  "wheat-1": [-3.6, 0.06, -14],
+  "corn-1": [-6.3, 0.06, -14],
+  "apple-1": [-9, 0.06, -14],
+  "orange-1": [7.2, 0.06, -14],
   // Store floor, always off the aisle and away from the service sockets.
   "player-2": [...PURCHASE_POINT],
   "egg-display-1": [-8.6, 0.06, -1.75],

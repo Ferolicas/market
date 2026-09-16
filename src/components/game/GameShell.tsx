@@ -255,7 +255,7 @@ export function GameShell({ playerName }: { playerName: string }) {
       // dropping goods into the basket.
       setPanel((current) => current ?? "orders");
     }
-    if (id === "warehouseReturn") {
+    if (id === "warehouseReturn" || id === "farmBarn") {
       const current = useMarketStore.getState().game;
       const currentFranchise = current?.franchises.find((item) => item.id === current.currentFranchiseId);
       const productIds = currentFranchise ? carriedProductIds(currentFranchise.carry) : [];
