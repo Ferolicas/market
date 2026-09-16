@@ -1,4 +1,13 @@
 export type ActorMask = "player" | "customer" | "employee";
+
+/**
+ * A magnet is the element itself. Its reach, measured outwards from the solid
+ * footprint in scaled simulation units, only covers the owner's own body
+ * (capsule radius 0.24) plus a brushing tolerance, so nothing activates
+ * before the player is actually touching the fixture. Never scale this by
+ * the element scale: the body does not grow with the furniture.
+ */
+export const CONTACT_MAGNET_REACH = { enter: 0.38, exit: 0.55 } as const;
 export type InteractionChannel = "passive" | "transfer" | "hands";
 
 export interface InteractionZoneConfig {

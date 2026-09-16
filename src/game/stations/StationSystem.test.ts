@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createEmptyInventory } from "../economy/ProductRegistry";
-import { collectMachineOutput, collectMachineOutputBatch, createCrop, createEmptyCrop, createMachine, cropGrowthDurationMs, cropHarvestYield, harvestCrop, harvestCropBatch, loadMachine, plantCrop, updateCrop, updateMachine } from "./StationSystem";
+import { collectMachineOutput, collectMachineOutputBatch, createCrop, createEmptyCrop, createMachine, cropGrowthDurationMs, cropHarvestYield, harvestCrop, harvestCropBatch, loadMachine, machineInputCapacity, machineQueuedCycles, plantCrop, updateCrop, updateMachine } from "./StationSystem";
 
 const emptyInventory = createEmptyInventory;
 
@@ -74,7 +74,7 @@ describe("station systems", () => {
     expect(complete).toMatchObject({ status: "OUTPUT_READY", output: 1 });
   });
 
-  it("rejects locked or output-blocked machines without mutating the station or inventory", () => {
+  it("rejects a locked machine or a full queue without mutating the station or inventory", () => {
     const inventory = emptyInventory(); inventory.wheat = 4;
     const locked = { ...createMachine("locked-mill", "flour"), status: "LOCKED" as const };
     const lockedInventory = structuredClone(inventory);
@@ -86,13 +86,49 @@ describe("station systems", () => {
     expect(locked).toEqual(lockedSnapshot);
     expect(inventory).toEqual(lockedInventory);
 
-    const outputBlocked = { ...createMachine("output-mill", "flour"), status: "OUTPUT_READY" as const, output: 1 };
-    const outputSnapshot = structuredClone(outputBlocked);
-    const rejectedOutput = loadMachine(outputBlocked, inventory, 2_000);
+    const full = { ...createMachine("full-mill", "flour"), status: "PROCESSING" as const, input: { wheat: 16 }, startedAt: 1_000, completesAt: 5_000 };
+    const fullSnapshot = structuredClone(full);
+    const rejectedFull = loadMachine(full, inventory, 2_000);
 
-    expect(rejectedOutput).toEqual({ machine: outputSnapshot, inventory: lockedInventory, loaded: false });
-    expect(outputBlocked).toEqual(outputSnapshot);
+    expect(rejectedFull).toEqual({ machine: fullSnapshot, inventory: lockedInventory, loaded: false });
+    expect(full).toEqual(fullSnapshot);
     expect(inventory).toEqual(lockedInventory);
+  });
+
+  it("queues a whole batch of ingredient and works through it without gaps", () => {
+    // Tier 2 mill: output buffer 10, so the queue takes 20 wheat for 10 flours.
+    const mill = createMachine("queue-mill", "flour", 2);
+    expect(mill.outputCapacity).toBe(10);
+    expect(machineInputCapacity(mill, "wheat")).toBe(20);
+    const inventory = emptyInventory(); inventory.wheat = 23;
+    const loaded = loadMachine(mill, inventory, 2_000);
+    expect(loaded.loaded).toBe(true);
+    expect(loaded.inventory.wheat).toBe(3);
+    // The first recipe is already in the drum; the rest waits in the queue.
+    expect(loaded.machine).toMatchObject({ status: "PROCESSING", input: { wheat: 18 }, completesAt: 6_000 });
+    expect(machineQueuedCycles(loaded.machine)).toBe(9);
+
+    const midway = updateMachine(loaded.machine, 2_000 + 4_000 * 3 + 1);
+    expect(midway).toMatchObject({ status: "PROCESSING", output: 3, input: { wheat: 12 } });
+    expect(midway.completesAt).toBe(2_000 + 4_000 * 4);
+
+    const done = updateMachine(loaded.machine, 2_000 + 4_000 * 10);
+    expect(done).toMatchObject({ status: "FULL", output: 10, input: {} });
+    expect(updateMachine(done, 100_000)).toEqual(done);
+  });
+
+  it("holds the queue while the buffer is full and resumes when a unit is collected", () => {
+    const mill = createMachine("held-mill", "flour");
+    const inventory = emptyInventory(); inventory.wheat = 16;
+    const loaded = loadMachine(mill, inventory, 0).machine;
+    const full = updateMachine({ ...loaded, input: { wheat: 18 } }, 4_000 * 8);
+    expect(full).toMatchObject({ status: "FULL", output: 8, input: { wheat: 4 } });
+    const collected = collectMachineOutput(full, 40_000);
+    expect(collected.collected).toBe(1);
+    expect(collected.machine).toMatchObject({ status: "PROCESSING", output: 7, input: { wheat: 2 }, completesAt: 44_000 });
+    const emptied = collectMachineOutputBatch(collected.machine, 44_000, 20);
+    expect(emptied).toMatchObject({ collected: 8, machine: { status: "PROCESSING", output: 0, input: {} } });
+    expect(updateMachine(emptied.machine, 48_000)).toMatchObject({ status: "OUTPUT_READY", output: 1, input: {} });
   });
 
   it("collects machine output in a bounded batch and preserves every remaining unit", () => {

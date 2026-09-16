@@ -13,12 +13,23 @@ export function campaignLevel(franchise: FranchiseState): number {
   return campaignContracts(franchise).every((contract) => contract.completed) ? 30 : 29;
 }
 
+/** Sale prices grow 3 % per campaign level, compounding: the same unit sells
+ * for more as the store unlocks. Level 1 sells at the base price. */
+export const CAMPAIGN_PRICE_GROWTH_PER_LEVEL = 0.03;
+
+export function campaignPriceMultiplier(level: number) {
+  const step = Math.max(0, Math.min(30, Number.isFinite(level) ? Math.floor(level) : 1) - 1);
+  return (1 + CAMPAIGN_PRICE_GROWTH_PER_LEVEL) ** step;
+}
+
 export function campaignGlobalLevel(state: GameState) {
   return Math.max(1, ...state.franchises.filter((item) => item.owned).map(campaignLevel));
 }
 
-/** Levels that hand the store a dedicated cashier, on top of the purchases. */
-export const CASHIER_UNLOCK_LEVELS = [10, 20, 30] as const;
+/** Levels that hand the store a dedicated cashier, on top of the purchases.
+ * Authored by the owner: the first till gets staffed early, the second
+ * cashier opens the second till, the third relieves both. */
+export const CASHIER_UNLOCK_LEVELS = [5, 10, 20] as const;
 
 export function campaignCashierSlots(level: number) {
   return CASHIER_UNLOCK_LEVELS.filter((threshold) => level >= threshold).length;

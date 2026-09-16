@@ -1,12 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { applyGameAction, createCampaignGame, normalizeGameState } from "../engine";
+import { advanceWorld, applyGameAction, createCampaignGame, normalizeGameState } from "../engine";
 import { validateSaveTransition } from "../persistence/SaveAuthority";
 import { OPENING_PURCHASES } from "./MartCampaign";
+import { CAMPAIGN_TASK_IDS, campaignTaskTarget } from "./CampaignTasks";
+import { CAMPAIGN_BED_YIELD, cropHarvestYield } from "../stations/StationSystem";
 import { MACHINE_BASE_COST_MINOR, ROSTER_BASE_COST_MINOR, ROSTER_UPGRADE_STEPS, rosterEntries, rosterStepCost } from "./RosterUpgrades";
 
-function campaignWith(purchaseIds: readonly string[]) {
+function campaignWith(purchaseIds: readonly string[], mastered = false) {
   const state = createCampaignGame();
   state.balanceMinor = 100_000_000;
+  if (mastered) state.franchises[0].purchases!.personalProgress = Object.fromEntries(CAMPAIGN_TASK_IDS.map((id) => [id, campaignTaskTarget(id)]));
   let current = state;
   for (const id of purchaseIds) {
     const purchase = OPENING_PURCHASES.find((candidate) => candidate.id === id)!;
@@ -68,6 +71,33 @@ describe("roster upgrades", () => {
     expect(trained.ok).toBe(true);
     expect(trained.state.franchises[0].employees.filter((employee) => employee.role === "farmer")).toHaveLength(2);
     expect(trained.state.franchises[0].employees[0].level).toBe(2);
+  });
+
+  it("gives the wheat bed the same defined yield as the tomato bed, and a step raises it", () => {
+    let state = campaignWith(["farmer-1", "egg-display-1", "chicken-1", "tomato-2", "farmer-2", "expansion-1", "wheat-1"], true);
+    state.balanceMinor = 1_000_000;
+    const wheat = () => state.franchises[0].crops.find((crop) => crop.id === "crop-wheat-1")!;
+    expect(wheat().status).toBe("GROWING");
+    expect(wheat().baseYield).toBe(CAMPAIGN_BED_YIELD);
+    expect(state.franchises[0].crops.every((crop) => crop.baseYield === CAMPAIGN_BED_YIELD)).toBe(true);
+    const card = () => rosterEntries(state.franchises[0], 1).find((entry) => entry.id === "station:crop-wheat-1")!;
+    expect(card().detail).toBe(`Cosecha ${CAMPAIGN_BED_YIELD} por ciclo`);
+
+    const upgraded = applyGameAction(state, { type: "UPGRADE_ROSTER", entryId: "station:crop-wheat-1" });
+    expect(upgraded.ok).toBe(true);
+    expect(validateSaveTransition(state, upgraded.state, upgraded.events)).toEqual({ ok: true });
+    state = upgraded.state;
+    expect(wheat().tier).toBe(2);
+    expect(card().detail).toBe("Cosecha 10 por ciclo");
+    expect(card().capacity).toBeGreaterThan(1);
+
+    // The bed that ripens after the step actually holds the raised amount.
+    let grown = state;
+    for (let index = 0; index < 60; index += 1) grown = advanceWorld(grown, 250).state;
+    const ripe = grown.franchises[0].crops.find((crop) => crop.id === "crop-wheat-1")!;
+    expect(ripe.status).toBe("READY");
+    expect(ripe.available).toBe(cropHarvestYield("wheat", 2, CAMPAIGN_BED_YIELD));
+    expect(ripe.available).toBe(10);
   });
 
   it("refuses an unknown entry and an upgrade with no money", () => {

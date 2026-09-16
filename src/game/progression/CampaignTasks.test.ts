@@ -78,9 +78,10 @@ describe("personal campaign work", () => {
       }
     };
     for (const purchaseId of ["farmer-1", "egg-display-1", "chicken-1"] as const) act({ type: "CONTRIBUTE_PURCHASE", purchaseId, amountMinor: 100_000 });
-    // Personal tasks must be the player's own work, so the hired granjero is
-    // sent home for this run instead of competing for the same tomatoes.
-    state.franchises[0].employees = [];
+    // Personal tasks must be the player's own work. Granted desks refill on
+    // every tick, so the granjero is parked on break instead of dismissed.
+    const park = () => state.franchises[0].employees.forEach((employee) => { employee.runtime!.stateSince = Number.MAX_SAFE_INTEGER / 4; });
+    park();
     tick(30);
     for (const quantity of [3, 3, 2]) {
       act({ type: "HARVEST", cropId: "crop-tomato-1", quantity });
@@ -96,7 +97,7 @@ describe("personal campaign work", () => {
       state = normalizeGameState(JSON.parse(JSON.stringify(state)));
     }
     for (const purchaseId of ["tomato-2", "farmer-2"] as const) act({ type: "CONTRIBUTE_PURCHASE", purchaseId, amountMinor: 100_000 });
-    state.franchises[0].employees = [];
+    park();
     const expansion = campaignPurchaseQuotes(state).find((quote) => quote.id === "expansion-1")!;
     expect(expansion.tasks.every((task) => task.completed)).toBe(true);
     expect(expansion.available).toBe(true);

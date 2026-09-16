@@ -8,7 +8,9 @@ import { memo, useCallback, useEffect, useMemo, useRef, type ReactNode } from "r
 import * as THREE from "three";
 import { scaleStorePosition, STORE_ELEMENT_SCALE, STORE_LAYOUT_SCALE } from "@/game/world-scale";
 import type { CheckoutTransaction, CropState, Inventory, ProductId, ProductionMachineState } from "@/game/types";
-import { chickenFeedStatus, cropHarvestYield, cropProgress } from "@/game/stations/StationSystem";
+import { chickenFeedStatus, cropHarvestYield, cropProgress, machineInputCapacity } from "@/game/stations/StationSystem";
+import { PRODUCTS } from "@/game/catalog";
+import { PRODUCT_CONFIG } from "@/game/economy/products";
 import { CHECKOUT_LANES, activeCheckoutForLane, checkoutBagLocation, checkoutHandoffForLane } from "@/game/stations/checkout-layout";
 import { cropVisualSlotIndices } from "@/game/stations/crop-visual";
 import { FARM_ANIMAL_STATIONS, FARM_FACILITIES, FARM_FIELD, FARM_GATE, FARM_PLOTS, farmGateOpenLeafTerminalPost } from "@/game/stations/farm-layout";
@@ -864,22 +866,28 @@ function machineStatus(machine?: ProductionMachineState) {
 
 function ProductionMachineIdentity({ fixture, machine }: { fixture: ProductionFixtureLayout; machine?: ProductionMachineState }) {
   const status = machineStatus(machine);
+  const ingredient = machine ? Object.keys(PRODUCT_CONFIG[machine.productId]?.recipe ?? {})[0] as ProductId | undefined : undefined;
+  const queued = machine && ingredient ? (machine.input[ingredient] ?? 0) + Number(machine.status === "PROCESSING") * Number(PRODUCT_CONFIG[machine.productId]?.recipe?.[ingredient] ?? 0) : 0;
+  const queueCapacity = machine && ingredient ? machineInputCapacity(machine, ingredient) : 0;
   return <group>
     <Box args={[1.22, 0.13, 1.05]} position={[0, 0.065, -0.53]} color="#55635f" radius={0.035} />
     <Box args={[1.08, 0.06, 0.9]} position={[0, 0.145, -0.53]} color="#c7ceca" radius={0.02} />
-    {/* One readable board: what the machine is, what it has ready and what it
-        is waiting for, at a size that can be read while walking past. */}
-    <group position={[0, 2.22, 0.12]}>
-      <Box args={[1.52, 0.92, 0.12]} color="#223832" radius={0.06} />
-      <Text position={[0, 0.3, 0.068]} fontSize={0.19} color="#fff5d8" anchorX="center" anchorY="middle" fontWeight={900}>{fixture.label}</Text>
-      <Text position={[0, 0.13, 0.069]} fontSize={0.082} color={fixture.accent} anchorX="center" anchorY="middle" fontWeight={800}>{fixture.processLabel}</Text>
+    {/* One readable board: what the machine is, what it has ready, what is
+        queued to work through and what it is waiting for, at a size that can
+        be read while walking past. */}
+    <group position={[0, 2.3, 0.12]}>
+      <Box args={[1.52, 1.1, 0.12]} color="#223832" radius={0.06} />
+      <Text position={[0, 0.39, 0.068]} fontSize={0.19} color="#fff5d8" anchorX="center" anchorY="middle" fontWeight={900}>{fixture.label}</Text>
+      <Text position={[0, 0.22, 0.069]} fontSize={0.082} color={fixture.accent} anchorX="center" anchorY="middle" fontWeight={800}>{fixture.processLabel}</Text>
       <group name="dynamic:machine-status">
-        <Text position={[-0.63, -0.1, 0.07]} fontSize={0.13} color="#bcd9cc" anchorX="left" anchorY="middle" fontWeight={800}>LISTO</Text>
-        <Text position={[0.63, -0.1, 0.07]} fontSize={0.26} color={machine && machine.output > 0 ? "#8ce6a1" : "#ffffff"} anchorX="right" anchorY="middle" fontWeight={900}>{`${machine?.output ?? 0}/${machine?.outputCapacity ?? 0}`}</Text>
-        <Text position={[0.63, -0.34, 0.07]} fontSize={0.155} color={status.color} anchorX="right" anchorY="middle" fontWeight={900}>{status.label}</Text>
-        <mesh position={[-0.6, -0.34, 0.07]}><sphereGeometry args={[0.05, 12, 8]} /><meshBasicMaterial color={status.color} toneMapped={false} /></mesh>
+        <Text position={[-0.63, 0.0, 0.07]} fontSize={0.13} color="#bcd9cc" anchorX="left" anchorY="middle" fontWeight={800}>LISTO</Text>
+        <Text position={[0.63, 0.0, 0.07]} fontSize={0.26} color={machine && machine.output > 0 ? "#8ce6a1" : "#ffffff"} anchorX="right" anchorY="middle" fontWeight={900}>{`${machine?.output ?? 0}/${machine?.outputCapacity ?? 0}`}</Text>
+        <Text position={[-0.63, -0.22, 0.07]} fontSize={0.11} color="#bcd9cc" anchorX="left" anchorY="middle" fontWeight={800}>{ingredient ? PRODUCTS[ingredient].name.toUpperCase() : "COLA"}</Text>
+        <Text position={[0.63, -0.22, 0.07]} fontSize={0.17} color={queued > 0 ? "#ffd98a" : "#ffffff"} anchorX="right" anchorY="middle" fontWeight={900}>{`${queued}/${queueCapacity}`}</Text>
+        <Text position={[0.63, -0.43, 0.07]} fontSize={0.155} color={status.color} anchorX="right" anchorY="middle" fontWeight={900}>{status.label}</Text>
+        <mesh position={[-0.6, -0.43, 0.07]}><sphereGeometry args={[0.05, 12, 8]} /><meshBasicMaterial color={status.color} toneMapped={false} /></mesh>
       </group>
-      <Text position={[0, 0.3, -0.068]} rotation={[0, Math.PI, 0]} fontSize={0.19} color="#fff5d8" anchorX="center" anchorY="middle" fontWeight={900}>{fixture.label}</Text>
+      <Text position={[0, 0.39, -0.068]} rotation={[0, Math.PI, 0]} fontSize={0.19} color="#fff5d8" anchorX="center" anchorY="middle" fontWeight={900}>{fixture.label}</Text>
     </group>
   </group>;
 }

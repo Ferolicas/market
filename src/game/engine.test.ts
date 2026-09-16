@@ -555,15 +555,20 @@ describe("motor económico", () => {
     mill.status = "WAITING_INPUT";
     franchise.carry.items.wheat = 2;
     expect(canOperateMachine(franchise, mill.id, state.simulationTimeMs)).toBe(true);
+    // The queue takes wheat while the drum is busy and while flour waits.
     Object.assign(mill, { status: "PROCESSING", output: 0, completesAt: state.simulationTimeMs + 1_000 });
-    expect(canOperateMachine(franchise, mill.id, state.simulationTimeMs)).toBe(false);
-    Object.assign(mill, { status: "OUTPUT_READY", output: 0, completesAt: null });
-    expect(canOperateMachine(franchise, mill.id, state.simulationTimeMs)).toBe(false);
+    expect(canOperateMachine(franchise, mill.id, state.simulationTimeMs)).toBe(true);
     Object.assign(mill, { status: "OUTPUT_READY", output: 2, completesAt: null });
+    expect(canOperateMachine(franchise, mill.id, state.simulationTimeMs)).toBe(true);
+    // A full queue and a full basket: nothing to load, no room to collect.
+    Object.assign(mill, { status: "PROCESSING", input: { wheat: 16 }, output: 2, completesAt: state.simulationTimeMs + 1_000 });
     franchise.carry = { capacity: 3, items: { wheat: 3 } };
     expect(canOperateMachine(franchise, mill.id, state.simulationTimeMs)).toBe(false);
     franchise.carry = { capacity: 3, items: { wheat: 2 } };
     expect(canOperateMachine(franchise, mill.id, state.simulationTimeMs)).toBe(true);
+    franchise.carry = { capacity: 3, items: {} };
+    Object.assign(mill, { status: "WAITING_INPUT", input: {}, output: 0, completesAt: null });
+    expect(canOperateMachine(franchise, mill.id, state.simulationTimeMs)).toBe(false);
 
     const coop = franchise.productionMachines.find((candidate) => candidate.id === "chicken-coop-1")!;
     Object.assign(coop, { status: "WAITING_INPUT", output: 0 });
@@ -572,7 +577,7 @@ describe("motor económico", () => {
     expect(canOperateMachine(franchise, coop.id, state.simulationTimeMs)).toBe(true);
   });
 
-  it("mantiene al operador inactivo ante máquinas bloqueadas o con la salida bloqueando la carga", () => {
+  it("mantiene al operador inactivo ante máquinas bloqueadas o con la cola llena y nada que recoger", () => {
     const state = createInitialGame("ES");
     const franchise = state.franchises[0];
     franchise.lastCustomerSpawnAt = 999_999;
@@ -583,8 +588,11 @@ describe("motor económico", () => {
       output: 1,
     });
     Object.assign(franchise.productionMachines.find((machine) => machine.id === "bread-oven-1")!, {
-      status: "OUTPUT_READY" as const,
+      status: "PROCESSING" as const,
+      input: { flour: 8 },
       output: 0,
+      startedAt: state.simulationTimeMs,
+      completesAt: state.simulationTimeMs + 60_000,
     });
     franchise.employees = [{
       id: "guarded-operator", name: "Luna", role: "operator", level: 1, salaryMinor: 3_000, energy: 100, hat: "frog",

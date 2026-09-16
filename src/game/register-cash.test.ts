@@ -8,6 +8,7 @@ import type { CustomerRuntimeState, GameEvent, GameState, ProductId } from "./ty
 import { REGISTER_INTERACTION_IDS, registerLane, registerPickupPosition } from "./stations/register-layout";
 import { CHECKOUT_LANES } from "./stations/checkout-layout";
 import { createPurchaseState } from "./progression/PurchaseState";
+import { campaignLevel, campaignPriceMultiplier } from "./progression/CampaignLevels";
 import { storeSegmentIsClear } from "./world-scale";
 
 function readyPayment(lane: 0 | 1 = 0, productId: ProductId = "tomatoes") {
@@ -37,18 +38,21 @@ function payload(state: GameState, events: GameEvent[] = []) {
 }
 
 describe("physical cash collection", () => {
-  it("sells preserves for 360 minor units and cannot collect their payment twice after reload", () => {
+  it("sells preserves at the level price over 360 base units and cannot collect their payment twice after reload", () => {
     const initial = readyPayment(0, "cannedCorn");
     initial.franchises[0].purchases = createPurchaseState();
     initial.franchises[0].purchases.purchased.push("preserves-supply-1");
+    // One purchase makes this a level-2 store: 3,60 € × 1,03 = 3,71 €.
+    const price = Math.round(360 * campaignPriceMultiplier(campaignLevel(initial.franchises[0])));
+    expect(price).toBe(371);
     const sale = advanceWorld(initial, 1_000);
-    expect(sale.state.franchises[0].registerCashMinor[0]).toBe(360);
-    expect(sale.state.finances.grossRevenueMinor).toBe(360);
+    expect(sale.state.franchises[0].registerCashMinor[0]).toBe(price);
+    expect(sale.state.finances.grossRevenueMinor).toBe(price);
     expect(sale.state.balanceMinor).toBe(initial.balanceMinor);
     expect(validateSaveTransition(initial, sale.state, sale.events)).toEqual({ ok: true });
     const collected = applyGameAction(normalizeGameState(JSON.parse(JSON.stringify(sale.state))), { type: "COLLECT_REGISTER", lane: 0 });
     expect(collected.ok).toBe(true);
-    expect(collected.state.balanceMinor).toBe(initial.balanceMinor + 360);
+    expect(collected.state.balanceMinor).toBe(initial.balanceMinor + price);
     expect(validateSaveTransition(sale.state, collected.state, collected.events)).toEqual({ ok: true });
     expect(applyGameAction(collected.state, { type: "COLLECT_REGISTER", lane: 0 }).ok).toBe(false);
   });

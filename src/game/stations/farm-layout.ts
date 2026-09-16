@@ -1,3 +1,4 @@
+import { CONTACT_MAGNET_REACH } from "../interaction/InteractionZone";
 import type { CropState } from "../types";
 import { STORE_REAR_DOOR } from "./storefront-layout";
 
@@ -123,10 +124,13 @@ export function isRetiredFrontFarmPoint(point: readonly [number, number]) {
     && point[1] <= RETIRED_FRONT_FARM_BOUNDS.maxZ;
 }
 
-/** Values are local element units; the 3D scene applies STORE_ELEMENT_SCALE. */
+/** Raised bed timbers, in local element units (the 1.92 × 1.18 planter). Beds
+ * stay traversable, so the harvest magnet is the bed's own footprint: the
+ * owner harvests while standing on or brushing the planter, never from the
+ * path beside it. */
+export const FARM_PLOT_FOOTPRINT = { halfX: 0.96, halfZ: 0.59 } as const;
+
 export const FARM_HARVEST_SENSOR = {
-  enterRadius: 1.28,
-  exitRadius: 1.42,
   dwellMs: 35,
   repeatEveryMs: 220,
   exitGraceMs: 90,
@@ -135,8 +139,9 @@ export const FARM_HARVEST_SENSOR = {
 export function scaledFarmHarvestSensor(elementScale: number) {
   return {
     ...FARM_HARVEST_SENSOR,
-    enterRadius: FARM_HARVEST_SENSOR.enterRadius * elementScale,
-    exitRadius: FARM_HARVEST_SENSOR.exitRadius * elementScale,
+    halfExtents: [FARM_PLOT_FOOTPRINT.halfX * elementScale, FARM_PLOT_FOOTPRINT.halfZ * elementScale] as const,
+    enterRadius: CONTACT_MAGNET_REACH.enter,
+    exitRadius: CONTACT_MAGNET_REACH.exit,
   };
 }
 
@@ -168,20 +173,19 @@ export const FARM_ANIMAL_FOOTPRINTS = {
   cow: { halfX: 1.79, halfZ: 1.24 },
 } as const;
 
-/** Reach measured outwards from every side of a paddock, in element units. */
-export const FARM_ANIMAL_MAGNET_REACH = { enter: 0.7, exit: 0.92 } as const;
-
-/** The animal itself is the magnet: standing anywhere around its pen works,
- * instead of hitting one authored socket in front of the gate. */
+/** The pen itself is the magnet: its box is the same solid footprint the
+ * collider and the NavMesh use (element scale, not layout scale), and the
+ * reach is only the owner's body, so walking past the pen does nothing and
+ * touching it from any side works. */
 export function farmAnimalMagnet(id: keyof typeof FARM_ANIMAL_FOOTPRINTS, layoutScale: number, elementScale: number) {
   const station = FARM_ANIMAL_STATIONS[id];
   const footprint = FARM_ANIMAL_FOOTPRINTS[id];
   return {
     x: station.position[0] * layoutScale,
     z: station.position[2] * layoutScale,
-    halfExtents: [footprint.halfX * layoutScale, footprint.halfZ * layoutScale] as const,
-    enterRadius: FARM_ANIMAL_MAGNET_REACH.enter * elementScale,
-    exitRadius: FARM_ANIMAL_MAGNET_REACH.exit * elementScale,
+    halfExtents: [footprint.halfX * elementScale, footprint.halfZ * elementScale] as const,
+    enterRadius: CONTACT_MAGNET_REACH.enter,
+    exitRadius: CONTACT_MAGNET_REACH.exit,
   };
 }
 

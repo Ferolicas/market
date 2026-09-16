@@ -1712,12 +1712,14 @@ function interactionZoneConfigs(checkoutLevel = 1, unlockedAreas: readonly strin
     const productionMagnet = isProductionWorkstationId(zone.id) ? productionMachineMagnet(zone.id, STORE_LAYOUT_SCALE, STORE_ELEMENT_SCALE) : null;
     const animalMagnet = zone.id === "chicken" || zone.id === "chicken2" || zone.id === "cow"
       ? farmAnimalMagnet(zone.id, STORE_LAYOUT_SCALE, STORE_ELEMENT_SCALE) : null;
+    // The crate's box is its solid collider footprint (element scale); the
+    // reach is the owner's body, so it fires on contact like every magnet.
     const returnMagnet = zone.id === "warehouseReturn" ? {
       x: WAREHOUSE_RETURN_STATION.position[0] * STORE_LAYOUT_SCALE,
       z: WAREHOUSE_RETURN_STATION.position[2] * STORE_LAYOUT_SCALE,
-      halfExtents: [WAREHOUSE_RETURN_STATION.footprint.halfX * STORE_LAYOUT_SCALE, WAREHOUSE_RETURN_STATION.footprint.halfZ * STORE_LAYOUT_SCALE] as const,
-      enterRadius: WAREHOUSE_RETURN_STATION.enterRadius * STORE_ELEMENT_SCALE,
-      exitRadius: WAREHOUSE_RETURN_STATION.exitRadius * STORE_ELEMENT_SCALE,
+      halfExtents: [WAREHOUSE_RETURN_STATION.footprint.halfX * STORE_ELEMENT_SCALE, WAREHOUSE_RETURN_STATION.footprint.halfZ * STORE_ELEMENT_SCALE] as const,
+      enterRadius: WAREHOUSE_RETURN_STATION.enterRadius,
+      exitRadius: WAREHOUSE_RETURN_STATION.exitRadius,
     } : null;
     const magnets = departmentId
       ? retailStockingMagnets(departmentId, STORE_LAYOUT_SCALE, STORE_ELEMENT_SCALE, unlockedAreas)
@@ -1770,6 +1772,7 @@ function interactionZoneConfigs(checkoutLevel = 1, unlockedAreas: readonly strin
       type: "farm-plot",
       x: position[0],
       z: position[2],
+      halfExtents: farmSensor.halfExtents,
       enterRadius: farmSensor.enterRadius,
       exitRadius: farmSensor.exitRadius,
       actorMask: ["player"],

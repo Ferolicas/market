@@ -8,7 +8,7 @@ import { addCampaignTaskProgress, CAMPAIGN_TASK_IDS, campaignTaskTarget, type Ca
 import { OPENING_PURCHASES, campaignAvailableProducts } from "../progression/MartCampaign";
 import { CAMPAIGN_CONTRACTS, type CampaignContractId } from "../progression/CampaignContracts";
 import { campaignExpansionQuote } from "../progression/CampaignExpansion";
-import { campaignGlobalLevel, campaignEmployeeLimit } from "../progression/CampaignLevels";
+import { campaignGlobalLevel, campaignEmployeeLimit, campaignPriceMultiplier } from "../progression/CampaignLevels";
 
 export type SaveAuthorityCode =
   | "INVALID_EVENTS"
@@ -237,7 +237,8 @@ function positiveEventsArePlausible(current: GameState, next: GameState, events:
   const country = COUNTRIES[next.countryCode];
   const moneyScale = country.startingCapitalMinor / COUNTRIES.ES.startingCapitalMinor;
   const maximumUnitPrice = Math.max(...Object.values(PRODUCTS).map((product) => product.saleMinor));
-  const maximumSale = Math.ceil(maximumUnitPrice * moneyScale * 1.18 * (1 + country.salesTaxRate) * 15);
+  // Display tier value (1.18), legacy tax and the level-30 campaign price.
+  const maximumSale = Math.ceil(maximumUnitPrice * moneyScale * 1.18 * (1 + country.salesTaxRate) * 15 * campaignPriceMultiplier(30));
   for (const event of events) {
     if (event.amountMinor <= 0) continue;
     if (event.category === "sales") {

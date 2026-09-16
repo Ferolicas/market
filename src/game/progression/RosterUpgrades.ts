@@ -1,6 +1,9 @@
 import { PRODUCTS } from "../catalog";
-import type { Employee, FranchiseState } from "../types";
+import { PRODUCT_CONFIG } from "../economy/products";
+import type { Employee, FranchiseState, ProductId } from "../types";
 import { animalProduction } from "../stations/FedAnimal";
+import { cropHarvestYield, machineInputCapacity } from "../stations/StationSystem";
+import { cashierTillModifiers, employeeCarryCapacity, employeeWalkSpeed } from "./EmployeeStats";
 import { stationTierModifiers } from "./levels";
 
 /** Four upgrade steps per actor, each one twice the price of the previous. */
@@ -97,9 +100,18 @@ export function rosterEntries(franchise: FranchiseState, moneyScale: number): Ro
       "🧍", playerStep, playerBase.speedTier + playerStep, moneyScale),
   ];
   for (const employee of franchise.employees) {
-    entries.push(entry(`employee:${employee.id}`, "employee", employee.name,
-      `${employeeRoleLabel(employee.role)} · cesta ${Math.min(8, 2 + employee.level)}`,
-      employeeRoleIcon(employee.role), employee.level - 1, employee.level, moneyScale));
+    const card = entry(`employee:${employee.id}`, "employee", employee.name,
+      employee.role === "cashier"
+        ? `${employeeRoleLabel(employee.role)} · escaneo ×${cashierTillModifiers(employee.level).speed.toFixed(2)}`
+        : `${employeeRoleLabel(employee.role)} · cesta ${employeeCarryCapacity(employee.level)}`,
+      employeeRoleIcon(employee.role), employee.level - 1, employee.level, moneyScale);
+    // Cashiers work by the tier table (scan and bagging). Everyone else walks
+    // and carries by their own formulas: print those, not the table.
+    if (employee.role !== "cashier") {
+      card.speed = Math.round(employeeWalkSpeed(employee.level) / employeeWalkSpeed(1) * 100) / 100;
+      card.capacity = Math.round(employeeCarryCapacity(employee.level) / employeeCarryCapacity(1) * 100) / 100;
+    }
+    entries.push(card);
   }
   for (const machine of franchise.productionMachines) {
     if (machine.status === "LOCKED") continue;
@@ -113,14 +125,18 @@ export function rosterEntries(franchise: FranchiseState, moneyScale: number): Ro
         naming.icon, step, machine.tier, moneyScale));
       continue;
     }
+    const ingredient = Object.keys(PRODUCT_CONFIG[machine.productId]?.recipe ?? {})[0] as ProductId | undefined;
+    const queue = ingredient ? ` · cola ${machineInputCapacity(machine, ingredient)} ${PRODUCTS[ingredient].name.toLowerCase()}` : "";
     entries.push(entry(`station:${machine.id}`, "machine", stationLabel(machine.id, PRODUCTS[machine.productId].name),
-      `Produce ${PRODUCTS[machine.productId].name.toLowerCase()} · almacén ${machine.outputCapacity}`,
+      `Produce ${PRODUCTS[machine.productId].name.toLowerCase()} · almacén ${machine.outputCapacity}${queue}`,
       MACHINE_ICONS[machine.id] ?? "⚙️", step, machine.tier, moneyScale));
   }
   for (const crop of franchise.crops) {
     if (crop.status === "LOCKED") continue;
+    // The real per-cycle yield at the current tier, so a bought step shows
+    // its effect and a bed without an authored base never reads "undefined".
     entries.push(entry(`station:${crop.id}`, "crop", `Bancal de ${PRODUCTS[crop.productId].name.toLowerCase()}`,
-      `Cosecha ${crop.baseYield} por ciclo`, "🌱", crop.tier - 1, crop.tier, moneyScale));
+      `Cosecha ${cropHarvestYield(crop.productId, crop.tier, crop.baseYield)} por ciclo`, "🌱", crop.tier - 1, crop.tier, moneyScale));
   }
   return entries;
 }

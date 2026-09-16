@@ -1,3 +1,4 @@
+import { CONTACT_MAGNET_REACH } from "../interaction/InteractionZone";
 /**
  * Walkable service point beside the visible supplier terminal, delivery pallet
  * and reserve rack. The scene scales these authored layout coordinates exactly
@@ -34,8 +35,9 @@ export const WAREHOUSE_RETURN_STATION = {
   // Reachable point in front of the solid crate footprint. Workers navigate
   // here rather than into the collider/NavMesh obstacle at its centre.
   workerPosition: [3.1, -6.5] as const,
-  enterRadius: 0.82,
-  exitRadius: 0.98,
+  // Contact reach in scaled simulation units: the crate works when touched.
+  enterRadius: CONTACT_MAGNET_REACH.enter,
+  exitRadius: CONTACT_MAGNET_REACH.exit,
   dwellMs: 80,
   repeatEveryMs: 60_000,
   exitGraceMs: 120,

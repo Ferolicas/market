@@ -3,16 +3,22 @@
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import { AuthScreen } from "@/components/auth/AuthScreen";
+import { LoadingCurtain } from "@/components/game/LoadingCurtain";
 import { authClient } from "@/lib/auth-client";
 import { hasRecoverySnapshotHint } from "@/game/persistence/RecoveryStorage";
 
 const OFFLINE_PLAYER_KEY = "mini-market-offline-player-v1";
 
+// One opening card from the first paint to the store: the session check, the
+// engine download and the game shell's own sync all show the same curtain, so
+// the player never sees a placeholder screen replaced by a second design.
+const LOADING_TITLE = "Preparando la tienda…";
+
 const GameShell = dynamic(
   () => import("@/components/game/GameShell").then((module) => module.GameShell),
   {
     ssr: false,
-    loading: () => <GameLoading label="Preparando el motor 3D…" />,
+    loading: () => <LoadingCurtain title={LOADING_TITLE} detail="Cargando el motor 3D" />,
   },
 );
 
@@ -44,13 +50,9 @@ export default function Home() {
     return () => window.clearTimeout(timeoutId);
   }, [data?.user, isPending]);
 
-  if (isPending && !offlinePlayer) return <GameLoading label="Cargando Mini Market…" />;
+  if (isPending && !offlinePlayer) return <LoadingCurtain title={LOADING_TITLE} detail="Comprobando tu sesión" />;
   if (!data?.user && offlinePlayer) return <GameShell playerName={offlinePlayer} />;
-  if (!data?.user && !offlineChecked) return <GameLoading label="Comprobando tu partida local…" />;
+  if (!data?.user && !offlineChecked) return <LoadingCurtain title={LOADING_TITLE} detail="Comprobando tu partida local" />;
   if (!data?.user) return <AuthScreen />;
   return <GameShell playerName={data.user.name || data.user.email.split("@")[0]} />;
-}
-
-function GameLoading({ label }: { label: string }) {
-  return <div className="game-loading"><div className="loading-shop">🏪</div><strong>{label}</strong></div>;
 }

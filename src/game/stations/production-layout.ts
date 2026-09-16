@@ -1,3 +1,4 @@
+import { CONTACT_MAGNET_REACH } from "../interaction/InteractionZone";
 export type ProductionWorkstationId = "mill" | "bakery" | "cheese" | "juice" | "canner";
 export type ProductionFixtureId = "flourMill" | "breadOven" | "cheeseMaker" | "juiceMachine" | "cornCanner";
 
@@ -17,8 +18,9 @@ export interface ProductionFixtureLayout {
   operatorWorkPoint: readonly [number, number];
 }
 
-/** Reach measured outwards from every side and rounded corner of a machine. */
-export const PRODUCTION_MAGNET_REACH = { enter: 0.72, exit: 0.9 } as const;
+/** Reach measured outwards from every side and rounded corner of a machine:
+ * the owner's own body only, so the machine works when touched. */
+export const PRODUCTION_MAGNET_REACH = CONTACT_MAGNET_REACH;
 
 /**
  * A compact, professional production room in the rear-left corner. Machine
@@ -114,8 +116,8 @@ export function productionMachineMagnet(id: ProductionWorkstationId, layoutScale
       fixture.localFootprint.halfX * elementScale,
       fixture.localFootprint.halfZ * elementScale,
     ] as const,
-    enterRadius: PRODUCTION_MAGNET_REACH.enter * elementScale,
-    exitRadius: PRODUCTION_MAGNET_REACH.exit * elementScale,
+    enterRadius: PRODUCTION_MAGNET_REACH.enter,
+    exitRadius: PRODUCTION_MAGNET_REACH.exit,
   };
 }
 

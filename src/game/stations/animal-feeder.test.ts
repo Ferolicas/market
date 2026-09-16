@@ -34,8 +34,9 @@ describe("animal feeder", () => {
   it("carries feed from the warehouse into the troughs and nothing else", () => {
     let state = campaignThrough("cow-1");
     const franchise = state.franchises[0];
-    // Only the feeder is on shift, so the movement under test is unambiguous.
-    franchise.employees = franchise.employees.filter((employee) => employee.role === "feeder");
+    // Only the feeder is on shift, so the movement under test is unambiguous:
+    // granted desks refill on every tick, so the others are parked on break.
+    franchise.employees.forEach((employee) => { if (employee.role !== "feeder") employee.runtime!.stateSince = Number.MAX_SAFE_INTEGER / 4; });
     franchise.warehouse.tomatoes = 12;
     franchise.warehouse.wheat = 12;
     const trough = () => {
@@ -47,8 +48,7 @@ describe("animal feeder", () => {
     expect(trough()).toBe(0);
     for (let second = 0; second < 120 && trough() === 0; second++) state = advanceWorld(state, 1_000).state;
     expect(trough()).toBeGreaterThan(0);
-    const feeder = state.franchises[0].employees[0];
-    expect(feeder.role).toBe("feeder");
+    expect(state.franchises[0].employees.some((employee) => employee.role === "feeder")).toBe(true);
     // The feeder never restocks shelves: that is the granjero-reponedor's job.
     expect(Object.values(state.franchises[0].shelves).every((quantity) => quantity === 0)).toBe(true);
   });

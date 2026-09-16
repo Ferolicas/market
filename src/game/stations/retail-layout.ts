@@ -1,3 +1,4 @@
+import { CONTACT_MAGNET_REACH } from "../interaction/InteractionZone";
 import type { ProductId } from "../types";
 import { stationTierModifiers } from "../progression/levels";
 import { fixtureAvailable } from "./fixture-availability";
@@ -18,8 +19,8 @@ export interface RetailDepartment {
   products: readonly ProductId[];
 }
 
-/** Reach measured outwards from every physical edge of a retail fixture. */
-export const RETAIL_STOCKING_MAGNET_REACH = { enter: 1.1, exit: 1.3 } as const;
+/** Contact reach: the fixture stocks when the owner touches it, not the aisle. */
+export const RETAIL_STOCKING_MAGNET_REACH = CONTACT_MAGNET_REACH;
 
 const INDIVIDUAL_FLOOR_TILE_LAYOUT = 46 / (12 * 3 * 2);
 /** Three gondolas side by side facing the entrance, set half again as deep
@@ -268,8 +269,8 @@ export function retailStockingMagnet(
       department.fixtureHalfExtents[quarterTurn ? 1 : 0] * elementScale,
       department.fixtureHalfExtents[quarterTurn ? 0 : 1] * elementScale,
     ] as const,
-    enterRadius: RETAIL_STOCKING_MAGNET_REACH.enter * elementScale,
-    exitRadius: RETAIL_STOCKING_MAGNET_REACH.exit * elementScale,
+    enterRadius: RETAIL_STOCKING_MAGNET_REACH.enter,
+    exitRadius: RETAIL_STOCKING_MAGNET_REACH.exit,
   };
 }
 

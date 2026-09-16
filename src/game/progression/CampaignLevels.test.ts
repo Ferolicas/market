@@ -37,7 +37,7 @@ describe("30 connected campaign levels", () => {
     expect(campaignLevel(travelled.state.franchises[1])).toBe(1);
   });
 
-  it("grants cashiers at levels 10, 20 and 30, closes the other desks and refuses forged levels", () => {
+  it("grants cashiers at levels 5, 10 and 20, closes the other desks and refuses forged levels", () => {
     let state = createCampaignGame();
     state.balanceMinor = 100_000_000;
     const reachLevel = (purchaseCount: number) => {
@@ -46,20 +46,27 @@ describe("30 connected campaign levels", () => {
     };
     const cashiers = () => state.franchises[0].employees.filter((employee) => employee.role === "cashier").length;
 
-    reachLevel(8);
-    expect(campaignLevel(state.franchises[0])).toBe(9);
+    reachLevel(3);
+    expect(campaignLevel(state.franchises[0])).toBe(4);
     expect(campaignEmployeeLimit(state.franchises[0], "cashier")).toBe(0);
     expect(cashiers()).toBe(0);
 
-    reachLevel(9);
-    expect(campaignLevel(state.franchises[0])).toBe(10);
+    reachLevel(4);
+    expect(campaignLevel(state.franchises[0])).toBe(5);
     expect(campaignEmployeeLimit(state.franchises[0], "cashier")).toBe(1);
     expect(cashiers()).toBe(1);
+    expect(state.franchises[0].unlockedAreas).not.toContain("checkout-2");
     expect(applyGameAction(state, { type: "HIRE", role: "cashier" }).ok).toBe(false);
+
+    reachLevel(9);
+    expect(campaignLevel(state.franchises[0])).toBe(10);
+    expect(cashiers()).toBe(2);
+    // The second cashier opens the second till.
+    expect(state.franchises[0].unlockedAreas).toContain("checkout-2");
 
     reachLevel(19);
     expect(campaignLevel(state.franchises[0])).toBe(20);
-    expect(cashiers()).toBe(2);
+    expect(cashiers()).toBe(3);
 
     // Stocking and building belong to the granjero-reponedor and the purchases.
     expect(campaignEmployeeLimit(state.franchises[0], "stocker")).toBe(0);

@@ -44,11 +44,12 @@ describe("purchases connected to game state", () => {
     state = normalizeGameState(JSON.parse(JSON.stringify(state)));
     expect(upgradeQuote(state, "player-speed")?.currentTier).toBe(2);
     expect(upgradeQuote(state, "player-capacity")).not.toBeNull();
-    expect(canHireEmployee(state, "operator")).toBe(true);
+    // The mill brings its operator: the desk is granted and already filled,
+    // so nothing is hired by hand.
+    expect(state.franchises[0].employees.filter((employee) => employee.role === "operator")).toHaveLength(1);
+    expect(canHireEmployee(state, "operator")).toBe(false);
     expect(canHireEmployee(state, "farmer")).toBe(false);
-    const hired = applyGameAction(state, { type: "HIRE", role: "operator" });
-    expect(hired.ok).toBe(true);
-    expect(validateSaveTransition(state, hired.state, hired.events)).toEqual({ ok: true });
+    expect(applyGameAction(state, { type: "HIRE", role: "operator" }).ok).toBe(false);
     state.franchises[0].stationTiers = { "chicken-coop-1": 1, "cow-station-1": 1, "bread-oven-1": 1 };
     expect(upgradeQuote(state, "station")).toBeNull();
   });
@@ -114,8 +115,10 @@ describe("purchases connected to game state", () => {
     expect(state.franchises[0].productionMachines.filter((machine) => machine.status !== "LOCKED")).toHaveLength(8);
     expect(state.franchises[0].employees.filter((employee) => employee.role === "farmer")).toHaveLength(3);
     expect(state.franchises[0].employees.filter((employee) => employee.role === "feeder")).toHaveLength(1);
-    // Levels 10 and 20 arrive along the way and hand over their cashiers.
-    expect(state.franchises[0].employees.filter((employee) => employee.role === "cashier")).toHaveLength(2);
+    // Levels 5, 10 and 20 arrive along the way and hand over their cashiers;
+    // the mill and the dairy hand over their two operators.
+    expect(state.franchises[0].employees.filter((employee) => employee.role === "cashier")).toHaveLength(3);
+    expect(state.franchises[0].employees.filter((employee) => employee.role === "operator")).toHaveLength(2);
     expect(state.franchises[0].purchases?.purchased).toHaveLength(OPENING_PURCHASES.length);
     expect(applyGameAction(state, { type: "CONTRIBUTE_BUILD" }).ok).toBe(false);
   });

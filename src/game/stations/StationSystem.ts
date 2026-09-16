@@ -36,6 +36,10 @@ export function cropGrowthDurationMs(productId: CropStation["productId"], tier =
   return Math.max(1_500, Math.round(growMs / stationTierModifiers(tier).speed / levelSpeed));
 }
 
+/** Units a campaign bed yields per cycle at tier 1, the same for every crop:
+ * the beds are the same physical planter. Tier steps scale it. */
+export const CAMPAIGN_BED_YIELD = 8;
+
 export function cropHarvestYield(productId: CropStation["productId"], tier = 1, baseYield = 3) {
   const baseBedUnits = baseYield;
   const productYield = PRODUCT_CONFIG[productId]?.yield ?? 1;
@@ -94,6 +98,67 @@ export function createMachine(id: string, productId: MachineStation["productId"]
   return { id, productId, status: "WAITING_INPUT", input: {}, output: 0, outputCapacity: Math.round((PRODUCT_CONFIG[productId]?.outputCapacity ?? 8) * stationTierModifiers(tier).capacity), startedAt: null, completesAt: null, tier };
 }
 
+/** Cycle length of a machine at its tier, in simulation ms. */
+export function machineCycleMs(machine: Pick<MachineStation, "productId" | "tier">) {
+  return (PRODUCT_CONFIG[machine.productId]?.cycleMs ?? 1_000) / stationTierModifiers(machine.tier).speed;
+}
+
+function machineRecipe(machine: Pick<MachineStation, "productId">) {
+  return Object.entries(PRODUCT_CONFIG[machine.productId]?.recipe ?? {}) as [ProductId, number][];
+}
+
+/**
+ * Ingredient units a machine's input queue holds: enough recipes to fill its
+ * whole output buffer, so one loading trip feeds a complete batch (20 wheat
+ * become 10 flours in a tier-2 mill) and the finished goods are collected
+ * whenever it suits, never one unit at a time. Animal stations keep their
+ * own trough capacity.
+ */
+export function machineInputCapacity(machine: Pick<MachineStation, "productId" | "tier" | "outputCapacity">, productId: ProductId) {
+  const policy = animalProduction(machine.productId, machine.tier);
+  if (policy) return productId === policy.input ? policy.capacity : 0;
+  const required = Number(PRODUCT_CONFIG[machine.productId]?.recipe?.[productId] ?? 0);
+  return required * Math.max(1, Math.floor(machine.outputCapacity));
+}
+
+/** Units of an ingredient the queue can still take right now. */
+export function machineInputRoom(machine: MachineStation, productId: ProductId) {
+  const policy = animalProduction(machine.productId, machine.tier);
+  if (policy) return productId === policy.input ? animalFeedStatus(machine).free : 0;
+  return Math.max(0, machineInputCapacity(machine, productId) - (machine.input[productId] ?? 0));
+}
+
+/** Whole recipes waiting in the queue. */
+export function machineQueuedCycles(machine: Pick<MachineStation, "productId" | "tier" | "input">) {
+  if (animalProduction(machine.productId, machine.tier)) return 0;
+  const recipe = machineRecipe(machine);
+  if (!recipe.length) return 0;
+  return Math.min(...recipe.map(([productId, quantity]) => Math.floor((machine.input[productId] ?? 0) / quantity)));
+}
+
+/** Status derived from the buffers, for a machine that is not mid-cycle. */
+function settleMachine(machine: MachineStation): MachineStation {
+  if (machine.status === "LOCKED" || (machine.status === "PROCESSING" && machine.completesAt !== null)) return machine;
+  const status: MachineStatus = machine.output >= machine.outputCapacity ? "FULL" : machine.output > 0 ? "OUTPUT_READY" : "WAITING_INPUT";
+  if (machine.status === status && machine.startedAt === null && machine.completesAt === null) return machine;
+  return { ...machine, status, startedAt: null, completesAt: null };
+}
+
+/** Takes the next recipe out of the queue when the machine is idle and its
+ * output buffer has room; otherwise settles the status. */
+function startMachineCycle(machine: MachineStation, atMs: number): MachineStation {
+  if (machine.status === "LOCKED" || (machine.status === "PROCESSING" && machine.completesAt !== null)) return machine;
+  if (machine.output >= machine.outputCapacity || machineQueuedCycles(machine) < 1) return settleMachine(machine);
+  const input = { ...machine.input };
+  for (const [productId, quantity] of machineRecipe(machine)) {
+    const remaining = (input[productId] ?? 0) - quantity;
+    if (remaining > 0) input[productId] = remaining; else delete input[productId];
+  }
+  return { ...machine, input, status: "PROCESSING", startedAt: atMs, completesAt: atMs + machineCycleMs(machine) };
+}
+
+/** Puts every ingredient the queue has room for into the machine and starts
+ * a cycle if it was idle; whatever does not fit stays in the inventory. */
 export function loadMachine(machine: MachineStation, inventory: Inventory, nowMs: number) {
   const policy = animalProduction(machine.productId, machine.tier);
   if (policy) {
@@ -101,29 +166,35 @@ export function loadMachine(machine: MachineStation, inventory: Inventory, nowMs
     const result = feedAnimal(animalState(machine, nowMs), inventory[policy.input], Math.floor(nowMs), policy);
     return { machine: animalMachine(machine, result.state), inventory: result.consumed ? { ...inventory, [policy.input]: inventory[policy.input] - result.consumed } : inventory, loaded: result.consumed > 0 };
   }
-  const config = PRODUCT_CONFIG[machine.productId];
-  const recipe = config?.recipe ?? {};
-  const canAcceptInput = machine.status === "IDLE" || machine.status === "WAITING_INPUT";
-  if (!canAcceptInput || machine.output > 0 || machine.output >= machine.outputCapacity) return { machine, inventory, loaded: false };
-  for (const [productId, amount] of Object.entries(recipe) as [ProductId, number][]) {
-    if ((inventory[productId] ?? 0) < amount) return { machine: { ...machine, status: "WAITING_INPUT" as const }, inventory, loaded: false };
-  }
+  if (machine.status === "LOCKED") return { machine, inventory, loaded: false };
   const nextInventory = { ...inventory };
-  for (const [productId, amount] of Object.entries(recipe) as [ProductId, number][]) nextInventory[productId] -= amount;
-  return {
-    machine: { ...machine, status: "PROCESSING" as const, startedAt: nowMs, completesAt: nowMs + (config?.cycleMs ?? 1_000) / stationTierModifiers(machine.tier).speed },
-    inventory: nextInventory,
-    loaded: true,
-  };
+  const input = { ...machine.input };
+  let loaded = false;
+  for (const [productId] of machineRecipe(machine)) {
+    const take = Math.min(nextInventory[productId] ?? 0, machineInputRoom(machine, productId));
+    if (take < 1) continue;
+    nextInventory[productId] -= take;
+    input[productId] = (input[productId] ?? 0) + take;
+    loaded = true;
+  }
+  if (!loaded) return { machine: settleMachine(machine), inventory, loaded: false };
+  return { machine: startMachineCycle({ ...machine, input }, nowMs), inventory: nextInventory, loaded: true };
 }
 
 export function updateMachine(machine: MachineStation, nowMs: number): MachineStation {
   const policy = animalProduction(machine.productId, machine.tier);
   if (policy && machine.status !== "LOCKED") return animalMachine(machine, advanceAnimal(animalState(machine, nowMs), Math.floor(nowMs), policy));
-  if (machine.status !== "PROCESSING" || machine.completesAt === null || nowMs < machine.completesAt) return machine;
-  const produced = PRODUCT_CONFIG[machine.productId]?.yield ?? 1;
-  const output = Math.min(machine.outputCapacity, machine.output + produced);
-  return { ...machine, output, status: output >= machine.outputCapacity ? "FULL" : "OUTPUT_READY", startedAt: null, completesAt: null };
+  if (machine.status === "LOCKED") return machine;
+  let current = machine;
+  // Every finished cycle delivers its unit and, while the queue holds another
+  // recipe and the buffer has room, the next one starts at the exact moment
+  // the previous ended: continuous work, bounded by the output capacity.
+  while (current.status === "PROCESSING" && current.completesAt !== null && nowMs >= current.completesAt) {
+    const produced = PRODUCT_CONFIG[current.productId]?.yield ?? 1;
+    const finishedAt = current.completesAt;
+    current = startMachineCycle({ ...current, output: Math.min(current.outputCapacity, current.output + produced), status: "WAITING_INPUT", startedAt: null, completesAt: null }, finishedAt);
+  }
+  return settleMachine(current);
 }
 
 export function collectMachineOutput(machineInput: MachineStation, nowMs: number) {
@@ -135,8 +206,8 @@ export function collectMachineOutput(machineInput: MachineStation, nowMs: number
   }
   const machine = updateMachine(machineInput, nowMs);
   if (machine.output < 1) return { machine, collected: 0 };
-  const output = machine.output - 1;
-  return { machine: { ...machine, output, status: output ? "OUTPUT_READY" as const : "WAITING_INPUT" as const }, collected: 1 };
+  // Freeing a slot in a full buffer lets the queued work resume at once.
+  return { machine: startMachineCycle({ ...machine, output: machine.output - 1 }, nowMs), collected: 1 };
 }
 
 /** Collects one trip without exceeding either available output or free carry space. */
