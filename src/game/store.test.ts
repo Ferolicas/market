@@ -135,3 +135,80 @@ describe("market store world queue", () => {
     expect(useMarketStore.getState().pendingEvents[0].franchiseId).toBe(initial.currentFranchiseId);
   });
 });
+
+describe("market store conflict resolution", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+    useMarketStore.setState({ game: null, saveRevision: 0, saveStatus: "idle", message: "", messageRevision: 0, pendingEvents: [] });
+  });
+
+  const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
+
+  it("adopts this device's copy at the server's current revision without an event chain", async () => {
+    vi.stubGlobal("localStorage", memoryStorage());
+    vi.stubGlobal("sessionStorage", memoryStorage());
+    const calls: { method: string; body?: Record<string, unknown> }[] = [];
+    vi.stubGlobal("fetch", vi.fn((_url: string, init?: RequestInit) => {
+      const method = init?.method ?? "GET";
+      calls.push({ method, body: init?.body ? JSON.parse(String(init.body)) : undefined });
+      if (method === "GET") return Promise.resolve(json({ state: createInitialGame(), saveRevision: 363, recoveryScope: "test" }));
+      return Promise.resolve(json({ ok: true, saveRevision: 364 }));
+    }));
+
+    const game = createInitialGame();
+    game.tutorialStep = 1;
+    game.balanceMinor = 1_920;
+    const pendingEvents = applyGameAction(game, { type: "ORDER", supplierId: "campo", productId: "wheat", quantity: 1 }).events;
+    useMarketStore.setState({ game, saveRevision: 361, saveStatus: "conflict", message: "", pendingEvents });
+
+    await useMarketStore.getState().adoptLocalCopy();
+
+    const put = calls.find((call) => call.method === "PUT")!;
+    expect(put.body).toMatchObject({ adoptLocal: true, expectedRevision: 363, events: [] });
+    expect((put.body!.state as { balanceMinor: number }).balanceMinor).toBe(1_920);
+    expect(useMarketStore.getState()).toMatchObject({ saveRevision: 364, saveStatus: "saved", pendingEvents: [] });
+    expect(useMarketStore.getState().game!.balanceMinor).toBe(1_920);
+  });
+
+  it("takes the server's copy and drops the local one on request", async () => {
+    vi.stubGlobal("localStorage", memoryStorage());
+    vi.stubGlobal("sessionStorage", memoryStorage());
+    const server = createInitialGame();
+    server.balanceMinor = 24_900;
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(json({ state: server, saveRevision: 363, recoveryScope: "test" }))));
+    const local = createInitialGame();
+    local.balanceMinor = 1_920;
+    useMarketStore.setState({ game: local, saveRevision: 361, saveStatus: "conflict", message: "", pendingEvents: [] });
+
+    await useMarketStore.getState().restoreServerCopy();
+
+    expect(useMarketStore.getState()).toMatchObject({ saveRevision: 363, saveStatus: "saved", pendingEvents: [] });
+    expect(useMarketStore.getState().game!.balanceMinor).toBe(24_900);
+  });
+
+  it("rebuilds a rejected attempt instead of replaying the refused body forever", async () => {
+    vi.stubGlobal("localStorage", memoryStorage());
+    vi.stubGlobal("sessionStorage", memoryStorage());
+    const bodies: Record<string, unknown>[] = [];
+    let status = 400;
+    vi.stubGlobal("fetch", vi.fn((_url: string, init?: RequestInit) => {
+      bodies.push(JSON.parse(String(init?.body)));
+      return Promise.resolve(status === 400 ? json({ error: "INVALID_SAVE", issues: [{ path: ["state", "franchises", 0, "purchases", "purchased", 0], message: "Invalid option" }] }, 400) : json({ ok: true, saveRevision: 5 }));
+    }));
+    const game = createInitialGame();
+    game.tutorialStep = 1;
+    useMarketStore.setState({ game, saveRevision: 4, saveStatus: "dirty", message: "", pendingEvents: [] });
+
+    await useMarketStore.getState().saveGame();
+    expect(useMarketStore.getState().saveStatus).toBe("error");
+    expect(useMarketStore.getState().message).toContain("purchases.purchased.0");
+
+    status = 200;
+    useMarketStore.setState({ saveStatus: "dirty" });
+    await useMarketStore.getState().saveGame();
+    expect(bodies).toHaveLength(2);
+    expect(bodies[1].operationId).not.toBe(bodies[0].operationId);
+    expect(useMarketStore.getState()).toMatchObject({ saveRevision: 5, saveStatus: "saved" });
+  });
+});

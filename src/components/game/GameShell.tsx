@@ -47,6 +47,8 @@ export function GameShell({ playerName }: { playerName: string }) {
   const recordPlayerDistance = useMarketStore((state) => state.recordPlayerDistance);
   const queueInteraction = useMarketStore((state) => state.queueInteraction);
   const saveGame = useMarketStore((state) => state.saveGame);
+  const adoptLocalCopy = useMarketStore((state) => state.adoptLocalCopy);
+  const restoreServerCopy = useMarketStore((state) => state.restoreServerCopy);
   const [panel, setPanel] = useState<Panel>(null);
   const [completedPurchase, setCompletedPurchase] = useState<{ id: string; label: string } | null>(null);
   const [levelHint, setLevelHint] = useState<{ level: number; purchase: OpeningPurchaseId; label: string } | null>(null);
@@ -397,6 +399,19 @@ export function GameShell({ playerName }: { playerName: string }) {
         <span className="level-hint-pin" aria-hidden="true"><GameIcon name="target" /></span>
         <div><small>NIVEL {levelHint.level} · YA PUEDES DESBLOQUEAR</small><strong>{levelHint.label}</strong><p>Busca el círculo dorado en su sitio y entra en él con dinero recogido.</p></div>
         <button aria-label="Entendido" onClick={() => setLevelHint(null)}>×</button>
+      </div>}
+
+      {status === "conflict" && <div className="level-hint conflict glass-panel" data-game-ui-interactive="true" role="alertdialog" aria-live="assertive" aria-label="Partida distinta en otro dispositivo">
+        <span className="level-hint-pin" aria-hidden="true"><GameIcon name="warning" /></span>
+        <div>
+          <small>PARTIDA DISTINTA EN OTRO DISPOSITIVO</small>
+          <strong>Aquí vas por el {levelLabel.toLowerCase()} · {formatMoney(game.balanceMinor, game)}</strong>
+          <p>El servidor guarda otra copia. Elige cuál conservar; la otra se descarta.</p>
+          <div className="conflict-actions">
+            <button type="button" onClick={() => void adoptLocalCopy()}>Conservar esta copia</button>
+            <button type="button" className="secondary" onClick={() => void restoreServerCopy()}>Usar la del servidor</button>
+          </div>
+        </div>
       </div>}
 
 

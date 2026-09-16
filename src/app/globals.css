@@ -1357,6 +1357,11 @@
 .level-hint strong { display: block; color: var(--game-ui-ink); font-size: 13px }
 .level-hint p { margin: 2px 0 0; color: var(--game-ui-muted); font-size: 9px; line-height: 1.4 }
 .level-hint button { width: 32px; height: 32px; border: 0; border-radius: 10px; background: #eee8d9; color: #4d5c3c; font-size: 15px; cursor: pointer }
+.level-hint.conflict { grid-template-columns: 40px minmax(0, 1fr); z-index: 16 }
+.level-hint.conflict .level-hint-pin { background: linear-gradient(145deg, #ffd3c4, #f2a58b); color: #8a3a1e }
+.conflict-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px }
+.level-hint.conflict .conflict-actions button { width: auto; height: auto; padding: 8px 12px; border-radius: 11px; background: #2f6b45; color: #f4fbf3; font-size: 10px; font-weight: 900; letter-spacing: 0.04em }
+.level-hint.conflict .conflict-actions button.secondary { background: #eee8d9; color: #4d5c3c }
 @keyframes level-hint-in { from { opacity: 0; transform: translate(-50%, -12px) } to { opacity: 1; transform: translate(-50%, 0) } }
 
 /* Inventario en tarjetas: imagen grande, nombre y las dos cantidades. */

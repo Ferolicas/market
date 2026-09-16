@@ -77,7 +77,13 @@ export async function PUT(request: Request) {
   if (!parsed.success) return Response.json({ error: "INVALID_SAVE", issues: parsed.error.issues.slice(0, 4) }, { status: 400 });
   const payload = parsed.data as unknown as ValidSavePayload;
   const legacyRequest = isPreRegisterSnapshot((body as { state?: unknown }).state);
-  const stateJson = JSON.parse(JSON.stringify(payload.state));
+  // Adoption: the owner resolved a device conflict in favour of this copy.
+  // Its event chain cannot be replayed, so the snapshot is normalised and
+  // stored as the next revision; the wealth jump is booked in the ledger.
+  const adoptLocal = payload.adoptLocal === true;
+  if (adoptLocal && payload.events.length) return Response.json({ error: "INVALID_EVENTS" }, { status: 422 });
+  const adoptedState = adoptLocal ? normalizeGameState(payload.state) : null;
+  const stateJson = JSON.parse(JSON.stringify(adoptedState ?? payload.state));
   const nextRevision = payload.expectedRevision + 1;
   const extendedLedger = await hasExtendedLedger();
 
@@ -98,11 +104,13 @@ export async function PUT(request: Request) {
     const current = await tx.gameSave.findUnique({ where: { userId_slot: { userId: session.user.id, slot: CAMPAIGN_SAVE_SLOT } } });
     if (!current || current.revision !== payload.expectedRevision) return { conflict: true as const, replay: false as const, invalid: null, appliedRevision: null, savedAt: null };
     const currentState = normalizeGameState(current.state);
-    const authority = validateSaveTransition(currentState, payload.state, payload.events, { allowLegacyWalletSales: isPreRegisterSnapshot(current.state) });
-    if (!authority.ok) return { conflict: false as const, replay: false as const, invalid: authority.code, appliedRevision: null, savedAt: null };
-    const acceptedIds = new Set(currentState.processedEventIds);
-    if (payload.events.some((event) => event.eventId && acceptedIds.has(event.eventId))) {
-      return { conflict: true as const, replay: true as const, invalid: null, appliedRevision: null, savedAt: null };
+    if (!adoptedState) {
+      const authority = validateSaveTransition(currentState, payload.state, payload.events, { allowLegacyWalletSales: isPreRegisterSnapshot(current.state) });
+      if (!authority.ok) return { conflict: false as const, replay: false as const, invalid: authority.code, appliedRevision: null, savedAt: null };
+      const acceptedIds = new Set(currentState.processedEventIds);
+      if (payload.events.some((event) => event.eventId && acceptedIds.has(event.eventId))) {
+        return { conflict: true as const, replay: true as const, invalid: null, appliedRevision: null, savedAt: null };
+      }
     }
     const updated = await tx.gameSave.updateMany({
       where: { userId: session.user.id, slot: CAMPAIGN_SAVE_SLOT, revision: payload.expectedRevision },
@@ -132,6 +140,22 @@ export async function PUT(request: Request) {
       });
     }
 
+    if (adoptedState) {
+      const wealth = (state: typeof adoptedState) => state.balanceMinor + state.franchises.reduce((sum, franchise) => sum + (franchise.registerCashMinor?.[0] ?? 0) + (franchise.registerCashMinor?.[1] ?? 0), 0);
+      await tx.ledgerEntry.create({
+        data: {
+          userId: session.user.id,
+          saveRevision: nextRevision,
+          day: adoptedState.day,
+          franchiseId: adoptedState.currentFranchiseId,
+          category: "adoption",
+          description: "Copia local adoptada como partida oficial",
+          amountMinor: BigInt(wealth(adoptedState) - wealth(currentState)),
+          currency: adoptedState.currency,
+          ...(extendedLedger ? { sessionId: payload.sessionId, type: "adopt_local_copy", payload: { fromRevision: current.revision, deviceId: payload.deviceId } } : {}),
+        },
+      });
+    }
     if (payload.events.length) {
       await tx.ledgerEntry.createMany({
         data: payload.events.map((event) => ({

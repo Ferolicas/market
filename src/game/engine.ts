@@ -42,6 +42,9 @@ import { BUSINESS_DAY_NIGHT_MINUTE, BUSINESS_DAY_OPEN_MINUTE, businessDayIsClosi
 const EMPTY_INVENTORY = createEmptyInventory;
 export const CHECKOUT_PATIENCE_MS = CUSTOMER_PATIENCE_MS;
 export const CHECKOUT_LOAD_UNIT_MS = 900;
+/** Farmers leave the farm to restock a shelf only below this fill ratio;
+ * the warehouse comes first, so a shelf short of one unit waits. */
+export const RESTOCK_SHELF_THRESHOLD = 0.3;
 export const CHECKOUT_SCAN_UNIT_MS = 700;
 export const CHECKOUT_BAG_UNIT_MS = 650;
 export const CHECKOUT_PAYMENT_MS = 1_800;
@@ -1350,20 +1353,26 @@ function assignEmployeeTask(state: GameState, franchise: FranchiseState, employe
   if (employee.role === "farmer") {
     if (franchise.purchases) {
       const reserved = new Set(franchise.employees.filter((candidate) => candidate.id !== employee.id).map((candidate) => candidate.runtime?.assignedStationId));
-      const readyAnimal = franchise.productionMachines
-        .filter((machine) => animalProduction(machine.productId, machine.tier) && machine.status !== "LOCKED" && machine.output > 0 && !reserved.has(machine.id))
-        .sort((a, b) => shelfFill(franchise, a.productId) - shelfFill(franchise, b.productId))[0];
-      if (readyAnimal && shelfFill(franchise, readyAnimal.productId) < 1) {
-        runtime.assignedProduct = readyAnimal.productId; runtime.assignedStationId = readyAnimal.id;
-        setEmployeePath(runtime, navigatePath(pathfinder, [runtime.x, runtime.z], MACHINE_POINTS[readyAnimal.id]));
-        return true;
-      }
+      // Restocking only interrupts the farm when a shelf is nearly bare:
+      // below RESTOCK_SHELF_THRESHOLD. A shelf missing one unit waits.
       const stock = campaignAvailableProducts(franchise.purchases)
-        .filter((product) => availableWarehouseForEmployee(franchise, product, employee.id) > productionIngredientReserve(franchise, product) && shelfFill(franchise, product) < 1)
+        .filter((product) => availableWarehouseForEmployee(franchise, product, employee.id) > productionIngredientReserve(franchise, product) && shelfFill(franchise, product) < RESTOCK_SHELF_THRESHOLD)
         .sort((a, b) => shelfFill(franchise, a) - shelfFill(franchise, b))[0];
       if (stock) {
         runtime.assignedProduct = stock; runtime.assignedStationId = "stockroom";
         setEmployeePath(runtime, navigatePath(pathfinder, [runtime.x, runtime.z], STOCKROOM_POINT));
+        return true;
+      }
+      // Eggs and milk are a harvest too: a basket's worth, or whatever the
+      // idle trough left, goes to the shelf when it needs it and to the
+      // warehouse otherwise, so the animal never stalls on a full buffer.
+      const readyAnimal = franchise.productionMachines
+        .filter((machine) => animalProduction(machine.productId, machine.tier) && machine.status !== "LOCKED" && !reserved.has(machine.id)
+          && machine.output > 0 && (machine.output >= Math.min(runtime.carry.capacity, machine.outputCapacity) || machine.status !== "PROCESSING"))
+        .sort((a, b) => b.output - a.output)[0];
+      if (readyAnimal) {
+        runtime.assignedProduct = readyAnimal.productId; runtime.assignedStationId = readyAnimal.id;
+        setEmployeePath(runtime, navigatePath(pathfinder, [runtime.x, runtime.z], MACHINE_POINTS[readyAnimal.id]));
         return true;
       }
     }
@@ -1380,14 +1389,20 @@ function assignEmployeeTask(state: GameState, franchise: FranchiseState, employe
     const unlocked = franchise.crops.filter((candidate) => candidate.status !== "LOCKED");
     if (!unlocked.length) return false;
     const scarcest = Math.min(...unlocked.map((candidate) => productOnHand(franchise, candidate.productId)));
-    const crop = unlocked
+    const scarce = unlocked
       .map((candidate, index) => ({ candidate, index, onHand: productOnHand(franchise, candidate.productId) }))
-      .filter(({ candidate, onHand }) => onHand <= scarcest
-        && !reservedCropIds.has(candidate.id)
+      .filter(({ onHand }) => onHand <= scarcest);
+    const crop = scarce
+      .filter(({ candidate }) => !reservedCropIds.has(candidate.id)
         && (candidate.status === "EMPTY" || (candidate.status === "READY" && candidate.available > 0)))
       .sort((a, b) => Number(b.candidate.status === "READY") - Number(a.candidate.status === "READY")
         || b.candidate.available - a.candidate.available
-        || a.index - b.index)[0]?.candidate;
+        || a.index - b.index)[0]?.candidate
+      // Nothing of it is ripe yet: wait beside the bed that ripens first, on
+      // the farm, so the harvest starts the moment it is ready instead of
+      // standing in the store with folded arms.
+      ?? scarce.filter(({ candidate }) => candidate.status === "GROWING" || candidate.status === "READY")
+        .sort((a, b) => a.candidate.readyAt - b.candidate.readyAt || a.index - b.index)[0]?.candidate;
     if (!crop) return false;
     runtime.assignedProduct = crop.productId; runtime.assignedStationId = crop.id;
     setEmployeePath(runtime, navigatePath(pathfinder, [runtime.x, runtime.z], CROP_POINTS[crop.id] ?? CROP_POINTS[FARM_PLOTS[0].id]));

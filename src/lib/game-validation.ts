@@ -95,6 +95,9 @@ const franchiseSchema = z.object({
 
 export const savePayloadSchema = z.object({
   expectedRevision: z.number().int().min(0), operationId: z.string().uuid(), deviceId: z.string().uuid(), sessionId: z.string().uuid(),
+  /** Conflict resolution chosen by the owner: adopt this snapshot as the next
+   * revision without replaying its event chain. */
+  adoptLocal: z.boolean().optional(),
   state: z.object({
     schemaVersion: z.literal(4), revision: z.number().int().min(0), countryCode: z.enum(["ES", "US", "CO", "MX", "AR", "CL", "PE"]),
     currency: z.string().length(3), balanceMinor: z.number().int().finite(), level: z.number().int().min(1).max(30), xp: z.number().int().min(0), reputation: z.number().int().min(0),

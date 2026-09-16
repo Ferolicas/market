@@ -41,10 +41,25 @@ describe("farmers harvest the scarcest product first", () => {
     const ticked = advanceWorld(state, 400).state;
     const assigned = assignments(ticked);
     expect(assigned).toHaveLength(2);
-    // The single wheat bed is taken by one farmer; the other waits for it
-    // instead of piling up more tomatoes.
-    expect(assigned.filter((id) => id === "crop-wheat-1")).toHaveLength(1);
-    expect(assigned.filter((id) => id === null)).toHaveLength(1);
+    // Both head for the single wheat bed: one harvests it, the other waits
+    // beside it for the next batch instead of piling up more tomatoes.
+    expect(assigned.every((id) => id === "crop-wheat-1")).toBe(true);
+  });
+
+  it("leaves a shelf missing a few units alone and restocks only below thirty percent", () => {
+    const state = farmWithWheat();
+    state.franchises[0].warehouse.tomatoes = 100;
+    state.franchises[0].warehouse.wheat = 100;
+    const capacity = state.franchises[0].shelves.tomatoes;
+    state.franchises[0].shelves.tomatoes = Math.ceil(capacity * 0.5);
+    let assigned = assignments(advanceWorld(state, 400).state);
+    expect(assigned.some((id) => id === "stockroom")).toBe(false);
+    expect(assigned.every((id) => id?.startsWith("crop-"))).toBe(true);
+
+    state.franchises[0].shelves.tomatoes = Math.floor(capacity * 0.2);
+    for (const employee of state.franchises[0].employees) employee.runtime!.stateSince = -10_000;
+    assigned = assignments(advanceWorld(state, 400).state);
+    expect(assigned.some((id) => id === "stockroom")).toBe(true);
   });
 
   it("waits for the scarce bed to ripen rather than harvesting a surplus", () => {
@@ -54,11 +69,13 @@ describe("farmers harvest the scarcest product first", () => {
     const wheat = state.franchises[0].crops.find((crop) => crop.id === "crop-wheat-1")!;
     Object.assign(wheat, { status: "GROWING", available: 0, plantedAt: state.simulationTimeMs, readyAt: state.simulationTimeMs + 6_000 });
     let ticked = advanceWorld(state, 400).state;
-    expect(assignments(ticked).every((id) => id === null)).toBe(true);
-    // Once ripe, the first free farmer goes straight to it.
+    // Nobody touches the tomato surplus: everyone walks to the wheat bed and
+    // waits there for it to ripen.
+    expect(assignments(ticked).every((id) => id === "crop-wheat-1")).toBe(true);
     for (let index = 0; index < 20; index += 1) ticked = advanceWorld(ticked, 400).state;
-    expect(assignments(ticked)).toContain("crop-wheat-1");
     expect(assignments(ticked).some((id) => id?.startsWith("crop-tomato"))).toBe(false);
+    const wheatOnHand = ticked.franchises[0].warehouse.wheat + ticked.franchises[0].employees.reduce((sum, employee) => sum + (employee.runtime!.carry.items.wheat ?? 0), 0);
+    expect(wheatOnHand).toBeGreaterThan(0);
   });
 
   it("sends the first farmer to tomatoes when wheat is the surplus", () => {

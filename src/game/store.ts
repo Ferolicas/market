@@ -26,6 +26,10 @@ interface MarketStore {
   simulate: (minutes?: number) => void;
   tickWorld: (deltaMs?: number) => void;
   saveGame: (options?: { keepalive?: boolean }) => Promise<void>;
+  /** Conflict resolution: this device's copy becomes the official game. */
+  adoptLocalCopy: () => Promise<void>;
+  /** Conflict resolution: drop this device's copy and load the server's. */
+  restoreServerCopy: () => Promise<void>;
 }
 
 const MAX_PENDING_INTERACTIONS = 64;
@@ -224,6 +228,10 @@ export const useMarketStore = create<MarketStore>((set, get) => {
       }
       if (!response.ok) {
         const retryable = response.status === 429 || response.status >= 500;
+        // A refused body was never applied (no receipt is written for it), so
+        // it must not be replayed verbatim forever: the next save rebuilds the
+        // attempt from the current, normalised state.
+        if (!retryable) pendingSaveAttempt = null;
         // Name the first offending field so a schema rejection can be traced
         // from the badge and from the telemetry without a server dump.
         const issue = Array.isArray(payload.issues) && payload.issues[0]
@@ -242,6 +250,69 @@ export const useMarketStore = create<MarketStore>((set, get) => {
       set({ game: latestState, saveRevision: payload.saveRevision, saveStatus: hasNewerState || remainingEvents.length ? "dirty" : "saved", pendingEvents: remainingEvents, ...messageOccurrence(hasNewerState || remainingEvents.length ? "Guardado parcial; sincronizando cambios nuevos" : "Partida guardada") });
     } catch {
       set({ saveStatus: "offline", ...messageOccurrence("Sin conexión: los cambios siguen protegidos en este dispositivo") });
+    } finally {
+      saveInFlight = false;
+    }
+  },
+
+  // A device that played on without saving (a stale app, a long offline
+  // stretch) holds a copy whose event chain can no longer be replayed against
+  // the server. On conflict the owner chooses: the server adopts this copy as
+  // the next revision, or this device takes the server's copy.
+  adoptLocalCopy: async () => {
+    const { game } = get();
+    if (!game || saveInFlight) return;
+    saveInFlight = true;
+    set({ saveStatus: "saving" });
+    try {
+      const head = await fetch("/api/game/save", { cache: "no-store" });
+      if (!head.ok) throw new Error(`Carga ${head.status}`);
+      const headPayload = await head.json();
+      const state = { ...normalizeGameState(game), lastSavedAt: new Date().toISOString() };
+      const attempt = {
+        expectedRevision: Number(headPayload.saveRevision),
+        operationId: crypto.randomUUID(),
+        deviceId: gameDeviceId(),
+        sessionId: gameSessionId(),
+        state,
+        events: [] as GameEvent[],
+        adoptLocal: true,
+      };
+      const response = await fetch("/api/game/save", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", "x-market-release": CAMPAIGN_RELEASE },
+        body: JSON.stringify(attempt),
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        set({ saveStatus: "conflict", ...messageOccurrence(`No se pudo adoptar esta copia: ${payload.error ?? response.status}`) });
+        return;
+      }
+      pendingSaveAttempt = null;
+      await persistRecoverySnapshot(recoverySnapshot(state, payload.saveRevision, []));
+      set({ game: state, saveRevision: payload.saveRevision, saveStatus: "saved", pendingEvents: [], ...messageOccurrence("Esta copia es ahora la partida oficial") });
+    } catch {
+      set({ saveStatus: "conflict", ...messageOccurrence("Sin conexión: no se pudo adoptar esta copia") });
+    } finally {
+      saveInFlight = false;
+    }
+  },
+
+  restoreServerCopy: async () => {
+    if (saveInFlight) return;
+    saveInFlight = true;
+    set({ saveStatus: "loading" });
+    try {
+      const response = await fetch("/api/game/save", { cache: "no-store" });
+      if (!response.ok) throw new Error(`Carga ${response.status}`);
+      const payload = await response.json();
+      const serverState = normalizeGameState(payload.state);
+      pendingSaveAttempt = null;
+      pendingInteractions = [];
+      await persistRecoverySnapshot(recoverySnapshot(serverState, payload.saveRevision, []));
+      set({ game: serverState, saveRevision: payload.saveRevision, saveStatus: "saved", pendingEvents: [], ...messageOccurrence("Partida del servidor restaurada") });
+    } catch {
+      set({ saveStatus: "conflict", ...messageOccurrence("Sin conexión: no se pudo cargar la partida del servidor") });
     } finally {
       saveInFlight = false;
     }
