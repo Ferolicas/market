@@ -41,10 +41,10 @@ export const STORE_REAR_DOOR = {
   insideApproach: [7.5, -6.9] as const,
   outsideApproach: [7.5, -9.35] as const,
   /** Clear interior aisle from the central sales floor to the threshold. */
-  // Pre-Recast fallback corridor from the sales floor to the rear door. The
-  // only full-height north–south lane is x ≈ 3.1, between the entrance
-  // gondola row (x ≤ 2.46) and the drinks display (x ≥ 3.71, z ≤ −2.16); it
-  // clears the counters too and turns east only past the display.
+  // Pre-Recast fallback corridor from the sales floor to the rear door: the
+  // full-height north–south lane at x ≈ 3.1, west of the drinks display
+  // (x ≥ 3.71, z ≤ −2.16); it clears the counters too and turns east only
+  // past the display.
   interiorCorridor: [
     [3.1, 0.45],
     [3.1, -4.6],

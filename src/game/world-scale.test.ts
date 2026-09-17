@@ -18,7 +18,7 @@ describe("store scale system", () => {
   });
 
   it("detects enlarged furniture footprints", () => {
-    expect(overlapsStoreObstacle(scaleStorePoint([-0.5, 0.25]), 0.4)).toBe(true);
+    expect(overlapsStoreObstacle(scaleStorePoint([-1.9, -7.9]), 0.4)).toBe(true);
     expect(overlapsStoreObstacle(scaleStorePoint([3.1, 0.45]), 0.4)).toBe(false);
   });
 

@@ -51,7 +51,7 @@ describe("motor económico", () => {
     expect(shelfCapacityForTier(10, "tomatoes")).toBe(66);
     expect(shelfCapacityForTier(1, "bread")).toBe(24);
     expect(shelfCapacityForTier(10, "bread")).toBe(53);
-    expect(shelfCapacityForTier(1, "coffee")).toBe(200);
+    expect(shelfCapacityForTier(1, "coffee")).toBe(80);
 
     const state = createInitialGame("ES");
     const franchise = state.franchises[0];
@@ -922,9 +922,13 @@ describe("motor económico", () => {
     // Wheat now has retail demand, but the stocker must reserve a mill batch.
     expect(next.shelves.wheat).toBeLessThanOrEqual(4);
     expect(state.progression.counters["production:flour"]).toBeGreaterThan(0);
+    // The flour may already have gone on into the oven, which consumes its
+    // input the moment it starts baking: count the flour wherever it is.
+    const oven = next.productionMachines.find((machine) => machine.id === "bread-oven-1")!;
     expect(next.warehouse.flour + next.shelves.flour
       + next.employees.reduce((sum, employee) => sum + (employee.runtime?.carry.items.flour ?? 0), 0)
-      + next.productionMachines.find((machine) => machine.id === "flour-mill-1")!.output).toBeGreaterThan(0);
+      + next.productionMachines.find((machine) => machine.id === "flour-mill-1")!.output
+      + (oven.input.flour ?? 0) + (oven.status === "PROCESSING" ? 1 : 0) + oven.output).toBeGreaterThan(0);
   });
 
   it("no cobra solo y envía la compra a devoluciones al agotar dos minutos", () => {

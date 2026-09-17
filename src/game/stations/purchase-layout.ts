@@ -99,7 +99,7 @@ const AUTHORED_POSITIONS: Partial<Record<OpeningPurchaseId, [number, number]>> =
   "orange-1": [7.2, -13.7],
   "egg-display-1": [-8.6, -1.75],
   "dairy-display-1": [-9.5, 4.3],
-  "coffee-supply-1": [-0.5, -1.2],
+  "coffee-supply-1": [-3.3, -6.6],
   "preserves-supply-1": [10.2, -2.8],
   "flour-mill-1": [-10.9, -5.2],
   "bread-oven-1": [-7.3, -5.9],

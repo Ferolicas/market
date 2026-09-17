@@ -19,14 +19,14 @@ import { CUSTOMER_PATIENCE_MS, customerShowingAnger } from "./ai/CustomerPatienc
 import { LEVELS, stationTierModifiers } from "./progression/levels";
 import { averageShelfAvailability, levelObjectiveSatisfied, levelObjectiveTasks, unlockedCustomerProducts } from "./progression/objectives";
 import { CHECKOUT_LANE_IDS, CHECKOUT_LANES, checkoutAreaForLane, checkoutQueueArrival, checkoutQueuePosition, isCheckoutLane, openCheckoutLaneCount, type CheckoutLane } from "./stations/checkout-layout";
-import { pantryEntranceRowBand, retailServicePoint, retailShelfCapacityForTier } from "./stations/retail-layout";
+import { retailServicePoint, retailShelfCapacityForTier } from "./stations/retail-layout";
 import { FARM_ACCESS_WAYPOINTS, FARM_ANIMAL_STATIONS, FARM_FIELD, FARM_PLOTS, FARM_WORKER_HOME, farmInteriorRouteBetween, farmInteriorRouteFromEntrance, farmInteriorRouteToEntrance, isRetiredFrontFarmPoint, FARM_BARN } from "./stations/farm-layout";
 import { addToCarry, CAPACITY_TIERS, carryQuantity, carryTotal, MAX_WAREHOUSE_PICKUP_BATCH, primaryCarryProduct, removeFromCarry, transferCarryToShelf, transferWarehouseToCarry } from "./player/CarrySystem";
 import { CART_RETURN_POINT, RETURNS_POINT, RETURNS_TO_CART_FALLBACK, STORE_SERVICE_FIXTURES } from "./stations/store-service-layout";
 import { storefrontDoorActorPresent, STORE_REAR_DOOR, STOREFRONT_LAYOUT } from "./stations/storefront-layout";
 import { PRODUCTION_MACHINE_POINTS } from "./stations/production-layout";
 import { STOCKROOM_POINT, WAREHOUSE_RETURN_STATION } from "./stations/warehouse-layout";
-import { STORE_ELEMENT_SCALE, STORE_LAYOUT_SCALE, storeSegmentIsClear } from "./world-scale";
+import { storeSegmentIsClear } from "./world-scale";
 import { BUSINESS_DAY_NIGHT_MINUTE, BUSINESS_DAY_OPEN_MINUTE, businessDayIsClosing, businessMinutesForRealMs } from "./time/BusinessDay";
 
 const EMPTY_INVENTORY = createEmptyInventory;
@@ -2169,20 +2169,17 @@ function walkPathActor(actor: PathActor, deltaMs: number) {
   return arrived;
 }
 
-/** Pre-Recast fallback lane: the only full-height north–south aisle runs at
- * x ≈ 3.1, east of the entrance gondola row and west of the drinks display
- * (see STORE_REAR_DOOR.interiorCorridor). */
+/** Pre-Recast fallback lane: the full-height north–south aisle at x ≈ 3.1,
+ * west of the drinks display (see STORE_REAR_DOOR.interiorCorridor). */
 function laneFor() { return 3.1; }
 
-/** The entrance row (x −3.46…2.46, z −0.37…0.87) plus a walking margin: its
- * edges, the drinks display's north and south edges and two open rows are the
- * horizontal legs a fallback walk may use to reach the lane. */
-const PANTRY_ROW_BAND = pantryEntranceRowBand(STORE_ELEMENT_SCALE / STORE_LAYOUT_SCALE, 0.36);
-const LANE_APPROACH_ROWS = [PANTRY_ROW_BAND.minZ, PANTRY_ROW_BAND.maxZ, -1.8, -4.4, 0.45, 5.6] as const;
+/** The drinks display's north and south edges plus a walking margin, and two
+ * open rows: the horizontal legs a fallback walk may use to reach the lane. */
+const LANE_APPROACH_ROWS = [-1.8, -4.4, 0.45, 5.6] as const;
 
-/** Waypoints from a floor point to the fallback lane that cross neither the
- * gondola row nor the drinks display: straight across when that leg is clear,
- * otherwise along the point's own column to the nearest clear row first. */
+/** Waypoints from a floor point to the fallback lane that do not cross the
+ * drinks display: straight across when that leg is clear, otherwise along the
+ * point's own column to the nearest clear row first. */
 function laneApproach(point: readonly [number, number]): [number, number][] {
   const lane = laneFor();
   const direct: [number, number] = [lane, Math.min(5.6, point[1])];
