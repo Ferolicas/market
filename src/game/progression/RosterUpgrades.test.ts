@@ -32,7 +32,8 @@ describe("roster upgrades", () => {
     const state = campaignWith(["farmer-1", "egg-display-1", "chicken-1"]);
     const entries = rosterEntries(state.franchises[0], 1);
     expect(entries.map((entry) => entry.kind)).toContain("player");
-    expect(entries.filter((entry) => entry.kind === "employee")).toHaveLength(1);
+    // The farmer desk and the coop's feeder.
+    expect(entries.filter((entry) => entry.kind === "employee")).toHaveLength(2);
     expect(entries.filter((entry) => entry.kind === "animal")).toHaveLength(1);
     expect(entries.filter((entry) => entry.kind === "crop").length).toBeGreaterThan(0);
     expect(entries.every((entry) => entry.stepCostsMinor.length === 4)).toBe(true);

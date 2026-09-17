@@ -2,13 +2,13 @@ import { describe, expect, it } from "vitest";
 import { FARM_BARN } from "./stations/farm-layout";
 import { advanceWorld, applyCustomerAvoidance, applyGameAction, canOperateMachine, canProcessCheckoutUnit, CHECKOUT_SCAN_UNIT_MS, countryMoneyScale, createInitialGame, employeeHiringQuote, normalizeGameState, shelfCapacityForTier, unlockedCustomerProducts, upgradeQuote } from "./engine";
 import type { CheckoutTransaction, CustomerRuntimeState, Employee, GameState, PaymentMethod } from "./types";
-import { CHECKOUT_LANES, checkoutQueueArrival } from "./stations/checkout-layout";
+import { CHECKOUT_LANE_IDS, CHECKOUT_LANES, checkoutQueueArrival, type CheckoutLane } from "./stations/checkout-layout";
 import { createCustomerMind } from "./ai/CustomerBrain";
 import { ensureStoreNavigation, storePathfinder } from "./navigation/NavMeshService";
 import { STOCKROOM_POINT, WAREHOUSE_RETURN_STATION } from "./stations/warehouse-layout";
 import { BUSINESS_DAY_NIGHT_MINUTE, BUSINESS_DAY_OPEN_MINUTE, businessMinutesForRealMs } from "./time/BusinessDay";
 
-function addReadyCheckout(state: GameState, id: string, paymentMethod: PaymentMethod, lane: 0 | 1 = 0) {
+function addReadyCheckout(state: GameState, id: string, paymentMethod: PaymentMethod, lane: CheckoutLane = 0) {
   const customer = {
     id, identity: 1, state: "WAIT_CHECKOUT", shoppingList: [{ productId: "apples", requested: 1, picked: 1 }], currentLine: 1,
     basket: { apples: 1 }, patienceMs: 10_000, checkoutPatienceMs: 300_000, waitingSince: null, queueSlot: 0, transactionId: `${id}-tx`, hasCart: true, hasBag: false, angry: false,
@@ -877,6 +877,34 @@ describe("motor económico", () => {
     const [first, second] = state.franchises[0].employees.map((cashier) => cashier.runtime!);
     expect(Math.hypot(first.x - CHECKOUT_LANES[0].cashierWork[0], first.z - CHECKOUT_LANES[0].cashierWork[2])).toBeLessThan(0.02);
     expect(Math.hypot(second.x - CHECKOUT_LANES[1].cashierWork[0], second.z - CHECKOUT_LANES[1].cashierWork[2])).toBeLessThan(0.02);
+  });
+
+  it("da al tercer cajero su propia caja y cobra en las tres a la vez", () => {
+    let state = createInitialGame("ES");
+    state.level = 20;
+    state.franchises[0].open = true;
+    state.franchises[0].employees = [employee("cashier-a", "cashier"), employee("cashier-b", "cashier"), employee("cashier-c", "cashier")];
+    state = normalizeGameState(JSON.parse(JSON.stringify(state)));
+    // Three cashiers open the second and third tills on load, each with a tier.
+    expect(state.franchises[0].unlockedAreas).toEqual(expect.arrayContaining(["checkout-2", "checkout-3"]));
+    expect(state.franchises[0].stationTiers["checkout-3"]).toBe(1);
+    for (const lane of CHECKOUT_LANE_IDS) addReadyCheckout(state, `lane-${lane}`, "cash", lane);
+    const assignments = new Map<string, Set<string>>(state.franchises[0].employees.map((cashier) => [cashier.id, new Set()]));
+
+    for (let tick = 0; tick < 200; tick += 1) {
+      state = advanceWorld(state, 100).state;
+      for (const cashier of state.franchises[0].employees) {
+        if (cashier.runtime?.assignedStationId) assignments.get(cashier.id)!.add(cashier.runtime.assignedStationId);
+      }
+    }
+
+    expect([...assignments.get("cashier-a")!]).toEqual(["checkout-1"]);
+    expect([...assignments.get("cashier-b")!]).toEqual(["checkout-2"]);
+    expect([...assignments.get("cashier-c")!]).toEqual(["checkout-3"]);
+    const third = state.franchises[0].employees[2].runtime!;
+    expect(Math.hypot(third.x - CHECKOUT_LANES[2].cashierWork[0], third.z - CHECKOUT_LANES[2].cashierWork[2])).toBeLessThan(0.02);
+    // Every lane's sale landed in its own drawer, so the third till really charges.
+    expect(state.franchises[0].registerCashMinor.every((amount) => amount > 0)).toBe(true);
   });
 
   it("reserva las materias primas de producción y evita que el reponedor secuestre el trigo", () => {

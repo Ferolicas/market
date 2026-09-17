@@ -4,14 +4,14 @@ import { fixtureAvailable } from "@/game/stations/fixture-availability";
 
 import { PerspectiveCamera, RenderTexture, RoundedBox, RoundedBoxGeometry, useGLTF, useTexture } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
-import { memo, useCallback, useEffect, useMemo, useRef, type ReactNode } from "react";
+import { Fragment, memo, useCallback, useEffect, useMemo, useRef, type ReactNode } from "react";
 import * as THREE from "three";
 import { scaleStorePosition, STORE_ELEMENT_SCALE, STORE_LAYOUT_SCALE } from "@/game/world-scale";
 import type { CheckoutTransaction, CropState, Inventory, ProductId, ProductionMachineState } from "@/game/types";
 import { chickenFeedStatus, cropHarvestYield, cropProgress, machineInputCapacity } from "@/game/stations/StationSystem";
 import { PRODUCTS } from "@/game/catalog";
 import { PRODUCT_CONFIG } from "@/game/economy/products";
-import { CHECKOUT_LANES, activeCheckoutForLane, checkoutBagLocation, checkoutHandoffForLane } from "@/game/stations/checkout-layout";
+import { CHECKOUT_LANE_IDS, CHECKOUT_LANES, activeCheckoutForLane, checkoutAreaForLane, checkoutBagLocation, checkoutHandoffForLane, type CheckoutLane } from "@/game/stations/checkout-layout";
 import { cropVisualSlotIndices } from "@/game/stations/crop-visual";
 import { FARM_ANIMAL_STATIONS, FARM_FACILITIES, FARM_FIELD, FARM_GATE, FARM_PLOTS, farmGateOpenLeafTerminalPost, FARM_BARN } from "@/game/stations/farm-layout";
 import { STORE_REAR_DOOR } from "@/game/stations/storefront-layout";
@@ -397,9 +397,9 @@ export const KitFurniture = memo(function KitFurniture({ shelves, shelfTier, mac
     retailFixtureDisplayPositions(PRODUCT_RETAIL_DEPARTMENT[productId], unlockedAreas).length,
   );
   const coldDoorActive = customers.some((customer) => ["WAIT_FOR_ACCESS", "PICK_PRODUCT"].includes(customer.state) && ["milk", "cheese"].includes(customer.shoppingList[customer.currentLine]?.productId ?? ""));
-  const activeCheckouts = useMemo(() => [activeCheckoutForLane(checkoutTransactions, 0), activeCheckoutForLane(checkoutTransactions, 1)] as const, [checkoutTransactions]);
-  const checkoutHandoffs = useMemo(() => [checkoutHandoffForLane(checkoutTransactions, 0, customers), checkoutHandoffForLane(checkoutTransactions, 1, customers)] as const, [checkoutTransactions, customers]);
-  const checkoutHandoffLocations = useMemo(() => [checkoutBagLocation(checkoutHandoffs[0], customers), checkoutBagLocation(checkoutHandoffs[1], customers)] as const, [checkoutHandoffs, customers]);
+  const activeCheckouts = useMemo(() => CHECKOUT_LANE_IDS.map((lane) => activeCheckoutForLane(checkoutTransactions, lane)), [checkoutTransactions]);
+  const checkoutHandoffs = useMemo(() => CHECKOUT_LANE_IDS.map((lane) => checkoutHandoffForLane(checkoutTransactions, lane, customers)), [checkoutTransactions, customers]);
+  const checkoutHandoffLocations = useMemo(() => checkoutHandoffs.map((handoff) => checkoutBagLocation(handoff, customers)), [checkoutHandoffs, customers]);
   useEffect(() => {
     const qaWindow = window as typeof window & { __MARKET_QA__?: Record<string, unknown> };
     if (qaWindow.__MARKET_QA__) {
@@ -417,11 +417,9 @@ export const KitFurniture = memo(function KitFurniture({ shelves, shelfTier, mac
     {retailFixtureDisplayPositions("produce", unlockedAreas).map((position, index, fixtures) => <StoreElement key={`produce-${index}`} position={[...position]} yaw={RETAIL_DEPARTMENTS.produce.yaw}><MemoProduceTable position={[0, 0, 0]} stock={produceFixtureCounts((productId) => shelves[productId], index, fixtures.length)} capacity={produceFixtureCounts((productId) => shelfCapacityForTier(shelfTier, productId, unlockedAreas), index, fixtures.length)} /></StoreElement>)}
     {fixtureAvailable("fixture:retail-dairy-1", unlockedAreas) && (<StoreElement position={retailDisplayPosition("dairy")} yaw={RETAIL_DEPARTMENTS.dairy.yaw}><MemoChilledDisplay position={[0, 0, 0]} stock={{ milk: shelves.milk, cheese: shelves.cheese }} capacity={{ milk: fixtureCapacity("milk"), cheese: fixtureCapacity("cheese") }} open={coldDoorActive} /></StoreElement>)}
     {fixtureAvailable("fixture:retail-drinks-1", unlockedAreas) && (<StoreElement position={retailDisplayPosition("drinks")} yaw={RETAIL_DEPARTMENTS.drinks.yaw}><MemoDrinksDisplay position={[0, 0, 0]} count={shelves.juice} capacity={fixtureCapacity("juice")} /></StoreElement>)}
-    <StoreElement position={[...CHECKOUT_LANES[0].counter]}><MemoCheckoutKit position={[0, 0, 0]} lane={0} transaction={activeCheckouts[0]} handoffTransaction={checkoutHandoffs[0]} handoffBagAtCounter={checkoutHandoffLocations[0] === "counter"} /></StoreElement>
-    <StoreElement position={[...CHECKOUT_LANES[0].cashierWork]}><MemoCashierWorkArea /></StoreElement>
-    {unlockedAreas.includes("checkout-2")
-      ? <><StoreElement position={[...CHECKOUT_LANES[1].counter]}><MemoCheckoutKit position={[0, 0, 0]} lane={1} transaction={activeCheckouts[1]} handoffTransaction={checkoutHandoffs[1]} handoffBagAtCounter={checkoutHandoffLocations[1] === "counter"} /></StoreElement><StoreElement position={[...CHECKOUT_LANES[1].cashierWork]}><MemoCashierWorkArea /></StoreElement></>
-      : !unlockedAreas.includes("purchase-campaign") && <StoreElement position={[...CHECKOUT_LANES[1].counter]}><MemoClosedCheckoutKit lane={1} /></StoreElement>}
+    {CHECKOUT_LANE_IDS.map((lane) => lane === 0 || unlockedAreas.includes(checkoutAreaForLane(lane))
+      ? <Fragment key={`checkout-${lane}`}><StoreElement position={[...CHECKOUT_LANES[lane].counter]}><MemoCheckoutKit position={[0, 0, 0]} lane={lane} transaction={activeCheckouts[lane]} handoffTransaction={checkoutHandoffs[lane]} handoffBagAtCounter={checkoutHandoffLocations[lane] === "counter"} /></StoreElement><StoreElement position={[...CHECKOUT_LANES[lane].cashierWork]}><MemoCashierWorkArea /></StoreElement></Fragment>
+      : !unlockedAreas.includes("purchase-campaign") && <StoreElement key={`checkout-${lane}`} position={[...CHECKOUT_LANES[lane].counter]}><MemoClosedCheckoutKit lane={lane} /></StoreElement>)}
     <StoreElement position={[...STORE_SERVICE_FIXTURES.returns.position]}><MemoReturnsCubicle inventory={returnsBin} /></StoreElement>
     <StoreElement position={[...STORE_SERVICE_FIXTURES.cartBay.position]}><MemoCartBay position={[0, 0, 0]} count={returnedCartCount} /></StoreElement>
     {fixtureAvailable("fixture:production-cubicle-shell", unlockedAreas) && (<MemoProductionBakeryCubicle />)}
@@ -488,11 +486,8 @@ const MemoWarehouseReturnBasket = memo(WarehouseReturnBasket, sameFixtureProps);
 const MemoGardenFloor = memo(GardenFloor, sameFixtureProps);
 const MemoDormantCropPlot = memo(DormantCropPlot, sameFixtureProps);
 const MemoCropPlot = memo(CropPlot, sameFixtureProps);
-const MemoFarmTools = memo(FarmTools, sameFixtureProps);
 const MemoCompostBin = memo(CompostBin, sameFixtureProps);
 const MemoFarmBarn = memo(FarmBarn, sameFixtureProps);
-const MemoScarecrow = memo(Scarecrow, sameFixtureProps);
-const MemoFarmWaterTank = memo(FarmWaterTank, sameFixtureProps);
 const MemoAnimalPaddock = memo(AnimalPaddock, sameFixtureProps);
 const MemoAnimalStation = memo(AnimalStation, sameFixtureProps);
 
@@ -669,7 +664,7 @@ function EggDisplay({ count, capacity }: { count: number; capacity: number }) {
   </group>;
 }
 
-function CheckoutKit({ position, lane, transaction, handoffTransaction, handoffBagAtCounter }: { position: Position; lane: 0 | 1; transaction?: CheckoutTransaction; handoffTransaction?: CheckoutTransaction; handoffBagAtCounter: boolean }) {
+function CheckoutKit({ position, lane, transaction, handoffTransaction, handoffBagAtCounter }: { position: Position; lane: CheckoutLane; transaction?: CheckoutTransaction; handoffTransaction?: CheckoutTransaction; handoffBagAtCounter: boolean }) {
   const scanning = transaction?.state === "SCANNING" || transaction?.state === "BAGGING";
   const bagged = transaction?.pendingItems.reduce((total, line) => total + line.bagged, 0) ?? 0;
   const total = transaction?.pendingItems.reduce((sum, line) => sum + line.quantity, 0) ?? 0;
@@ -708,7 +703,7 @@ function CheckoutKit({ position, lane, transaction, handoffTransaction, handoffB
   </group>;
 }
 
-function ClosedCheckoutKit({ lane }: { lane: 0 | 1 }) {
+function ClosedCheckoutKit({ lane }: { lane: CheckoutLane }) {
   return <group name="fixture:closed-checkout">
     <Box args={[4.45, 0.92, 1.18]} position={[0, 0.46, 0]} color={palette.darkGreen} radius={0.14} />
     <Box args={[4.24, 0.16, 1.08]} position={[0, 0.98, 0]} color="#d8dedb" radius={0.09} />
@@ -1138,7 +1133,6 @@ const READY_SPARKLES: readonly InstanceTransform[] = [
   { position: [0.8, 0.18, 0.31], scale: [0.55, 0.55, 0.55] },
   { position: [0.62, 0.08, -0.48], scale: [0.42, 0.42, 0.42] },
 ];
-const FARM_BENCH_LEGS: readonly InstanceTransform[] = [-0.56, 0.56].flatMap((x) => [-0.24, 0.24].map((z): InstanceTransform => ({ position: [x, 0.48, z], scale: [0.09, 0.96, 0.09] })));
 
 export const KitFarm = memo(function KitFarm({ crops, machines, nowMs, unlockedAreas }: FarmPresentationProps) {
   const root = useRef<THREE.Group>(null);
@@ -1167,11 +1161,8 @@ export const KitFarm = memo(function KitFarm({ crops, machines, nowMs, unlockedA
             />}
       </StoreElement>;
     })}
-    <StoreElement position={[...FARM_FACILITIES.tools.position]}><MemoFarmTools position={[0, 0, 0]} /></StoreElement>
     <StoreElement position={[...FARM_FACILITIES.compost.position]}><MemoCompostBin position={[0, 0, 0]} /></StoreElement>
     <StoreElement position={[...FARM_BARN.position]}><MemoFarmBarn /></StoreElement>
-    <StoreElement position={[...FARM_FACILITIES.scarecrow.position]}><MemoScarecrow position={[0, 0, 0]} /></StoreElement>
-    <StoreElement position={[...FARM_FACILITIES.waterTank.position]}><MemoFarmWaterTank /></StoreElement>
     {fixtureAvailable("fixture:chicken-coop", unlockedAreas) && <StoreElement position={[...FARM_ANIMAL_STATIONS.chicken.position]}>
       <MemoAnimalPaddock kind="chicken" />
       {unlockedAreas.includes("chicken-coop") && chicken && <MemoAnimalStation kind="chicken" machine={chicken} />}
@@ -1443,47 +1434,6 @@ function AnimalStation({ kind, machine }: { kind: "chicken" | "cow"; machine: Pr
 function ChickenCharacter({ active }: { active: boolean }) { return <FarmAnimal kind="chicken" active={active} />; }
 function CowCharacter({ active }: { active: boolean }) { return <FarmAnimal kind="cow" active={active} />; }
 
-function FarmTools({ position }: { position: Position }) {
-  return <group position={position}>
-    <StaticInstances transforms={FARM_BENCH_LEGS} castShadow><boxGeometry args={[1, 1, 1]} /><meshStandardMaterial color="#755033" roughness={0.9} /></StaticInstances>
-    <Box args={[1.32, 0.13, 0.64]} position={[0, 0.92, 0]} color={palette.wood} radius={0.045} />
-    <Box args={[1.16, 0.09, 0.52]} position={[0, 0.3, 0]} color="#8e6038" radius={0.025} />
-    <group position={[0.32, 0.98, 0.02]} scale={0.62}><EnvironmentModel id="farm_tool_set" /></group>
-    <WateringCan position={[-0.32, 1.12, 0]} />
-    <SeedSack position={[0.32, 0.47, 0]} />
-    <HarvestBasket position={[-0.48, 0.22, 0.5]} />
-  </group>;
-}
-
-function FarmWaterTank() {
-  return <group>
-    <mesh position={[0, 0.72, 0]} castShadow receiveShadow><cylinderGeometry args={[0.5, 0.56, 1.38, 18]} /><meshStandardMaterial color="#769994" metalness={0.24} roughness={0.56} /></mesh>
-    {[0.25, 0.68, 1.1].map((y) => <mesh key={y} position={[0, y, 0]} rotation={[Math.PI / 2, 0, 0]}><torusGeometry args={[0.52, 0.025, 7, 18]} /><meshStandardMaterial color="#4d6763" metalness={0.38} roughness={0.45} /></mesh>)}
-    <mesh position={[0, 1.46, 0]}><coneGeometry args={[0.6, 0.24, 18]} /><meshStandardMaterial color="#49675f" metalness={0.18} roughness={0.62} /></mesh>
-    <mesh position={[0.48, 0.48, 0]} rotation={[0, 0, Math.PI / 2]}><cylinderGeometry args={[0.045, 0.045, 0.34, 9]} /><meshStandardMaterial color="#4f6661" metalness={0.42} roughness={0.38} /></mesh>
-    <RoundedBox args={[0.8, 0.22, 0.52]} position={[0.9, 0.16, 0]} radius={0.06} smoothness={2}><meshStandardMaterial color="#687a74" roughness={0.72} /></RoundedBox>
-  </group>;
-}
-
-function HarvestBasket({ position }: { position: Position }) {
-  return <group position={position}>
-    <mesh position={[0, 0.16, 0]}><cylinderGeometry args={[0.26, 0.2, 0.3, 12, 1, true]} /><meshStandardMaterial color="#a96f39" roughness={0.92} side={THREE.DoubleSide} /></mesh>
-    {[0.04, 0.15, 0.27].map((y) => <mesh key={y} position={[0, y, 0]} rotation={[Math.PI / 2, 0, 0]}><torusGeometry args={[0.22 + y * 0.11, 0.018, 6, 16]} /><meshStandardMaterial color="#704628" roughness={0.9} /></mesh>)}
-    <mesh position={[0, 0.34, 0]}><torusGeometry args={[0.24, 0.025, 7, 18, Math.PI]} /><meshStandardMaterial color="#80502d" roughness={0.9} /></mesh>
-  </group>;
-}
-
-function SeedSack({ position }: { position: Position }) {
-  return <group position={position}>
-    <mesh scale={[0.85, 1.2, 0.66]}><sphereGeometry args={[0.22, 14, 10]} /><meshStandardMaterial color="#b99559" roughness={1} /></mesh>
-    <mesh position={[0, 0.27, 0]}><torusGeometry args={[0.085, 0.025, 6, 12]} /><meshStandardMaterial color="#765338" /></mesh>
-  </group>;
-}
-
-function WateringCan({ position }: { position: Position }) {
-  return <group position={position} scale={0.72}><mesh><cylinderGeometry args={[0.18, 0.21, 0.32, 12]} /><meshStandardMaterial color="#668c86" metalness={0.12} roughness={0.6} /></mesh><mesh position={[0.28, 0.04, 0]} rotation={[0, 0, -1.1]}><cylinderGeometry args={[0.055, 0.11, 0.48, 10]} /><meshStandardMaterial color="#668c86" metalness={0.12} roughness={0.6} /></mesh><mesh position={[-0.13, 0.15, 0]} rotation={[Math.PI / 2, 0, 0]}><torusGeometry args={[0.18, 0.035, 7, 15, Math.PI]} /><meshStandardMaterial color="#668c86" metalness={0.12} roughness={0.6} /></mesh></group>;
-}
-
 function CompostBin({ position }: { position: Position }) {
   return <group position={position}><Box args={[0.78, 0.72, 0.72]} position={[0, 0.36, 0]} color="#5f4934" radius={0.08} />{[-0.26, 0, 0.26].map((offset) => <Box key={offset} args={[0.85, 0.075, 0.78]} position={[0, 0.38 + offset, 0]} color="#89603c" />)}<Box args={[0.87, 0.1, 0.8]} position={[0, 0.77, 0]} rotation={[0.08, 0, 0]} color="#68462f" radius={0.04} /><mesh position={[0, 0.84, 0]}><sphereGeometry args={[0.18, 8, 6]} /><meshStandardMaterial color="#41633a" roughness={1} /></mesh></group>;
 }
@@ -1520,6 +1470,3 @@ function FarmBarn() {
   </group>;
 }
 
-function Scarecrow({ position }: { position: Position }) {
-  return <group position={position}><Box args={[0.08, 1.25, 0.08]} position={[0, 0.72, 0]} color={palette.wood} /><Box args={[0.92, 0.07, 0.07]} position={[0, 1.04, 0]} color={palette.wood} /><mesh position={[0, 1.37, 0]}><sphereGeometry args={[0.2, 10, 8]} /><meshStandardMaterial color="#c79a57" roughness={0.94} /></mesh><mesh position={[0, 1.57, 0]}><coneGeometry args={[0.34, 0.25, 12]} /><meshStandardMaterial color="#a36936" roughness={0.92} /></mesh><Box args={[0.64, 0.52, 0.1]} position={[0, 0.94, 0]} color="#a75f45" radius={0.06} /></group>;
-}

@@ -1,14 +1,14 @@
 import { CHECKOUT_LANES, type CheckoutLane } from "./checkout-layout";
 
-export const REGISTER_INTERACTION_IDS = ["register-0", "register-1"] as const;
+export const REGISTER_INTERACTION_IDS = ["register-0", "register-1", "register-2"] as const;
 export type RegisterInteractionId = (typeof REGISTER_INTERACTION_IDS)[number];
 
 export function isRegisterInteractionId(id: string): id is RegisterInteractionId {
-  return id === "register-0" || id === "register-1";
+  return (REGISTER_INTERACTION_IDS as readonly string[]).includes(id);
 }
 
 export function registerLane(id: RegisterInteractionId): CheckoutLane {
-  return id === "register-1" ? 1 : 0;
+  return id === "register-2" ? 2 : id === "register-1" ? 1 : 0;
 }
 
 /** Beside the cashier mat, not on the cashier's reserved workstation. */

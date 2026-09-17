@@ -62,6 +62,7 @@ const BASE_STORE_OBSTACLES: StoreObstacle[] = [
   ...retailObstacles,
   { x: CHECKOUT_LANES[0].counter[0], z: CHECKOUT_LANES[0].counter[2], halfX: 2.25, halfZ: 0.65 },
   { id: "fixture:checkout-2", x: CHECKOUT_LANES[1].counter[0], z: CHECKOUT_LANES[1].counter[2], halfX: 2.25, halfZ: 0.65 },
+  { id: "fixture:checkout-3", x: CHECKOUT_LANES[2].counter[0], z: CHECKOUT_LANES[2].counter[2], halfX: 2.25, halfZ: 0.65 },
   ...productionObstacles,
   ...productionCubicleObstacles,
   {

@@ -28,21 +28,32 @@ export function campaignGlobalLevel(state: GameState) {
 
 /** Levels that hand the store a dedicated cashier, on top of the purchases.
  * Authored by the owner: the first till gets staffed early, the second
- * cashier opens the second till, the third relieves both. */
+ * cashier opens the second till and the third opens the third one. */
 export const CASHIER_UNLOCK_LEVELS = [5, 10, 20] as const;
 
 export function campaignCashierSlots(level: number) {
   return CASHIER_UNLOCK_LEVELS.filter((threshold) => level >= threshold).length;
 }
 
+/** Purchases that each bring one worker of a role, authored by the owner so
+ * the finished store staffs 8 farmer-stockers, 3 feeders and 5 operators
+ * (plus the 3 cashiers the levels grant): the three farmer desks, the second
+ * farm and every new crop bring a farmer; every pen brings its feeder; every
+ * machine brings its operator. */
+export const CAMPAIGN_STAFF_PURCHASES: Record<Exclude<EmployeeRole, "cashier" | "stocker" | "builder" | "manager">, readonly string[]> = {
+  farmer: ["farmer-1", "farmer-2", "farmer-3", "expansion-1", "wheat-1", "corn-1", "apple-1", "orange-1"],
+  feeder: ["chicken-1", "cow-1", "chicken-2"],
+  operator: ["flour-mill-1", "bread-oven-1", "cheese-maker-1", "juice-machine-1", "corn-canner-1"],
+};
+
 /** Total slots, including staff granted by purchases and by level rewards. */
 export function campaignEmployeeLimit(franchise: FranchiseState, role: EmployeeRole) {
   const owns = (id: string) => franchise.purchases?.purchased.some((item) => item === id) ?? false;
   switch (role) {
     case "cashier": return campaignCashierSlots(campaignLevel(franchise));
-    case "farmer": return owns("farmer-3") ? 3 : owns("farmer-2") ? 2 : owns("farmer-1") ? 1 : 0;
-    case "feeder": return owns("cow-1") ? 1 : 0;
-    case "operator": return owns("cheese-maker-1") ? 2 : owns("flour-mill-1") ? 1 : 0;
+    case "farmer": return CAMPAIGN_STAFF_PURCHASES.farmer.filter(owns).length;
+    case "feeder": return CAMPAIGN_STAFF_PURCHASES.feeder.filter(owns).length;
+    case "operator": return CAMPAIGN_STAFF_PURCHASES.operator.filter(owns).length;
     // Stocking is the granjero-reponedor's own job and building is automatic,
     // so the campaign no longer opens these desks.
     case "stocker": return 0;

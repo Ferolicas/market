@@ -141,7 +141,7 @@ export async function PUT(request: Request) {
     }
 
     if (adoptedState) {
-      const wealth = (state: typeof adoptedState) => state.balanceMinor + state.franchises.reduce((sum, franchise) => sum + (franchise.registerCashMinor?.[0] ?? 0) + (franchise.registerCashMinor?.[1] ?? 0), 0);
+      const wealth = (state: typeof adoptedState) => state.balanceMinor + state.franchises.reduce((sum, franchise) => sum + (franchise.registerCashMinor ?? []).reduce((lanes, amount) => lanes + amount, 0), 0);
       await tx.ledgerEntry.create({
         data: {
           userId: session.user.id,

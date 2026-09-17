@@ -63,17 +63,31 @@ describe("30 connected campaign levels", () => {
     expect(cashiers()).toBe(2);
     // The second cashier opens the second till.
     expect(state.franchises[0].unlockedAreas).toContain("checkout-2");
+    expect(state.franchises[0].unlockedAreas).not.toContain("checkout-3");
 
     reachLevel(19);
     expect(campaignLevel(state.franchises[0])).toBe(20);
     expect(cashiers()).toBe(3);
+    // The third cashier opens the third till, with its own tier.
+    expect(state.franchises[0].unlockedAreas).toContain("checkout-3");
+    expect(state.franchises[0].stationTiers["checkout-3"]).toBe(1);
 
     // Stocking and building belong to the granjero-reponedor and the purchases.
     expect(campaignEmployeeLimit(state.franchises[0], "stocker")).toBe(0);
     expect(campaignEmployeeLimit(state.franchises[0], "builder")).toBe(0);
     expect(campaignEmployeeLimit(state.franchises[0], "manager")).toBe(0);
-    expect(campaignEmployeeLimit(state.franchises[0], "feeder")).toBe(1);
-    expect(campaignEmployeeLimit(state.franchises[0], "farmer")).toBe(3);
+    // Level 20 owns both coops and the cow, the three farmer desks, the
+    // second farm and the wheat bed, and the mill and the oven.
+    expect(campaignEmployeeLimit(state.franchises[0], "feeder")).toBe(3);
+    expect(campaignEmployeeLimit(state.franchises[0], "farmer")).toBe(5);
+    expect(campaignEmployeeLimit(state.franchises[0], "operator")).toBe(2);
+
+    reachLevel(OPENING_PURCHASES.length);
+    expect(campaignLevel(state.franchises[0])).toBe(28);
+    const staff = (role: string) => state.franchises[0].employees.filter((employee) => employee.role === role).length;
+    // The finished campaign: 8 farmer-stockers, 3 feeders, 5 operators, 3 cashiers.
+    expect([campaignEmployeeLimit(state.franchises[0], "farmer"), campaignEmployeeLimit(state.franchises[0], "feeder"), campaignEmployeeLimit(state.franchises[0], "operator"), campaignEmployeeLimit(state.franchises[0], "cashier")]).toEqual([8, 3, 5, 3]);
+    expect([staff("farmer"), staff("feeder"), staff("operator"), staff("cashier")]).toEqual([8, 3, 5, 3]);
 
     const forged = structuredClone(state);
     forged.level = 30;

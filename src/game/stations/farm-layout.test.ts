@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { OPENING_PURCHASES } from "../progression/MartCampaign";
-import { PURCHASE_POSITIONS, PURCHASE_RING } from "./purchase-layout";
+import { PURCHASE_POSITIONS } from "./purchase-layout";
+import { PURCHASE_MARKER } from "./purchase-marker";
 import { isStoreNavigationPoint } from "../navigation/NavMeshService";
 import { cropIdFromFarmInteraction, FARM_ACCESS_WAYPOINTS, FARM_ANIMAL_STATIONS, FARM_FACILITIES, FARM_FIELD, FARM_GATE, FARM_INTERIOR_WAYPOINTS, FARM_OBSTACLES, FARM_PLOTS, FARM_WORKER_HOME, farmInteriorRouteBetween, farmInteriorRouteFromEntrance, farmInteriorRouteToEntrance, farmGateOpenLeafTerminalPost, farmInteractionId, farmPlotById, isFarmInteractionId, isRetiredFrontFarmPoint, FARM_WALL_SHADOW_DEPTH, FARM_VISIBLE_FRONT_Z, FARM_CORRIDOR_BACK_Z, FARM_PLOT_FOOTPRINT, FARM_ANIMAL_FOOTPRINTS, FARM_BARN } from "./farm-layout";
 import { STORE_REAR_DOOR } from "./storefront-layout";
@@ -82,7 +83,7 @@ describe("rear farm layout", () => {
       ...Object.entries(FARM_FACILITIES).map(([id, facility]) => [id, facility.position[2]] as [string, number]),
       ["worker-home", FARM_WORKER_HOME[1]],
       ...Object.entries(FARM_INTERIOR_WAYPOINTS).map(([id, point]) => [id, point[1]] as [string, number]),
-      ...OPENING_PURCHASES.filter((purchase) => PURCHASE_POSITIONS[purchase.id][2] < STORE_REAR_WALL_Z).map((purchase) => [`ring:${purchase.id}`, PURCHASE_POSITIONS[purchase.id][2] + PURCHASE_RING.radius * 0.8] as [string, number]),
+      ...OPENING_PURCHASES.filter((purchase) => PURCHASE_POSITIONS[purchase.id][2] < STORE_REAR_WALL_Z).map((purchase) => [`ring:${purchase.id}`, PURCHASE_POSITIONS[purchase.id][2] + PURCHASE_MARKER.halfSize * 0.8] as [string, number]),
     ];
     for (const [id, frontZ] of mustBeVisible) {
       expect(frontZ, `${id} front edge at z ${frontZ} is in the wall's shadow`).toBeLessThanOrEqual(FARM_VISIBLE_FRONT_Z - margin);

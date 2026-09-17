@@ -56,6 +56,17 @@ export function purchaseQuote(state: PurchaseState, id: OpeningPurchaseId, count
     remainingMinor: completed ? 0 : costMinor === null ? null : Math.max(0, costMinor - contributedMinor) };
 }
 
+/** A purchase is paid by standing on its marker: the whole price flows in
+ * PURCHASE_CONTRIBUTION_FILL_MS whatever the amount (a quarter per second),
+ * one pulse every PURCHASE_CONTRIBUTION_PULSE_MS, so 1 000 € pays 250 €/s. */
+export const PURCHASE_CONTRIBUTION_FILL_MS = 4_000;
+export const PURCHASE_CONTRIBUTION_PULSE_MS = 200;
+
+export function purchaseContributionPulseMinor(costMinor: number) {
+  if (!Number.isFinite(costMinor) || costMinor <= 0) return 0;
+  return Math.max(1, Math.ceil(costMinor * PURCHASE_CONTRIBUTION_PULSE_MS / PURCHASE_CONTRIBUTION_FILL_MS));
+}
+
 export function contributePurchase(state: PurchaseState, id: OpeningPurchaseId, country: CountryCode, walletMinor: number, requestedMinor: number) {
   const quote = purchaseQuote(state, id, country);
   if (!quote.available || quote.remainingMinor === null || !Number.isSafeInteger(requestedMinor) || requestedMinor <= 0

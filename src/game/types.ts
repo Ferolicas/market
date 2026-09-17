@@ -125,7 +125,7 @@ export interface CheckoutTransaction {
   lastLoadedAt: number;
   lastScannedAt: number;
   lastBaggedAt: number;
-  checkoutLane?: 0 | 1;
+  checkoutLane?: 0 | 1 | 2;
   handledByPlayer?: boolean;
 }
 
@@ -142,7 +142,7 @@ export interface CustomerRuntimeState {
   checkoutPatienceMs: number;
   waitingSince: number | null;
   queueSlot: number | null;
-  queueLane?: 0 | 1;
+  queueLane?: 0 | 1 | 2;
   queueJoinedAt?: number | null;
   transactionId: string | null;
   hasCart: boolean;
@@ -184,7 +184,7 @@ export interface FranchiseState {
   buildProjects: BuildProject[];
   checkoutTransactions: CheckoutTransaction[];
   /** Sales awaiting physical collection, one balance per checkout lane. */
-  registerCashMinor: [number, number];
+  registerCashMinor: [number, number, number];
   purchases?: PurchaseState;
   returnsBin: Inventory;
   returnedCartCount: number;
@@ -281,7 +281,7 @@ export type GameAction =
   | { type: "RETURN_TO_WAREHOUSE" }
   | { type: "STOCK"; productId: ProductId; quantity?: number; source?: "warehouse" | "carry" }
   | { type: "CHECKOUT"; paymentMethod: PaymentMethod }
-  | { type: "COLLECT_REGISTER"; lane: 0 | 1 }
+  | { type: "COLLECT_REGISTER"; lane: 0 | 1 | 2 }
   | { type: "CONTRIBUTE_PURCHASE"; purchaseId: OpeningPurchaseId; amountMinor?: number }
   | { type: "ORDER"; supplierId: string; productId: ProductId; quantity: number }
   | { type: "HIRE"; role: EmployeeRole }

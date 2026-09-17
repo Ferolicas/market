@@ -34,6 +34,8 @@ import { businessDayIsClosing } from "@/game/time/BusinessDay";
 import { isRegisterInteractionId, registerLane } from "@/game/stations/register-layout";
 import { campaignPersonalTasks, campaignPurchaseQuotes, canOrderProduct } from "@/game/engine";
 import { OPENING_PURCHASES, type OpeningPurchaseId } from "@/game/progression/MartCampaign";
+import { purchaseContributionPulseMinor } from "@/game/progression/PurchaseState";
+import { cashBundleCount, cashBundleMinor } from "@/game/economy/cash-bundles";
 
 type Panel = "stock" | "orders" | "team" | "map" | "finance" | "avatar" | "help" | null;
 
@@ -239,8 +241,13 @@ export function GameShell({ playerName }: { playerName: string }) {
       const current = useMarketStore.getState().game;
       const purchaseId = purchaseIdFromInteraction(id);
       const quote = current && campaignPurchaseQuotes(current).find((purchase) => purchase.id === purchaseId);
-      if (current && quote?.available && current.balanceMinor > 0) queueInteraction({ type: "CONTRIBUTE_PURCHASE", purchaseId: quote.id });
-      else performed = false;
+      if (current && quote?.available && current.balanceMinor > 0) {
+        queueInteraction({ type: "CONTRIBUTE_PURCHASE", purchaseId: quote.id });
+        // Every pulse throws the bundles it pays for from the owner's hands
+        // into the marker square; the engine decides the money, this only draws it.
+        const pulseMinor = Math.min(current.balanceMinor, quote.remainingMinor ?? 0, purchaseContributionPulseMinor(quote.costMinor ?? 0));
+        visualEvents = [{ id, kind: "pay", purchaseId: quote.id, quantity: Math.min(8, cashBundleCount(pulseMinor, cashBundleMinor(countryMoneyScale(current.countryCode)))) }];
+      } else performed = false;
     }
     if (isRegisterInteractionId(id)) {
       const current = useMarketStore.getState().game;
@@ -275,7 +282,7 @@ export function GameShell({ playerName }: { playerName: string }) {
     // Keep a work gesture active only when a real station action was queued.
     // Locomotion owns the body again as soon as the player leaves its pad.
     if (performed) {
-      const transferVisuals = visualEvents.filter((event) => event.kind === "harvest" || event.kind === "stock" || event.kind === "return");
+      const transferVisuals = visualEvents.filter((event) => event.kind === "harvest" || event.kind === "stock" || event.kind === "return" || event.kind === "pay");
       if (transferVisuals.length || activeInteractionId.current !== id) {
         activeInteractionId.current = id;
         const sequencedEvents = visualEvents.map((event): InteractionVisualEvent => ({
@@ -283,7 +290,7 @@ export function GameShell({ playerName }: { playerName: string }) {
           sequence: ++interactionSequence.current,
         }));
         setLastInteraction(sequencedEvents[sequencedEvents.length - 1] ?? null);
-        const sequencedTransfers = sequencedEvents.filter((event) => event.kind === "harvest" || event.kind === "stock" || event.kind === "return");
+        const sequencedTransfers = sequencedEvents.filter((event) => event.kind === "harvest" || event.kind === "stock" || event.kind === "return" || event.kind === "pay");
         if (sequencedTransfers.length) {
           // Proximity pulses are intentionally faster than one flight. Keep
           // every transfer alive independently so no tomato, egg or bottle is
@@ -360,7 +367,7 @@ export function GameShell({ playerName }: { playerName: string }) {
   return (<>
     <GameRuntime />
     <main className="game-shell">
-      {worldReady && <div className={`world${sceneReady ? " scene-ready" : " scene-preparing"}`} aria-hidden={!sceneReady}><MarketScene purchaseMarkers={purchaseMarkers} registerCashMinor={franchise.registerCashMinor} avatar={game.avatar} carry={franchise.carry} visualCarry={visualTransfer.carry} checkoutLevel={franchise.checkoutLevel} playerSpeedTier={franchise.playerSpeedTier} customers={franchise.customers} checkoutTransactions={franchise.checkoutTransactions} returnsBin={franchise.returnsBin} returnedCartCount={franchise.returnedCartCount} crops={franchise.crops} visualCrops={visualTransfer.crops} productionMachines={franchise.productionMachines} shelves={franchise.shelves} visualShelves={visualTransfer.shelves} shelfTier={franchise.stationTiers["shelves-1"] ?? franchise.shelvesLevel} unlockedAreas={franchise.unlockedAreas} lightsOn={franchise.lightsOn} minuteOfDay={game.minuteOfDay} simulationTimeMs={game.simulationTimeMs} employees={franchise.employees} open={franchise.open} doorState={franchise.doorState} doorProgress={franchise.doorProgress} onInteract={interact} onDistance={recordDistance} onDoorPresence={setDoorPresence} onSceneReady={revealScene} lastInteraction={lastInteraction} transferEvents={transferEvents} onTransferProgress={updateTransferProgress} debug={debug} />{sceneReady && <GameInputSurface />}</div>}
+      {worldReady && <div className={`world${sceneReady ? " scene-ready" : " scene-preparing"}`} aria-hidden={!sceneReady}><MarketScene purchaseMarkers={purchaseMarkers} registerCashMinor={franchise.registerCashMinor} cashBundleMinor={cashBundleMinor(countryMoneyScale(game.countryCode))} avatar={game.avatar} carry={franchise.carry} visualCarry={visualTransfer.carry} checkoutLevel={franchise.checkoutLevel} playerSpeedTier={franchise.playerSpeedTier} customers={franchise.customers} checkoutTransactions={franchise.checkoutTransactions} returnsBin={franchise.returnsBin} returnedCartCount={franchise.returnedCartCount} crops={franchise.crops} visualCrops={visualTransfer.crops} productionMachines={franchise.productionMachines} shelves={franchise.shelves} visualShelves={visualTransfer.shelves} shelfTier={franchise.stationTiers["shelves-1"] ?? franchise.shelvesLevel} unlockedAreas={franchise.unlockedAreas} lightsOn={franchise.lightsOn} minuteOfDay={game.minuteOfDay} simulationTimeMs={game.simulationTimeMs} employees={franchise.employees} open={franchise.open} doorState={franchise.doorState} doorProgress={franchise.doorProgress} onInteract={interact} onDistance={recordDistance} onDoorPresence={setDoorPresence} onSceneReady={revealScene} lastInteraction={lastInteraction} transferEvents={transferEvents} onTransferProgress={updateTransferProgress} debug={debug} />{sceneReady && <GameInputSurface />}</div>}
       {worldReady && !sceneReady && <LoadingCurtain title="Preparando la tienda…" detail="Cargando personajes y maquinaria sin interrupciones" />}
       <header className="hud-top glass-panel" data-game-ui-interactive="true" aria-label="Estado de la tienda">
         <div className="hud-brand"><span><GameIcon name="store" /></span><div><strong>{franchise.name}</strong><small>{franchise.city}</small></div></div>

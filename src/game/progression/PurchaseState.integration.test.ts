@@ -113,12 +113,13 @@ describe("purchases connected to game state", () => {
     }
     expect(state.franchises[0].crops.filter((crop) => crop.status !== "LOCKED")).toHaveLength(7);
     expect(state.franchises[0].productionMachines.filter((machine) => machine.status !== "LOCKED")).toHaveLength(8);
-    expect(state.franchises[0].employees.filter((employee) => employee.role === "farmer")).toHaveLength(3);
-    expect(state.franchises[0].employees.filter((employee) => employee.role === "feeder")).toHaveLength(1);
-    // Levels 5, 10 and 20 arrive along the way and hand over their cashiers;
-    // the mill and the dairy hand over their two operators.
+    // Every farmer desk, the second farm and each new crop bring a farmer;
+    // every pen its feeder; every machine its operator.
+    expect(state.franchises[0].employees.filter((employee) => employee.role === "farmer")).toHaveLength(8);
+    expect(state.franchises[0].employees.filter((employee) => employee.role === "feeder")).toHaveLength(3);
+    // Levels 5, 10 and 20 arrive along the way and hand over their cashiers.
     expect(state.franchises[0].employees.filter((employee) => employee.role === "cashier")).toHaveLength(3);
-    expect(state.franchises[0].employees.filter((employee) => employee.role === "operator")).toHaveLength(2);
+    expect(state.franchises[0].employees.filter((employee) => employee.role === "operator")).toHaveLength(5);
     expect(state.franchises[0].purchases?.purchased).toHaveLength(OPENING_PURCHASES.length);
     expect(applyGameAction(state, { type: "CONTRIBUTE_BUILD" }).ok).toBe(false);
   });
@@ -160,6 +161,8 @@ describe("purchases connected to game state", () => {
     const chicken = state.franchises[0].productionMachines.find((machine) => machine.id === "chicken-coop-1")!;
     chicken.output = 3; chicken.status = "OUTPUT_READY";
     state.franchises[0].warehouse.tomatoes = 10;
+    // The coop's own feeder is parked so only the farmer's behaviour is measured.
+    for (const employee of state.franchises[0].employees) if (employee.role === "feeder") employee.runtime!.stateSince = Number.MAX_SAFE_INTEGER;
     for (let tick = 0; tick < 2_000; tick++) {
       state = advanceWorld(state, 100).state;
       if (tick === 300) state = normalizeGameState(JSON.parse(JSON.stringify(state)));

@@ -18,6 +18,7 @@ const cases = [
   ["fixture:cheese-maker", "cheese-maker"],
   ["fixture:juice-machine", "juice-machine"],
   ["fixture:checkout-2", "checkout-2"],
+  ["fixture:checkout-3", "checkout-3"],
   ["fixture:chicken-coop", "chicken-coop"],
   ["fixture:chicken-coop-2", "chicken-coop-2"],
   ["fixture:cow-station", "cow-station"],

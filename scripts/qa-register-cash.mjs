@@ -35,8 +35,8 @@ try {
       saved.franchises[0].shelves.tomatoes = 14;
       saved.franchises[0].carry.items.tomatoes = 3;
     }
-    saved.franchises[0].unlockedAreas.push("checkout-2");
-    saved.franchises[0].registerCashMinor = [6_800, 10_200];
+    saved.franchises[0].unlockedAreas.push("checkout-2", "checkout-3");
+    saved.franchises[0].registerCashMinor = [6_800, 10_200, 4_000];
     let revision = 1;
     const accepted = [];
     const errors = [];
@@ -68,15 +68,15 @@ try {
     await page.waitForFunction(() => window.__MARKET_QA__?.player && window.__MARKET_FIND_PLAYER_PATH__, null, { timeout: 45_000 });
     await page.locator(".world.scene-ready").waitFor({ timeout: 45_000 });
     await page.screenshot({ path: `${output}/${viewport.width}-before.png` });
-    for (const lane of [0, 1]) {
+    for (const lane of [0, 1, 2]) {
       const point = registerPickupPosition(lane);
       await moveTo(page, [point[0] * STORE_LAYOUT_SCALE, point[2] * STORE_LAYOUT_SCALE]);
       await page.waitForFunction((lane) => window.__MARKET_QA__.state.franchises[0].registerCashMinor[lane] === 0, lane, { timeout: 8_000 });
       await page.screenshot({ path: `${output}/${viewport.width}-lane-${lane}.png` });
     }
     let state = await page.evaluate(() => window.__MARKET_QA__.state);
-    if (state.balanceMinor !== 29_000) throw new Error(`Wrong wallet: ${state.balanceMinor}`);
-    const expectedWallet = testPurchases ? 22_200 : 29_000;
+    if (state.balanceMinor !== 33_000) throw new Error(`Wrong wallet: ${state.balanceMinor}`);
+    const expectedWallet = testPurchases ? 26_200 : 33_000;
     if (testPurchases) {
       await page.getByRole("button", { name: "Construir", exact: true }).click();
       await page.locator(".upgrade-grid article").filter({ hasText: "Primer cajero" }).getByRole("button", { name: "Señalar compra" }).click();
@@ -140,7 +140,7 @@ try {
       if (restored.shelves.tomatoes !== 15 || restored.carry.items.tomatoes !== 2) throw new Error("Opening stock changed after reload");
       if (restored.purchases.personalProgress?.["player:stock:tomatoes"] !== 1) throw new Error("Personal task progress changed after reload");
     }
-    if (collections.length !== 2 || errors.length) throw new Error(JSON.stringify({ collections, errors }));
+    if (collections.length !== 3 || errors.length) throw new Error(JSON.stringify({ collections, errors }));
     const purchases = accepted.filter((event) => event.category === "purchase");
     if (testPurchases && purchases.reduce((sum, event) => sum - event.amountMinor, 0) !== 6_800) throw new Error("Incorrect persisted purchase payments");
     report.push({ viewport, status: "PASS", wallet: state.balanceMinor, pending: state.franchises[0].registerCashMinor, collections: collections.map((event) => event.payload), purchases: purchases.map((event) => event.payload), errors });

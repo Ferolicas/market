@@ -159,25 +159,33 @@ export function scaledFarmHarvestSensor(elementScale: number) {
   };
 }
 
-/** One front row of beds at z −14, every 2.7 layout units, all of them past
- * the wall's shadow and low enough not to hide the row behind. */
-export const FARM_BED_ROW_Z = -14;
+/**
+ * Two rows of beds, every 2.7 layout units in x. The front row (apple, corn,
+ * wheat and the orange tree) sits as close to the store as the corridor rule
+ * allows: its timbers end at z −13.23, just past FARM_CORRIDOR_BACK_Z. The
+ * three tomato beds form the back row left of the barn, against the rear
+ * fence and aligned with the front columns, so the middle corridor between
+ * the rows (z −14.17 … −16.43) is 2.26 wide and can be walked without
+ * brushing a harvest magnet.
+ */
+export const FARM_FRONT_BED_ROW_Z = -13.7;
+export const FARM_REAR_BED_ROW_Z = -16.9;
 export const FARM_PLOTS: readonly FarmPlotLayout[] = [
-  { id: "crop-tomato-1", productId: "tomatoes", position: [-0.9, 0, FARM_BED_ROW_Z], accent: "#e34f3f" },
-  { id: "crop-tomato-2", productId: "tomatoes", position: [1.8, 0, FARM_BED_ROW_Z], accent: "#ef6a4b" },
-  { id: "crop-tomato-3", productId: "tomatoes", position: [4.5, 0, FARM_BED_ROW_Z], accent: "#e34f3f" },
-  { id: "crop-wheat-1", productId: "wheat", position: [-3.6, 0, FARM_BED_ROW_Z], accent: "#e9b83f" },
-  { id: "crop-corn-1", productId: "corn", position: [-6.3, 0, FARM_BED_ROW_Z], accent: "#f0c438" },
-  { id: "crop-orange-1", productId: "oranges", position: [7.2, 0, FARM_BED_ROW_Z], accent: "#D58236" },
-  { id: "crop-apple-1", productId: "apples", position: [-9, 0, FARM_BED_ROW_Z], accent: "#c8362f" },
+  { id: "crop-tomato-1", productId: "tomatoes", position: [-9, 0, FARM_REAR_BED_ROW_Z], accent: "#e34f3f" },
+  { id: "crop-tomato-2", productId: "tomatoes", position: [-6.3, 0, FARM_REAR_BED_ROW_Z], accent: "#ef6a4b" },
+  { id: "crop-tomato-3", productId: "tomatoes", position: [-3.6, 0, FARM_REAR_BED_ROW_Z], accent: "#e34f3f" },
+  { id: "crop-wheat-1", productId: "wheat", position: [-3.6, 0, FARM_FRONT_BED_ROW_Z], accent: "#e9b83f" },
+  { id: "crop-corn-1", productId: "corn", position: [-6.3, 0, FARM_FRONT_BED_ROW_Z], accent: "#f0c438" },
+  { id: "crop-orange-1", productId: "oranges", position: [7.2, 0, FARM_FRONT_BED_ROW_Z], accent: "#D58236" },
+  { id: "crop-apple-1", productId: "apples", position: [-9, 0, FARM_FRONT_BED_ROW_Z], accent: "#c8362f" },
 ] as const;
 
-/** Props on the back row, between the pens; the compost closes the front row. */
+/** The compost closes the front row on the right; the back row holds only
+ * the tomato beds, the barn and the pens (the tool bench, scarecrow and
+ * water tank that used to sit there are gone, so nothing decorative takes
+ * room next to the barn). */
 export const FARM_FACILITIES = {
-  tools: { position: [-3.8, 0, -17] },
-  compost: { position: [10, 0, FARM_BED_ROW_Z] },
-  scarecrow: { position: [-9.6, 0, -16.9] },
-  waterTank: { position: [2.6, 0, -17] },
+  compost: { position: [10, 0, FARM_FRONT_BED_ROW_Z] },
 } as const satisfies Record<string, FarmFacilityLayout>;
 
 /**
@@ -221,9 +229,10 @@ export function farmAnimalMagnet(id: keyof typeof FARM_ANIMAL_FOOTPRINTS, layout
   };
 }
 
-/** Pens on the back row, against the rear fence, worked from the middle corridor. */
+/** Pens on the back row right of the barn, against the rear fence, in the
+ * order chicken · cow · chicken, worked from the middle corridor. */
 export const FARM_ANIMAL_STATIONS = {
-  chicken: { position: [-7.65, 0, -16.75], workPosition: [-7.65, 0, -15.15], facing: Math.PI },
+  chicken: { position: [2.8, 0, -16.75], workPosition: [2.8, 0, -15.15], facing: Math.PI },
   chicken2: { position: [9, 0, -16.75], workPosition: [9, 0, -15.2], facing: Math.PI },
   cow: { position: [5.9, 0, -16.65], workPosition: [5.9, 0, -15.05], facing: Math.PI },
 } as const satisfies Record<"chicken" | "chicken2" | "cow", FarmAnimalStationLayout>;
@@ -383,12 +392,8 @@ export function farmInteriorRouteBetween(start: FarmPoint, destination: FarmPoin
 // both navigation and physics. Crop beds deliberately stay traversable: the
 // harvest loop is a walk-through magnet, not a stop-at-the-edge interaction.
 export const FARM_OBSTACLES = [
-  { x: FARM_FACILITIES.tools.position[0], z: FARM_FACILITIES.tools.position[2], halfX: 0.74, halfZ: 0.46 },
   { x: FARM_FACILITIES.compost.position[0], z: FARM_FACILITIES.compost.position[2], halfX: 0.48, halfZ: 0.48 },
   { id: FARM_BARN.obstacleId, x: FARM_BARN.position[0], z: FARM_BARN.position[2], halfX: FARM_BARN.footprint.halfX, halfZ: FARM_BARN.footprint.halfZ },
-  { x: FARM_FACILITIES.scarecrow.position[0], z: FARM_FACILITIES.scarecrow.position[2], halfX: 0.38, halfZ: 0.38 },
-  { x: FARM_FACILITIES.waterTank.position[0], z: FARM_FACILITIES.waterTank.position[2], halfX: 0.52, halfZ: 0.52 },
-  { x: FARM_FACILITIES.waterTank.position[0] + 0.9, z: FARM_FACILITIES.waterTank.position[2], halfX: 0.4, halfZ: 0.26 },
   { id: "fixture:chicken-coop", x: FARM_ANIMAL_STATIONS.chicken.position[0], z: FARM_ANIMAL_STATIONS.chicken.position[2], halfX: 1.49, halfZ: 1.09 },
   { id: "fixture:chicken-coop-2", x: FARM_ANIMAL_STATIONS.chicken2.position[0], z: FARM_ANIMAL_STATIONS.chicken2.position[2], halfX: 1.49, halfZ: 1.09 },
   { id: "fixture:cow-station", x: FARM_ANIMAL_STATIONS.cow.position[0], z: FARM_ANIMAL_STATIONS.cow.position[2], halfX: 1.79, halfZ: 1.24 },

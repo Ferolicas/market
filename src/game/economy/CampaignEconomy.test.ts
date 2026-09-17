@@ -22,7 +22,7 @@ describe("campaign economy", () => {
     state = applyGameAction(state, { type: "CONTRIBUTE_PURCHASE", purchaseId: "farmer-1", amountMinor: 2_000 }).state;
     expect(state.franchises[0].employees).toHaveLength(1);
     state.balanceMinor = 0;
-    state.franchises[0].registerCashMinor = [100, 200];
+    state.franchises[0].registerCashMinor = [100, 200, 300];
     state.franchises[0].purchases!.personalProgress = { "player:stock:tomatoes": 3 };
     for (let day = 1; day <= 8; day++) {
       state.franchises[0].open = true;
@@ -32,7 +32,7 @@ describe("campaign economy", () => {
       expect(result.ok).toBe(true);
       expect(result.state.day).toBe(day + 1);
       expect(result.state.balanceMinor).toBe(0);
-      expect(result.state.franchises[0].registerCashMinor).toEqual([100, 200]);
+      expect(result.state.franchises[0].registerCashMinor).toEqual([100, 200, 300]);
       expect(result.events.filter((event) => ["payroll", "operations", "tax"].includes(event.category))).toEqual([]);
       expect(validateSaveTransition(state, result.state, result.events)).toEqual({ ok: true });
       state = normalizeGameState(JSON.parse(JSON.stringify(result.state)));

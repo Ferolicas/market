@@ -9,6 +9,7 @@ import { OPENING_PURCHASES, campaignAvailableProducts } from "../progression/Mar
 import { CAMPAIGN_CONTRACTS, type CampaignContractId } from "../progression/CampaignContracts";
 import { campaignExpansionQuote } from "../progression/CampaignExpansion";
 import { campaignGlobalLevel, campaignEmployeeLimit, campaignPriceMultiplier } from "../progression/CampaignLevels";
+import { CHECKOUT_LANE_IDS, isCheckoutLane } from "../stations/checkout-layout";
 
 export type SaveAuthorityCode =
   | "INVALID_EVENTS"
@@ -76,7 +77,7 @@ export function validateSaveTransition(current: GameState, next: GameState, even
   if (retainedCurrentIds.some((id) => !next.processedEventIds.includes(id))) return { ok: false, code: "INVALID_EVENT_CHAIN" };
 
   const declaredDelta = events.reduce((total, event) => total + event.amountMinor, 0);
-  const tillTotal = (state: GameState) => state.franchises.reduce((sum, franchise) => sum + (franchise.registerCashMinor?.[0] ?? 0) + (franchise.registerCashMinor?.[1] ?? 0), 0);
+  const tillTotal = (state: GameState) => state.franchises.reduce((sum, franchise) => sum + CHECKOUT_LANE_IDS.reduce<number>((lanes, lane) => lanes + (franchise.registerCashMinor?.[lane] ?? 0), 0), 0);
   const wealthDelta = (next.balanceMinor - current.balanceMinor) + (tillTotal(next) - tillTotal(current));
   if (!Number.isSafeInteger(wealthDelta) || !Number.isSafeInteger(declaredDelta) || !Number.isSafeInteger(tillTotal(current)) || !Number.isSafeInteger(tillTotal(next))
     || wealthDelta !== declaredDelta || !registerTransfersAreConserved(current, next, events, options.allowLegacyWalletSales === true)) return { ok: false, code: "INVALID_BALANCE_DELTA" };
@@ -87,7 +88,7 @@ export function validateSaveTransition(current: GameState, next: GameState, even
 /** Replay monetary transfers only. Collection is not a second sale and may
  * not move funds between franchises or invent money by reducing a till. */
 function registerTransfersAreConserved(current: GameState, next: GameState, events: GameEvent[], allowLegacyWalletSales: boolean) {
-  const balances = new Map(current.franchises.map((franchise) => [franchise.id, [...(franchise.registerCashMinor ?? [0, 0])]]));
+  const balances = new Map(current.franchises.map((franchise) => [franchise.id, CHECKOUT_LANE_IDS.map((lane) => franchise.registerCashMinor?.[lane] ?? 0)]));
   for (const event of events) {
     if (event.category !== "sales" && event.category !== "cash_collection") continue;
     // One-way upgrade: only the server may enable this, based on the stored
@@ -95,7 +96,7 @@ function registerTransfersAreConserved(current: GameState, next: GameState, even
     if (allowLegacyWalletSales && event.category === "sales" && event.payload?.lane === undefined) continue;
     const lane = event.payload?.lane;
     const balance = balances.get(event.franchiseId);
-    if (!balance || (lane !== 0 && lane !== 1)) return false;
+    if (!balance || !isCheckoutLane(lane)) return false;
     if (event.category === "sales") {
       if (event.amountMinor <= 0) return false;
       balance[lane] += event.amountMinor;
@@ -109,7 +110,7 @@ function registerTransfersAreConserved(current: GameState, next: GameState, even
   return next.franchises.every((franchise) => {
     const expected = balances.get(franchise.id);
     const actual = franchise.registerCashMinor;
-    return expected && Array.isArray(actual) && actual.length === 2
+    return expected && Array.isArray(actual) && actual.length === CHECKOUT_LANE_IDS.length
       && actual.every((value, lane) => Number.isSafeInteger(value) && value >= 0 && value === expected[lane]);
   });
 }

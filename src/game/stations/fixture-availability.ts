@@ -1,9 +1,14 @@
 const REQUIRED_AREAS: Record<string, string> = {
   "fixture:flour-mill": "flour-mill", "fixture:bread-oven": "bread-oven",
   "fixture:cheese-maker": "cheese-maker", "fixture:juice-machine": "juice-machine",
-  "fixture:checkout-2": "checkout-2", "fixture:chicken-coop": "chicken-coop",
+  "fixture:checkout-2": "checkout-2", "fixture:checkout-3": "checkout-3", "fixture:chicken-coop": "chicken-coop",
   "fixture:chicken-coop-2": "chicken-coop-2", "fixture:cow-station": "cow-station",
 };
+
+/** Every area a finished campaign has opened: the store with all its
+ * furniture, for layout rules that must hold in the fullest shop. */
+export const ALL_PURCHASED_AREAS: readonly string[] = ["purchase-campaign", ...Object.values(REQUIRED_AREAS),
+  "expansion-side", "coffee-supply", "farm-wheat", "egg-display", "dairy-display", "preserves-supply", "corn-canner"];
 
 /** One rule for rendering, Rapier and navigation. Legacy scenes stay unchanged. */
 export function fixtureAvailable(id: string | undefined, areas: readonly string[] = []): boolean {

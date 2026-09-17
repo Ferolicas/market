@@ -3,7 +3,8 @@ import { advanceWorld, applyGameAction, createCampaignGame, normalizeGameState }
 import { CAMPAIGN_TASK_IDS, campaignTaskTarget } from "../progression/CampaignTasks";
 import { retailShelfCapacityForTier } from "../stations/retail-layout";
 
-/** Two farmers, three tomato beds and one wheat bed, everything ripe. */
+/** Four farmers (two desks, the second farm and the wheat bed each bring
+ * one), three tomato beds and one wheat bed, everything ripe. */
 function farmWithWheat() {
   let state = createCampaignGame();
   state.balanceMinor = 100_000_000;
@@ -40,8 +41,8 @@ describe("farmers harvest the scarcest product first", () => {
     state.franchises[0].warehouse.wheat = 20;
     const ticked = advanceWorld(state, 400).state;
     const assigned = assignments(ticked);
-    expect(assigned).toHaveLength(2);
-    // Both head for the single wheat bed: one harvests it, the other waits
+    expect(assigned).toHaveLength(4);
+    // All head for the single wheat bed: one harvests it, the others wait
     // beside it for the next batch instead of piling up more tomatoes.
     expect(assigned.every((id) => id === "crop-wheat-1")).toBe(true);
   });

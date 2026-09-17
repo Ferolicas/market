@@ -44,7 +44,7 @@ const customerSchema = z.object({
   currentLine: z.number().int().min(0).max(5), basket: z.partialRecord(productIdSchema, inventoryQuantitySchema),
   patienceMs: z.number().finite().min(0).max(600_000), checkoutPatienceMs: z.number().finite().min(0).max(600_000),
   waitingSince: z.number().finite().min(0).nullable(), queueSlot: z.number().int().min(0).max(100).nullable(),
-  queueLane: z.union([z.literal(0), z.literal(1)]).optional(), queueJoinedAt: z.number().finite().min(0).nullable().optional(), transactionId: z.string().max(120).nullable(),
+  queueLane: z.union([z.literal(0), z.literal(1), z.literal(2)]).optional(), queueJoinedAt: z.number().finite().min(0).nullable().optional(), transactionId: z.string().max(120).nullable(),
   hasCart: z.boolean(), hasBag: z.boolean(), angry: z.boolean(),
   x: z.number().finite(), z: z.number().finite(), targetX: z.number().finite(), targetZ: z.number().finite(),
   path: z.array(pointSchema).max(200), pathIndex: z.number().int().min(0).max(200), speed: z.number().finite().min(0).max(20), currentSpeed: z.number().finite().min(0).max(20).optional(),
@@ -59,7 +59,7 @@ const transactionSchema = z.object({
   paymentMethod: z.enum(["cash", "card"]), state: z.enum(["CUSTOMER_LOADING", "SCANNING", "BAGGING", "PAYMENT", "COMPLETE", "ABANDONED"]),
   nextUnitIndex: z.number().int().min(0).max(20), paymentCommitted: z.boolean(),
   updatedAt: z.number().finite().min(0), lastLoadedAt: z.number().finite().min(0), lastScannedAt: z.number().finite().min(0), lastBaggedAt: z.number().finite().min(0),
-  checkoutLane: z.union([z.literal(0), z.literal(1)]).optional(), handledByPlayer: z.boolean().optional(),
+  checkoutLane: z.union([z.literal(0), z.literal(1), z.literal(2)]).optional(), handledByPlayer: z.boolean().optional(),
 });
 const cropSchema = z.object({
   id: z.string().min(1).max(100), productId: z.enum(CROP_PRODUCT_IDS),
@@ -81,7 +81,9 @@ const franchiseSchema = z.object({
   carry: carrySchema, crops: z.array(cropSchema).max(20), productionMachines: z.array(productionMachineSchema).max(20),
   buildProjects: z.array(z.object({ id: z.string().min(1).max(100), level: z.number().int().min(2).max(30), costMinor: z.number().int().min(0), contributedMinor: z.number().int().min(0), completed: z.boolean() })).max(30),
   checkoutTransactions: z.array(transactionSchema).max(100),
-  registerCashMinor: z.tuple([z.number().int().nonnegative(), z.number().int().nonnegative()]).default([0, 0]),
+  // Saves written before the third till carry two balances; the missing lane is empty.
+  registerCashMinor: z.array(z.number().int().nonnegative()).min(2).max(3)
+    .transform((lanes): [number, number, number] => [lanes[0], lanes[1], lanes[2] ?? 0]).default([0, 0, 0]),
   purchases: purchaseStateSchema.optional(),
   returnsBin: inventorySchema, returnedCartCount: z.number().int().min(0).max(1_000_000),
   customers: z.array(customerSchema).max(100), nextCustomerSequence: z.number().int().min(1), lastCustomerSpawnAt: z.number().finite(), queueCustomerIds: z.array(z.string().max(120)).max(100),

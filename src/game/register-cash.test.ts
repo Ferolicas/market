@@ -6,15 +6,15 @@ import { isPreRegisterSnapshot, preRegisterChecksumState } from "./persistence/R
 import { savePayloadSchema } from "../lib/game-validation";
 import type { CustomerRuntimeState, GameEvent, GameState, ProductId } from "./types";
 import { REGISTER_INTERACTION_IDS, registerLane, registerPickupPosition } from "./stations/register-layout";
-import { CHECKOUT_LANES } from "./stations/checkout-layout";
+import { CHECKOUT_LANE_IDS, CHECKOUT_LANES, type CheckoutLane } from "./stations/checkout-layout";
 import { createPurchaseState } from "./progression/PurchaseState";
 import { campaignLevel, campaignPriceMultiplier } from "./progression/CampaignLevels";
 import { storeSegmentIsClear } from "./world-scale";
 
-function readyPayment(lane: 0 | 1 = 0, productId: ProductId = "tomatoes") {
+function readyPayment(lane: CheckoutLane = 0, productId: ProductId = "tomatoes") {
   const state = createInitialGame();
   const franchise = state.franchises[0];
-  franchise.unlockedAreas.push("checkout-2");
+  franchise.unlockedAreas.push("checkout-2", "checkout-3");
   const customer: CustomerRuntimeState = {
     ...createCustomerMind("cash-test", [productId], 1, 1), identity: 1,
     state: "PAY", queueLane: lane, queueSlot: 0, queueJoinedAt: 0, basket: { [productId]: 1 }, transactionId: "cash-test-tx", stateSince: 0,
@@ -65,7 +65,8 @@ describe("physical cash collection", () => {
     expect(sale.state.balanceMinor).toBe(initial.balanceMinor);
     expect(validateSaveTransition(initial, sale.state, sale.events)).toEqual({ ok: true });
   });
-  it("places both pickup points outside furniture and away from the cashier", () => {
+  it("places every pickup point outside furniture and away from the cashier", () => {
+    expect(REGISTER_INTERACTION_IDS).toHaveLength(CHECKOUT_LANE_IDS.length);
     for (const id of REGISTER_INTERACTION_IDS) {
       const lane = registerLane(id);
       const [x, , z] = registerPickupPosition(lane);
@@ -73,7 +74,7 @@ describe("physical cash collection", () => {
       expect(Math.hypot(x - CHECKOUT_LANES[lane].cashierWork[0], z - CHECKOUT_LANES[lane].cashierWork[2])).toBeGreaterThan(1);
     }
   });
-  it.each([0, 1] as const)("holds the sale in lane %s and collects it once", (lane) => {
+  it.each(CHECKOUT_LANE_IDS)("holds the sale in lane %s and collects it once", (lane) => {
     const initial = readyPayment(lane);
     const sale = advanceWorld(initial, 1_000);
     const sold = sale.events.find((event) => event.category === "sales")!;
@@ -86,7 +87,7 @@ describe("physical cash collection", () => {
     const collected = applyGameAction(restored, { type: "COLLECT_REGISTER", lane });
     expect(collected.ok).toBe(true);
     expect(collected.state.balanceMinor).toBe(initial.balanceMinor + sold.amountMinor);
-    expect(collected.state.franchises[0].registerCashMinor).toEqual([0, 0]);
+    expect(collected.state.franchises[0].registerCashMinor).toEqual([0, 0, 0]);
     expect(collected.state.finances).toEqual(restored.finances);
     expect(collected.events[0]).toMatchObject({ category: "cash_collection", amountMinor: 0, payload: { lane, collectedMinor: sold.amountMinor } });
     expect(validateSaveTransition(sale.state, collected.state, collected.events)).toEqual({ ok: true });
@@ -102,32 +103,35 @@ describe("physical cash collection", () => {
     const collected = applyGameAction(sale.state, { type: "COLLECT_REGISTER", lane: 0 });
     const tick = advanceWorld(normalizeGameState(JSON.parse(JSON.stringify(collected.state))), 100);
     expect(tick.events.filter((event) => event.category === "sales")).toEqual([]);
-    expect(tick.state.franchises[0].registerCashMinor).toEqual([0, 0]);
+    expect(tick.state.franchises[0].registerCashMinor).toEqual([0, 0, 0]);
     expect(tick.state.balanceMinor).toBe(collected.state.balanceMinor);
   });
 
   it("does not spend register funds on building work", () => {
     const initial = createInitialGame();
     initial.balanceMinor = 0;
-    initial.franchises[0].registerCashMinor = [100_000, 0];
+    initial.franchises[0].registerCashMinor = [100_000, 0, 0];
     const blocked = applyGameAction(initial, { type: "CONTRIBUTE_BUILD", amountMinor: 500 });
     expect(blocked.ok).toBe(false);
-    expect(blocked.state.franchises[0].registerCashMinor).toEqual([100_000, 0]);
+    expect(blocked.state.franchises[0].registerCashMinor).toEqual([100_000, 0, 0]);
   });
 
   it("collects the selected lane without touching the other one or another shop", () => {
     const initial = createInitialGame();
-    initial.franchises[0].registerCashMinor = [400, 900];
-    initial.franchises[1].registerCashMinor = [700, 0];
+    initial.franchises[0].registerCashMinor = [400, 900, 250];
+    initial.franchises[1].registerCashMinor = [700, 0, 0];
     const result = applyGameAction(initial, { type: "COLLECT_REGISTER", lane: 1 });
     expect(result.state.balanceMinor).toBe(initial.balanceMinor + 900);
-    expect(result.state.franchises[0].registerCashMinor).toEqual([400, 0]);
-    expect(result.state.franchises[1].registerCashMinor).toEqual([700, 0]);
+    expect(result.state.franchises[0].registerCashMinor).toEqual([400, 0, 250]);
+    expect(result.state.franchises[1].registerCashMinor).toEqual([700, 0, 0]);
+    const third = applyGameAction(result.state, { type: "COLLECT_REGISTER", lane: 2 });
+    expect(third.state.balanceMinor).toBe(initial.balanceMinor + 900 + 250);
+    expect(third.state.franchises[0].registerCashMinor).toEqual([400, 0, 0]);
   });
 
   it("processes repeated proximity pulses atomically inside one world tick", () => {
     const initial = createInitialGame();
-    initial.franchises[0].registerCashMinor = [700, 0];
+    initial.franchises[0].registerCashMinor = [700, 0, 0];
     const result = advanceWorld(initial, 0, undefined, { interactions: [{ type: "COLLECT_REGISTER", lane: 0 }, { type: "COLLECT_REGISTER", lane: 0 }] });
     expect(result.state.balanceMinor).toBe(initial.balanceMinor + 700);
     expect(result.events.filter((event) => event.category === "cash_collection")).toHaveLength(1);
@@ -136,7 +140,7 @@ describe("physical cash collection", () => {
 
   it("rejects an unrecorded transfer even if total wealth is unchanged", () => {
     const initial = createInitialGame();
-    initial.franchises[0].registerCashMinor = [700, 0];
+    initial.franchises[0].registerCashMinor = [700, 0, 0];
     const forged = structuredClone(initial);
     forged.balanceMinor += 700;
     forged.franchises[0].registerCashMinor[0] = 0;
@@ -145,15 +149,30 @@ describe("physical cash collection", () => {
 
   it("rejects cash transported between lanes without collection", () => {
     const initial = createInitialGame();
-    initial.franchises[0].registerCashMinor = [700, 0];
+    initial.franchises[0].registerCashMinor = [700, 0, 0];
     const forged = structuredClone(initial);
-    forged.franchises[0].registerCashMinor = [0, 700];
+    forged.franchises[0].registerCashMinor = [0, 700, 0];
     expect(validateSaveTransition(initial, forged, [])).toEqual({ ok: false, code: "INVALID_BALANCE_DELTA" });
+    const forgedThird = structuredClone(initial);
+    forgedThird.franchises[0].registerCashMinor = [0, 0, 700];
+    expect(validateSaveTransition(initial, forgedThird, [])).toEqual({ ok: false, code: "INVALID_BALANCE_DELTA" });
+  });
+
+  it("pads saves written before the third till with an empty third drawer", () => {
+    const initial = createInitialGame();
+    initial.franchises[0].registerCashMinor = [700, 300, 0];
+    const twoLanes = JSON.parse(JSON.stringify(initial)) as GameState;
+    (twoLanes.franchises[0] as { registerCashMinor: number[] }).registerCashMinor = [700, 300];
+    const parsed = savePayloadSchema.parse(payload(twoLanes)).state as GameState;
+    expect(parsed.franchises[0].registerCashMinor).toEqual([700, 300, 0]);
+    expect(normalizeGameState(JSON.parse(JSON.stringify(twoLanes))).franchises[0].registerCashMinor).toEqual([700, 300, 0]);
+    expect(validateSaveTransition(initial, parsed, [])).toEqual({ ok: true });
+    expect(savePayloadSchema.safeParse(payload({ ...twoLanes, franchises: [{ ...twoLanes.franchises[0], registerCashMinor: [1, 2, 3, 4] as unknown as [number, number, number] }] })).success).toBe(false);
   });
 
   it("rejects a missing balance instead of silently discarding pending money", () => {
     const initial = createInitialGame();
-    initial.franchises[0].registerCashMinor = [700, 0];
+    initial.franchises[0].registerCashMinor = [700, 0, 0];
     const restoredLegacy = savePayloadSchema.parse({ ...payload(initial), state: preRegisterChecksumState(initial) }).state as GameState;
     expect(validateSaveTransition(initial, restoredLegacy, [])).toEqual({ ok: false, code: "INVALID_BALANCE_DELTA" });
   });

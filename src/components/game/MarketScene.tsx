@@ -5,7 +5,7 @@ import { fixtureAvailable } from "@/game/stations/fixture-availability";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { ContactShadows, Environment, Lightformer, Line, OrthographicCamera, useGLTF } from "@react-three/drei";
 import { BallCollider, CapsuleCollider, CuboidCollider, CylinderCollider, Physics, RigidBody, useBeforePhysicsStep, useRapier, type RapierCollider, type RapierRigidBody } from "@react-three/rapier";
-import { Fragment, memo, Suspense, useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { Fragment, memo, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
 import * as THREE from "three";
 import { Avatar, type CharacterAnimation } from "./Avatar";
 import { MarketRenderProfileContext, useGlassTransmission } from "./MarketRenderProfile";
@@ -29,7 +29,7 @@ import { marketPerformanceBaselineEnabled, marketPerformanceProbeEnabled } from 
 import { createWalkableStoreGeometry, storePathfinder } from "@/game/navigation/NavMeshService";
 import { captureEmployeeMotion, projectCustomerMotion, type CustomerMotionSnapshot } from "@/game/animation/CustomerVisualMotion";
 import { ADULT_CHARACTER_SCENE_SCALE, characterSceneScale, CHILD_CHARACTER_SCENE_SCALE } from "@/game/animation/CharacterScale";
-import { CHECKOUT_CAMERA_FRAME, CHECKOUT_CAMERA_POSITION as CHECKOUT_CAMERA_POSITION_COORDS, CHECKOUT_CAMERA_TARGET as CHECKOUT_CAMERA_TARGET_COORDS, checkoutQueuePosition } from "@/game/stations/checkout-layout";
+import { CHECKOUT_CAMERA_FRAME, CHECKOUT_CAMERA_POSITION as CHECKOUT_CAMERA_POSITION_COORDS, CHECKOUT_CAMERA_TARGET as CHECKOUT_CAMERA_TARGET_COORDS, CHECKOUT_LANE_IDS, checkoutAreaForLane, checkoutQueuePosition } from "@/game/stations/checkout-layout";
 import { isStockingInteractionId, PRODUCT_RETAIL_DEPARTMENT, retailDepartmentFromStockingInteraction, retailDisplayPosition, retailFixtureDisplayPositions, retailStockingMagnets, retailStockFixtureSlot, retailStockLandingLocalPosition, RETAIL_DEPARTMENT_IDS, RETAIL_DEPARTMENTS, stockingInteractionId, type StockingInteractionId } from "@/game/stations/retail-layout";
 import { isWorkstationId, isWorkstationUnlocked, WORKSTATIONS, WORKSTATION_IDS, type WorkstationId } from "@/game/stations/workstation-layout";
 import { farmAnimalMagnet, farmInteractionId, farmPlotById, FARM_ACCESS_WAYPOINTS, FARM_BARN, FARM_GATE, FARM_PLOTS, FARM_WORKER_HOME, scaledFarmHarvestSensor, type FarmInteractionId } from "@/game/stations/farm-layout";
@@ -58,14 +58,18 @@ import { OVERVIEW_CAMERA_OFFSET } from "@/game/render/overview-camera";
 import { reportClientTelemetry } from "@/lib/client-telemetry";
 import { isRegisterInteractionId, REGISTER_INTERACTION_IDS, registerLane, registerPickupPosition, type RegisterInteractionId } from "@/game/stations/register-layout";
 
-import { isPurchaseInteractionId, purchaseIdFromInteraction, purchaseInteractionId, PURCHASE_POSITIONS, PURCHASE_RING, type PurchaseInteractionId } from "@/game/stations/purchase-layout";
+import { isPurchaseInteractionId, purchaseIdFromInteraction, purchaseInteractionId, PURCHASE_POSITIONS, type PurchaseInteractionId } from "@/game/stations/purchase-layout";
+import { PURCHASE_MARKER } from "@/game/stations/purchase-marker";
+import { PURCHASE_CONTRIBUTION_PULSE_MS } from "@/game/progression/PurchaseState";
+import { CASH_BUNDLE_RENDER_CAP, cashBundleCount } from "@/game/economy/cash-bundles";
 import { OPENING_PURCHASES, type OpeningPurchaseId } from "@/game/progression/MartCampaign";
 export type InteractionId = Exclude<WorkstationId, "shelf"> | StockingInteractionId | FarmInteractionId | RegisterInteractionId | PurchaseInteractionId | "warehouseReturn" | "farmBarn" | "orders" | "door";
 export interface InteractionVisualEvent {
   id: InteractionId;
   sequence: number;
-  kind: "work" | "harvest" | "stock" | "return";
+  kind: "work" | "harvest" | "stock" | "return" | "pay";
   cropId?: string;
+  purchaseId?: OpeningPurchaseId;
   productId?: ProductId;
   quantity?: number;
   remainingQuantity?: number;
@@ -146,7 +150,9 @@ interface MarketSceneProps {
   playerSpeedTier: number;
   customers: CustomerRuntimeState[];
   checkoutTransactions: CheckoutTransaction[];
-  registerCashMinor: [number, number];
+  registerCashMinor: readonly [number, number, number];
+  /** Money per drawn bundle, already scaled to the country. */
+  cashBundleMinor: number;
   purchaseMarkers: PurchaseMarker[];
   returnsBin: Inventory;
   returnedCartCount: number;
@@ -174,7 +180,7 @@ interface MarketSceneProps {
   debug?: boolean;
 }
 
-export const MarketScene = memo(function MarketScene({ avatar, carry, visualCarry, customers, checkoutTransactions, registerCashMinor, purchaseMarkers, returnsBin, returnedCartCount, crops, visualCrops, productionMachines, shelves, visualShelves, shelfTier, unlockedAreas, lightsOn, minuteOfDay, simulationTimeMs, employees, onInteract, onDistance, onDoorPresence, onSceneReady, lastInteraction, transferEvents, onTransferProgress, open, doorState, doorProgress, checkoutLevel, playerSpeedTier, debug = false }: MarketSceneProps) {
+export const MarketScene = memo(function MarketScene({ avatar, carry, visualCarry, customers, checkoutTransactions, registerCashMinor, cashBundleMinor, purchaseMarkers, returnsBin, returnedCartCount, crops, visualCrops, productionMachines, shelves, visualShelves, shelfTier, unlockedAreas, lightsOn, minuteOfDay, simulationTimeMs, employees, onInteract, onDistance, onDoorPresence, onSceneReady, lastInteraction, transferEvents, onTransferProgress, open, doorState, doorProgress, checkoutLevel, playerSpeedTier, debug = false }: MarketSceneProps) {
   const playerFocus = useRef(new THREE.Vector3(...PLAYER_START));
   const playerMotionActiveRef = useRef(false);
   const sceneSettledRef = useRef(false);
@@ -291,7 +297,7 @@ export const MarketScene = memo(function MarketScene({ avatar, carry, visualCarr
       <ambientLight intensity={daylight.ambientIntensity} />
       <MarketKeyLight shadowMapSize={renderProfile.shadowMapSize} publishDiagnostics={performanceProbe} intensity={daylight.keyIntensity} color={daylight.keyColor} />
       <group scale={WORLD_SCALE}>
-        <RegisterCashMarkers amounts={registerCashMinor} />
+        <RegisterCashMarkers amounts={registerCashMinor} bundleMinor={cashBundleMinor} />
         <PurchaseMarkers markers={purchaseMarkers} />
         <group name="perf:ground" scale={[STORE_LAYOUT_SCALE, 1, STORE_LAYOUT_SCALE]}><MarketGround /></group>
         <Suspense fallback={null}>
@@ -313,7 +319,9 @@ export const MarketScene = memo(function MarketScene({ avatar, carry, visualCarr
               ? <StockMagnetBurst key={event.sequence} sequence={event.sequence} productId={event.productId} quantity={event.quantity ?? 1} shelfStart={event.shelfStart ?? 0} basketTarget={basketTarget} onProgress={onTransferProgress} unlockedAreas={unlockedAreas} />
               : event.kind === "return" && event.productId
                 ? <ReturnMagnetBurst key={event.sequence} sequence={event.sequence} productId={event.productId} quantity={event.quantity ?? 1} basketTarget={basketTarget} onProgress={onTransferProgress} />
-                : null)}
+                : event.kind === "pay" && event.purchaseId
+                  ? <PayMagnetBurst key={event.sequence} sequence={event.sequence} purchaseId={event.purchaseId} quantity={event.quantity ?? 1} basketTarget={basketTarget} onProgress={onTransferProgress} />
+                  : null)}
           {debug && <DebugWorld customers={customers} crops={crops} unlockedAreas={unlockedAreas} />}
         </Suspense>
         <group name="perf:employees"><Suspense fallback={null}><Employees employees={employees} /></Suspense></group>
@@ -343,7 +351,7 @@ function sameMarketSceneProps(previous: MarketSceneProps, next: MarketSceneProps
       || marker.remainingLabel !== next.purchaseMarkers[index].remainingLabel
       || marker.funded !== next.purchaseMarkers[index].funded
       || marker.highlighted !== next.purchaseMarkers[index].highlighted)) return false;
-  if (previous.registerCashMinor[0] !== next.registerCashMinor[0] || previous.registerCashMinor[1] !== next.registerCashMinor[1]) return false;
+  if (previous.cashBundleMinor !== next.cashBundleMinor || previous.registerCashMinor.some((amount, lane) => amount !== next.registerCashMinor[lane])) return false;
   if (previous.debug !== next.debug || previous.onSceneReady !== next.onSceneReady || previous.checkoutLevel !== next.checkoutLevel || previous.playerSpeedTier !== next.playerSpeedTier || previous.shelfTier !== next.shelfTier || previous.open !== next.open || previous.doorState !== next.doorState || previous.doorProgress !== next.doorProgress) return false;
   if (previous.crops !== next.crops || previous.visualCrops !== next.visualCrops || previous.productionMachines !== next.productionMachines || previous.shelves !== next.shelves || previous.visualShelves !== next.visualShelves || previous.unlockedAreas !== next.unlockedAreas || previous.lightsOn !== next.lightsOn || previous.minuteOfDay !== next.minuteOfDay || previous.simulationTimeMs !== next.simulationTimeMs) return false;
   if (previous.customers !== next.customers || previous.checkoutTransactions !== next.checkoutTransactions || previous.returnsBin !== next.returnsBin || previous.returnedCartCount !== next.returnedCartCount) return false;
@@ -839,6 +847,53 @@ function ReturnMagnetBurst({ sequence, productId, quantity, basketTarget, onProg
   </group>)}</group>;
 }
 
+/** Bundles thrown from the owner's hands into the marker square while paying. */
+function PayMagnetBurst({ sequence, purchaseId, quantity, basketTarget, onProgress }: { sequence: number; purchaseId: OpeningPurchaseId; quantity: number; basketTarget: RefObject<THREE.Vector3>; onProgress: (sequence: number, remainingQuantity: number) => void }) {
+  const particleCount = Math.min(8, Math.max(1, Math.floor(quantity)));
+  const particles = useRef<Array<THREE.Group | null>>([]);
+  const sources = useRef<Array<THREE.Vector3 | null>>([]);
+  const landed = useRef<boolean[]>([]);
+  const elapsed = useRef(0);
+  const publishedRemaining = useRef(particleCount);
+  const target = useMemo(() => {
+    const position = scaleStorePosition(PURCHASE_POSITIONS[purchaseId]);
+    return new THREE.Vector3(position[0], position[1] + 0.06, position[2]);
+  }, [purchaseId]);
+
+  useFrame((_, delta) => {
+    elapsed.current += visualTransferDelta(delta);
+    let landedCount = 0;
+    for (let index = 0; index < particleCount; index += 1) {
+      const started = elapsed.current >= index * 0.04;
+      if (started && !sources.current[index]) sources.current[index] = basketTarget.current.clone();
+      const t = THREE.MathUtils.clamp((elapsed.current - index * 0.04) / 0.32, 0, 1);
+      if (t >= 1) landed.current[index] = true;
+      if (landed.current[index]) landedCount += 1;
+      const particle = particles.current[index];
+      if (!particle) continue;
+      particle.visible = t < 1 && started;
+      if (!particle.visible) continue;
+      const eased = t * t * (3 - 2 * t);
+      const source = sources.current[index] ?? basketTarget.current;
+      const spreadX = (index % 3 - 1) * 0.12 * STORE_ELEMENT_SCALE;
+      const spreadZ = (index % 2 - 0.5) * 0.1 * STORE_ELEMENT_SCALE;
+      particle.position.set(
+        THREE.MathUtils.lerp(source.x, target.x + spreadX, eased),
+        THREE.MathUtils.lerp(source.y, target.y, eased) + Math.sin(Math.PI * t) * 0.7,
+        THREE.MathUtils.lerp(source.z, target.z + spreadZ, eased),
+      );
+      particle.rotation.x += delta * (6 + index);
+      particle.rotation.z += delta * 4;
+    }
+    const remaining = particleCount - landedCount;
+    if (remaining === publishedRemaining.current) return;
+    publishedRemaining.current = remaining;
+    onProgress(sequence, remaining);
+  });
+
+  return <group>{Array.from({ length: particleCount }, (_, index) => <group key={index} ref={(node) => { particles.current[index] = node; }}><CashBundle /></group>)}</group>;
+}
+
 function DebugWorld({ customers, crops, unlockedAreas }: { customers: CustomerRuntimeState[]; crops: CropState[]; unlockedAreas: string[] }) {
   const areaSignature = unlockedAreas.join("|");
   const navGeometry = useMemo(() => createWalkableStoreGeometry(areaSignature.split("|")), [areaSignature]);
@@ -847,8 +902,8 @@ function DebugWorld({ customers, crops, unlockedAreas }: { customers: CustomerRu
     ["tomato/pan", -4.1, -0.9], ["maíz", -4, 4.15], ["frío", 0, -3.35],
     ["queso", 0, 4.2], ["huevos", 4.1, -0.9], ["zumo", 4, 4.15],
   ];
-  const queueSlots = [0, 1].flatMap((lane) => Array.from({ length: 6 }, (_, slot) => {
-    const point = checkoutQueuePosition(slot, lane === 1 ? 1 : 0);
+  const queueSlots = CHECKOUT_LANE_IDS.flatMap((lane) => Array.from({ length: 6 }, (_, slot) => {
+    const point = checkoutQueuePosition(slot, lane);
     return { lane, slot, position: scaleStorePosition([point[0], 0.055, point[1]]) };
   }));
   return <group>
@@ -1624,8 +1679,8 @@ function InteractionSensorCollider({ zone }: { zone: InteractionZoneConfig }) {
  * while it is being funded, so paying reads as paying, not as a menu click.
  */
 const PurchaseMarkers = memo(function PurchaseMarkers({ markers }: { markers: readonly PurchaseMarker[] }) {
-  return <group name="purchase-markers">
-    {markers.map((marker) => <PurchaseRing key={marker.id} marker={marker} />)}
+  return <group name="dynamic:purchase-markers">
+    {markers.map((marker) => <PurchaseSquare key={marker.id} marker={marker} />)}
   </group>;
 }, (previous, next) => previous.markers.length === next.markers.length
   && previous.markers.every((marker, index) => marker.id === next.markers[index].id
@@ -1633,78 +1688,104 @@ const PurchaseMarkers = memo(function PurchaseMarkers({ markers }: { markers: re
     && marker.funded === next.markers[index].funded
     && marker.highlighted === next.markers[index].highlighted));
 
-const PURCHASE_BILL_COUNT = 5;
-
-function PurchaseRing({ marker }: { marker: PurchaseMarker }) {
-  const bills = useRef<THREE.Group>(null);
-  const pulse = useRef<THREE.Mesh>(null);
+/** A small pulsing square beside the thing it buys, filling as it is paid,
+ * and a standing sign turned to the camera with the name and what is left.
+ * Bundles only fly into it while the owner stands on it (PayMagnetBurst). */
+function PurchaseSquare({ marker }: { marker: PurchaseMarker }) {
+  const pulse = useRef<THREE.Group>(null);
   const funded = Math.max(0, Math.min(1, marker.funded));
+  const size = PURCHASE_MARKER.halfSize * 2;
   useFrame((state) => {
-    const elapsed = state.clock.elapsedTime;
-    if (bills.current) {
-      bills.current.children.forEach((bill, index) => {
-        const phase = (elapsed * 0.9 + index / PURCHASE_BILL_COUNT) % 1;
-        bill.position.y = 1.15 * (1 - phase);
-        bill.rotation.z = Math.sin((elapsed + index) * 3.2) * 0.5;
-        bill.rotation.x = -Math.PI / 2 + Math.sin((elapsed + index) * 2.1) * 0.35;
-        bill.scale.setScalar(phase > 0.92 ? Math.max(0, (1 - phase) / 0.08) : 1);
-      });
-    }
-    if (pulse.current) {
-      const breath = 1 + Math.sin(elapsed * 2.4) * (marker.highlighted ? 0.09 : 0.03);
-      pulse.current.scale.set(breath, breath, breath);
-    }
+    if (!pulse.current) return;
+    const breath = 1 + Math.sin(state.clock.elapsedTime * 3.1) * (marker.highlighted ? 0.12 : 0.07);
+    pulse.current.scale.set(breath, 1, breath);
   });
   return <group position={scaleStorePosition(PURCHASE_POSITIONS[marker.id])} scale={STORE_ELEMENT_SCALE}>
-    <mesh ref={pulse} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
-      <ringGeometry args={[PURCHASE_RING.radius, PURCHASE_RING.radius + 0.11, 40]} />
-      <meshBasicMaterial color={marker.highlighted ? "#ffd75e" : "#e8ca6b"} transparent opacity={0.92} />
-    </mesh>
-    {funded > 0 && <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
-      <circleGeometry args={[PURCHASE_RING.radius * funded, 32]} />
-      <meshBasicMaterial color="#7fba63" transparent opacity={0.45} />
-    </mesh>}
-    <group ref={bills}>
-      {Array.from({ length: PURCHASE_BILL_COUNT }, (_, index) => <mesh key={index} position={[(index - 2) * 0.12, 0.6, (index % 2 ? 0.08 : -0.08)]}>
-        <boxGeometry args={[0.2, 0.012, 0.1]} />
-        <meshStandardMaterial color="#79b063" roughness={0.85} />
-      </mesh>)}
-    </group>
-    {/* The price lies on the floor, squared to the isometric camera so it
-        reads horizontally, instead of floating over the world behind it. */}
-    <group rotation={[0, FLOOR_LABEL_YAW, 0]}>
-    <group position={[0, 0.025, 1.08]} rotation={[-Math.PI / 2, 0, 0]}>
-      <mesh position={[0, 0.3, -0.002]}>
-        <planeGeometry args={[2.5, 0.92]} />
-        <meshBasicMaterial color="#fff6d9" transparent opacity={0.82} />
+    <group ref={pulse}>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.012, 0]}>
+        <planeGeometry args={[size, size]} />
+        <meshBasicMaterial color={marker.highlighted ? "#ffd75e" : "#e8ca6b"} transparent opacity={0.95} />
       </mesh>
-      <Text position={[0, 0.46, 0]} fontSize={0.21} maxWidth={2.4} textAlign="center" color="#2a4a3e" anchorX="center" anchorY="middle" fontWeight={800}>{marker.label}</Text>
-      <Text position={[0, 0.1, 0]} fontSize={0.34} maxWidth={2.4} textAlign="center" color="#1f5c3b" anchorX="center" anchorY="middle" fontWeight={900}>{marker.remainingLabel}</Text>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.018, 0]}>
+        <planeGeometry args={[size - 0.1, size - 0.1]} />
+        <meshBasicMaterial color="#2e4a3f" transparent opacity={0.85} />
+      </mesh>
+      {funded > 0 && <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.024, 0]}>
+        <planeGeometry args={[(size - 0.1) * funded, (size - 0.1) * funded]} />
+        <meshBasicMaterial color="#7fba63" transparent opacity={0.9} />
+      </mesh>}
     </group>
+    <group position={[0, 0, PURCHASE_MARKER.signOffsetZ]} rotation={[0, FLOOR_LABEL_YAW, 0]}>
+      <mesh position={[0, PURCHASE_MARKER.signHeight / 2, 0]}>
+        <boxGeometry args={[0.06, PURCHASE_MARKER.signHeight, 0.06]} />
+        <meshStandardMaterial color="#4b5b56" metalness={0.3} />
+      </mesh>
+      <group position={[0, PURCHASE_MARKER.signHeight + 0.34, 0]} rotation={[-0.2, 0, 0]}>
+        <mesh><boxGeometry args={[1.76, 0.84, 0.06]} /><meshStandardMaterial color="#f4e4ad" roughness={0.6} /></mesh>
+        <mesh position={[0, 0, 0.031]}><planeGeometry args={[1.64, 0.72]} /><meshBasicMaterial color="#fff8e1" /></mesh>
+        <Text position={[0, 0.2, 0.036]} fontSize={0.15} maxWidth={1.56} textAlign="center" color="#2a4a3e" anchorX="center" anchorY="middle" fontWeight={800}>{marker.label}</Text>
+        <Text position={[0, -0.18, 0.036]} fontSize={0.27} maxWidth={1.56} textAlign="center" color="#1f5c3b" anchorX="center" anchorY="middle" fontWeight={900}>{marker.remainingLabel}</Text>
+      </group>
     </group>
   </group>;
 }
 
-const RegisterCashMarkers = memo(function RegisterCashMarkers({ amounts }: { amounts: readonly [number, number] }) {
-  return <group name="register-cash-markers">
+const CASH_BUNDLE_SIZE = [0.2, 0.05, 0.1] as const;
+const CASH_STACK_PER_LAYER = 9;
+
+/** One instanced box per bundle, nine to a layer, so a big drawer is a
+ * visibly taller stack without a draw call per bundle. */
+function CashBundleStack({ count }: { count: number }) {
+  const ref = useRef<THREE.InstancedMesh>(null);
+  useLayoutEffect(() => {
+    const mesh = ref.current;
+    if (!mesh) return;
+    const matrix = new THREE.Matrix4();
+    for (let index = 0; index < count; index += 1) {
+      const layer = Math.floor(index / CASH_STACK_PER_LAYER);
+      const slot = index % CASH_STACK_PER_LAYER;
+      matrix.makeTranslation((slot % 3 - 1) * (CASH_BUNDLE_SIZE[0] + 0.02), CASH_BUNDLE_SIZE[1] / 2 + layer * (CASH_BUNDLE_SIZE[1] + 0.004), (Math.floor(slot / 3) - 1) * (CASH_BUNDLE_SIZE[2] + 0.02));
+      mesh.setMatrixAt(index, matrix);
+    }
+    mesh.count = count;
+    mesh.instanceMatrix.needsUpdate = true;
+    mesh.computeBoundingSphere();
+  }, [count]);
+  return <instancedMesh ref={ref} args={[undefined, undefined, CASH_BUNDLE_RENDER_CAP]} frustumCulled={false}>
+    <boxGeometry args={[...CASH_BUNDLE_SIZE]} />
+    <meshStandardMaterial color="#79b063" roughness={0.85} />
+  </instancedMesh>;
+}
+
+/** A bundle in flight or on the floor: the same green brick everywhere. */
+function CashBundle() {
+  return <group scale={STORE_ELEMENT_SCALE}>
+    <mesh><boxGeometry args={[...CASH_BUNDLE_SIZE]} /><meshStandardMaterial color="#79b063" roughness={0.85} /></mesh>
+    <mesh><boxGeometry args={[0.07, CASH_BUNDLE_SIZE[1] + 0.006, CASH_BUNDLE_SIZE[2] + 0.006]} /><meshStandardMaterial color="#efe3b8" roughness={0.9} /></mesh>
+  </group>;
+}
+
+const RegisterCashMarkers = memo(function RegisterCashMarkers({ amounts, bundleMinor }: { amounts: readonly [number, number, number]; bundleMinor: number }) {
+  return <group name="dynamic:register-cash">
     {REGISTER_INTERACTION_IDS.map((id) => {
       const lane = registerLane(id);
-      if (amounts[lane] <= 0) return null;
+      const bundles = Math.min(CASH_BUNDLE_RENDER_CAP, cashBundleCount(amounts[lane], bundleMinor));
+      if (bundles <= 0) return null;
+      const stackHeight = Math.ceil(bundles / CASH_STACK_PER_LAYER) * (CASH_BUNDLE_SIZE[1] + 0.004);
       return <group key={id} position={scaleStorePosition(registerPickupPosition(lane))} scale={STORE_ELEMENT_SCALE}>
         <mesh rotation={[-Math.PI / 2, 0, 0]}><ringGeometry args={[0.42, 0.48, 32]} /><meshBasicMaterial color="#e8ca6b" /></mesh>
-        <mesh position={[0, 0.13, 0]}><boxGeometry args={[0.42, 0.14, 0.24]} /><meshStandardMaterial color="#73a95c" roughness={0.8} /></mesh>
-        <mesh position={[0, 0.205, 0]}><boxGeometry args={[0.09, 0.012, 0.25]} /><meshStandardMaterial color="#f0dfaa" roughness={0.9} /></mesh>
-        <Text position={[0, 0.45, 0]} fontSize={0.13} color="#28483e" outlineColor="#fff1bf" outlineWidth={0.01} anchorX="center">RECOGER</Text>
+        <CashBundleStack count={bundles} />
+        <Text position={[0, stackHeight + 0.3, 0]} fontSize={0.13} color="#28483e" outlineColor="#fff1bf" outlineWidth={0.01} anchorX="center">RECOGER</Text>
       </group>;
     })}
   </group>;
-}, (previous, next) => previous.amounts[0] === next.amounts[0] && previous.amounts[1] === next.amounts[1]);
+}, (previous, next) => previous.bundleMinor === next.bundleMinor && previous.amounts.every((amount, lane) => amount === next.amounts[lane]));
 
 function interactionZoneConfigs(checkoutLevel = 1, unlockedAreas: readonly string[] = [], activeCropIds: readonly string[] = [], availablePurchaseIds: readonly string[] = []): InteractionZoneConfig[] {
   const storeZones = ZONES.filter((zone) => (
     (!isPurchaseInteractionId(zone.id) || availablePurchaseIds.includes(purchaseIdFromInteraction(zone.id)))
     && (!retailDepartmentFromStockingInteraction(zone.id) || fixtureAvailable(`fixture:retail-${retailDepartmentFromStockingInteraction(zone.id)}-1`, unlockedAreas))
-    && (zone.id !== "register-1" || unlockedAreas.includes("checkout-2"))
+    && (!isRegisterInteractionId(zone.id) || registerLane(zone.id) === 0 || unlockedAreas.includes(checkoutAreaForLane(registerLane(zone.id))))
     && (!isWorkstationId(zone.id) || isWorkstationUnlocked(zone.id, unlockedAreas))
   )).flatMap((zone): InteractionZoneConfig[] => {
     const departmentId = retailDepartmentFromStockingInteraction(zone.id);
@@ -1750,21 +1831,21 @@ function interactionZoneConfigs(checkoutLevel = 1, unlockedAreas: readonly strin
       enterRadius: magnet?.enterRadius ?? (doorSensor
         ? doorSensor.enterMargin * STORE_LAYOUT_SCALE
         : (isPurchaseInteractionId(zone.id)
-            ? PURCHASE_RING.enterRadius
+            ? PURCHASE_MARKER.enterRadius
             : zone.id === "warehouseReturn"
               ? WAREHOUSE_RETURN_STATION.enterRadius
               : isWorkstationId(zone.id) ? 0.8 : 0.75) * STORE_ELEMENT_SCALE),
       exitRadius: magnet?.exitRadius ?? (doorSensor
         ? doorSensor.exitMargin * STORE_LAYOUT_SCALE
         : (isPurchaseInteractionId(zone.id)
-            ? PURCHASE_RING.exitRadius
+            ? PURCHASE_MARKER.exitRadius
             : zone.id === "warehouseReturn"
               ? WAREHOUSE_RETURN_STATION.exitRadius
               : isWorkstationId(zone.id) ? 1.0 : 0.9) * STORE_ELEMENT_SCALE),
       actorMask: ["player"],
       priority: isStockingInteractionId(zone.id) ? 80 : isPurchaseInteractionId(zone.id) ? 30 : ({ orders: 25, checkout: 100, mill: 70, bakery: 70, cheese: 70, juice: 70, chicken: 65, cow: 65, door: 20, warehouseReturn: 6, farmBarn: 6 } as Partial<Record<InteractionId, number>>)[zone.id] ?? 10,
       dwellMs: zone.id === "warehouseReturn" || zone.id === "farmBarn" ? WAREHOUSE_RETURN_STATION.dwellMs : zone.id === "checkout" ? 180 : zone.id === "orders" ? 700 : zone.id === "door" || isPurchaseInteractionId(zone.id) || isStockingInteractionId(zone.id) || isProductionWorkstationId(zone.id) ? 0 : 80,
-      repeatEveryMs: zone.id === "warehouseReturn" || zone.id === "farmBarn" ? WAREHOUSE_RETURN_STATION.repeatEveryMs : zone.id === "orders" ? 60_000 : isPurchaseInteractionId(zone.id) ? 200 : isStockingInteractionId(zone.id) || isProductionWorkstationId(zone.id) ? 180 : zone.id === "checkout" ? (checkoutLevel >= 2 ? 340 : 450) : zone.id === "door" ? 60_000 : 220,
+      repeatEveryMs: zone.id === "warehouseReturn" || zone.id === "farmBarn" ? WAREHOUSE_RETURN_STATION.repeatEveryMs : zone.id === "orders" ? 60_000 : isPurchaseInteractionId(zone.id) ? PURCHASE_CONTRIBUTION_PULSE_MS : isStockingInteractionId(zone.id) || isProductionWorkstationId(zone.id) ? 180 : zone.id === "checkout" ? (checkoutLevel >= 2 ? 340 : 450) : zone.id === "door" ? 60_000 : 220,
       exitGraceMs: zone.id === "warehouseReturn" || zone.id === "farmBarn" ? WAREHOUSE_RETURN_STATION.exitGraceMs : 120,
       channel: zone.id === "door" || zone.id === "orders" || isPurchaseInteractionId(zone.id) || isRegisterInteractionId(zone.id) ? "passive" : zone.id === "checkout" ? "hands" : "transfer",
     };

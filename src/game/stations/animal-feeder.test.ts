@@ -21,14 +21,19 @@ function campaignThrough(id: string) {
 }
 
 describe("animal feeder", () => {
-  it("opens one desk with the cow and fills it with the purchase", () => {
+  it("opens one feeder desk per pen and fills each with its purchase", () => {
+    const beforeCoop = campaignThrough("egg-display-1");
+    expect(campaignEmployeeLimit(beforeCoop.franchises[0], "feeder")).toBe(0);
+    expect(beforeCoop.franchises[0].employees.some((employee) => employee.role === "feeder")).toBe(false);
+
+    // Both coops come before the cow in the level order.
     const beforeCow = campaignThrough("dairy-display-1");
-    expect(campaignEmployeeLimit(beforeCow.franchises[0], "feeder")).toBe(0);
-    expect(beforeCow.franchises[0].employees.some((employee) => employee.role === "feeder")).toBe(false);
+    expect(campaignEmployeeLimit(beforeCow.franchises[0], "feeder")).toBe(2);
+    expect(beforeCow.franchises[0].employees.filter((employee) => employee.role === "feeder")).toHaveLength(2);
 
     const withCow = campaignThrough("cow-1");
-    expect(campaignEmployeeLimit(withCow.franchises[0], "feeder")).toBe(1);
-    expect(withCow.franchises[0].employees.filter((employee) => employee.role === "feeder")).toHaveLength(1);
+    expect(campaignEmployeeLimit(withCow.franchises[0], "feeder")).toBe(3);
+    expect(withCow.franchises[0].employees.filter((employee) => employee.role === "feeder")).toHaveLength(3);
   });
 
   it("carries feed from the warehouse into the troughs and nothing else", () => {

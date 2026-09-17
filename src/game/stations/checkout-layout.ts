@@ -1,6 +1,8 @@
 import type { CheckoutTransaction, CustomerRuntimeState } from "../types";
 
-export type CheckoutLane = 0 | 1;
+export type CheckoutLane = 0 | 1 | 2;
+/** Every till the store can open, in the order cashiers fill them. */
+export const CHECKOUT_LANE_IDS = [0, 1, 2] as const satisfies readonly CheckoutLane[];
 export type StorePoint = readonly [x: number, z: number];
 export type StorePosition = readonly [x: number, y: number, z: number];
 
@@ -16,6 +18,10 @@ export interface CheckoutLaneLayout {
  * One source of truth for checkout geometry and navigation.
  * Positive Z is the entrance side: cashiers stand there facing into the store,
  * while customers approach from the sales floor on the negative-Z side.
+ * The tills form one column at x 7.55 every 3 units towards the rear. The
+ * third lane's queue starts further east than the others because the drinks
+ * display's service point (5.45, −3.1) sits where its queue would otherwise
+ * begin; slots then run south, between the display and the preserves gondola.
  */
 export const CHECKOUT_LANES: Record<CheckoutLane, CheckoutLaneLayout> = {
   0: {
@@ -32,7 +38,35 @@ export const CHECKOUT_LANES: Record<CheckoutLane, CheckoutLaneLayout> = {
     queueStart: [5.35, -0.15],
     bagPickup: [8.9, -0.15],
   },
+  2: {
+    counter: [7.55, 0, -2.05],
+    cashierWork: [8.05, 0.018, -0.88],
+    customerFront: [7, -3.15],
+    queueStart: [6.1, -3.95],
+    bagPickup: [8.9, -3.15],
+  },
 };
+
+export function isCheckoutLane(value: unknown): value is CheckoutLane {
+  return value === 0 || value === 1 || value === 2;
+}
+
+/** Saved lanes predate the third till or may be missing: fall back to the first. */
+export function checkoutLaneOf(value: number | null | undefined): CheckoutLane {
+  return isCheckoutLane(value) ? value : 0;
+}
+
+/** The area that opens each till; the first one exists from the start. */
+export function checkoutAreaForLane(lane: CheckoutLane) {
+  return `checkout-${lane + 1}`;
+}
+
+/** Tills open in order, so the count stops at the first closed one. */
+export function openCheckoutLaneCount(areas: readonly string[]) {
+  let count = 1;
+  while (count < CHECKOUT_LANE_IDS.length && areas.includes(checkoutAreaForLane(count as CheckoutLane))) count += 1;
+  return count;
+}
 
 export const CHECKOUT_CAMERA_TARGET: StorePosition = [7.35, 1.25, 3.55];
 export const CHECKOUT_CAMERA_POSITION: StorePosition = [8.8, 3.2, 6.8];
@@ -40,7 +74,7 @@ export const CHECKOUT_CAMERA_FRAME = { width: 10, height: 10 } as const;
 
 /** Cart parks on the customer's right, on the sales-floor side of the belt. */
 export function checkoutParkedCart(customer: Pick<CustomerRuntimeState, "state" | "queueLane" | "queueSlot" | "x" | "z">): StorePoint | null {
-  const front = CHECKOUT_LANES[customer.queueLane === 1 ? 1 : 0].customerFront;
+  const front = CHECKOUT_LANES[checkoutLaneOf(customer.queueLane)].customerFront;
   const serving = ["UNLOAD", "WAIT_CHECKOUT", "PAY"].includes(customer.state);
   const approaching = customer.queueSlot === 0 && ["NAVIGATE_TO_QUEUE", "MOVE_QUEUE"].includes(customer.state)
     && Math.hypot(customer.x - front[0], customer.z - front[1]) < 1.2;
@@ -84,8 +118,7 @@ export function checkoutCustomerFacingYaw(
   position: StorePoint,
 ): number | null {
   if (!CHECKOUT_CUSTOMER_FACING_STATES.has(customer.state)) return null;
-  const lane = customer.queueLane === 1 ? 1 : 0;
-  const counter = CHECKOUT_LANES[lane].counter;
+  const counter = CHECKOUT_LANES[checkoutLaneOf(customer.queueLane)].counter;
   return Math.atan2(counter[0] - position[0], counter[2] - position[1]);
 }
 
