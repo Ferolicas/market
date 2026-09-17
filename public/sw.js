@@ -1,6 +1,6 @@
 // Bump whenever same-path 3D assets change. Activation removes the previous
 // cache so installed PWAs cannot keep serving the retired character cast.
-const CACHE = "mini-market-v10-campaign30";
+const CACHE = "mini-market-v11-audio";
 const PRIVATE_CACHE = "mini-market-private-v1";
 const SHELL = ["/", "/manifest.webmanifest", "/icon.svg", "/icon-maskable.svg"];
 
@@ -39,7 +39,7 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  const isLargeStaticAsset = url.pathname.startsWith("/models/") || url.pathname.startsWith("/textures/");
+  const isLargeStaticAsset = url.pathname.startsWith("/models/") || url.pathname.startsWith("/textures/") || url.pathname.startsWith("/audio/");
   if (isLargeStaticAsset) {
     event.respondWith(caches.match(request).then((cached) => cached || fetch(request).then((response) => {
       if (response.ok) event.waitUntil(caches.open(CACHE).then((cache) => cache.put(request, response.clone())));

@@ -1,4 +1,4 @@
-export type FeedbackCue = "footstep" | "harvest" | "pickup" | "stock" | "scanner" | "payment" | "machine" | "door" | "upgrade";
+export type FeedbackCue = "footstep" | "harvest" | "pickup" | "stock" | "scanner" | "payment" | "machine" | "door" | "upgrade" | "mission" | "money";
 export type FeedbackSource = "player" | "npc" | "system";
 
 export interface FeedbackSignal {

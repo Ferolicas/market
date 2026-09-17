@@ -2,7 +2,8 @@
 
 import { useEffect } from "react";
 import { useMarketStore } from "@/game/store";
-import { AudioFeedback } from "@/game/feedback/AudioFeedback";
+import { audioSettingsOf, useAudioSettings } from "@/game/feedback/AudioSettingsStore";
+import { sharedGameAudio } from "@/game/feedback/GameAudio";
 import { feedbackBus } from "@/game/feedback/FeedbackBus";
 import { WORLD_TICK_INTERVAL_MS } from "@/game/core/timing";
 import { marketQaFreezeEnabled } from "@/game/debug/QaAccess";
@@ -21,9 +22,28 @@ export function GameRuntime() {
   useEffect(() => { void loadGame(); }, [loadGame]);
 
   useEffect(() => {
-    const audio = new AudioFeedback();
+    // Music, effects and vibration follow the device preference. Browsers only
+    // let sound start from a gesture, so every pointer or key press offers the
+    // unlock until the music is actually playing; the output outlives this
+    // mount because the shell swaps runtimes when the game finishes loading.
+    useAudioSettings.getState().hydrate();
+    const audio = sharedGameAudio(audioSettingsOf(useAudioSettings.getState()));
+    audio.applySettings(audioSettingsOf(useAudioSettings.getState()));
+    const unsubscribeSettings = useAudioSettings.subscribe((settings) => audio.applySettings(audioSettingsOf(settings)));
     const unsubscribe = feedbackBus.subscribe((signal) => audio.play(signal));
-    return () => { unsubscribe(); audio.close(); };
+    const unlock = () => audio.unlock();
+    const visibility = () => audio.setHidden(document.visibilityState !== "visible");
+    window.addEventListener("pointerdown", unlock, { capture: true, passive: true });
+    window.addEventListener("keydown", unlock, { capture: true });
+    document.addEventListener("visibilitychange", visibility);
+    visibility();
+    return () => {
+      window.removeEventListener("pointerdown", unlock, { capture: true });
+      window.removeEventListener("keydown", unlock, { capture: true });
+      document.removeEventListener("visibilitychange", visibility);
+      unsubscribe();
+      unsubscribeSettings();
+    };
   }, []);
 
   useEffect(() => {

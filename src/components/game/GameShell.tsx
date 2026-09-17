@@ -17,6 +17,8 @@ import { GameRuntime } from "./GameRuntime";
 import { AvatarCustomizer } from "./AvatarCustomizer";
 import { GameInputSurface } from "./GameInputSurface";
 import { feedbackBus, type FeedbackCue } from "@/game/feedback/FeedbackBus";
+import { useAudioSettings } from "@/game/feedback/AudioSettingsStore";
+import { newCustomerPayments, type PaymentSnapshot } from "@/game/feedback/PaymentCue";
 import { saveBadgePresentation, type SaveBadgeStatus } from "@/game/feedback/SaveBadgePolicy";
 import type { RendererMetrics } from "@/game/debug/PerformanceMonitor";
 import { carriedProductIds, carryQuantity, carryTotal, departmentStockingPulses } from "@/game/player/CarrySystem";
@@ -38,7 +40,7 @@ import { OPENING_PURCHASES, type OpeningPurchaseId } from "@/game/progression/Ma
 import { purchaseContributionPulseMinor } from "@/game/progression/PurchaseState";
 import { cashBundleCount, cashBundleMinor } from "@/game/economy/cash-bundles";
 
-type Panel = "stock" | "orders" | "team" | "map" | "finance" | "avatar" | "help" | null;
+type Panel = "stock" | "orders" | "team" | "map" | "finance" | "avatar" | "help" | "settings" | null;
 
 export function GameShell({ playerName }: { playerName: string }) {
   const game = useMarketStore((state) => state.game);
@@ -88,8 +90,23 @@ export function GameShell({ playerName }: { playerName: string }) {
     }
     const added = newlyCompletedPurchase(previous, { franchiseId: activeFranchise.id, purchased });
     const definition = OPENING_PURCHASES.find((purchase) => purchase.id === added);
-    if (definition) setCompletedPurchase({ id: definition.id, label: definition.label, franchiseId: activeFranchise.id });
+    if (!definition) return;
+    setCompletedPurchase({ id: definition.id, label: definition.label, franchiseId: activeFranchise.id });
+    feedbackBus.emit("mission");
   }, [purchasedSignature, activeFranchise]);
+
+  // The till rings for every customer who pays in the visited store; loading,
+  // travelling and the daily reset are not payments.
+  const customersToday = activeFranchise?.customersToday ?? 0;
+  const activeFranchiseId = activeFranchise?.id;
+  const previousPayments = useRef<PaymentSnapshot | null>(null);
+  useEffect(() => {
+    if (!activeFranchiseId) return;
+    const current = { franchiseId: activeFranchiseId, customersToday };
+    const paid = newCustomerPayments(previousPayments.current, current);
+    previousPayments.current = current;
+    if (paid > 0) feedbackBus.emit("payment");
+  }, [customersToday, activeFranchiseId]);
 
   const availablePurchases = game ? campaignPurchaseQuotes(game).filter((purchase) => purchase.available) : [];
   const availableSignature = availablePurchases.map((purchase) => purchase.id).join("|");
@@ -255,6 +272,8 @@ export function GameShell({ playerName }: { playerName: string }) {
         // into the marker square; the engine decides the money, this only draws it.
         const pulseMinor = Math.min(current.balanceMinor, quote.remainingMinor ?? 0, purchaseContributionPulseMinor(quote.costMinor ?? 0));
         visualEvents = [{ id, kind: "pay", purchaseId: quote.id, quantity: Math.min(8, cashBundleCount(pulseMinor, cashBundleMinor(countryMoneyScale(current.countryCode)))) }];
+        // The counter keeps running while bundles keep landing on the square.
+        feedbackBus.emit("money", { source: "player", actorId: "player" });
       } else performed = false;
     }
     if (isRegisterInteractionId(id)) {
@@ -312,7 +331,7 @@ export function GameShell({ playerName }: { playerName: string }) {
         setLastInteraction(null);
       }, 1050);
     }
-    const cue: Partial<Record<InteractionId, FeedbackCue>> = { mill: "machine", bakery: "machine", chicken: "pickup", cow: "pickup", cheese: "machine", juice: "machine", checkout: "scanner", door: "door" };
+    const cue: Partial<Record<InteractionId, FeedbackCue>> = { mill: "machine", bakery: "machine", chicken: "pickup", cow: "pickup", cheese: "machine", juice: "machine", canner: "machine", checkout: "scanner", door: "door" };
     if (performed && visualEvents.some((event) => event.kind === "harvest")) feedbackBus.emit("harvest", { source: "player", actorId: "player" });
     else if (performed && visualEvents.some((event) => event.kind === "stock" || event.kind === "return")) feedbackBus.emit("stock", { source: "player", actorId: "player" });
     else if (cue[id] && performed) feedbackBus.emit(cue[id], { source: "player", actorId: "player" });
@@ -385,6 +404,7 @@ export function GameShell({ playerName }: { playerName: string }) {
         <div className="hud-stat clock"><strong>{hour}</strong></div>
         <div className="hud-stat level"><strong>{levelLabel}</strong></div>
         <button className={`store-status ${franchise.open ? "open" : "closed"}`} disabled={dayClosing} aria-pressed={franchise.open} aria-label={dayClosing ? "Cierre de caja en curso" : franchise.open ? "Cerrar el supermercado y terminar el día" : "Abrir el supermercado"} onClick={() => dispatch({ type: "TOGGLE_STORE" })}><i/>{dayClosing ? "CERRANDO" : franchise.open ? "ABIERTO" : "CERRADO"}</button>
+        <SoundBadge onOpen={() => setPanel("settings")} />
         <SaveBadge status={status} lastSaveConfirmedAt={lastSaveConfirmedAt} lastSavedAt={game.lastSavedAt} detail={status === "error" || status === "conflict" || status === "offline" ? message : ""} onSave={() => void saveGame()} />
       </header>
 
@@ -433,7 +453,7 @@ export function GameShell({ playerName }: { playerName: string }) {
   );
 }
 
-type GameIconName = "store" | "inventory" | "suppliers" | "team" | "map" | "finance" | "build" | "avatar" | "help" | "target" | "gift" | "check" | "circle" | "chevron" | "cloud" | "warning";
+type GameIconName = "store" | "inventory" | "suppliers" | "team" | "map" | "finance" | "build" | "avatar" | "help" | "target" | "gift" | "check" | "circle" | "chevron" | "cloud" | "warning" | "sound" | "muted";
 
 const GAME_ICON_PATHS: Record<GameIconName, string[]> = {
   store: ["M3 10h18", "M5 10v10h14V10", "M4 4h16l2 6H2l2-6Z", "M8 20v-6h5v6"],
@@ -452,6 +472,8 @@ const GAME_ICON_PATHS: Record<GameIconName, string[]> = {
   chevron: ["m8 10 4 4 4-4"],
   cloud: ["M17.5 19H6a4 4 0 0 1-.4-7.98A6.5 6.5 0 0 1 18 9a5 5 0 0 1-.5 10Z", "m9 12 3-3 3 3", "M12 9v7"],
   warning: ["M10.3 3.7 2.2 18a2 2 0 0 0 1.74 3h16.12a2 2 0 0 0 1.74-3L13.7 3.7a2 2 0 0 0-3.4 0Z", "M12 9v4", "M12 17h.01"],
+  sound: ["M11 5 6 9H2v6h4l5 4V5Z", "M15.5 8.5a5 5 0 0 1 0 7", "M19 5a10 10 0 0 1 0 14"],
+  muted: ["M11 5 6 9H2v6h4l5 4V5Z", "m22 9-6 6", "m16 9 6 6"],
 };
 
 function GameIcon({ name }: { name: GameIconName }) {
@@ -526,7 +548,7 @@ function ManagementPanel({ panel, close }: { panel: Exclude<Panel, null>; close:
   const game = useMarketStore((state) => state.game)!; const dispatch = useMarketStore((state) => state.dispatch); const franchise = game.franchises.find((item) => item.id === game.currentFranchiseId)!;
   const dayClosing = businessDayIsClosing(game.minuteOfDay);
   const supplierUnlocked = (id: string) => (Object.keys(PRODUCTS) as ProductId[]).some((product) => PRODUCTS[product].supplier === id && canOrderProduct(game, product));
-  const title = { stock: "Inventario y estanterías", orders: "Pedidos", team: "Equipo y mejoras", map: "Mapa de franquicias", finance: "Dirección financiera", avatar: "Vestuario del fundador", help: "Cómo jugar" }[panel];
+  const title = { stock: "Inventario y estanterías", orders: "Pedidos", team: "Equipo y mejoras", map: "Mapa de franquicias", finance: "Dirección financiera", avatar: "Vestuario del fundador", help: "Cómo jugar", settings: "Sonido y vibración" }[panel];
   const contracts = campaignContracts(franchise);
   const personalTasks = franchise.purchases ? campaignPersonalTasks(game) : levelObjectiveTasks(game.level, game);
   const warehouseProducts = (Object.keys(PRODUCTS) as ProductId[]).filter((id) => franchise.warehouse[id] > 0);
@@ -606,6 +628,7 @@ function ManagementPanel({ panel, close }: { panel: Exclude<Panel, null>; close:
       })}</div>}
       {panel === "finance" && <FinancePanel />}
       {panel === "avatar" && <AvatarCustomizer avatar={game.avatar} onChange={(change) => dispatch({ type: "SET_AVATAR", ...change })} />}
+      {panel === "settings" && <SettingsPanel />}
       {panel === "help" && <div className="help-grid"><article><kbd>ARRASTRA</kbd><kbd>WASD</kbd><strong>Moverse</strong><p>Arrastra desde cualquier punto libre con ratón, dedo o lápiz. El teclado sigue disponible.</p></article><article><kbd>🧺</kbd><strong>Cosecha magnética</strong><p>Cruza un bancal maduro sin detenerte. Cada verdura vuela a la cesta y la parcela vuelve a crecer automáticamente.</p></article><article><kbd>◎</kbd><strong>El elemento es el imán</strong><p>Acércate a cualquier lado de la máquina, el corral o el expositor: no hay casillas exactas ni avisos que pulsar.</p></article><article><kbd>🟡</kbd><strong>Círculos dorados</strong><p>Cada compra se paga en el sitio donde va a estar. Entra en su círculo con dinero recogido de la caja.</p></article><article><kbd>📦</kbd><strong>Pedidos</strong><p>Encargos, trabajo personal, retirada del almacén y compras a proveedores viven en el panel de Pedidos.</p></article><div className="tutorial-flow"><b>1. Cosecha</b><span>→</span><b>2. Surte</b><span>→</span><b>3. Abre</b><span>→</span><b>4. Atiende</b><span>→</span><b>5. Crece</b></div></div>}
     </div>
     <footer className="panel-footer"><span>Empresa: {COUNTRIES[game.countryCode].name} · {game.currency}</span><div className="panel-actions"><button className="danger-soft" disabled={!franchise.open || dayClosing} onClick={() => dispatch({ type: "CLOSE_DAY" })}>Cerrar tienda y jornada</button><button className="danger-soft" onClick={async () => { localStorage.removeItem("mini-market-offline-player-v1"); await clearRecoverySnapshot(); navigator.serviceWorker?.controller?.postMessage({ type: "CLEAR_PRIVATE_CACHE" }); await authClient.signOut(); window.location.reload(); }}>Cerrar sesión</button></div></footer>
@@ -652,7 +675,7 @@ function TeamPanel() {
               className={bought ? "bought" : next ? "next" : "locked"}
               disabled={!next || game.balanceMinor < costMinor}
               aria-label={`Mejora ${index + 1} de ${entry.label}`}
-              onClick={() => dispatch({ type: "UPGRADE_ROSTER", entryId: entry.id })}
+              onClick={() => { if (dispatch({ type: "UPGRADE_ROSTER", entryId: entry.id })?.ok) feedbackBus.emit("upgrade"); }}
             >
               <b>{index + 1}</b>
               <small>{bought ? "Hecho" : formatMoney(costMinor, game)}</small>
@@ -664,6 +687,42 @@ function TeamPanel() {
   </div></AvatarGallery>;
 }
 
+
+/** Music, effects and vibration: one card each, stored on the device. */
+function SettingsPanel() {
+  const music = useAudioSettings((state) => state.music);
+  const effects = useAudioSettings((state) => state.effects);
+  const vibration = useAudioSettings((state) => state.vibration);
+  const update = useAudioSettings((state) => state.update);
+  const canVibrate = typeof navigator !== "undefined" && typeof navigator.vibrate === "function";
+  const percent = (value: number) => `${Math.round(value * 100)} %`;
+  return <div className="settings-grid">
+    <article className="settings-card">
+      <strong>Música</strong>
+      <small>Suena en bucle mientras juegas. A cero se detiene.</small>
+      <label><input type="range" min={0} max={100} step={5} value={Math.round(music * 100)} aria-label="Volumen de la música" onChange={(event) => update({ music: Number(event.target.value) / 100 })} /><b>{percent(music)}</b></label>
+    </article>
+    <article className="settings-card">
+      <strong>Efectos</strong>
+      <small>Pasos, estantes, máquinas, caja, mejoras y misiones.</small>
+      <label><input type="range" min={0} max={100} step={5} value={Math.round(effects * 100)} aria-label="Volumen de los efectos" onChange={(event) => update({ effects: Number(event.target.value) / 100 })} /><b>{percent(effects)}</b></label>
+      <button type="button" className="secondary settings-try" onClick={() => feedbackBus.emit("payment")}>Probar caja</button>
+    </article>
+    <article className="settings-card">
+      <strong>Vibración</strong>
+      <small>{canVibrate ? "Un toque al cobrar, al mejorar y al completar una misión." : "Este dispositivo o navegador no vibra."}</small>
+      <button type="button" role="switch" aria-checked={vibration} className={`switch${vibration ? " on" : ""}`} disabled={!canVibrate} onClick={() => update({ vibration: !vibration })}><i aria-hidden="true" /><span>{vibration ? "Activada" : "Desactivada"}</span></button>
+    </article>
+  </div>;
+}
+
+/** The speaker in the top bar opens the sound panel and shows when everything is muted. */
+function SoundBadge({ onOpen }: { onOpen: () => void }) {
+  const music = useAudioSettings((state) => state.music);
+  const effects = useAudioSettings((state) => state.effects);
+  const muted = music <= 0 && effects <= 0;
+  return <button type="button" className={`sound-badge${muted ? " muted" : ""}`} onClick={onOpen} title="Sonido y vibración" aria-label={`Sonido y vibración${muted ? ": todo silenciado" : ""}`}><GameIcon name={muted ? "muted" : "sound"} /></button>;
+}
 
 /**
  * Saved state lives in the top bar next to OPEN/CLOSED, with the time of the
