@@ -9,7 +9,7 @@ export const PRODUCT_SUPPLY = {
   flour: { kind: "machine", stationId: "flour-mill-1", legacyLevel: 5 },
   bread: { kind: "machine", stationId: "bread-oven-1", legacyLevel: 6 },
   eggs: { kind: "animal", stationId: "chicken-coop-1", legacyLevel: 8 },
-  coffee: { kind: "supplier", supplierId: "andes", legacyLevel: 9 },
+  coffee: { kind: "crop", stationId: "crop-coffee-1", legacyLevel: 9 },
   corn: { kind: "crop", stationId: "crop-corn-1", legacyLevel: 11 },
   milk: { kind: "animal", stationId: "cow-station-1", legacyLevel: 13 },
   cheese: { kind: "machine", stationId: "cheese-maker-1", legacyLevel: 16 },

@@ -24,7 +24,7 @@ export function migratePurchases(franchise: FranchiseState, legacyLevel: number)
     for (const prerequisite of OPENING_PURCHASES.find((purchase) => purchase.id === id)!.requires) grant(prerequisite);
     granted.add(id);
   };
-  const crops = { "crop-tomato-2": "tomato-2", "crop-tomato-3": "tomato-3", "crop-wheat-1": "wheat-1", "crop-apple-1": "apple-1", "crop-corn-1": "corn-1", "crop-orange-1": "orange-1" } as const;
+  const crops = { "crop-tomato-2": "tomato-2", "crop-tomato-3": "tomato-3", "crop-wheat-1": "wheat-1", "crop-apple-1": "apple-1", "crop-corn-1": "corn-1", "crop-orange-1": "orange-1", "crop-coffee-1": "coffee-supply-1" } as const;
   for (const [station, purchase] of Object.entries(crops)) if (franchise.crops.some((crop) => crop.id === station && crop.status !== "LOCKED")) grant(purchase);
   const machines = { "flour-mill-1": "flour-mill-1", "bread-oven-1": "bread-oven-1", "chicken-coop-1": "chicken-1", "chicken-coop-2": "chicken-2", "cow-station-1": "cow-1", "cheese-maker-1": "cheese-maker-1", "juice-machine-1": "juice-machine-1" } as const;
   for (const [station, purchase] of Object.entries(machines)) if (franchise.productionMachines.some((machine) => machine.id === station && machine.status !== "LOCKED")) grant(purchase);

@@ -47,7 +47,7 @@ export const OPENING_PURCHASES: readonly OpeningPurchase[] = [
   { id: "cheese-maker-1", label: "Quesería", requires: ["cow-1"], baseCostMinor: 160_000 },
   { id: "apple-1", label: "Manzano y venta de manzanas", requires: ["expansion-1"], baseCostMinor: 30_000 },
   { id: "corn-1", label: "Maizal y venta de maíz", requires: ["wheat-1"], baseCostMinor: 60_000 },
-  { id: "coffee-supply-1", label: "Suministro de café y góndolas", requires: ["bread-oven-1"], baseCostMinor: 70_000 },
+  { id: "coffee-supply-1", label: "Mata de café y góndolas de café", requires: ["bread-oven-1"], baseCostMinor: 70_000 },
   { id: "orange-1", label: "Naranjo y venta de naranjas", requires: ["apple-1"], baseCostMinor: 90_000 },
   { id: "juice-machine-1", label: "Exprimidora y venta de zumos", requires: ["orange-1"], baseCostMinor: 200_000 },
   { id: "preserves-supply-1", label: "Conservas: expositor y suministro", requires: ["corn-1", "coffee-supply-1"], baseCostMinor: 120_000 },

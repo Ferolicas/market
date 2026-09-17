@@ -34,7 +34,7 @@ describe("location specialties", () => {
       }
     }
     expect(campaignTaskStatus("player:stock:coffee", {}, "estacion")).toMatchObject({ target: 12, label: "Repón tú 12 cafés" });
-    expect(campaignTaskStatus("player:order:coffee", {}, "estacion")).toMatchObject({ target: 3, label: "Haz tú 3 pedidos de café" });
+    expect(campaignTaskStatus("player:harvest:coffee", {}, "estacion")).toMatchObject({ target: 12, label: "Cosecha tú 12 cafés" });
     expect(campaignTaskTarget("player:stock:juice", "marina")).toBe(16);
     // Construction teaching gates stay short; local mastery is for expansion.
     expect(purchaseTasks("flour-mill-1")[0].target).toBe(6);

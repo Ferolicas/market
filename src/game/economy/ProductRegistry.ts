@@ -8,7 +8,7 @@ export const PRODUCT_IDS = [
 
 export type ProductId = (typeof PRODUCT_IDS)[number];
 
-export const CROP_PRODUCT_IDS = ["tomatoes", "apples", "oranges", "wheat", "corn"] as const satisfies readonly ProductId[];
+export const CROP_PRODUCT_IDS = ["tomatoes", "apples", "oranges", "wheat", "corn", "coffee"] as const satisfies readonly ProductId[];
 export type CropProductId = (typeof CROP_PRODUCT_IDS)[number];
 
 export const MACHINE_PRODUCT_IDS = ["flour", "bread", "cheese", "juice", "eggs", "milk", "cannedCorn"] as const satisfies readonly ProductId[];

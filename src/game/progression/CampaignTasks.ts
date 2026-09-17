@@ -16,7 +16,7 @@ export const CAMPAIGN_TASKS = {
   "player:stock:cheese": { label: "Repón tú 4 quesos", target: 4 },
   "player:harvest:apples": { label: "Cosecha tú 4 manzanas", target: 4 },
   "player:stock:corn": { label: "Repón tú 4 maíces", target: 4 },
-  "player:order:coffee": { label: "Haz tú un pedido de café", target: 1 },
+  "player:harvest:coffee": { label: "Cosecha tú 4 cafés", target: 4 },
   "player:stock:coffee": { label: "Repón tú 4 cafés", target: 4 },
   "player:harvest:oranges": { label: "Cosecha tú 4 naranjas", target: 4 },
   "player:stock:juice": { label: "Repón tú 4 zumos", target: 4 },
@@ -46,7 +46,7 @@ export function campaignTaskTarget(id: CampaignTaskId, locationId = "barrio") {
 export function campaignTaskStatus(id: CampaignTaskId, progress: CampaignTaskProgress = {}, locationId = "barrio") {
   const task = CAMPAIGN_TASKS[id];
   const target = campaignTaskTarget(id, locationId);
-  const label = id === "player:order:coffee" && target !== 1 ? `Haz tú ${target} pedidos de café` : task.label.replace(/\d+/, String(target));
+  const label = task.label.replace(/\d+/, String(target));
   const count = Math.min(target, Math.max(0, progress[id] ?? 0));
   return { id, label, target, progress: count, completed: count >= target, unit: "count" as const };
 }

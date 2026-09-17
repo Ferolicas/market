@@ -23,6 +23,7 @@ const rawProducts: ProductConfig[] = [
   { id: "oranges", growMs: 6_500, yield: 1, saleMinor: 500 },
   { id: "wheat", growMs: 6_000, yield: 1 },
   { id: "corn", growMs: 7_000, yield: 1, saleMinor: 700 },
+  { id: "coffee", growMs: 6_000, yield: 1 },
   { id: "eggs", cycleMs: 2_000, yield: 1, saleMinor: 900, outputCapacity: 10, recipe: { tomatoes: 1 } },
   { id: "milk", cycleMs: 6_000, yield: 1, saleMinor: 1_000, outputCapacity: 10, recipe: { wheat: 1 } },
   { id: "flour", cycleMs: 4_000, yield: 1, recipe: { wheat: 2 } },

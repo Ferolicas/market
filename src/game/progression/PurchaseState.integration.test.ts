@@ -111,7 +111,7 @@ describe("purchases connected to game state", () => {
       expect(validateSaveTransition(state, result.state, result.events), purchase.id).toEqual({ ok: true });
       state = normalizeGameState(JSON.parse(JSON.stringify(result.state)));
     }
-    expect(state.franchises[0].crops.filter((crop) => crop.status !== "LOCKED")).toHaveLength(7);
+    expect(state.franchises[0].crops.filter((crop) => crop.status !== "LOCKED")).toHaveLength(8);
     expect(state.franchises[0].productionMachines.filter((machine) => machine.status !== "LOCKED")).toHaveLength(8);
     // Every farmer desk, the second farm and each new crop bring a farmer;
     // every pen its feeder; every machine its operator.

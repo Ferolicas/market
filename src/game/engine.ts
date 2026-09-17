@@ -65,7 +65,7 @@ export function createInitialGame(countryCode: CountryCode = "ES"): GameState {
     shelves: { ...EMPTY_INVENTORY(), milk: index === 0 ? 8 : 0, eggs: index === 0 ? 6 : 0, apples: index === 0 ? 8 : 0 },
     machines: { flourMillLevel: 1, bakeryLevel: 1, flourQueue: 0, breadQueue: 0 },
     carry: { capacity: 3, items: {} },
-    crops: [createCrop("crop-tomato-1", "tomatoes", 0, 1, 1), { ...createEmptyCrop("crop-apple-1", "apples"), status: "LOCKED" }, { ...createEmptyCrop("crop-wheat-1", "wheat"), status: "LOCKED" }, { ...createEmptyCrop("crop-corn-1", "corn"), status: "LOCKED" }, { ...createEmptyCrop("crop-orange-1", "oranges"), status: "LOCKED" }],
+    crops: [createCrop("crop-tomato-1", "tomatoes", 0, 1, 1), { ...createEmptyCrop("crop-apple-1", "apples"), status: "LOCKED" }, { ...createEmptyCrop("crop-wheat-1", "wheat"), status: "LOCKED" }, { ...createEmptyCrop("crop-corn-1", "corn"), status: "LOCKED" }, { ...createEmptyCrop("crop-orange-1", "oranges"), status: "LOCKED" }, { ...createEmptyCrop("crop-coffee-1", "coffee"), status: "LOCKED" }],
     productionMachines: [{ ...createMachine("flour-mill-1", "flour"), status: "LOCKED" }, { ...createMachine("bread-oven-1", "bread"), status: "LOCKED" }, { ...createMachine("cheese-maker-1", "cheese"), status: "LOCKED" }, { ...createMachine("juice-machine-1", "juice"), status: "LOCKED" }, { ...createMachine("chicken-coop-1", "eggs"), status: "LOCKED" }, { ...createMachine("cow-station-1", "milk"), status: "LOCKED" }],
     buildProjects: [{ id: "level-2", level: 2, costMinor: Math.round(LEVELS[1].costMinor * moneyScale), contributedMinor: 0, completed: false }],
     checkoutTransactions: [],
@@ -154,6 +154,9 @@ export function normalizeGameState(input: unknown): GameState {
     franchise.carry = normalizeCarry(franchise.carry, 3);
     franchise.crops ??= [createCrop("crop-tomato-1", "tomatoes", state.simulationTimeMs, 1, state.level), { ...createEmptyCrop("crop-wheat-1", "wheat"), status: "LOCKED" }, { ...createEmptyCrop("crop-corn-1", "corn"), status: "LOCKED" }, { ...createEmptyCrop("crop-orange-1", "oranges"), status: "LOCKED" }];
     if (!franchise.crops.some((crop) => crop.id === "crop-orange-1")) franchise.crops.push({ ...createEmptyCrop("crop-orange-1", "oranges"), status: "LOCKED" });
+    // Coffee used to come from a supplier: older saves get the bed locked here,
+    // and the legacy level 9 or the campaign purchase below opens it.
+    if (!franchise.crops.some((crop) => crop.id === "crop-coffee-1")) franchise.crops.push({ ...createEmptyCrop("crop-coffee-1", "coffee"), status: "LOCKED" });
     // Saves older than the orchard: apples grow from the level that makes
     // customers ask for them, so an advanced store gets a growing tree at once.
     if (!franchise.crops.some((crop) => crop.id === "crop-apple-1")) {
@@ -252,6 +255,7 @@ export function normalizeGameState(input: unknown): GameState {
   if (state.franchises.some((franchise) => franchise.owned && franchise.purchases)) {
     for (const franchise of state.franchises) {
       sanitizeCampaignPurchases(franchise);
+      syncCampaignCrops(state as GameState, franchise);
       syncCampaignStaff(state as GameState, franchise);
       trimCampaignStaff(franchise);
       for (const crop of franchise.crops) crop.baseYield ??= CAMPAIGN_BED_YIELD;
@@ -336,6 +340,13 @@ function sanitizeCampaignPurchases(franchise: FranchiseState) {
   purchases.contributions = Object.fromEntries(
     Object.entries(purchases.contributions ?? {}).filter(([id]) => known.has(id)),
   ) as typeof purchases.contributions;
+  // A retired task (ordering coffee, now a harvest) would fail the save schema.
+  const tasks = new Set<string>(CAMPAIGN_TASK_IDS);
+  if (purchases.personalProgress) {
+    purchases.personalProgress = Object.fromEntries(
+      Object.entries(purchases.personalProgress).filter(([id]) => tasks.has(id)),
+    ) as typeof purchases.personalProgress;
+  }
 }
 
 /** Desks the current rules no longer open (staff of a retired role, more
@@ -380,17 +391,45 @@ function syncCampaignStaff(state: GameState, franchise: FranchiseState) {
   ensureCheckoutsForCashiers(franchise);
 }
 
+type CampaignCropProduct = FranchiseState["crops"][number]["productId"];
+
+/** The bed each purchase opens: crop station, product and farm area. */
+const CAMPAIGN_CROP_PURCHASES: Partial<Record<OpeningPurchaseId, readonly [string, CampaignCropProduct, string]>> = {
+  "tomato-2": ["crop-tomato-2", "tomatoes", "farm-tomato-2"],
+  "tomato-3": ["crop-tomato-3", "tomatoes", "farm-tomato-3"],
+  "wheat-1": ["crop-wheat-1", "wheat", "farm-wheat"],
+  "apple-1": ["crop-apple-1", "apples", "farm-apple"],
+  "corn-1": ["crop-corn-1", "corn", "farm-corn"],
+  "orange-1": ["crop-orange-1", "oranges", "farm-orange"],
+  "coffee-supply-1": ["crop-coffee-1", "coffee", "farm-coffee"],
+};
+
+/** Opens (or creates) a campaign bed; true when the state actually changed. */
+function grantCampaignCrop(state: GameState, franchise: FranchiseState, station: string, product: CampaignCropProduct, zone: string) {
+  let changed = false;
+  if (!franchise.unlockedAreas.includes(zone)) { franchise.unlockedAreas.push(zone); changed = true; }
+  let crop = franchise.crops.find((candidate) => candidate.id === station);
+  if (!crop) { crop = createCrop(station, product, state.simulationTimeMs); franchise.crops.push(crop); changed = true; }
+  if (crop.status === "LOCKED") { unlockCrop(franchise, station, state.simulationTimeMs, 1); changed = true; }
+  // Every campaign bed has the same authored yield, so its tier steps and
+  // the LISTOS sign have a defined capacity to grow from.
+  crop.baseYield = CAMPAIGN_BED_YIELD;
+  franchise.stationTiers[station] ??= 1;
+  return changed;
+}
+
+/** A save written before a purchase brought its bed (coffee came from a
+ * supplier) gets the bed on load, exactly as the purchase grants it. */
+function syncCampaignCrops(state: GameState, franchise: FranchiseState) {
+  if (!franchise.purchases || !franchise.owned) return;
+  for (const id of franchise.purchases.purchased) {
+    const grant = CAMPAIGN_CROP_PURCHASES[id];
+    if (grant && grantCampaignCrop(state, franchise, ...grant)) franchise.structureRevision += 1;
+  }
+}
+
 function applyPurchaseContent(state: GameState, franchise: FranchiseState, id: OpeningPurchaseId) {
   const area = (name: string) => { if (!franchise.unlockedAreas.includes(name)) franchise.unlockedAreas.push(name); };
-  const crop = (station: string, product: FranchiseState["crops"][number]["productId"], zone: string) => {
-    area(zone);
-    if (!franchise.crops.some((candidate) => candidate.id === station)) franchise.crops.push(createCrop(station, product, state.simulationTimeMs));
-    unlockCrop(franchise, station, state.simulationTimeMs, 1);
-    // Every campaign bed has the same authored yield, so its tier steps and
-    // the LISTOS sign have a defined capacity to grow from.
-    franchise.crops.find((candidate) => candidate.id === station)!.baseYield = CAMPAIGN_BED_YIELD;
-    franchise.stationTiers[station] ??= 1;
-  };
   const machine = (station: string, product: FranchiseState["productionMachines"][number]["productId"], zone: string) => {
     area(zone);
     if (!franchise.productionMachines.some((candidate) => candidate.id === station)) franchise.productionMachines.push(createMachine(station, product));
@@ -404,13 +443,10 @@ function applyPurchaseContent(state: GameState, franchise: FranchiseState, id: O
     case "egg-display-1": area("egg-display"); break;
     case "dairy-display-1": area("dairy-display"); break;
     case "expansion-1": area("expansion-side"); franchise.expansionLevel = Math.max(2, franchise.expansionLevel); franchise.storeRank = Math.max(2, franchise.storeRank); break;
-    case "tomato-2": crop("crop-tomato-2", "tomatoes", "farm-tomato-2"); break;
-    case "tomato-3": crop("crop-tomato-3", "tomatoes", "farm-tomato-3"); break;
-    case "wheat-1": crop("crop-wheat-1", "wheat", "farm-wheat"); break;
-    case "apple-1": crop("crop-apple-1", "apples", "farm-apple"); break;
-    case "corn-1": crop("crop-corn-1", "corn", "farm-corn"); break;
-    case "orange-1": crop("crop-orange-1", "oranges", "farm-orange"); break;
-    case "coffee-supply-1": area("coffee-supply"); break;
+    case "tomato-2": case "tomato-3": case "wheat-1": case "apple-1": case "corn-1": case "orange-1":
+      grantCampaignCrop(state, franchise, ...CAMPAIGN_CROP_PURCHASES[id]!); break;
+    // The coffee bushes on the farm plus the pantry gondolas that sell the beans.
+    case "coffee-supply-1": area("coffee-supply"); grantCampaignCrop(state, franchise, ...CAMPAIGN_CROP_PURCHASES[id]!); break;
     case "preserves-supply-1": area("preserves-supply"); break;
     case "corn-canner-1": machine(id, "cannedCorn", "corn-canner"); break;
     // Every machine brings the operator who feeds it from the warehouse and
@@ -2604,7 +2640,14 @@ function applyLevelUnlock(state: GameState, franchise: FranchiseState, level: nu
   if (level === 6) { unlockArea("bread-oven"); unlockMachine(franchise, "bread-oven-1"); franchise.stationTiers["bread-oven-1"] ??= 1; }
   if (level === 7) { franchise.checkoutLevel = Math.max(2, franchise.checkoutLevel); franchise.stationTiers["checkout-1"] = Math.max(2, franchise.stationTiers["checkout-1"] ?? 1); }
   if (level === 8) { unlockArea("chicken-coop"); unlockMachine(franchise, "chicken-coop-1"); franchise.stationTiers["chicken-coop-1"] ??= 1; }
-  if (level === 9) hireUnlockedEmployee(franchise, "stocker", state.countryCode, state.simulationTimeMs);
+  if (level === 9) {
+    hireUnlockedEmployee(franchise, "stocker", state.countryCode, state.simulationTimeMs);
+    // Customers ask for coffee from here, and it grows on the farm.
+    unlockArea("farm-coffee");
+    if (!franchise.crops.some((crop) => crop.id === "crop-coffee-1")) franchise.crops.push({ ...createEmptyCrop("crop-coffee-1", "coffee"), status: "LOCKED" });
+    unlockCrop(franchise, "crop-coffee-1", state.simulationTimeMs, level);
+    franchise.stationTiers["crop-coffee-1"] ??= 1;
+  }
   if (level === 10) {
     franchise.storeRank = Math.max(2, franchise.storeRank);
     if (!franchise.unlockedAreas.includes("expansion-side")) franchise.structureRevision += 1;

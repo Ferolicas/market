@@ -71,6 +71,44 @@ describe("campaign migration", () => {
     expect(validateSaveTransition(restored, ticked, [])).toEqual({ ok: true });
   });
 
+  it("gives a save that bought coffee while it came from a supplier its bed on load and drops the retired order task", () => {
+    const state = createCampaignGame();
+    state.tutorialStep = 1;
+    const franchise = state.franchises[0];
+    const coffeeIndex = OPENING_PURCHASES.findIndex((purchase) => purchase.id === "coffee-supply-1");
+    franchise.purchases!.purchased = OPENING_PURCHASES.slice(0, coffeeIndex + 1).map((purchase) => purchase.id);
+    franchise.purchases!.personalProgress = { "player:order:coffee": 1, "player:stock:coffee": 2 } as never;
+    franchise.unlockedAreas.push("coffee-supply");
+    franchise.crops = franchise.crops.filter((crop) => crop.id !== "crop-coffee-1");
+    const restored = restore(state);
+    const coffee = restored.franchises[0].crops.find((crop) => crop.id === "crop-coffee-1");
+    expect(coffee).toMatchObject({ productId: "coffee", status: "GROWING", baseYield: 8, tier: 1 });
+    expect(restored.franchises[0].unlockedAreas).toContain("farm-coffee");
+    expect(restored.franchises[0].stationTiers["crop-coffee-1"]).toBe(1);
+    expect(restored.franchises[0].purchases!.personalProgress).toEqual({ "player:stock:coffee": 2 });
+    // A reload must not restart growth or grant a second bed.
+    let grown = restored;
+    for (let index = 0; index < 8; index++) grown = advanceWorld(grown, 1_000).state;
+    const reloaded = restore(grown);
+    expect(reloaded.franchises[0].crops.filter((crop) => crop.id === "crop-coffee-1")).toHaveLength(1);
+    expect(reloaded.franchises[0].crops.find((crop) => crop.id === "crop-coffee-1")).toEqual(grown.franchises[0].crops.find((crop) => crop.id === "crop-coffee-1"));
+    const harvested = applyGameAction(reloaded, { type: "HARVEST", cropId: "crop-coffee-1", quantity: 3 });
+    expect(harvested.ok).toBe(true);
+    expect(harvested.state.franchises[0].carry.items.coffee).toBe(3);
+    expect(harvested.state.franchises[0].purchases!.personalProgress!["player:harvest:coffee"]).toBe(3);
+    expect(validateSaveTransition(reloaded, harvested.state, harvested.events)).toEqual({ ok: true });
+    const stocked = applyGameAction(harvested.state, { type: "STOCK", productId: "coffee", quantity: 3, source: "carry" });
+    expect(stocked.ok).toBe(true);
+    expect(stocked.state.franchises[0].shelves.coffee).toBe(3);
+    expect(stocked.state.pendingOrders).toEqual([]);
+
+    const payload = {
+      state: { ...restored, lastSavedAt: new Date().toISOString() }, events: [], expectedRevision: 1,
+      operationId: "00000000-0000-4000-8000-000000000000", sessionId: "00000000-0000-4000-8000-000000000001", deviceId: "00000000-0000-4000-8000-000000000002",
+    };
+    expect(savePayloadSchema.safeParse(JSON.parse(JSON.stringify(payload))).success).toBe(true);
+  });
+
   it("produces a state the schema and the server both accept", () => {
     const restored = restore(legacySave(6));
     const result = applyGameAction(restored, { type: "TOGGLE_STORE" });

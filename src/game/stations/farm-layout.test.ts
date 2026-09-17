@@ -3,7 +3,7 @@ import { OPENING_PURCHASES } from "../progression/MartCampaign";
 import { PURCHASE_POSITIONS } from "./purchase-layout";
 import { PURCHASE_MARKER } from "./purchase-marker";
 import { isStoreNavigationPoint } from "../navigation/NavMeshService";
-import { cropIdFromFarmInteraction, FARM_ACCESS_WAYPOINTS, FARM_ANIMAL_STATIONS, FARM_FACILITIES, FARM_FIELD, FARM_GATE, FARM_INTERIOR_WAYPOINTS, FARM_OBSTACLES, FARM_PLOTS, FARM_WORKER_HOME, farmInteriorRouteBetween, farmInteriorRouteFromEntrance, farmInteriorRouteToEntrance, farmGateOpenLeafTerminalPost, farmInteractionId, farmPlotById, isFarmInteractionId, isRetiredFrontFarmPoint, FARM_WALL_SHADOW_DEPTH, FARM_VISIBLE_FRONT_Z, FARM_CORRIDOR_BACK_Z, FARM_PLOT_FOOTPRINT, FARM_ANIMAL_FOOTPRINTS, FARM_BARN } from "./farm-layout";
+import { cropIdFromFarmInteraction, FARM_ACCESS_WAYPOINTS, FARM_ANIMAL_STATIONS, FARM_FIELD, FARM_GATE, FARM_INTERIOR_WAYPOINTS, FARM_OBSTACLES, FARM_PLOTS, FARM_WORKER_HOME, farmInteriorRouteBetween, farmInteriorRouteFromEntrance, farmInteriorRouteToEntrance, farmGateOpenLeafTerminalPost, farmInteractionId, farmPlotById, isFarmInteractionId, isRetiredFrontFarmPoint, FARM_WALL_SHADOW_DEPTH, FARM_VISIBLE_FRONT_Z, FARM_CORRIDOR_BACK_Z, FARM_PLOT_FOOTPRINT, FARM_ANIMAL_FOOTPRINTS, FARM_BARN } from "./farm-layout";
 import { STORE_REAR_DOOR } from "./storefront-layout";
 
 const STORE_REAR_WALL_Z = -8.55;
@@ -58,7 +58,6 @@ describe("rear farm layout", () => {
 
     const estatePositions = [
       ...FARM_PLOTS.map((plot) => plot.position),
-      ...Object.values(FARM_FACILITIES).map((facility) => facility.position),
       ...Object.values(FARM_ANIMAL_STATIONS).map((station) => station.position),
     ];
     const halfWidth = FARM_FIELD.size[0] / 2;
@@ -80,7 +79,6 @@ describe("rear farm layout", () => {
       ...FARM_PLOTS.map((plot) => [plot.id, plot.position[2] + FARM_PLOT_FOOTPRINT.halfZ * 0.8] as [string, number]),
       ...Object.entries(FARM_ANIMAL_STATIONS).map(([id, station]) => [id, station.position[2] + FARM_ANIMAL_FOOTPRINTS[id as keyof typeof FARM_ANIMAL_FOOTPRINTS].halfZ * 0.8] as [string, number]),
       ["barn", FARM_BARN.position[2] + FARM_BARN.footprint.halfZ * 0.8],
-      ...Object.entries(FARM_FACILITIES).map(([id, facility]) => [id, facility.position[2]] as [string, number]),
       ["worker-home", FARM_WORKER_HOME[1]],
       ...Object.entries(FARM_INTERIOR_WAYPOINTS).map(([id, point]) => [id, point[1]] as [string, number]),
       ...OPENING_PURCHASES.filter((purchase) => PURCHASE_POSITIONS[purchase.id][2] < STORE_REAR_WALL_Z).map((purchase) => [`ring:${purchase.id}`, PURCHASE_POSITIONS[purchase.id][2] + PURCHASE_MARKER.halfSize * 0.8] as [string, number]),
@@ -243,6 +241,21 @@ describe("rear farm layout", () => {
       const directDistance = Math.hypot(start[0] - destination[0], start[1] - destination[1]);
       expect(pathLength, `${start.join(",")} → ${destination.join(",")} excessive detour`).toBeLessThanOrEqual(directDistance * 3 + 1);
     }));
+  });
+
+  it("grows the coffee at the right end of the front row, by the gate and against the east fence", () => {
+    const coffee = farmPlotById("crop-coffee-1")!;
+    const orange = farmPlotById("crop-orange-1")!;
+    const elementToLayout = STORE_ELEMENT_SCALE / STORE_LAYOUT_SCALE;
+    expect(coffee.productId).toBe("coffee");
+    expect(coffee.position[2] + FARM_PLOT_FOOTPRINT.halfZ * elementToLayout).toBeLessThan(FARM_GATE.openLeaf.center[2] - FARM_GATE.openLeaf.halfZ * elementToLayout);
+    expect(coffee.position[0]).toBeGreaterThan(orange.position[0]);
+    // Timbers end on the fence line, never through it, with a walk between the beds.
+    expect(coffee.position[0] + FARM_PLOT_FOOTPRINT.halfX * elementToLayout).toBeLessThanOrEqual(FARM_GATE.rightFence.center[0]);
+    expect(coffee.position[0] - FARM_PLOT_FOOTPRINT.halfX * elementToLayout).toBeGreaterThan(orange.position[0] + FARM_PLOT_FOOTPRINT.halfX * elementToLayout + 1);
+    // In front of the second chicken pen, the one beside the gate.
+    expect(Math.abs(coffee.position[0] - FARM_ANIMAL_STATIONS.chicken2.position[0])).toBeLessThan(FARM_ANIMAL_FOOTPRINTS.chicken2.halfX * elementToLayout);
+    expect(coffee.position[2]).toBeGreaterThan(FARM_ANIMAL_STATIONS.chicken2.position[2]);
   });
 
   it("spaces crop magnets so one pass targets one coherent bed at a time", () => {

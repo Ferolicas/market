@@ -36,7 +36,7 @@ describe("campaign locations", () => {
       expect(applyGameAction(state, { type: "BUY_FRANCHISE", franchiseId: target.id }).ok).toBe(false);
     }
   });
-  it.each(["player:stock:cheese", "player:stock:corn", "player:order:coffee", "player:stock:coffee", "player:stock:juice"] as const)("requires personal mastery of %s", (id) => {
+  it.each(["player:stock:cheese", "player:stock:corn", "player:harvest:coffee", "player:stock:coffee", "player:stock:juice"] as const)("requires personal mastery of %s", (id) => {
     const state = masteredOpening();
     state.franchises[0].purchases!.personalProgress![id] = 0;
     expect(campaignExpansionQuote(state, "estacion").available).toBe(false);

@@ -13,7 +13,7 @@ import { PRODUCTS } from "@/game/catalog";
 import { PRODUCT_CONFIG } from "@/game/economy/products";
 import { CHECKOUT_LANE_IDS, CHECKOUT_LANES, activeCheckoutForLane, checkoutAreaForLane, checkoutBagLocation, checkoutHandoffForLane, type CheckoutLane } from "@/game/stations/checkout-layout";
 import { cropVisualSlotIndices } from "@/game/stations/crop-visual";
-import { FARM_ANIMAL_STATIONS, FARM_FACILITIES, FARM_FIELD, FARM_GATE, FARM_PLOTS, farmGateOpenLeafTerminalPost, FARM_BARN } from "@/game/stations/farm-layout";
+import { FARM_ANIMAL_STATIONS, FARM_FIELD, FARM_GATE, FARM_PLOTS, farmGateOpenLeafTerminalPost, FARM_BARN } from "@/game/stations/farm-layout";
 import { STORE_REAR_DOOR } from "@/game/stations/storefront-layout";
 import { distributedFixtureQuantity, PANTRY_DISPLAY_POSITIONS, PRODUCE_BIN_COLUMNS, PRODUCE_BIN_PITCH, PRODUCE_DECK, produceDeckLocalPoint, PRODUCT_RETAIL_DEPARTMENT, RETAIL_DEPARTMENTS, RETAIL_FIXTURE_LEVELS, RETAIL_VISUAL_CAPACITY, retailDisplayPosition, retailFixtureDisplayPositions, retailStockLandingLocalPosition } from "@/game/stations/retail-layout";
 import { shelfCapacityForTier } from "@/game/engine";
@@ -486,7 +486,6 @@ const MemoWarehouseReturnBasket = memo(WarehouseReturnBasket, sameFixtureProps);
 const MemoGardenFloor = memo(GardenFloor, sameFixtureProps);
 const MemoDormantCropPlot = memo(DormantCropPlot, sameFixtureProps);
 const MemoCropPlot = memo(CropPlot, sameFixtureProps);
-const MemoCompostBin = memo(CompostBin, sameFixtureProps);
 const MemoFarmBarn = memo(FarmBarn, sameFixtureProps);
 const MemoAnimalPaddock = memo(AnimalPaddock, sameFixtureProps);
 const MemoAnimalStation = memo(AnimalStation, sameFixtureProps);
@@ -1036,7 +1035,7 @@ function CeilingLamp({ position, on, dynamicLight }: { position: Position; on: b
   return <group name="dynamic:ceiling-lamp" position={position}><EnvironmentModel id="equipment_ceiling_light" isolateMaterials onUpdate={updateMaterials} />{on && dynamicLight && <pointLight position={[0, -0.15, 0]} intensity={0.18} distance={4} color="#fff2c9" />}</group>;
 }
 
-type FarmCropKind = "tomato" | "apple" | "orange" | "wheat" | "corn";
+type FarmCropKind = "tomato" | "apple" | "orange" | "wheat" | "corn" | "coffee";
 
 const FARM_LOCAL_LAYOUT_SCALE = STORE_LAYOUT_SCALE / STORE_ELEMENT_SCALE;
 const FARM_LOCAL_HALF_WIDTH = FARM_FIELD.size[0] * FARM_LOCAL_LAYOUT_SCALE * 0.5;
@@ -1060,6 +1059,8 @@ const WHEAT_GRID = Array.from({ length: 28 }, (_, index): [number, number] => [(
 const CORN_GRID = Array.from({ length: 12 }, (_, index): [number, number] => [((index % 4) - 1.5) * 0.39, (Math.floor(index / 4) - 1) * 0.31]);
 /** Three young apple trees along the bed. */
 const APPLE_GRID: readonly [number, number][] = [[-0.62, 0.06], [0, -0.1], [0.62, 0.06]];
+/** Six coffee bushes in two rows; ripe crowns (radius ≈ 0.21) stay inside the timbers. */
+const COFFEE_GRID: readonly [number, number][] = [[-0.62, -0.28], [0, -0.31], [0.62, -0.28], [-0.62, 0.3], [0, 0.27], [0.62, 0.3]];
 const BED_TIMBERS: readonly InstanceTransform[] = [
   { position: [0, 0.17, -0.62], scale: [2.05, 0.21, 0.1] },
   { position: [0, 0.17, 0.62], scale: [2.05, 0.21, 0.1] },
@@ -1161,7 +1162,6 @@ export const KitFarm = memo(function KitFarm({ crops, machines, nowMs, unlockedA
             />}
       </StoreElement>;
     })}
-    <StoreElement position={[...FARM_FACILITIES.compost.position]}><MemoCompostBin position={[0, 0, 0]} /></StoreElement>
     <StoreElement position={[...FARM_BARN.position]}><MemoFarmBarn /></StoreElement>
     {fixtureAvailable("fixture:chicken-coop", unlockedAreas) && <StoreElement position={[...FARM_ANIMAL_STATIONS.chicken.position]}>
       <MemoAnimalPaddock kind="chicken" />
@@ -1195,6 +1195,7 @@ function farmCropKind(productId: CropState["productId"]): FarmCropKind {
   if (productId === "oranges") return "orange";
   if (productId === "wheat") return "wheat";
   if (productId === "corn") return "corn";
+  if (productId === "coffee") return "coffee";
   return "tomato";
 }
 
@@ -1290,13 +1291,13 @@ function SeedBed() {
 }
 
 function CropCanopy({ crop, growth, ready, available, yieldCapacity }: { crop: FarmCropKind; growth: number; ready: boolean; available: number; yieldCapacity: number }) {
-  const grid = crop === "wheat" ? WHEAT_GRID : crop === "corn" ? CORN_GRID : crop === "apple" ? APPLE_GRID : TOMATO_GRID;
-  const fullHeight = crop === "corn" ? 1.06 : crop === "apple" ? 0.82 : crop === "wheat" ? 0.76 : 0.68;
+  const grid = crop === "wheat" ? WHEAT_GRID : crop === "corn" ? CORN_GRID : crop === "apple" ? APPLE_GRID : crop === "coffee" ? COFFEE_GRID : TOMATO_GRID;
+  const fullHeight = crop === "corn" ? 1.06 : crop === "apple" ? 0.82 : crop === "wheat" ? 0.76 : crop === "coffee" ? 0.6 : 0.68;
   const height = Math.max(0.12, fullHeight * growth);
   const stems = useMemo<InstanceTransform[]>(() => grid.map(([x, z], index) => ({
     position: [x, 0.25 + height / 2, z],
     rotation: [0, index * 0.49, (index % 3 - 1) * 0.025],
-    scale: crop === "apple" ? [2.6, height, 2.6] : [1, height, 1],
+    scale: crop === "apple" ? [2.6, height, 2.6] : crop === "coffee" ? [1.6, height, 1.6] : [1, height, 1],
   })), [crop, grid, height]);
   const leaves = useMemo<InstanceTransform[]>(() => grid.flatMap(([x, z], index) => [-1, 1].map((side): InstanceTransform => (crop === "apple"
     // Two overlapping crowns per trunk make a round canopy that grows with the tree.
@@ -1304,6 +1305,13 @@ function CropCanopy({ crop, growth, ready, available, yieldCapacity }: { crop: F
       position: [x + side * 0.08, 0.3 + height + 0.06 * growth, z + side * 0.04],
       rotation: [0, index * 0.77 + side * 0.4, 0],
       scale: [1.9 + growth, 1.5 + growth * 0.9, 1.9 + growth],
+    }
+    // A coffee bush: a low woody stem under a compact, glossy crown.
+    : crop === "coffee"
+    ? {
+      position: [x + side * 0.07, 0.3 + height * 0.9 + 0.04 * growth, z + side * 0.05],
+      rotation: [0, index * 0.77 + side * 0.4, 0],
+      scale: [1.25 + growth * 0.55, 1.05 + growth * 0.45, 1.25 + growth * 0.55],
     }
     : {
       position: [x + side * (crop === "corn" ? 0.075 : 0.055), 0.28 + height * (side > 0 ? 0.5 : 0.68), z],
@@ -1322,6 +1330,15 @@ function CropCanopy({ crop, growth, ready, available, yieldCapacity }: { crop: F
             scale: [fruitGrowth, fruitGrowth, fruitGrowth],
           };
         }))
+      // Coffee cherries sit on the crown surface, five per bush.
+      : crop === "coffee"
+      ? grid.flatMap(([x, z], bush) => Array.from({ length: 5 }, (_, slot): InstanceTransform => {
+          const angle = slot * Math.PI * 2 / 5 + bush * 0.6;
+          return {
+            position: [x + Math.cos(angle) * 0.2, 0.3 + height * 0.9 + Math.sin(angle * 1.9 + bush) * 0.08, z + Math.sin(angle) * 0.19],
+            scale: [fruitGrowth * 0.9, fruitGrowth * 0.9, fruitGrowth * 0.9],
+          };
+        }))
       : crop === "tomato" || crop === "orange"
       ? grid.flatMap(([x, z], index) => [-1, 1].map((side): InstanceTransform => ({
           position: [x + side * 0.075, 0.31 + height * (0.56 + (index % 2) * 0.13), z + (index % 3 - 1) * 0.025],
@@ -1335,12 +1352,12 @@ function CropCanopy({ crop, growth, ready, available, yieldCapacity }: { crop: F
     if (!ready) return authored;
     return cropVisualSlotIndices(available, yieldCapacity, authored.length).map((index) => authored[index]);
   }, [available, crop, fruitGrowth, grid, height, ready, yieldCapacity]);
-  const fruitColor = crop === "orange" ? (ready ? "#D58236" : growth > 0.78 ? "#b78b3e" : "#79a24b") : crop === "apple" ? (ready ? "#cf3a33" : growth > 0.78 ? "#c9803a" : "#8fae4a") : crop === "tomato" ? (ready ? "#df4035" : growth > 0.78 ? "#d98339" : "#79a24b") : crop === "wheat" ? (ready ? "#e8bd4c" : "#a4b15b") : (ready ? "#f2c53f" : "#83a950");
+  const fruitColor = crop === "orange" ? (ready ? "#D58236" : growth > 0.78 ? "#b78b3e" : "#79a24b") : crop === "apple" ? (ready ? "#cf3a33" : growth > 0.78 ? "#c9803a" : "#8fae4a") : crop === "tomato" ? (ready ? "#df4035" : growth > 0.78 ? "#d98339" : "#79a24b") : crop === "wheat" ? (ready ? "#e8bd4c" : "#a4b15b") : crop === "coffee" ? (ready ? "#c5322c" : growth > 0.78 ? "#d0862f" : "#7fae4c") : (ready ? "#f2c53f" : "#83a950");
   return <group>
-    <StaticInstances transforms={stems} castShadow><cylinderGeometry args={[crop === "wheat" ? 0.01 : 0.018, crop === "wheat" ? 0.015 : 0.024, 1, 6]} /><meshStandardMaterial color={crop === "apple" ? "#6b4a30" : crop === "wheat" && ready ? "#b89337" : "#4d7d3d"} roughness={0.94} /></StaticInstances>
-    <StaticInstances transforms={leaves} castShadow><sphereGeometry args={[0.115, 7, 5]} /><meshStandardMaterial color={crop === "corn" ? "#4f8a43" : crop === "wheat" ? "#729348" : crop === "apple" ? "#3f7f3d" : "#438345"} roughness={0.96} /></StaticInstances>
+    <StaticInstances transforms={stems} castShadow><cylinderGeometry args={[crop === "wheat" ? 0.01 : 0.018, crop === "wheat" ? 0.015 : 0.024, 1, 6]} /><meshStandardMaterial color={crop === "apple" ? "#6b4a30" : crop === "coffee" ? "#5a3b26" : crop === "wheat" && ready ? "#b89337" : "#4d7d3d"} roughness={0.94} /></StaticInstances>
+    <StaticInstances transforms={leaves} castShadow><sphereGeometry args={[0.115, 7, 5]} /><meshStandardMaterial color={crop === "corn" ? "#4f8a43" : crop === "wheat" ? "#729348" : crop === "apple" ? "#3f7f3d" : crop === "coffee" ? "#2f6d38" : "#438345"} roughness={0.96} /></StaticInstances>
     {fruits.length > 0 && <StaticInstances transforms={fruits} castShadow>
-      {crop === "orange" ? <icosahedronGeometry args={[0.068, 1]} /> : crop === "apple" ? <sphereGeometry args={[0.064, 10, 8]} /> : crop === "tomato" ? <dodecahedronGeometry args={[0.068, 0]} /> : crop === "wheat" ? <coneGeometry args={[0.045, 0.17, 6]} /> : <sphereGeometry args={[0.075, 8, 6]} />}
+      {crop === "coffee" ? <sphereGeometry args={[0.036, 8, 6]} /> : crop === "orange" ? <icosahedronGeometry args={[0.068, 1]} /> : crop === "apple" ? <sphereGeometry args={[0.064, 10, 8]} /> : crop === "tomato" ? <dodecahedronGeometry args={[0.068, 0]} /> : crop === "wheat" ? <coneGeometry args={[0.045, 0.17, 6]} /> : <sphereGeometry args={[0.075, 8, 6]} />}
       <meshStandardMaterial color={fruitColor} emissive={ready ? fruitColor : "#000000"} emissiveIntensity={ready ? 0.14 : 0} roughness={0.84} />
     </StaticInstances>}
   </group>;
@@ -1433,10 +1450,6 @@ function AnimalStation({ kind, machine }: { kind: "chicken" | "cow"; machine: Pr
 
 function ChickenCharacter({ active }: { active: boolean }) { return <FarmAnimal kind="chicken" active={active} />; }
 function CowCharacter({ active }: { active: boolean }) { return <FarmAnimal kind="cow" active={active} />; }
-
-function CompostBin({ position }: { position: Position }) {
-  return <group position={position}><Box args={[0.78, 0.72, 0.72]} position={[0, 0.36, 0]} color="#5f4934" radius={0.08} />{[-0.26, 0, 0.26].map((offset) => <Box key={offset} args={[0.85, 0.075, 0.78]} position={[0, 0.38 + offset, 0]} color="#89603c" />)}<Box args={[0.87, 0.1, 0.8]} position={[0, 0.77, 0]} rotation={[0.08, 0, 0]} color="#68462f" radius={0.04} /><mesh position={[0, 0.84, 0]}><sphereGeometry args={[0.18, 8, 6]} /><meshStandardMaterial color="#41633a" roughness={1} /></mesh></group>;
-}
 
 /**
  * The barn: the farm's intake to the warehouse. A solid timber body on the

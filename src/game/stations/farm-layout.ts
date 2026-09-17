@@ -3,7 +3,7 @@ import { wallGroundShadowDepth } from "../render/overview-camera";
 import type { CropState } from "../types";
 import { STORE_REAR_DOOR, STOREFRONT_LAYOUT } from "./storefront-layout";
 
-export type FarmPlotId = "crop-tomato-1" | "crop-tomato-2" | "crop-tomato-3" | "crop-wheat-1" | "crop-corn-1" | "crop-orange-1" | "crop-apple-1";
+export type FarmPlotId = "crop-tomato-1" | "crop-tomato-2" | "crop-tomato-3" | "crop-wheat-1" | "crop-corn-1" | "crop-orange-1" | "crop-apple-1" | "crop-coffee-1";
 export type FarmInteractionId = `farm:${FarmPlotId}`;
 
 export interface FarmPlotLayout {
@@ -161,12 +161,15 @@ export function scaledFarmHarvestSensor(elementScale: number) {
 
 /**
  * Two rows of beds, every 2.7 layout units in x. The front row (apple, corn,
- * wheat and the orange tree) sits as close to the store as the corridor rule
- * allows: its timbers end at z −13.23, just past FARM_CORRIDOR_BACK_Z. The
- * three tomato beds form the back row left of the barn, against the rear
- * fence and aligned with the front columns, so the middle corridor between
- * the rows (z −14.17 … −16.43) is 2.26 wide and can be walked without
- * brushing a harvest magnet.
+ * wheat, the orange tree and the coffee bushes) sits as close to the store as
+ * the corridor rule allows: its timbers end at z −13.23, just past
+ * FARM_CORRIDOR_BACK_Z. The three tomato beds form the back row left of the
+ * barn, against the rear fence and aligned with the front columns, so the
+ * middle corridor between the rows (z −14.17 … −16.43) is 2.26 wide and can
+ * be walked without brushing a harvest magnet. The coffee bed closes the
+ * right side where the compost bin stood, by the gate and in front of the
+ * second chicken pen. It sits behind the tip of the open gate leaf so both
+ * actors and its timbers clear the gate, with its east edge at the fence.
  */
 export const FARM_FRONT_BED_ROW_Z = -13.7;
 export const FARM_REAR_BED_ROW_Z = -16.9;
@@ -178,15 +181,8 @@ export const FARM_PLOTS: readonly FarmPlotLayout[] = [
   { id: "crop-corn-1", productId: "corn", position: [-6.3, 0, FARM_FRONT_BED_ROW_Z], accent: "#f0c438" },
   { id: "crop-orange-1", productId: "oranges", position: [7.2, 0, FARM_FRONT_BED_ROW_Z], accent: "#D58236" },
   { id: "crop-apple-1", productId: "apples", position: [-9, 0, FARM_FRONT_BED_ROW_Z], accent: "#c8362f" },
+  { id: "crop-coffee-1", productId: "coffee", position: [9.82, 0, -14.85], accent: "#c53b2f" },
 ] as const;
-
-/** The compost closes the front row on the right; the back row holds only
- * the tomato beds, the barn and the pens (the tool bench, scarecrow and
- * water tank that used to sit there are gone, so nothing decorative takes
- * room next to the barn). */
-export const FARM_FACILITIES = {
-  compost: { position: [10, 0, FARM_FRONT_BED_ROW_Z] },
-} as const satisfies Record<string, FarmFacilityLayout>;
 
 /**
  * The barn in the middle of the back row is the farm's intake: whatever is
@@ -252,6 +248,7 @@ export const FARM_INTERIOR_WAYPOINTS = {
   entranceApron: [7.7, -12.5],
   cropJunction: [-2, -12.5],
   southCropJunction: [-2, -15.1],
+  coffeeApproach: [8.3, -14.85],
 } as const satisfies Record<string, readonly [number, number]>;
 
 type FarmPoint = readonly [number, number];
@@ -312,6 +309,7 @@ function farmCorridorFromApron(destination: FarmPoint) {
     route.push([...FARM_INTERIOR_WAYPOINTS.cropJunction]);
     if (destination[1] < -14) route.push([...FARM_INTERIOR_WAYPOINTS.southCropJunction]);
   }
+  if (destination[0] > FARM_GATE.openLeaf.center[0]) route.push([...FARM_INTERIOR_WAYPOINTS.coffeeApproach]);
   route.push([destination[0], destination[1]]);
   return route;
 }
@@ -392,7 +390,6 @@ export function farmInteriorRouteBetween(start: FarmPoint, destination: FarmPoin
 // both navigation and physics. Crop beds deliberately stay traversable: the
 // harvest loop is a walk-through magnet, not a stop-at-the-edge interaction.
 export const FARM_OBSTACLES = [
-  { x: FARM_FACILITIES.compost.position[0], z: FARM_FACILITIES.compost.position[2], halfX: 0.48, halfZ: 0.48 },
   { id: FARM_BARN.obstacleId, x: FARM_BARN.position[0], z: FARM_BARN.position[2], halfX: FARM_BARN.footprint.halfX, halfZ: FARM_BARN.footprint.halfZ },
   { id: "fixture:chicken-coop", x: FARM_ANIMAL_STATIONS.chicken.position[0], z: FARM_ANIMAL_STATIONS.chicken.position[2], halfX: 1.49, halfZ: 1.09 },
   { id: "fixture:chicken-coop-2", x: FARM_ANIMAL_STATIONS.chicken2.position[0], z: FARM_ANIMAL_STATIONS.chicken2.position[2], halfX: 1.49, halfZ: 1.09 },

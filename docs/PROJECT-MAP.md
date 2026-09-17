@@ -1,5 +1,15 @@
 # Mini Market — mapa vivo
 
+## Café cultivable junto a la entrada derecha de la granja — 17-09-2026
+
+El café ahora tiene origen `crop` (`ProductSupply`/`ProductRegistry`) y el bancal `crop-coffee-1`: seis arbustos con cerezas rojas, crecimiento base de 6 s y rendimiento de campaña de 8 unidades antes de mejoras. La compra conserva el ID persistido `coffee-supply-1`, ahora «Mata de café y góndolas de café», y abre el cultivo junto con la venta en las dos góndolas traseras. La tarea personal pasa de pedir café a cosecharlo. El proveedor se conserva por compatibilidad; ya no es necesario pedir para abastecer café.
+
+El bancal sustituye la compostera junto a la cerca derecha, frente al gallinero próximo a la calle, en (9,82, −14,85). Alinearlo en z −13,7 lo dejaba atravesado por la hoja abierta de la puerta. Se coloca detrás de su punta y delante del corral; `coffeeApproach` (8,3, −14,85) permite rodearla también antes de que Recast esté listo. Navegación, colisiones, interacción y marcador comparten las posiciones de `farm-layout`/`purchase-layout`.
+
+`normalizeGameState` añade el bancal a partidas anteriores y lo abre si ya compraron café; en partidas legadas se abre en nivel 9. `syncCampaignCrops` recupera los cultivos comprados sin reiniciar los que ya crecen. Se retira la clave personal `player:order:coffee` para que el guardado pase el esquema. Las pruebas cubren carga repetida, cosecha, progreso personal, reposición sin pedidos y aceptación del servidor.
+
+Verificación: typecheck, lint, 640 pruebas en 85 archivos y build de producción correctos. Navegación comprueba el acceso al bancal y el marcador transitable. QA visual con API aislada sobre build de producción a 1440×1000 y 390×844, sin errores de ejecución (evidencia local `artifacts/coffee-qa/`); no prueba teléfono físico ni una partida real.
+
 ## Granja reordenada, recuadros con letrero, fajos de caja, pago en 4 s y plantilla completa — 17-09-2026 (noche)
 
 Granja reordenada a petición del propietario: la fila trasera queda tomate · tomate · tomate · granero · gallina · vaca · gallina. Los tres bancales de tomate pasan a la fila trasera (`FARM_REAR_BED_ROW_Z` = −16,9) en x −9 / −6,3 / −3,6, alineados con manzano, maíz y trigo; el gallinero 1 ocupa el sitio del depósito de agua (2,8, −16,75, trabajo en (2,8, −15,15)); desaparecen el depósito, la mesa de herramientas y el espantapájaros (geometría y obstáculos: `FARM_FACILITIES` solo conserva el compost, `FARM_OBSTACLES` pasa de 21 a 17). La fila delantera (`FARM_FRONT_BED_ROW_Z` = −13,7: manzano, maíz, trigo, naranjo, compost) avanza 0,3 hacia la tienda, el máximo que admite `FARM_CORRIDOR_BACK_Z` (el 30 % literal, ≈1,0, invadía el pasillo), de modo que el corredor entre filas mide 2,26 (−14,17…−16,43) y se cruza sin rozar ningún imán (distancia mínima 1,13 frente a 0,19 de alcance). Medido con la malla: todos los bancales, puntos de trabajo y marcadores alcanzables desde el granero y la puerta trasera (granero → tomate más lejano 9,12; puerta → manzano 17,88); `farm-layout`, `farm-employee-layout`, `farm-harvest-pass` y `magnet-contact` pasan sin modificar.
