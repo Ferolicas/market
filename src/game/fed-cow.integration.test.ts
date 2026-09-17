@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { advanceWorld, applyGameAction, createInitialGame, normalizeGameState } from "./engine";
 import { createEmptyInventory } from "./economy/ProductRegistry";
 import { animalFeedStatus, collectMachineOutputBatch, createMachine, loadMachine, updateMachine } from "./stations/StationSystem";
+import type { Employee } from "./types";
 
 describe("fed cows", () => {
   it("requires wheat, not tomatoes, and does not generate free milk", () => {
@@ -46,5 +47,27 @@ describe("fed cows", () => {
     expect(done.output).toBe(1);
     expect(done.completesAt).toBeNull();
     expect(updateMachine(done, 60_000).output).toBe(1);
+  });
+
+  it("keeps a hand-fed trough full while the team works on another product", () => {
+    let state = createInitialGame();
+    const shop = state.franchises[0];
+    shop.productionMachines = [createMachine("cow-station-1", "milk", 3), createMachine("flour-mill-1", "flour")];
+    shop.warehouse = { ...createEmptyInventory(), milk: 300, wheat: 300, flour: 2, tomatoes: 300 };
+    shop.employees = [{ id: "operator", role: "operator", name: "Test", level: 1, energy: 100, salaryMinor: 0, hat: "frog" } as Employee];
+    shop.carry = { capacity: 10, items: { wheat: 10 } };
+    const fed = applyGameAction(state, { type: "OPERATE_MACHINE", machineId: "cow-station-1" });
+    expect(fed.ok).toBe(true);
+    expect(fed.message).toContain("Llevaste 9");
+    expect(fed.state.franchises[0].carry.items).toEqual({ wheat: 1 });
+    state = fed.state;
+    const cow = () => state.franchises[0].productionMachines.find(machine => machine.id === "cow-station-1")!;
+    expect(animalFeedStatus(cow()).occupied).toBe(9);
+    for (let tick = 0; tick < 4; tick++) state = advanceWorld(state, 250).state;
+    expect(animalFeedStatus(cow()).occupied).toBe(9);
+    expect(state.franchises[0].warehouse.wheat).toBe(300);
+    for (let second = 0; second < 40; second++) state = advanceWorld(state, 1_000).state;
+    expect(cow().output).toBe(9);
+    expect(animalFeedStatus(cow()).occupied).toBe(0);
   });
 });

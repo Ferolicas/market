@@ -152,7 +152,7 @@ describe("purchases connected to game state", () => {
     expect(savePayloadSchema.safeParse(payload).success).toBe(true);
   });
 
-  it("lets the first farmer harvest, collect eggs and stock shelves without feeding animals", () => {
+  it("lets the first farmer harvest, collect eggs, stock shelves and feed the coop the tomatoes the plan sends there", () => {
     let state = createCampaignGame();
     state.balanceMinor = 100_000;
     for (const purchaseId of ["farmer-1", "egg-display-1", "chicken-1"] as const) {
@@ -169,10 +169,12 @@ describe("purchases connected to game state", () => {
     }
     const franchise = state.franchises[0];
     expect(franchise.shelves.tomatoes).toBeGreaterThan(0);
-    expect(franchise.shelves.eggs).toBe(3);
-    expect(franchise.productionMachines.find((machine) => machine.id === "chicken-coop-1")!.input.tomatoes ?? 0).toBe(0);
+    // Eggs are the scarcest product, so the farmer also feeds the coop with
+    // harvested tomatoes: the whole team serves the missing product.
+    expect(franchise.shelves.eggs).toBeGreaterThan(3);
+    expect(state.progression.counters["production:eggs"] ?? 0).toBeGreaterThan(0);
+    // Only the owner's own feeding counts for the personal task.
     expect(state.progression.counters["feed:chicken"] ?? 0).toBe(0);
-    expect(state.progression.counters["production:eggs"] ?? 0).toBe(0);
     expect(franchise.employees.find((employee) => employee.role === "farmer")!.runtime!.carry.capacity).toBe(3);
   });
 });

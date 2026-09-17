@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { advanceWorld, applyGameAction, canOperateMachine, createInitialGame, normalizeGameState } from "./engine";
 import { createEmptyInventory } from "./economy/ProductRegistry";
 import { chickenFeedStatus, collectMachineOutputBatch, createMachine, loadMachine, updateMachine } from "./stations/StationSystem";
+import type { Employee } from "./types";
 
 function fixture(tomatoes = 3) {
   const state = createInitialGame();
@@ -87,5 +88,26 @@ describe("fed chicken in the authoritative engine", () => {
     expect(result.state.franchises[0].productionMachines[0].output).toBe(1);
     expect(result.state.progression.counters["production:eggs"]).toBe(1);
     expect(result.state.franchises[0].carry.items).toEqual({ wheat: 3 });
+  });
+
+  it("keeps a hand-fed trough full while the team works on another product", () => {
+    let state = fixture(0);
+    const franchise = state.franchises[0];
+    franchise.productionMachines = [createMachine("chicken-coop-1", "eggs", 3), createMachine("flour-mill-1", "flour")];
+    franchise.warehouse = { ...createEmptyInventory(), eggs: 300, wheat: 300, flour: 2, tomatoes: 300 };
+    franchise.employees = [{ id: "operator", role: "operator", name: "Test", level: 1, energy: 100, salaryMinor: 0, hat: "frog" } as Employee];
+    franchise.carry = { capacity: 10, items: { tomatoes: 10 } };
+    const fed = applyGameAction(state, { type: "OPERATE_MACHINE", machineId: "chicken-coop-1" });
+    expect(fed.ok).toBe(true);
+    expect(fed.message).toContain("Llevaste 6");
+    expect(fed.state.franchises[0].carry.items).toEqual({ tomatoes: 4 });
+    state = fed.state;
+    const coop = () => state.franchises[0].productionMachines.find(machine => machine.id === "chicken-coop-1")!;
+    expect(chickenFeedStatus(coop()).occupied).toBe(6);
+    state = elapse(state, 1_000).state;
+    expect(chickenFeedStatus(coop()).occupied).toBe(6);
+    expect(state.franchises[0].warehouse.tomatoes).toBe(300);
+    state = elapse(state, 10_000).state;
+    expect(coop().output).toBe(6);
   });
 });
