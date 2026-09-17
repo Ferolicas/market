@@ -1,4 +1,5 @@
 import { volumeGain, type AudioSettings } from "./AudioSettings";
+import { currentDeviceHints, isAppleTouchDevice } from "./DevicePlatform";
 import type { FeedbackSignal } from "./FeedbackBus";
 import { cuePlayback, EFFECT_SAMPLES, feedbackChannel, MONEY_LOOP_HOLD_MS, SOUND_SAMPLE_URLS, type CuePlayback, type SoundSample } from "./SoundDesign";
 
@@ -6,17 +7,28 @@ import { cuePlayback, EFFECT_SAMPLES, feedbackChannel, MONEY_LOOP_HOLD_MS, SOUND
 const MUSIC_TRIM = 0.85;
 
 /**
- * The page's only sound output: one AudioContext, the looping music element
- * routed through its own gain, decoded one-shot effects, the sustained money
- * counter and vibration. Nothing sounds before the first gesture (`unlock`),
- * which is what browsers demand; the shell keeps calling it on every pointer
- * or key event because it is idempotent and cheap.
+ * The page's only sound output: one AudioContext, the looping music routed
+ * through its own gain, decoded one-shot effects, the sustained money counter
+ * and vibration. Nothing sounds before the first gesture (`unlock`), which is
+ * what browsers demand; the shell keeps calling it on pointer, touch, click
+ * and key events because it is idempotent and cheap.
+ *
+ * iPhone and iPad follow Safari's rules: a media element only starts from a
+ * touchend or click, its volume is read-only, and Web Audio is muted by the
+ * side switch unless a media element is playing. So there the music is a
+ * decoded loop under the music gain and a silent looping element keeps the
+ * playback session alive. Everywhere else the music element itself is routed
+ * through the context.
  */
 export class GameAudio {
   private context: AudioContext | null = null;
   private effectsBus: GainNode | null = null;
   private musicBus: GainNode | null = null;
   private music: HTMLAudioElement | null = null;
+  private readonly appleTouch = isAppleTouchDevice(currentDeviceHints());
+  private keepAlive: HTMLAudioElement | null = null;
+  private musicLoop: AudioBufferSourceNode | null = null;
+  private musicLoopLoading = false;
   private buffers = new Map<SoundSample, Promise<AudioBuffer | null>>();
   private lastPlayed = new Map<string, number>();
   private moneyLoop: { source: AudioBufferSourceNode; gain: GainNode } | null = null;
@@ -32,7 +44,7 @@ export class GameAudio {
     if (this.effectsBus) this.effectsBus.gain.value = volumeGain(settings.effects);
     if (settings.effects <= 0) this.stopMoneyLoop(true);
     this.applyMusicGain();
-    if (settings.music <= 0) this.music?.pause();
+    if (settings.music <= 0) this.pauseMusic();
     else this.startMusic();
   }
 
@@ -40,7 +52,7 @@ export class GameAudio {
   unlock() {
     const context = this.ensureContext();
     if (!context) return;
-    if (context.state === "suspended") void context.resume();
+    if (context.state === "suspended") void context.resume().then(() => this.startMusic(), () => undefined);
     this.unlocked = true;
     for (const sample of EFFECT_SAMPLES) void this.buffer(sample);
     this.startMusic();
@@ -49,7 +61,7 @@ export class GameAudio {
   /** A hidden tab is silent: the music pauses and resumes with the page. */
   setHidden(hidden: boolean) {
     this.hidden = hidden;
-    if (hidden) { this.music?.pause(); this.stopMoneyLoop(true); }
+    if (hidden) { this.pauseMusic(); this.stopMoneyLoop(true); }
     else this.startMusic();
   }
 
@@ -80,7 +92,9 @@ export class GameAudio {
 
   close() {
     this.stopMoneyLoop(true);
-    if (this.music) { this.music.pause(); this.music.removeAttribute("src"); this.music.load(); this.music = null; }
+    this.pauseMusic();
+    if (this.keepAlive) { this.keepAlive.removeAttribute("src"); this.keepAlive.load(); this.keepAlive = null; }
+    if (this.music) { this.music.removeAttribute("src"); this.music.load(); this.music = null; }
     if (this.context) void this.context.close();
     this.context = null; this.effectsBus = null; this.musicBus = null;
     this.buffers.clear();
@@ -101,6 +115,7 @@ export class GameAudio {
 
   private startMusic() {
     if (!this.unlocked || this.hidden || this.settings.music <= 0 || typeof Audio === "undefined") return;
+    if (this.appleTouch) { this.keepSessionAlive(); this.startMusicLoop(); return; }
     if (!this.music) {
       const element = new Audio(SOUND_SAMPLE_URLS.music);
       element.loop = true;
@@ -118,6 +133,44 @@ export class GameAudio {
       this.applyMusicGain();
     }
     if (this.music.paused) void this.music.play().catch(() => { this.unlocked = false; });
+  }
+
+  private pauseMusic() {
+    this.music?.pause();
+    this.keepAlive?.pause();
+    if (this.musicLoop) { try { this.musicLoop.stop(); } catch { /* already stopped */ } this.musicLoop = null; }
+  }
+
+  /** iOS: a silent media element in a loop keeps the page in a playback
+   * session, so the context is heard even with the side switch on silent.
+   * It must start inside the gesture, which is where unlock() runs. */
+  private keepSessionAlive() {
+    if (!this.keepAlive) {
+      const element = new Audio(SOUND_SAMPLE_URLS.silence);
+      element.loop = true;
+      element.preload = "auto";
+      element.setAttribute("playsinline", "");
+      this.keepAlive = element;
+    }
+    if (this.keepAlive.paused) void this.keepAlive.play().catch(() => { this.unlocked = false; });
+  }
+
+  /** iOS: the music is a decoded loop under the music gain, gapless and with a working slider. */
+  private startMusicLoop() {
+    const context = this.context;
+    if (!context || this.musicLoop || this.musicLoopLoading) return;
+    this.musicLoopLoading = true;
+    void this.buffer("music-lite").then((buffer) => {
+      this.musicLoopLoading = false;
+      if (!buffer || this.musicLoop || !this.context || this.hidden || this.settings.music <= 0 || !this.unlocked) return;
+      if (!this.musicBus) { this.musicBus = this.context.createGain(); this.musicBus.connect(this.context.destination); this.applyMusicGain(); }
+      const source = this.context.createBufferSource();
+      source.buffer = buffer;
+      source.loop = true;
+      source.connect(this.musicBus);
+      source.start();
+      this.musicLoop = source;
+    });
   }
 
   private applyMusicGain() {

@@ -33,13 +33,14 @@ export function GameRuntime() {
     const unsubscribe = feedbackBus.subscribe((signal) => audio.play(signal));
     const unlock = () => audio.unlock();
     const visibility = () => audio.setHidden(document.visibilityState !== "visible");
-    window.addEventListener("pointerdown", unlock, { capture: true, passive: true });
-    window.addEventListener("keydown", unlock, { capture: true });
+    // A touch pointerdown is not an activation for media: touchend and click
+    // are, so every one of them offers the unlock.
+    const gestures = ["pointerdown", "pointerup", "touchend", "click", "keydown"] as const;
+    for (const type of gestures) window.addEventListener(type, unlock, { capture: true, passive: true });
     document.addEventListener("visibilitychange", visibility);
     visibility();
     return () => {
-      window.removeEventListener("pointerdown", unlock, { capture: true });
-      window.removeEventListener("keydown", unlock, { capture: true });
+      for (const type of gestures) window.removeEventListener(type, unlock, { capture: true });
       document.removeEventListener("visibilitychange", visibility);
       unsubscribe();
       unsubscribeSettings();

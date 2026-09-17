@@ -19,6 +19,7 @@ import { GameInputSurface } from "./GameInputSurface";
 import { feedbackBus, type FeedbackCue } from "@/game/feedback/FeedbackBus";
 import { useAudioSettings } from "@/game/feedback/AudioSettingsStore";
 import { newCustomerPayments, type PaymentSnapshot } from "@/game/feedback/PaymentCue";
+import { currentDeviceHints, isAppleTouchDevice } from "@/game/feedback/DevicePlatform";
 import { saveBadgePresentation, type SaveBadgeStatus } from "@/game/feedback/SaveBadgePolicy";
 import type { RendererMetrics } from "@/game/debug/PerformanceMonitor";
 import { carriedProductIds, carryQuantity, carryTotal, departmentStockingPulses } from "@/game/player/CarrySystem";
@@ -695,11 +696,12 @@ function SettingsPanel() {
   const vibration = useAudioSettings((state) => state.vibration);
   const update = useAudioSettings((state) => state.update);
   const canVibrate = typeof navigator !== "undefined" && typeof navigator.vibrate === "function";
+  const appleTouch = isAppleTouchDevice(currentDeviceHints());
   const percent = (value: number) => `${Math.round(value * 100)} %`;
   return <div className="settings-grid">
     <article className="settings-card">
       <strong>Música</strong>
-      <small>Suena en bucle mientras juegas. A cero se detiene.</small>
+      <small>Suena en bucle mientras juegas. A cero se detiene.{appleTouch && " En iPhone, si no oyes nada, sube el interruptor lateral de silencio y el volumen."}</small>
       <label><input type="range" min={0} max={100} step={5} value={Math.round(music * 100)} aria-label="Volumen de la música" onChange={(event) => update({ music: Number(event.target.value) / 100 })} /><b>{percent(music)}</b></label>
     </article>
     <article className="settings-card">
@@ -710,7 +712,7 @@ function SettingsPanel() {
     </article>
     <article className="settings-card">
       <strong>Vibración</strong>
-      <small>{canVibrate ? "Un toque al cobrar, al mejorar y al completar una misión." : "Este dispositivo o navegador no vibra."}</small>
+      <small>{canVibrate ? "Un toque al cobrar, al mejorar y al completar una misión." : appleTouch ? "iPhone y iPad no permiten vibrar desde el navegador." : "Este dispositivo o navegador no vibra."}</small>
       <button type="button" role="switch" aria-checked={vibration} className={`switch${vibration ? " on" : ""}`} disabled={!canVibrate} onClick={() => update({ vibration: !vibration })}><i aria-hidden="true" /><span>{vibration ? "Activada" : "Desactivada"}</span></button>
     </article>
   </div>;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { advanceWorld, applyGameAction, createInitialGame, normalizeGameState, shelfCapacityForTier, storeSupplyPlan, WAREHOUSE_PRODUCT_CAP } from "../engine";
+import { advanceWorld, applyGameAction, createInitialGame, normalizeGameState, shelfCapacityForTier, storeSupplyPlan, SURPLUS_PRODUCTION_BATCH, WAREHOUSE_PRODUCT_CAP } from "../engine";
 import { createCrop, createMachine } from "../stations/StationSystem";
 import { createEmptyInventory } from "../economy/ProductRegistry";
 import type { Employee, GameState } from "../types";
@@ -79,37 +79,44 @@ describe("shared store demand", () => {
   });
 
 
-  it("levels every reserve at 2000 at most and clamps an overflowing silo on load", () => {
+  it("levels every reserve at 2000 at most, whatever an old silo holds", () => {
     const state = fixture(), shop = state.franchises[0];
     shop.warehouse.wheat = 32_754;
     expect(storeSupplyPlan(shop)[0]).toBe("flour");
     expect(shop.supplyFocus).toEqual({ productId: "flour", target: WAREHOUSE_PRODUCT_CAP });
+    shop.supplyFocus = { productId: "flour", target: 32_754 };
     const restored = normalizeGameState(JSON.parse(JSON.stringify(state))).franchises[0];
-    expect(restored.warehouse.wheat).toBe(WAREHOUSE_PRODUCT_CAP);
+    expect(restored.warehouse.wheat).toBe(32_754);
     expect(restored.supplyFocus?.target).toBe(WAREHOUSE_PRODUCT_CAP);
+    expect(storeSupplyPlan(restored)).toEqual(["flour", "wheat"]);
   });
-  it("stops producing at the cap and idles once every product sits there", () => {
+  it("moves on at the threshold and, with everything above it, keeps levelling the scarcest product by batches", () => {
     const shop = fixture().franchises[0];
     for (const id of ["flour", "wheat", "juice", "oranges", "bread"] as const) shop.warehouse[id] = WAREHOUSE_PRODUCT_CAP;
     shop.warehouse.tomatoes = WAREHOUSE_PRODUCT_CAP - 1;
     expect(storeSupplyPlan(shop)).toEqual(["tomatoes"]);
     expect(shop.supplyFocus).toEqual({ productId: "tomatoes", target: WAREHOUSE_PRODUCT_CAP });
     shop.warehouse.tomatoes = WAREHOUSE_PRODUCT_CAP;
-    expect(storeSupplyPlan(shop)).toEqual([]);
-    expect(shop.supplyFocus).toBeUndefined();
+    shop.warehouse.juice = WAREHOUSE_PRODUCT_CAP + 5_000;
+    expect(storeSupplyPlan(shop)[0]).not.toBe("juice");
+    expect(shop.supplyFocus?.target).toBe(WAREHOUSE_PRODUCT_CAP + SURPLUS_PRODUCTION_BATCH);
   });
-  it("never harvests into a stockroom already at the cap", () => {
+  it("leaves a product at the threshold alone while another is still short, even as a crop ingredient bound for the stockroom", () => {
     let state = fixture();
     const shop = state.franchises[0];
     state.level = 30;
-    shop.warehouse.tomatoes = WAREHOUSE_PRODUCT_CAP;
-    for (const id of ["flour", "wheat", "juice", "oranges", "bread"] as const) shop.warehouse[id] = WAREHOUSE_PRODUCT_CAP;
+    shop.warehouse = { ...shop.warehouse, tomatoes: WAREHOUSE_PRODUCT_CAP, wheat: WAREHOUSE_PRODUCT_CAP, bread: WAREHOUSE_PRODUCT_CAP, juice: WAREHOUSE_PRODUCT_CAP, oranges: WAREHOUSE_PRODUCT_CAP, flour: 2 };
     shop.shelves = Object.fromEntries(Object.keys(shop.shelves).map(id => [id, shelfCapacityForTier(1, id as keyof typeof shop.shelves, shop.unlockedAreas)])) as typeof shop.shelves;
     shop.crops.forEach(crop => Object.assign(crop, { status: "READY", available: 8 }));
     shop.employees = [{ id: "farmer", role: "farmer", name: "Test", level: 1, energy: 100, salaryMinor: 0, hat: "frog" } as Employee];
-    for (let second = 0; second < 30; second++) state = advanceWorld(state, 1_000, (_start, end) => [end]).state;
-    expect(state.franchises[0].warehouse.tomatoes).toBe(WAREHOUSE_PRODUCT_CAP);
-    expect(state.franchises[0].crops.every(crop => crop.available === 8)).toBe(true);
+    expect(storeSupplyPlan(shop)).toEqual(["flour", "wheat"]);
+    for (let second = 0; second < 40; second++) state = advanceWorld(state, 1_000, (_start, end) => [end]).state;
+    const after = state.franchises[0];
+    expect(after.warehouse.tomatoes).toBe(WAREHOUSE_PRODUCT_CAP);
+    expect(after.crops.find(crop => crop.productId === "tomatoes")!.available).toBe(8);
+    // Wheat only travels to the mill (from the bed or the stockroom): the stockroom never grows past the threshold.
+    expect(after.warehouse.wheat).toBeLessThanOrEqual(WAREHOUSE_PRODUCT_CAP);
+    expect((after.productionMachines.find(m => m.productId === "flour")!.input.wheat ?? 0) + after.productionMachines.find(m => m.productId === "flour")!.output + after.warehouse.flour).toBeGreaterThan(2);
   });
 
   function juiceShortage(orangeShelf: number) {
@@ -147,26 +154,22 @@ describe("shared store demand", () => {
     expect(state.franchises[0].shelves.oranges).toBeGreaterThan(0);
     expect(state.franchises[0].shelves.juice).toBeGreaterThan(0);
   });
-  it("books supplier orders only up to the cap", () => {
+  it("lets the owner order past the threshold: it only steers the team", () => {
     const state = createInitialGame();
     state.balanceMinor = 100_000_000;
-    state.franchises[0].warehouse.wheat = WAREHOUSE_PRODUCT_CAP;
-    expect(applyGameAction(state, { type: "ORDER", supplierId: "campo", productId: "wheat", quantity: 10 }).ok).toBe(false);
-    state.franchises[0].warehouse.wheat = WAREHOUSE_PRODUCT_CAP - 10;
+    state.franchises[0].warehouse.wheat = WAREHOUSE_PRODUCT_CAP + 500;
     const booked = applyGameAction(state, { type: "ORDER", supplierId: "campo", productId: "wheat", quantity: 100 });
     expect(booked.ok).toBe(true);
-    expect(booked.state.pendingOrders[0].quantity).toBe(10);
-    expect(applyGameAction(booked.state, { type: "ORDER", supplierId: "campo", productId: "wheat", quantity: 1 }).ok).toBe(false);
+    expect(booked.state.pendingOrders[0].quantity).toBe(100);
   });
-  it("returns to the stockroom only what fits under the cap and keeps the rest in the basket", () => {
+  it("always empties the owner's basket into the stockroom, even at the cap", () => {
     const state = createInitialGame();
-    state.franchises[0].warehouse.wheat = WAREHOUSE_PRODUCT_CAP - 2;
+    state.franchises[0].warehouse.wheat = WAREHOUSE_PRODUCT_CAP;
     state.franchises[0].carry = { capacity: 4, items: { wheat: 4 } };
     const returned = applyGameAction(state, { type: "RETURN_TO_WAREHOUSE" });
     expect(returned.ok).toBe(true);
-    expect(returned.state.franchises[0].warehouse.wheat).toBe(WAREHOUSE_PRODUCT_CAP);
-    expect(returned.state.franchises[0].carry.items).toEqual({ wheat: 2 });
-    expect(applyGameAction(returned.state, { type: "RETURN_TO_WAREHOUSE" }).ok).toBe(false);
+    expect(returned.state.franchises[0].warehouse.wheat).toBe(WAREHOUSE_PRODUCT_CAP + 4);
+    expect(returned.state.franchises[0].carry.items).toEqual({});
   });
 
 });

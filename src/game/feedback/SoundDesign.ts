@@ -1,9 +1,13 @@
 import type { FeedbackCue, FeedbackSignal } from "./FeedbackBus";
 
-export type SoundSample = "music" | "mission" | "cashier" | "money" | "step-1" | "step-2" | "stock" | "machine";
+export type SoundSample = "music" | "music-lite" | "silence" | "mission" | "cashier" | "money" | "step-1" | "step-2" | "stock" | "machine";
 
 export const SOUND_SAMPLE_URLS: Record<SoundSample, string> = {
   music: "/audio/music.mp3",
+  /** Mono 22 kHz copy, small enough to decode whole where the element cannot be routed (iOS). */
+  "music-lite": "/audio/music-lite.mp3",
+  /** One silent second: looping it keeps iOS in a playback session so the mute switch spares the game. */
+  silence: "/audio/silence.mp3",
   mission: "/audio/mission-complete.mp3",
   cashier: "/audio/cashier.mp3",
   money: "/audio/money-counter.mp3",
