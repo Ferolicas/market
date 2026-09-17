@@ -3,7 +3,7 @@ import { advanceAnimal, animalProduction, collectAnimal, feedAnimal, type FedAni
 /** Compatibility facade for opening-campaign callers; production is shared
  * with every animal, not implemented independently for chickens. */
 export interface FedChickenState {
-  tier: 1 | 2 | 3;
+  tier: 1 | 2 | 3 | 4 | 5;
   feed: number;
   eggs: number;
   outputCapacity: number;
@@ -36,6 +36,6 @@ export function collectChickenEggs(input: FedChickenState, capacity: number, now
 }
 export function upgradeFedChicken(input: FedChickenState, nowMs: number) {
   const state = advanceFedChicken(input, nowMs);
-  if (state.tier === 3 || !Number.isSafeInteger(nowMs) || nowMs < input.updatedAtMs) return state;
+  if (state.tier === 5 || !Number.isSafeInteger(nowMs) || nowMs < input.updatedAtMs) return state;
   return { ...state, tier: (state.tier + 1) as FedChickenState["tier"] };
 }

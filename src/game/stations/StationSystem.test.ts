@@ -27,7 +27,7 @@ describe("station systems", () => {
     expect(cropHarvestYield("tomatoes", 1)).toBe(3);
     expect(cropHarvestYield("tomatoes", 2)).toBe(4);
     expect(cropHarvestYield("wheat", 4)).toBe(5);
-    expect(cropHarvestYield("corn", 10)).toBe(7);
+    expect(cropHarvestYield("corn", 10)).toBe(6);
   });
 
   it("harvests an exact bounded batch and starts regrowth only on the final unit", () => {
@@ -105,14 +105,14 @@ describe("station systems", () => {
     expect(loaded.loaded).toBe(true);
     expect(loaded.inventory.wheat).toBe(3);
     // The first recipe is already in the drum; the rest waits in the queue.
-    expect(loaded.machine).toMatchObject({ status: "PROCESSING", input: { wheat: 18 }, completesAt: 6_000 });
+    expect(loaded.machine).toMatchObject({ status: "PROCESSING", input: { wheat: 18 }, completesAt: 5_200 });
     expect(machineQueuedCycles(loaded.machine)).toBe(9);
 
-    const midway = updateMachine(loaded.machine, 2_000 + 4_000 * 3 + 1);
+    const midway = updateMachine(loaded.machine, 2_000 + 3_200 * 3 + 1);
     expect(midway).toMatchObject({ status: "PROCESSING", output: 3, input: { wheat: 12 } });
-    expect(midway.completesAt).toBe(2_000 + 4_000 * 4);
+    expect(midway.completesAt).toBe(2_000 + 3_200 * 4);
 
-    const done = updateMachine(loaded.machine, 2_000 + 4_000 * 10);
+    const done = updateMachine(loaded.machine, 2_000 + 3_200 * 10);
     expect(done).toMatchObject({ status: "FULL", output: 10, input: {} });
     expect(updateMachine(done, 100_000)).toEqual(done);
   });

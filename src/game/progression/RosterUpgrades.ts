@@ -35,21 +35,15 @@ export function rosterStepCost(kind: RosterEntryKind, step: number) {
   return base * 2 ** Math.max(0, Math.floor(step));
 }
 
-/** Tier the purchase graph already paid for; roster steps stack on top of it. */
+/** Campaign purchases count toward the same four upgrades shown in the roster. */
 export function rosterBaseTier(franchise: FranchiseState, stationId: string) {
-  const purchased = franchise.purchases?.purchased ?? [];
-  if (stationId === "chicken-coop-1") {
-    return 1 + Number(purchased.includes("chicken-1-tier-2")) + Number(purchased.includes("chicken-1-tier-3"));
-  }
-  if (stationId === "cow-station-1") {
-    return 1 + Number(purchased.includes("cow-1-tier-2")) + Number(purchased.includes("cow-1-tier-3"));
-  }
+  void franchise; void stationId;
   return 1;
 }
 
 export function rosterPlayerBase(franchise: FranchiseState) {
-  const upgraded = franchise.purchases?.purchased.includes("player-2") ?? false;
-  return { speedTier: upgraded ? 2 : 1, capacity: upgraded ? 4 : 3 };
+  void franchise;
+  return { speedTier: 1, capacity: 3 };
 }
 
 function clampStep(value: number) {
@@ -99,6 +93,7 @@ export function rosterEntries(franchise: FranchiseState, moneyScale: number): Ro
       `Cesta ${franchise.carry.capacity} · velocidad T${franchise.playerSpeedTier}`,
       "🧍", playerStep, playerBase.speedTier + playerStep, moneyScale),
   ];
+  entries[0].capacity = Math.round(franchise.carry.capacity / 3 * 100) / 100;
   for (const employee of franchise.employees) {
     const card = entry(`employee:${employee.id}`, "employee", employee.name,
       employee.role === "cashier"

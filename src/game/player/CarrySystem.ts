@@ -1,8 +1,9 @@
 import type { CarryState, Inventory, ProductId } from "../types";
 import { retailShelfCapacityForTier } from "../stations/retail-layout";
 
-export const CAPACITY_TIERS = [3, 5, 8, 12, 16, 20] as const;
-export const MAX_WAREHOUSE_PICKUP_BATCH = CAPACITY_TIERS[CAPACITY_TIERS.length - 1];
+export const CAPACITY_TIERS = [3, 4, 6, 8, 10] as const;
+/** Older saves can already carry twenty units; keep their inventory valid. */
+export const MAX_WAREHOUSE_PICKUP_BATCH = 20;
 
 /** Stable order for a hands-free stockroom pickup. One unit per available SKU
  * is taken per round, so a single proximity pass can build a mixed basket

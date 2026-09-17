@@ -54,13 +54,13 @@ describe("fed chicken in the authoritative engine", () => {
   it.each([1, 2, 3])("respects tier %s feed capacity and production rate with fractional frame time", (tier) => {
     const inventory = { ...createEmptyInventory(), tomatoes: 10 };
     const fed = loadMachine(createMachine("chicken-1", "eggs", tier), inventory, 0.75);
-    const capacity = tier === 3 ? 6 : 4;
+    const capacity = 4 + tier - 1;
     expect(fed.inventory.tomatoes).toBe(10 - capacity);
     expect(chickenFeedStatus(fed.machine)).toEqual({ occupied: capacity, capacity, free: 0 });
     const duplicate = loadMachine(fed.machine, fed.inventory, 0.8);
     expect(duplicate.loaded).toBe(false);
     expect(duplicate.inventory).toEqual(fed.inventory);
-    const ready = updateMachine(fed.machine, tier === 1 ? 8_000.9 : capacity * 1_000 + 0.9);
+    const ready = updateMachine(fed.machine, capacity * Math.round(2_000 / (1 + (tier - 1) * 0.25)) + 0.9);
     expect(ready.output).toBe(capacity);
     expect(ready.completesAt).toBeNull();
     expect(collectMachineOutputBatch(ready, 10_000.5, 2).collected).toBe(2);

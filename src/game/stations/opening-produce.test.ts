@@ -13,7 +13,7 @@ describe("one produce display at the campaign opening", () => {
     expect(retailStockingMagnets("produce", 2, 1.6, franchise.unlockedAreas)).toHaveLength(1);
     expect(fixtureAvailable("fixture:retail-produce-2", franchise.unlockedAreas)).toBe(false);
     expect(retailShelfCapacityForTier(1, "tomatoes", franchise.unlockedAreas)).toBe(15);
-    expect(retailShelfCapacityForTier(10, "tomatoes", franchise.unlockedAreas)).toBe(33);
+    expect(retailShelfCapacityForTier(10, "tomatoes", franchise.unlockedAreas)).toBe(30);
     for (let ordinal = 0; ordinal < 15; ordinal++) {
       expect(retailStockFixtureSlot("produce", ordinal, 15, franchise.unlockedAreas)).toEqual({ fixtureIndex: 0, localOrdinal: ordinal, localEnd: 15 });
     }

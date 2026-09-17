@@ -48,9 +48,9 @@ describe("motor económico", () => {
     // Tier 1 is every physical front slot of the SKU's fixtures (two produce
     // tables of 15, three bakery shelves of 8); higher tiers fill deeper rows.
     expect(shelfCapacityForTier(1, "tomatoes")).toBe(30);
-    expect(shelfCapacityForTier(10, "tomatoes")).toBe(66);
+    expect(shelfCapacityForTier(10, "tomatoes")).toBe(60);
     expect(shelfCapacityForTier(1, "bread")).toBe(24);
-    expect(shelfCapacityForTier(10, "bread")).toBe(53);
+    expect(shelfCapacityForTier(10, "bread")).toBe(48);
     expect(shelfCapacityForTier(1, "coffee")).toBe(80);
 
     const state = createInitialGame("ES");
@@ -387,7 +387,7 @@ describe("motor económico", () => {
     expect(target.carry.capacity).toBeGreaterThanOrEqual(12);
   });
 
-  it("reconcilia capacidad legacy y cada mejora pagada aumenta la cesta hasta veinte", () => {
+  it("conserva cestas antiguas y aplica la escala común hasta diez", () => {
     let state = createInitialGame("ES");
     state.level = 3;
     state.balanceMinor = 10_000_000;
@@ -397,7 +397,7 @@ describe("motor económico", () => {
 
     expect(state.franchises[0]).toMatchObject({ playerCapacityTier: 2, carry: { capacity: 5 } });
 
-    for (const expectedCapacity of [8, 12, 16, 20]) {
+    for (const expectedCapacity of [6, 8, 10]) {
       const quote = upgradeQuote(state, "player-capacity");
       expect(quote).not.toBeNull();
       const balanceBefore = state.balanceMinor;
@@ -419,11 +419,11 @@ describe("motor económico", () => {
     const rejected = applyGameAction(state, { type: "CONTRIBUTE_UPGRADE", upgrade: "player-capacity", amountMinor: 100 });
     expect(rejected.ok).toBe(false);
     expect(rejected.state.balanceMinor).toBe(state.balanceMinor);
-    expect(rejected.state.franchises[0].carry.capacity).toBe(20);
+    expect(rejected.state.franchises[0].carry.capacity).toBe(10);
   });
 
   it("conserva los pisos gratuitos de capacidad de los niveles 3, 15 y 24", () => {
-    for (const [level, capacity, tier] of [[3, 5, 2], [15, 8, 3], [24, 12, 4]] as const) {
+    for (const [level, capacity, tier] of [[3, 5, 2], [15, 8, 4], [24, 12, 5]] as const) {
       const legacy = createInitialGame("ES");
       legacy.level = level;
       legacy.franchises[0].carry.capacity = 3;
@@ -471,7 +471,7 @@ describe("motor económico", () => {
     expect(runtime.carry).toEqual({ capacity: 3, items: { tomatoes: 3 } });
     expect(next.crops[0]).toMatchObject({ status: "READY", available: 5 });
     expect(runtime.state).toBe("NAVIGATE_DROPOFF");
-    expect(runtime.path.at(-1)).toEqual([FARM_BARN.workerPosition[0], FARM_BARN.workerPosition[1]]);
+    expect(runtime.assignedStationId).toBe("retail:tomatoes");
   });
 
   it("el agricultor prioriza trigo cuando falta materia prima para el molino", () => {
@@ -578,7 +578,7 @@ describe("motor económico", () => {
     expect(canOperateMachine(franchise, coop.id, state.simulationTimeMs)).toBe(true);
   });
 
-  it("mantiene al operador inactivo ante máquinas bloqueadas o con la cola llena y nada que recoger", () => {
+  it("espera junto a la máquina demandada cuando su única cola está llena", () => {
     const state = createInitialGame("ES");
     const franchise = state.franchises[0];
     franchise.lastCustomerSpawnAt = 999_999;
@@ -609,9 +609,9 @@ describe("motor económico", () => {
     const next = advanceWorld(state, 1_000).state.franchises[0];
 
     expect(next.employees[0].runtime).toMatchObject({
-      state: "IDLE",
-      assignedProduct: null,
-      assignedStationId: null,
+      state: "NAVIGATE_PICKUP",
+      assignedProduct: "bread",
+      assignedStationId: "bread-oven-1",
       carry: { capacity: 3, items: {} },
     });
     expect(next.productionMachines).toEqual(machinesBefore);
@@ -907,28 +907,14 @@ describe("motor económico", () => {
     expect(state.franchises[0].registerCashMinor.every((amount) => amount > 0)).toBe(true);
   });
 
-  it("reserva las materias primas de producción y evita que el reponedor secuestre el trigo", () => {
-    let state = createInitialGame("ES");
-    state.level = 6;
-    state = normalizeGameState(state);
-    const franchise = state.franchises[0];
-    franchise.warehouse.wheat = 6;
-    franchise.shelves.wheat = 0;
-    franchise.employees = [employee("stocker", "stocker"), employee("operator", "operator")];
-
-    for (let tick = 0; tick < 500; tick += 1) state = advanceWorld(state, 100).state;
-
-    const next = state.franchises[0];
-    // Wheat now has retail demand, but the stocker must reserve a mill batch.
-    expect(next.shelves.wheat).toBeLessThanOrEqual(4);
-    expect(state.progression.counters["production:flour"]).toBeGreaterThan(0);
-    // The flour may already have gone on into the oven, which consumes its
-    // input the moment it starts baking: count the flour wherever it is.
-    const oven = next.productionMachines.find((machine) => machine.id === "bread-oven-1")!;
-    expect(next.warehouse.flour + next.shelves.flour
-      + next.employees.reduce((sum, employee) => sum + (employee.runtime?.carry.items.flour ?? 0), 0)
-      + next.productionMachines.find((machine) => machine.id === "flour-mill-1")!.output
-      + (oven.input.flour ?? 0) + (oven.status === "PROCESSING" ? 1 : 0) + oven.output).toBeGreaterThan(0);
+  it("repone trigo antes de reservarlo para productos elaborados", () => {
+    let state = normalizeGameState({ ...createInitialGame("ES"), level: 6 });
+    state.franchises[0].warehouse.wheat = 6;
+    state.franchises[0].shelves.wheat = 0;
+    state.franchises[0].employees = [employee("stocker", "stocker"), employee("operator", "operator")];
+    for (let tick = 0; tick < 500; tick++) state = advanceWorld(state, 100).state;
+    expect(state.franchises[0].shelves.wheat).toBe(6);
+    expect(state.franchises[0].productionMachines.find(m => m.productId === "bread")!.input.flour ?? 0).toBe(0);
   });
 
   it("no cobra solo y envía la compra a devoluciones al agotar dos minutos", () => {

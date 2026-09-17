@@ -27,7 +27,7 @@ export type SaveAuthorityResult = { ok: true } | { ok: false; code: SaveAuthorit
  */
 export function validateSaveTransition(current: GameState, next: GameState, events: GameEvent[], options: { allowLegacyWalletSales?: boolean } = {}): SaveAuthorityResult {
   if (!validatePendingEvents(events)) return { ok: false, code: "INVALID_EVENTS" };
-  if (next.schemaVersion !== 4 || next.revision < current.revision || next.day < current.day || next.simulationTimeMs < current.simulationTimeMs || next.lastServerTime < current.lastServerTime) return { ok: false, code: "INVALID_STATE_TRANSITION" };
+  if (next.schemaVersion !== 4 || next.revision < current.revision || next.simulationTimeMs < current.simulationTimeMs || next.lastServerTime < current.lastServerTime) return { ok: false, code: "INVALID_STATE_TRANSITION" };
   const campaign = current.franchises.some((item) => item.purchases);
   if (next.level < current.level || (campaign ? next.level !== campaignGlobalLevel(next) : next.level > Math.min(30, current.level + 2)) || next.xp < current.xp || next.reputation < current.reputation) return { ok: false, code: "INVALID_STATE_TRANSITION" };
   if (campaign && next.franchises.some((franchise) => franchise.employees.some((employee) => franchise.employees.filter((item) => item.role === employee.role).length > campaignEmployeeLimit(franchise, employee.role)))) return { ok: false, code: "INVALID_STATE_TRANSITION" };
@@ -39,6 +39,7 @@ export function validateSaveTransition(current: GameState, next: GameState, even
   if (current.franchises.length !== next.franchises.length || current.franchises.some((franchise) => {
     const candidate = next.franchises.find((item) => item.id === franchise.id);
     return !candidate
+      || (candidate.id === next.currentFranchiseId ? next.day : candidate.businessDay ?? 1) < (franchise.id === current.currentFranchiseId ? current.day : franchise.businessDay ?? 1)
       || candidate.name !== franchise.name
       || candidate.city !== franchise.city
       || candidate.unlockLevel !== franchise.unlockLevel

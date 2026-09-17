@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useRef } from "react";
 
 const VISIBLE_MS = 3_000;
 
@@ -18,29 +18,20 @@ export function MissionComplete({ label, onDone }: { label: string; onDone: () =
     return () => clearTimeout(timer);
   }, [label]);
   const title = "¡MISIÓN COMPLETADA!";
-  const letters = useMemo(() => [...title], [title]);
+
   return <div className="mission-complete" role="status" aria-live="polite">
     <div className="mission-complete-card">
       <div className="mission-complete-burst" aria-hidden="true">
         {Array.from({ length: 12 }, (_, index) => <i key={index} style={{ "--spark": index } as React.CSSProperties} />)}
       </div>
-      <div className="mission-complete-crate" aria-hidden="true">
-        <svg viewBox="0 0 120 110">
-          <ellipse cx="60" cy="98" rx="42" ry="7" fill="#000" opacity="0.16" />
-          <path d="M18 46h84l-6 48H24Z" fill="#b98b57" />
-          <path d="M18 46h84l4-12H14Z" fill="#cfa06a" />
-          <rect x="30" y="58" width="60" height="6" rx="3" fill="#a5794a" />
-          <circle cx="44" cy="40" r="13" fill="#d8503f" />
-          <circle cx="62" cy="34" r="15" fill="#e15c48" />
-          <circle cx="80" cy="41" r="12" fill="#c9442f" />
-          <path d="M60 22c6-8 14-10 20-9-2 7-8 12-16 13Z" fill="#4f8f4b" />
-        </svg>
+      <span className="experience-eyebrow">UN PASO MÁS EN TU HISTORIA</span>
+      <div className="achievement-medal" aria-hidden="true">
+        <svg viewBox="0 0 120 120"><defs><linearGradient id="medal-gold" x2="1" y2="1"><stop stopColor="#fff0ba"/><stop offset="1" stopColor="#b48031"/></linearGradient></defs><path d="m33 76-8 37 24-13 11 13 7-35M87 76l8 37-24-13-11 13-7-35" fill="#377965"/><circle cx="60" cy="52" r="43" fill="url(#medal-gold)"/><circle cx="60" cy="52" r="34" fill="none" stroke="#876125" strokeWidth="1"/><path d="m42 51 12 12 25-27" fill="none" stroke="#294e3d" strokeWidth="7" strokeLinecap="round" strokeLinejoin="round"/></svg>
       </div>
-      <h2 aria-label={title}>
-        {letters.map((letter, index) => <span key={`${letter}-${index}`} style={{ animationDelay: `${index * 45}ms` }}>{letter === " " ? " " : letter}</span>)}
-      </h2>
+      <h2>{title}</h2>
       <p>{label}</p>
-      <small>¡Felicitaciones!</small>
+      <small>Tu esfuerzo hace crecer este lugar.</small>
+      <div className="achievement-timer" aria-hidden="true" />
     </div>
   </div>;
 }

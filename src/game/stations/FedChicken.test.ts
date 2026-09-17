@@ -39,21 +39,21 @@ describe("fed chicken production", () => {
     expect(smallSteps).toEqual(advanceFedChicken(loaded, 8_000));
     expect(advanceFedChicken(smallSteps, 8_000)).toEqual(smallSteps);
   });
-  it("tier two processes one egg each second and tier three accepts six tomatoes", () => {
+  it("each tier adds 25 percent speed and feed capacity", () => {
     const tier2 = upgradeFedChicken(createFedChicken(), 0);
-    expect(chickenFeedCapacity(tier2.tier)).toBe(4);
-    expect(advanceFedChicken(feedChicken(tier2, 4, 0).state, 4_000).eggs).toBe(4);
+    expect(chickenFeedCapacity(tier2.tier)).toBe(5);
+    expect(advanceFedChicken(feedChicken(tier2, 4, 0).state, 6_400).eggs).toBe(4);
     const tier3 = upgradeFedChicken(tier2, 0);
     expect(chickenFeedCapacity(tier3.tier)).toBe(6);
     const loaded = feedChicken(tier3, 10, 0);
     expect(loaded.consumed).toBe(6);
-    expect(advanceFedChicken(loaded.state, 6_000).eggs).toBe(6);
+    expect(advanceFedChicken(loaded.state, 8_000).eggs).toBe(6);
   });
   it("upgrades preserve the current cycle deadline", () => {
     const loaded = feedChicken(createFedChicken(), 4, 0).state;
     const upgraded = upgradeFedChicken(loaded, 1_000);
     expect(upgraded.nextEggAtMs).toBe(2_000);
-    expect(advanceFedChicken(upgraded, 5_000).eggs).toBe(4);
+    expect(advanceFedChicken(upgraded, 6_800).eggs).toBe(4);
   });
   it("stops with full output, preserves unused feed and resumes on collection", () => {
     const first = advanceFedChicken(feedChicken(createFedChicken(), 4, 0).state, 8_000);

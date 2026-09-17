@@ -33,7 +33,7 @@ export interface MachineStation {
 export function cropGrowthDurationMs(productId: CropStation["productId"], tier = 1, gameLevel = 1) {
   const growMs = PRODUCT_CONFIG[productId]?.growMs ?? 4_000;
   const levelSpeed = 1 + Math.min(0.5, Math.max(0, Math.floor(gameLevel) - 1) * 0.025);
-  return Math.max(1_500, Math.round(growMs / stationTierModifiers(tier).speed / levelSpeed));
+  return Math.max(1, Math.round(growMs / stationTierModifiers(tier).speed / levelSpeed));
 }
 
 /** Units a campaign bed yields per cycle at tier 1, the same for every crop:

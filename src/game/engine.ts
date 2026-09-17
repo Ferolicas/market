@@ -7,7 +7,7 @@ import { CAMPAIGN_BED_YIELD, chickenFeedStatus, collectMachineOutputBatch, creat
 import { animalProduction } from "./stations/FedAnimal";
 import { contributePurchase, createPurchaseState, purchaseContributionPulseMinor, purchaseQuote } from "./progression/PurchaseState";
 import { campaignGlobalLevel, campaignEmployeeLimit, campaignLevel, campaignPriceMultiplier } from "./progression/CampaignLevels";
-import { cashierTillModifiers, employeeCarryCapacity, employeeWalkSpeed } from "./progression/EmployeeStats";
+import { employeeTrainingMultiplier, cashierTillModifiers, employeeCarryCapacity, employeeWalkSpeed } from "./progression/EmployeeStats";
 import { addCampaignTaskProgress, CAMPAIGN_TASK_IDS, campaignTaskStatus, type CampaignTaskProgress } from "./progression/CampaignTasks";
 import { campaignAvailableProducts, OPENING_PURCHASES, type OpeningPurchaseId } from "./progression/MartCampaign";
 import { rosterBaseTier, rosterEntries, rosterPlayerBase, type RosterEntry } from "./progression/RosterUpgrades";
@@ -32,9 +32,6 @@ import { BUSINESS_DAY_NIGHT_MINUTE, BUSINESS_DAY_OPEN_MINUTE, businessDayIsClosi
 const EMPTY_INVENTORY = createEmptyInventory;
 export const CHECKOUT_PATIENCE_MS = CUSTOMER_PATIENCE_MS;
 export const CHECKOUT_LOAD_UNIT_MS = 900;
-/** Farmers leave the farm to restock a shelf only below this fill ratio;
- * the warehouse comes first, so a shelf short of one unit waits. */
-export const RESTOCK_SHELF_THRESHOLD = 0.3;
 export const CHECKOUT_SCAN_UNIT_MS = 700;
 export const CHECKOUT_BAG_UNIT_MS = 650;
 export const CHECKOUT_PAYMENT_MS = 1_800;
@@ -149,6 +146,8 @@ export function normalizeGameState(input: unknown): GameState {
   for (const franchise of state.franchises ?? []) {
     const franchiseTemplate = FRANCHISE_TEMPLATES.find((template) => template.id === franchise.id);
     if (franchiseTemplate) franchise.unlockLevel = franchiseTemplate.unlockLevel;
+    franchise.businessDay ??= franchise.id === state.currentFranchiseId || franchise.open ? state.day : 1;
+    franchise.businessMinute ??= franchise.id === state.currentFranchiseId || franchise.open ? state.minuteOfDay : BUSINESS_DAY_OPEN_MINUTE;
     franchise.warehouse = normalizeInventory(franchise.warehouse);
     franchise.shelves = normalizeInventory(franchise.shelves);
     franchise.carry = normalizeCarry(franchise.carry, 3);
@@ -171,7 +170,10 @@ export function normalizeGameState(input: unknown): GameState {
     franchise.productionMachines ??= [createMachine("flour-mill-1", "flour"), createMachine("bread-oven-1", "bread"), createMachine("cheese-maker-1", "cheese"), createMachine("juice-machine-1", "juice")];
     if (!franchise.productionMachines.some((machine) => machine.id === "chicken-coop-1")) franchise.productionMachines.push({ ...createMachine("chicken-coop-1", "eggs"), status: state.level >= 8 ? "WAITING_INPUT" : "LOCKED" });
     if (!franchise.productionMachines.some((machine) => machine.id === "cow-station-1")) franchise.productionMachines.push({ ...createMachine("cow-station-1", "milk"), status: state.level >= 13 ? "WAITING_INPUT" : "LOCKED" });
-    franchise.productionMachines = franchise.productionMachines.map((machine) => normalizeMachineClock(machine, state.simulationTimeMs, state.lastServerTime));
+    franchise.productionMachines = franchise.productionMachines.map((machine) => ({
+      ...normalizeMachineClock(machine, state.simulationTimeMs, state.lastServerTime),
+      outputCapacity: Math.max(machine.output, Math.round((PRODUCT_CONFIG[machine.productId]?.outputCapacity ?? 8) * stationTierModifiers(machine.tier).capacity)),
+    }));
     franchise.buildProjects ??= [];
     franchise.buildProjects = franchise.buildProjects
       .filter((project) => Number.isInteger(project.level) && project.level >= 2 && project.level <= 30)
@@ -254,6 +256,8 @@ export function normalizeGameState(input: unknown): GameState {
   // any tick runs: the level reward is state, not a live-session side effect.
   if (state.franchises.some((franchise) => franchise.owned && franchise.purchases)) {
     for (const franchise of state.franchises) {
+      franchise.carry.capacity = Math.max(franchise.carry.capacity, employeeCarryCapacity(franchise.playerSpeedTier));
+      franchise.playerCapacityTier = carryCapacityTier(franchise.carry.capacity);
       sanitizeCampaignPurchases(franchise);
       syncCampaignCrops(state as GameState, franchise);
       syncCampaignStaff(state as GameState, franchise);
@@ -449,8 +453,7 @@ function applyPurchaseContent(state: GameState, franchise: FranchiseState, id: O
     case "coffee-supply-1": area("coffee-supply"); grantCampaignCrop(state, franchise, ...CAMPAIGN_CROP_PURCHASES[id]!); break;
     case "preserves-supply-1": area("preserves-supply"); break;
     case "corn-canner-1": machine(id, "cannedCorn", "corn-canner"); break;
-    // Every machine brings the operator who feeds it from the warehouse and
-    // carries its output back; every pen brings its feeder; farmers only farm.
+    // Each purchase adds a worker to the shared supply team; cashiers keep their tills.
     case "flour-mill-1": machine(id, "flour", "flour-mill"); break;
     case "bread-oven-1": machine(id, "bread", "bread-oven"); break;
     case "cheese-maker-1": machine(id, "cheese", "cheese-maker"); break;
@@ -863,7 +866,11 @@ function applyGameActionInternal(input: GameState, action: GameAction, cloneInpu
     case "TRAVEL": {
       const target = state.franchises.find((item) => item.id === action.franchiseId && item.owned);
       if (!target) return fail("Aún no eres dueño de esa franquicia.");
+      franchise.businessDay = state.day;
+      franchise.businessMinute = state.minuteOfDay;
       state.currentFranchiseId = target.id;
+      state.day = target.businessDay ?? 1;
+      state.minuteOfDay = target.businessMinute ?? BUSINESS_DAY_OPEN_MINUTE;
       return success(`Viaje instantáneo a ${target.name}.`);
     }
     case "CLAIM_MISSION": {
@@ -885,6 +892,7 @@ export function advanceSimulation(input: GameState, minutes = 10): ActionResult 
   const state = structuredClone(input);
   const events: GameEvent[] = [];
   state.minuteOfDay += minutes;
+  currentFranchise(state).businessMinute = state.minuteOfDay;
   state.lastServerTime += minutes * 60_000;
   deliverOrders(state);
 
@@ -918,24 +926,35 @@ export function advanceWorld(input: GameState, deltaMs = 250, pathfinder?: World
   }
   const elapsedMs = Math.min(1_000, Math.max(0, deltaMs));
   state.simulationTimeMs += elapsedMs;
-  const openFranchises = state.franchises.filter((candidate) => candidate.owned && candidate.open);
-  if (openFranchises.length && businessDayIsClosing(state.minuteOfDay)) {
-    interactionMessage = beginBusinessDayClosure(state, events, true);
-  } else if (openFranchises.length) {
-    const elapsedBusinessMinutes = businessMinutesForRealMs(elapsedMs);
-    state.minuteOfDay = Math.min(BUSINESS_DAY_NIGHT_MINUTE, state.minuteOfDay + elapsedBusinessMinutes);
-    state.lastServerTime += elapsedBusinessMinutes * 60_000;
-    for (const openFranchise of openFranchises) {
-      openFranchise.employees.forEach((employee) => { employee.energy = Math.max(15, employee.energy - 0.15 * elapsedBusinessMinutes); });
-    }
-    deliverOrders(state);
-    if (businessDayIsClosing(state.minuteOfDay)) interactionMessage = beginBusinessDayClosure(state, events, true);
-  }
+  if (state.franchises.some(franchise => franchise.owned && franchise.open)) state.lastServerTime += businessMinutesForRealMs(elapsedMs) * 60_000;
+  const visitedId = state.currentFranchiseId;
+  currentFranchise(state).businessDay = state.day;
+  currentFranchise(state).businessMinute = state.minuteOfDay;
   const playerDistanceMeters = Math.max(0, Math.min(100, worldInput.playerDistanceMeters ?? 0));
   if (playerDistanceMeters > 0) recordDomain(state, "distance:player", playerDistanceMeters);
 
   for (const franchise of state.franchises.filter((candidate) => candidate.owned)) {
+    state.currentFranchiseId = franchise.id;
+    state.day = franchise.businessDay ?? 1;
+    state.minuteOfDay = franchise.businessMinute ?? BUSINESS_DAY_OPEN_MINUTE;
+    if (franchise.open) {
+      const minutes = businessMinutesForRealMs(elapsedMs);
+      state.minuteOfDay = Math.min(BUSINESS_DAY_NIGHT_MINUTE, state.minuteOfDay + minutes);
+      franchise.employees.forEach(employee => { employee.energy = Math.max(15, employee.energy - 0.15 * minutes); });
+      deliverOrders(state);
+      if (businessDayIsClosing(state.minuteOfDay)) interactionMessage = beginBusinessDayClosure(state, events, true);
+    }
     franchise.crops = franchise.crops.map((crop) => updateCrop(crop, state.simulationTimeMs));
+    // Return unconsumed surplus recipes to storage. A cycle already in flight
+    // finishes exactly once; its ingredient has already been consumed.
+    if (franchise.employees.some(employee => employee.role !== "cashier")) {
+      const demand = storeSupplyPlan(franchise);
+      for (const machine of franchise.productionMachines) {
+        if (machine.status === "LOCKED" || demand.includes(machine.productId)) continue;
+        for (const [ingredient, quantity] of Object.entries(machine.input) as [ProductId, number][]) franchise.warehouse[ingredient] += quantity;
+        machine.input = {};
+      }
+    }
     franchise.productionMachines = franchise.productionMachines.map((machine) => updateMachineWithProgress(state, machine));
     updateAutomaticDoor(franchise, state.simulationTimeMs, elapsedMs);
     franchise.lightsOn = franchise.open || (businessDayIsClosing(state.minuteOfDay) && hasCustomersInStore(franchise));
@@ -961,12 +980,16 @@ export function advanceWorld(input: GameState, deltaMs = 250, pathfinder?: World
       const customerStillCollecting = franchise.customers.some((customer) => customer.transactionId === transaction.id);
       return customerStillCollecting || state.simulationTimeMs - transaction.updatedAt < 2_000;
     });
+    if (businessDayIsClosing(state.minuteOfDay) && !hasActiveCustomers(franchise)) {
+      settleBusinessDay(state, events);
+      interactionMessage = businessDayClosureMessage(state, state.day - 1, true);
+    }
+    franchise.businessDay = state.day;
+    franchise.businessMinute = state.minuteOfDay;
   }
-  if (businessDayIsClosing(state.minuteOfDay)
-    && state.franchises.filter((candidate) => candidate.owned).every((candidate) => !hasActiveCustomers(candidate))) {
-    settleBusinessDay(state, events);
-    interactionMessage = businessDayClosureMessage(state, state.day - 1, true);
-  }
+  state.currentFranchiseId = visitedId;
+  state.day = currentFranchise(state).businessDay ?? 1;
+  state.minuteOfDay = currentFranchise(state).businessMinute ?? BUSINESS_DAY_OPEN_MINUTE;
   state.revision += 1;
   normalizeLevel(state);
   stampEvents(state, events);
@@ -979,7 +1002,7 @@ function settleBusinessDay(state: GameState, events: GameEvent[]) {
   let payroll = 0;
   let operating = 0;
   let taxableProfit = 0;
-  for (const franchise of state.franchises.filter((item) => item.owned)) {
+  for (const franchise of [currentFranchise(state)]) {
     franchise.open = false;
     // Campaign hires are one-off purchases. Closing an empty store must not
     // create debt, consume register funds or charge the legacy fiscal model.
@@ -1016,6 +1039,8 @@ function settleBusinessDay(state: GameState, events: GameEvent[]) {
   if (tax > 0) events.push({ franchiseId: globalEventFranchiseId(state), category: "tax", description: `Provisión fiscal ${Math.round(country.corporateTaxRate * 100)}%`, amountMinor: -tax, payload: { scope: "global" } });
   state.day++;
   state.minuteOfDay = BUSINESS_DAY_OPEN_MINUTE;
+  currentFranchise(state).businessDay = state.day;
+  currentFranchise(state).businessMinute = state.minuteOfDay;
   state.missions = isCampaignGame(state) ? [] : missionsForDay(state.day, moneyScale, state.level);
 }
 
@@ -1026,12 +1051,12 @@ function businessDayClosureMessage(state: GameState, day: number, automatic: boo
 
 function beginBusinessDayClosure(state: GameState, events: GameEvent[], automatic = false) {
   state.minuteOfDay = BUSINESS_DAY_NIGHT_MINUTE;
-  for (const franchise of state.franchises.filter((candidate) => candidate.owned)) {
+  for (const franchise of [currentFranchise(state)]) {
     franchise.open = false;
     removeCustomersWhoNeverEntered(franchise, state.simulationTimeMs);
     franchise.lightsOn = hasCustomersInStore(franchise);
   }
-  if (!state.franchises.filter((candidate) => candidate.owned).some((candidate) => hasActiveCustomers(candidate))) {
+  if (![currentFranchise(state)].some((candidate) => hasActiveCustomers(candidate))) {
     const closedDay = state.day;
     settleBusinessDay(state, events);
     return businessDayClosureMessage(state, closedDay, automatic);
@@ -1111,12 +1136,12 @@ const MACHINE_POINTS: Record<string, [number, number]> = {
 };
 
 function normalizePersistedFarmEmployee(franchise: FranchiseState, employee: Employee, now: number) {
-  if (!employee.runtime || (employee.role !== "farmer" && employee.role !== "operator")) return;
+  if (!employee.runtime || employee.role === "cashier") return;
   const runtime = employee.runtime;
   runtime.path = Array.isArray(runtime.path) ? runtime.path : [];
   const atRetiredHome = Math.hypot(runtime.x + 5.3, runtime.z - 3.6) < 0.35;
-  const assignedCrop = employee.role === "farmer" && runtime.assignedStationId ? CROP_POINTS[runtime.assignedStationId] : undefined;
-  const assignedMachine = employee.role === "operator" && runtime.assignedStationId
+  const assignedCrop = runtime.assignedStationId ? CROP_POINTS[runtime.assignedStationId] : undefined;
+  const assignedMachine = runtime.assignedStationId
     ? franchise.productionMachines.find((machine) => machine.id === runtime.assignedStationId)
     : undefined;
   const assignedMachinePoint = assignedMachine ? MACHINE_POINTS[assignedMachine.id] : undefined;
@@ -1168,13 +1193,15 @@ function normalizePersistedFarmEmployee(franchise: FranchiseState, employee: Emp
   const collecting = runtime.state === "NAVIGATE_PICKUP" || runtime.state === "PICKUP";
   const delivering = runtime.state === "NAVIGATE_DROPOFF" || runtime.state === "DROPOFF"
     || (runtime.state === "IDLE" && carryTotal(runtime.carry) > 0 && (retiredRoute || relocatedLegacyServiceLane));
-  const expectedTarget = employee.role === "farmer"
-    ? collecting ? runtime.assignedStationId === "stockroom" ? STOCKROOM_POINT : assignedCrop ?? assignedFarmMachinePoint
-      : delivering ? runtime.assignedStationId?.startsWith("retail:") && runtime.assignedProduct ? retailServicePoint(runtime.assignedProduct) : FARM_BARN_POINT : undefined
-    : collecting ? assignedMachinePoint
-      : delivering && assignedMachinePoint
-        ? assignedMachine?.productId === runtime.assignedProduct ? STOCKROOM_POINT : assignedMachinePoint
-        : delivering && (retiredRoute || relocatedLegacyServiceLane) ? STOCKROOM_POINT : undefined;
+  const ingredientTrip = assignedMachine && assignedMachine.productId !== runtime.assignedProduct;
+  const expectedTarget = collecting
+    ? runtime.assignedStationId === "stockroom" ? STOCKROOM_POINT
+      : assignedCrop ?? (ingredientTrip ? animalProduction(assignedMachine.productId, assignedMachine.tier) ? FARM_BARN_POINT : STOCKROOM_POINT : assignedMachinePoint)
+    : delivering
+      ? runtime.assignedStationId?.startsWith("retail:") && runtime.assignedProduct ? retailServicePoint(runtime.assignedProduct)
+        : ingredientTrip ? assignedMachinePoint
+          : employee.role === "farmer" || assignedCrop ? FARM_BARN_POINT : STOCKROOM_POINT
+      : undefined;
   if (!expectedTarget) {
     if (!retiredRoute) return;
     const fallback = assignedCrop ?? assignedFarmMachinePoint
@@ -1231,7 +1258,7 @@ function updateEmployee(state: GameState, franchise: FranchiseState, employee: E
   const runtime = employee.runtime!;
   runtime.carry.capacity = employeeCarryCapacity(employee.level);
   runtime.speed = employeeWalkSpeed(employee.level);
-  if (employee.energy <= 0 || employee.role === "builder" || employee.role === "manager") return;
+  if (employee.energy <= 0 && employee.role === "cashier") return;
   if (employee.role === "cashier") {
     updateCashierEmployee(state, franchise, employee, deltaMs, events, pathfinder);
     return;
@@ -1246,7 +1273,7 @@ function updateEmployee(state: GameState, franchise: FranchiseState, employee: E
       if (walkEmployeeThroughAutomaticDoor(runtime, franchise, deltaMs)) { runtime.state = "PICKUP"; runtime.stateSince = state.simulationTimeMs; }
       break;
     case "PICKUP":
-      if (state.simulationTimeMs - runtime.stateSince < 320) return;
+      if (state.simulationTimeMs - runtime.stateSince < 320 / employeeTrainingMultiplier(employee.level)) return;
       employeePickup(state, franchise, employee, pathfinder);
       break;
     case "NAVIGATE_DROPOFF":
@@ -1260,7 +1287,7 @@ function updateEmployee(state: GameState, franchise: FranchiseState, employee: E
       if (walkEmployeeThroughAutomaticDoor(runtime, franchise, deltaMs)) { runtime.state = "DROPOFF"; runtime.stateSince = state.simulationTimeMs; }
       break;
     case "DROPOFF":
-      if (state.simulationTimeMs - runtime.stateSince < 320) return;
+      if (state.simulationTimeMs - runtime.stateSince < 320 / employeeTrainingMultiplier(employee.level)) return;
       employeeDropoff(state, franchise, employee, pathfinder);
       break;
     case "NAVIGATE_RETURN":
@@ -1270,7 +1297,7 @@ function updateEmployee(state: GameState, franchise: FranchiseState, employee: E
       }
       break;
     case "RETURN_TO_WAREHOUSE":
-      if (state.simulationTimeMs - runtime.stateSince < 320) return;
+      if (state.simulationTimeMs - runtime.stateSince < 320 / employeeTrainingMultiplier(employee.level)) return;
       employeeReturnCarry(state, franchise, employee);
       break;
   }
@@ -1350,123 +1377,74 @@ function cashierLaneForEmployee(franchise: FranchiseState, employee: Employee): 
   return index as CheckoutLane;
 }
 
+/** One shared production plan per store, retained until its warehouse target is met. */
+export function storeSupplyPlan(franchise: FranchiseState) {
+  const products = [...new Set<ProductId>([
+    ...franchise.crops.filter(c => c.status !== "LOCKED").map(c => c.productId),
+    ...franchise.productionMachines.filter(m => m.status !== "LOCKED").map(m => m.productId),
+  ])];
+  const onHand = (id: ProductId) => franchise.warehouse[id] + franchise.employees.reduce((n, e) => n + (e.runtime?.carry.items[id] ?? 0), 0)
+    + franchise.productionMachines.reduce((n, m) => n + (m.productId === id ? m.output : 0), 0);
+  const manufactured = (id: ProductId) => franchise.productionMachines.some(m => m.productId === id && m.status !== "LOCKED");
+  const ordered = [...products].sort((a, b) => franchise.warehouse[a] - franchise.warehouse[b] || Number(manufactured(b)) - Number(manufactured(a)));
+  const emergency = ordered.find(id => franchise.shelves[id] === 0 && onHand(id) === 0);
+  let focus = franchise.supplyFocus;
+  if (!focus || !products.includes(focus.productId) || franchise.warehouse[focus.productId] >= focus.target
+    || (emergency && franchise.shelves[focus.productId] > 0 && emergency !== focus.productId)) {
+    const productId = emergency ?? ordered[0];
+    if (!productId) return [];
+    focus = { productId, target: Math.max(1, ...products.map(id => franchise.warehouse[id])) };
+    if (franchise.warehouse[productId] >= focus.target) focus.target += 1;
+    franchise.supplyFocus = focus;
+  }
+  const chain: ProductId[] = [];
+  const visit = (id: ProductId) => {
+    if (chain.includes(id)) return;
+    chain.push(id);
+    const machine = franchise.productionMachines.find(m => m.productId === id && m.status !== "LOCKED");
+    if (!machine) return;
+    const animal = animalProduction(id, machine.tier);
+    const ingredients = animal ? [animal.input] : Object.keys(PRODUCT_CONFIG[id]?.recipe ?? {}) as ProductId[];
+    ingredients.forEach(visit);
+  };
+  visit(focus.productId);
+  return chain;
+}
+
 function assignEmployeeTask(state: GameState, franchise: FranchiseState, employee: Employee, pathfinder?: WorldPathfinder) {
   const runtime = employee.runtime!;
-  if (employee.role === "stocker") {
-    const saleableProducts = new Set(franchise.purchases ? campaignAvailableProducts(franchise.purchases) : unlockedCustomerProducts(state.level));
-    const productId = (Object.keys(franchise.warehouse) as ProductId[])
-      .filter((id) => saleableProducts.has(id) && availableWarehouseForEmployee(franchise, id, employee.id) > productionIngredientReserve(franchise, id))
-      .sort((a, b) => shelfFill(franchise, a) - shelfFill(franchise, b))[0];
-    if (!productId || shelfFill(franchise, productId) >= 1) return false;
-    runtime.assignedProduct = productId; runtime.assignedStationId = "stockroom";
-    setEmployeePath(runtime, navigatePath(pathfinder, [runtime.x, runtime.z], STOCKROOM_POINT));
+  const chain = storeSupplyPlan(franchise);
+  const assign = (product: ProductId, station: string, point: [number, number]) => {
+    runtime.assignedProduct = product; runtime.assignedStationId = station;
+    setEmployeePath(runtime, navigatePath(pathfinder, [runtime.x, runtime.z], point));
     return true;
-  }
-  if (employee.role === "feeder") {
-    const reserved = new Set(franchise.employees
-      .filter((candidate) => candidate.id !== employee.id && candidate.role === "feeder")
-      .map((candidate) => candidate.runtime?.assignedStationId));
-    const target = franchise.productionMachines
-      .filter((machine) => machine.status !== "LOCKED" && !reserved.has(machine.id))
-      .map((machine) => ({ machine, policy: animalProduction(machine.productId, machine.tier) }))
-      .filter((candidate) => candidate.policy
-        && chickenFeedStatus(candidate.machine).free > 0
-        && availableWarehouseForEmployee(franchise, candidate.policy.input, employee.id) > 0)
-      .sort((a, b) => chickenFeedStatus(b.machine).free - chickenFeedStatus(a.machine).free)[0];
-    if (!target?.policy) return false;
-    runtime.assignedProduct = target.policy.input;
-    runtime.assignedStationId = target.machine.id;
-    setEmployeePath(runtime, navigatePath(pathfinder, [runtime.x, runtime.z], FARM_BARN_POINT));
-    return true;
-  }
-  if (employee.role === "farmer") {
-    if (franchise.purchases) {
-      const reserved = new Set(franchise.employees.filter((candidate) => candidate.id !== employee.id).map((candidate) => candidate.runtime?.assignedStationId));
-      // Restocking only interrupts the farm when a shelf is nearly bare:
-      // below RESTOCK_SHELF_THRESHOLD. A shelf missing one unit waits.
-      const stock = campaignAvailableProducts(franchise.purchases)
-        .filter((product) => availableWarehouseForEmployee(franchise, product, employee.id) > productionIngredientReserve(franchise, product) && shelfFill(franchise, product) < RESTOCK_SHELF_THRESHOLD)
-        .sort((a, b) => shelfFill(franchise, a) - shelfFill(franchise, b))[0];
-      if (stock) {
-        runtime.assignedProduct = stock; runtime.assignedStationId = "stockroom";
-        setEmployeePath(runtime, navigatePath(pathfinder, [runtime.x, runtime.z], STOCKROOM_POINT));
-        return true;
-      }
-      // Eggs and milk are a harvest too: a basket's worth, or whatever the
-      // idle trough left, goes to the shelf when it needs it and to the
-      // warehouse otherwise, so the animal never stalls on a full buffer.
-      const readyAnimal = franchise.productionMachines
-        .filter((machine) => animalProduction(machine.productId, machine.tier) && machine.status !== "LOCKED" && !reserved.has(machine.id)
-          && machine.output > 0 && (machine.output >= Math.min(runtime.carry.capacity, machine.outputCapacity) || machine.status !== "PROCESSING"))
-        .sort((a, b) => b.output - a.output)[0];
-      if (readyAnimal) {
-        runtime.assignedProduct = readyAnimal.productId; runtime.assignedStationId = readyAnimal.id;
-        setEmployeePath(runtime, navigatePath(pathfinder, [runtime.x, runtime.z], MACHINE_POINTS[readyAnimal.id]));
-        return true;
-      }
+  };
+  const saleable = franchise.purchases ? campaignAvailableProducts(franchise.purchases) : unlockedCustomerProducts(state.level);
+  const stock = saleable.filter(id => shelfFill(franchise, id) < 1 && availableWarehouseForEmployee(franchise, id, employee.id) > 0
+    && franchise.employees.reduce((n, e) => n + (e.id !== employee.id && (e.runtime?.assignedStationId === `retail:${id}` || (e.runtime?.assignedStationId === "stockroom" && e.runtime.assignedProduct === id)) ? e.runtime!.carry.capacity : 0), 0) < shelfCapacity(franchise, id) - franchise.shelves[id])
+    .sort((a, b) => shelfFill(franchise, a) - shelfFill(franchise, b))[0];
+  if (stock) return assign(stock, "stockroom", STOCKROOM_POINT);
+  for (const product of chain) {
+    const machines = franchise.productionMachines.filter(m => m.productId === product && m.status !== "LOCKED");
+    for (const machine of machines) {
+      const reservedOutput = franchise.employees.reduce((n, e) => n + (e.id !== employee.id && e.runtime?.assignedStationId === machine.id && e.runtime.assignedProduct === product ? e.runtime.carry.capacity : 0), 0);
+      if (machine.output > reservedOutput) return assign(product, machine.id, MACHINE_POINTS[machine.id]);
+      const policy = animalProduction(product, machine.tier);
+      const ingredient = policy?.input ?? Object.keys(PRODUCT_CONFIG[product]?.recipe ?? {})[0] as ProductId | undefined;
+      if (!ingredient) continue;
+      const reservedInput = franchise.employees.reduce((n, e) => n + (e.id !== employee.id && e.runtime?.assignedStationId === machine.id && e.runtime.assignedProduct === ingredient ? e.runtime.carry.capacity : 0), 0);
+      if (machineInputRoom(machine, ingredient) > reservedInput && availableWarehouseForEmployee(franchise, ingredient, employee.id) > 0
+        && (!franchise.productionMachines.some(m => m.productId === ingredient && m.status !== "LOCKED") || franchise.warehouse[ingredient] > franchise.warehouse[product]))
+        return assign(ingredient, machine.id, policy ? FARM_BARN_POINT : STOCKROOM_POINT);
     }
-    const reservedCropIds = new Set(franchise.employees
-      .filter((candidate) => candidate.id !== employee.id && candidate.role === "farmer")
-      .map((candidate) => candidate.runtime?.assignedStationId)
-      .filter((stationId): stationId is string => Boolean(stationId)));
-    // The scarcest product is the only one anyone harvests: every farmer
-    // works the crop the store holds least of (shelves, warehouse, loaded
-    // feed and the baskets of workers already on their way) until it catches
-    // up with the rest, and whichever falls behind next takes over. A surplus
-    // crop is never picked, so when the scarce bed is still growing or
-    // already taken, the farmer waits for it instead of piling up tomatoes.
-    const unlocked = franchise.crops.filter((candidate) => candidate.status !== "LOCKED");
-    if (!unlocked.length) return false;
-    const scarcest = Math.min(...unlocked.map((candidate) => productOnHand(franchise, candidate.productId)));
-    const scarce = unlocked
-      .map((candidate, index) => ({ candidate, index, onHand: productOnHand(franchise, candidate.productId) }))
-      .filter(({ onHand }) => onHand <= scarcest);
-    const crop = scarce
-      .filter(({ candidate }) => !reservedCropIds.has(candidate.id)
-        && (candidate.status === "EMPTY" || (candidate.status === "READY" && candidate.available > 0)))
-      .sort((a, b) => Number(b.candidate.status === "READY") - Number(a.candidate.status === "READY")
-        || b.candidate.available - a.candidate.available
-        || a.index - b.index)[0]?.candidate
-      // Nothing of it is ripe yet: wait beside the bed that ripens first, on
-      // the farm, so the harvest starts the moment it is ready instead of
-      // standing in the store with folded arms.
-      ?? scarce.filter(({ candidate }) => candidate.status === "GROWING" || candidate.status === "READY")
-        .sort((a, b) => a.candidate.readyAt - b.candidate.readyAt || a.index - b.index)[0]?.candidate;
-    if (!crop) return false;
-    runtime.assignedProduct = crop.productId; runtime.assignedStationId = crop.id;
-    setEmployeePath(runtime, navigatePath(pathfinder, [runtime.x, runtime.z], CROP_POINTS[crop.id] ?? CROP_POINTS[FARM_PLOTS[0].id]));
-    return true;
   }
-  if (employee.role === "operator") {
-    const reserved = new Set(franchise.employees
-      .filter((candidate) => candidate.id !== employee.id && candidate.role === "operator")
-      .map((candidate) => candidate.runtime?.assignedStationId));
-    const machines = franchise.productionMachines.filter((machine) => machine.status !== "LOCKED" && !reserved.has(machine.id));
-    // Collect a full basket, or whatever is left once the queue has run dry;
-    // never a trip per unit while the machine is still working.
-    const output = machines.find((machine) => machine.output > 0
-      && (machine.output >= Math.min(runtime.carry.capacity, machine.outputCapacity)
-        || (machine.status !== "PROCESSING" && machineQueuedCycles(machine) < 1)));
-    if (output) {
-      runtime.assignedProduct = output.productId; runtime.assignedStationId = output.id;
-      setEmployeePath(runtime, navigatePath(pathfinder, [runtime.x, runtime.z], MACHINE_POINTS[output.id]));
-      return true;
-    }
-    // Otherwise bring a basket of ingredient to the emptiest queue; the
-    // animals' troughs belong to the feeder.
-    const target = machines
-      .filter((machine) => !animalProduction(machine.productId, machine.tier))
-      .map((machine) => ({ machine, ingredient: Object.keys(PRODUCT_CONFIG[machine.productId]?.recipe ?? {})[0] as ProductId | undefined }))
-      .filter(({ machine, ingredient }) => ingredient
-        && machineInputRoom(machine, ingredient) >= Number(PRODUCT_CONFIG[machine.productId]?.recipe?.[ingredient] ?? 1)
-        && availableWarehouseForEmployee(franchise, ingredient, employee.id) >= 1)
-      .sort((a, b) => machineQueuedCycles(a.machine) - machineQueuedCycles(b.machine))[0];
-    if (!target?.ingredient) return false;
-    runtime.assignedProduct = target.ingredient; runtime.assignedStationId = target.machine.id;
-    setEmployeePath(runtime, navigatePath(pathfinder, [runtime.x, runtime.z], STOCKROOM_POINT));
-    return true;
-  }
-  return false;
+  const crops = franchise.crops.filter(c => c.status !== "LOCKED" && chain.includes(c.productId))
+    .sort((a, b) => Number(b.status === "READY") - Number(a.status === "READY") || a.readyAt - b.readyAt);
+  const crop = crops.find(c => !franchise.employees.some(e => e.id !== employee.id && e.runtime?.assignedStationId === c.id && e.runtime.state !== "NAVIGATE_DROPOFF")) ?? crops[0];
+  if (crop) return assign(crop.productId, crop.id, CROP_POINTS[crop.id] ?? CROP_POINTS[FARM_PLOTS[0].id]);
+  // Wait at the demanded machine, never start a surplus recipe to look busy.
+  const machine = franchise.productionMachines.find(m => m.productId === chain[0] && m.status !== "LOCKED");
+  return machine ? assign(machine.productId, machine.id, MACHINE_POINTS[machine.id]) : false;
 }
 
 function availableWarehouseForEmployee(franchise: FranchiseState, productId: ProductId, employeeId: string) {
@@ -1474,92 +1452,44 @@ function availableWarehouseForEmployee(franchise: FranchiseState, productId: Pro
     if (candidate.id === employeeId) return total;
     const runtime = candidate.runtime;
     if (!runtime || runtime.assignedProduct !== productId || (runtime.state !== "NAVIGATE_PICKUP" && runtime.state !== "PICKUP")) return total;
+    const machine = franchise.productionMachines.find(m => m.id === runtime.assignedStationId);
+    if (runtime.assignedStationId !== "stockroom" && (!machine || machine.productId === productId)) return total;
     return total + runtime.carry.capacity;
   }, 0);
   return Math.max(0, franchise.warehouse[productId] - reserved);
-}
-
-/** Keeps at least one actionable recipe batch away from retail restocking. */
-function productionIngredientReserve(franchise: FranchiseState, productId: ProductId) {
-  return franchise.productionMachines.reduce((total, machine) => {
-    if (machine.status === "LOCKED" || machine.status === "PROCESSING" || machine.output >= machine.outputCapacity) return total;
-    const required = Number(PRODUCT_CONFIG[machine.productId]?.recipe?.[productId] ?? 0);
-    const loaded = Number(machine.input[productId] ?? 0);
-    return total + Math.max(0, required - loaded);
-  }, 0);
-}
-
-/** Everything the store already holds of a product: on the shelves, in the
- * warehouse, loaded into a machine or feeder, and in workers' baskets. */
-function productOnHand(franchise: FranchiseState, productId: ProductId) {
-  const carried = franchise.employees.reduce((total, employee) => total + (employee.runtime?.carry.items[productId] ?? 0), 0);
-  const loaded = franchise.productionMachines.reduce((total, machine) => total + (machine.input[productId] ?? 0), 0);
-  return franchise.shelves[productId] + franchise.warehouse[productId] + carried + loaded;
 }
 
 function employeePickup(state: GameState, franchise: FranchiseState, employee: Employee, pathfinder?: WorldPathfinder) {
   const runtime = employee.runtime!;
   const productId = runtime.assignedProduct;
   if (!productId) return resetEmployee(employee, state.simulationTimeMs);
-  if (employee.role === "stocker" || (employee.role === "farmer" && franchise.purchases && runtime.assignedStationId === "stockroom")) {
-    const quantity = Math.min(runtime.carry.capacity, Math.max(0, availableWarehouseForEmployee(franchise, productId, employee.id) - productionIngredientReserve(franchise, productId)));
+  const machine = franchise.productionMachines.find(m => m.id === runtime.assignedStationId);
+  const cropIndex = franchise.crops.findIndex(c => c.id === runtime.assignedStationId);
+  const ingredientTrip = machine && machine.productId !== productId;
+  if (ingredientTrip && !storeSupplyPlan(franchise).includes(machine.productId)) return resetEmployee(employee, state.simulationTimeMs);
+  if (runtime.assignedStationId === "stockroom" || ingredientTrip) {
+    const room = ingredientTrip ? machineInputRoom(machine, productId) : shelfCapacity(franchise, productId) - franchise.shelves[productId];
+    const quantity = Math.max(0, Math.min(runtime.carry.capacity - carryTotal(runtime.carry), room, franchise.warehouse[productId]));
     franchise.warehouse[productId] -= quantity;
     runtime.carry.items = quantity ? { [productId]: quantity } : {};
-  } else if (employee.role === "farmer") {
-    const animal = franchise.purchases && franchise.productionMachines.find((machine) => machine.id === runtime.assignedStationId && animalProduction(machine.productId, machine.tier));
-    if (animal) {
-      const collected = collectMachineOutputBatch(animal, state.simulationTimeMs, Math.max(0, runtime.carry.capacity - carryTotal(runtime.carry)));
-      Object.assign(animal, collected.machine);
-      runtime.carry = addToCarry(runtime.carry, productId, collected.collected, collected.collected).container;
-    }
-    const index = franchise.crops.findIndex((crop) => crop.id === runtime.assignedStationId);
-    if (index >= 0) {
-      if (franchise.crops[index].status === "EMPTY") {
-        franchise.crops[index] = plantCrop(franchise.crops[index], state.simulationTimeMs, state.level).crop;
-        return resetEmployee(employee, state.simulationTimeMs);
-      }
-      const freeCapacity = Math.max(0, runtime.carry.capacity - carryTotal(runtime.carry));
-      const result = harvestCropBatch(franchise.crops[index], state.simulationTimeMs, freeCapacity, state.level);
-      franchise.crops[index] = result.crop;
-      runtime.carry = addToCarry(runtime.carry, productId, result.harvested, result.harvested).container;
-    }
-  } else if (employee.role === "feeder") {
-    const machine = franchise.productionMachines.find((candidate) => candidate.id === runtime.assignedStationId);
-    const free = machine ? chickenFeedStatus(machine).free : 0;
-    const quantity = Math.min(runtime.carry.capacity, free, franchise.warehouse[productId]);
-    franchise.warehouse[productId] -= quantity;
-    runtime.carry.items = quantity ? { [productId]: quantity } : {};
-  } else if (employee.role === "operator") {
-    const machine = franchise.productionMachines.find((candidate) => candidate.id === runtime.assignedStationId);
-    // The errand decides: sent for the machine's product, collect it there;
-    // sent for an ingredient, take it from the warehouse. Output that appears
-    // meanwhile is never collected from the stockroom and booked as wheat.
-    if (machine && machine.productId === productId) {
-      const freeCapacity = Math.max(0, runtime.carry.capacity - carryTotal(runtime.carry));
-      const result = collectMachineOutputBatch(machine, state.simulationTimeMs, freeCapacity);
-      Object.assign(machine, result.machine);
-      runtime.carry = addToCarry(runtime.carry, productId, result.collected, result.collected).container;
-    } else {
-      // A whole basket for the queue, not one recipe per trip.
-      const room = machine ? machineInputRoom(machine, productId) : 0;
-      const quantity = Math.min(runtime.carry.capacity, room, franchise.warehouse[productId]);
-      franchise.warehouse[productId] -= quantity;
-      runtime.carry.items = quantity ? { [productId]: quantity } : {};
-    }
+  } else if (machine) {
+    const result = collectMachineOutputBatch(machine, state.simulationTimeMs, Math.max(0, runtime.carry.capacity - carryTotal(runtime.carry)));
+    Object.assign(machine, result.machine);
+    runtime.carry = addToCarry(runtime.carry, productId, result.collected, result.collected).container;
+  } else if (cropIndex >= 0) {
+    if (!storeSupplyPlan(franchise).includes(productId)) return resetEmployee(employee, state.simulationTimeMs);
+    if (franchise.crops[cropIndex].status === "EMPTY") franchise.crops[cropIndex] = plantCrop(franchise.crops[cropIndex], state.simulationTimeMs, state.level).crop;
+    const result = harvestCropBatch(franchise.crops[cropIndex], state.simulationTimeMs, Math.max(0, runtime.carry.capacity - carryTotal(runtime.carry)), state.level);
+    franchise.crops[cropIndex] = result.crop;
+    runtime.carry = addToCarry(runtime.carry, productId, result.harvested, result.harvested).container;
   }
   if (!carryTotal(runtime.carry)) return resetEmployee(employee, state.simulationTimeMs);
-  if (employee.role === "farmer" && franchise.purchases && campaignAvailableProducts(franchise.purchases).includes(productId) && shelfFill(franchise, productId) < 1) {
+  let target = cropIndex >= 0 || (machine && animalProduction(machine.productId, machine.tier)) ? FARM_BARN_POINT : STOCKROOM_POINT;
+  if (ingredientTrip) target = MACHINE_POINTS[machine.id];
+  else if (shelfFill(franchise, productId) < 1 && (franchise.purchases ? campaignAvailableProducts(franchise.purchases) : unlockedCustomerProducts(state.level)).includes(productId)) {
     runtime.assignedStationId = `retail:${productId}`;
-    runtime.state = "NAVIGATE_DROPOFF"; runtime.stateSince = state.simulationTimeMs;
-    setEmployeePath(runtime, navigatePath(pathfinder, [runtime.x, runtime.z], retailServicePoint(productId)));
-    return;
-  }
-  const assignedMachine = franchise.productionMachines.find((machine) => machine.id === runtime.assignedStationId);
-  const target = employee.role === "stocker" ? retailServicePoint(productId)
-    : employee.role === "feeder" ? MACHINE_POINTS[runtime.assignedStationId ?? ""] ?? FARM_BARN_POINT
-      : employee.role === "farmer" ? FARM_BARN_POINT
-        : assignedMachine?.productId === productId ? STOCKROOM_POINT
-          : MACHINE_POINTS[runtime.assignedStationId ?? ""] ?? STOCKROOM_POINT;
+    target = retailServicePoint(productId);
+  } else runtime.assignedStationId = "warehouse";
   runtime.state = "NAVIGATE_DROPOFF"; runtime.stateSince = state.simulationTimeMs;
   setEmployeePath(runtime, navigatePath(pathfinder, [runtime.x, runtime.z], target));
 }
@@ -1569,7 +1499,7 @@ function employeeDropoff(state: GameState, franchise: FranchiseState, employee: 
   const productId = primaryCarryProduct(runtime.carry);
   if (!productId) return resetEmployee(employee, state.simulationTimeMs);
   let quantity = carryQuantity(runtime.carry, productId);
-  if (employee.role === "stocker" || (employee.role === "farmer" && franchise.purchases && runtime.assignedStationId?.startsWith("retail:"))) {
+  if (runtime.assignedStationId?.startsWith("retail:") || (employee.role === "stocker" && runtime.assignedStationId === "stockroom")) {
     const capacity = shelfCapacity(franchise, productId);
     const moved = Math.min(quantity, Math.max(0, capacity - franchise.shelves[productId]));
     franchise.shelves[productId] += moved;
@@ -1578,11 +1508,13 @@ function employeeDropoff(state: GameState, franchise: FranchiseState, employee: 
       routeEmployeeToReturns(runtime, state.simulationTimeMs, pathfinder);
       return;
     }
-  } else if ((employee.role === "operator" || employee.role === "feeder") && franchise.productionMachines.find((machine) => machine.id === runtime.assignedStationId)?.productId !== productId) {
+  } else if (franchise.productionMachines.some((machine) => machine.id === runtime.assignedStationId && machine.productId !== productId)) {
     const index = franchise.productionMachines.findIndex((machine) => machine.id === runtime.assignedStationId);
     if (index >= 0) {
       const temporary = EMPTY_INVENTORY(); temporary[productId] = quantity;
-      const result = loadMachine(franchise.productionMachines[index], temporary, state.simulationTimeMs);
+      const result = storeSupplyPlan(franchise).includes(franchise.productionMachines[index].productId)
+        ? loadMachine(franchise.productionMachines[index], temporary, state.simulationTimeMs)
+        : { machine: franchise.productionMachines[index], inventory: temporary };
       franchise.productionMachines[index] = result.machine;
       quantity = result.inventory[productId];
       if (quantity > 0) franchise.warehouse[productId] += quantity;
@@ -2372,13 +2304,13 @@ function compactPath(start: [number, number], path: [number, number][]) {
 }
 
 function deliverOrders(state: GameState) {
-  const delivered = state.pendingOrders.filter((order) => order.arrivesAtMinute <= state.minuteOfDay);
+  const delivered = state.pendingOrders.filter((order) => order.franchiseId === state.currentFranchiseId && order.arrivesAtMinute <= state.minuteOfDay);
   for (const order of delivered) {
     const franchise = state.franchises.find((item) => item.id === order.franchiseId);
     if (franchise) franchise.warehouse[order.productId] += order.quantity;
     recordDomain(state, "deliveries", 1);
   }
-  state.pendingOrders = state.pendingOrders.filter((order) => order.arrivesAtMinute > state.minuteOfDay);
+  state.pendingOrders = state.pendingOrders.filter((order) => !delivered.includes(order));
 }
 
 function gain(state: GameState, xp: number, missionKind: Mission["kind"], amount: number) {
@@ -2445,7 +2377,7 @@ export function canHireEmployee(state: GameState, role: Employee["role"]): boole
 function upgradeTarget(state: GameState, franchise: FranchiseState, upgrade: "station" | "player-speed" | "player-capacity" | "employee"): UpgradeTarget | null {
   if (upgrade === "station") {
     const entry = Object.entries(franchise.stationTiers).filter(([id, tier]) => {
-      if (tier >= 10) return false;
+      if (tier >= 5) return false;
       if (!franchise.purchases) return true;
       const crop = franchise.crops.find((candidate) => candidate.id === id);
       const machine = franchise.productionMachines.find((candidate) => candidate.id === id);
@@ -2458,7 +2390,7 @@ function upgradeTarget(state: GameState, franchise: FranchiseState, upgrade: "st
     return entry ? { kind: "station", id: entry[0], label: stationUpgradeLabel(franchise, entry[0]), currentTier: entry[1] } : null;
   }
   const playerUpgradesAvailable = franchise.purchases ? franchise.purchases.purchased.includes("player-2") : state.level >= 3;
-  if (upgrade === "player-speed") return playerUpgradesAvailable && franchise.playerSpeedTier < 10 ? { kind: "player-speed", id: "player-speed", label: "Velocidad del vendedor", currentTier: franchise.playerSpeedTier } : null;
+  if (upgrade === "player-speed") return playerUpgradesAvailable && franchise.playerSpeedTier < 5 ? { kind: "player-speed", id: "player-speed", label: "Velocidad del vendedor", currentTier: franchise.playerSpeedTier } : null;
   if (upgrade === "player-capacity") {
     const currentTier = carryCapacityTier(franchise.carry.capacity);
     return playerUpgradesAvailable && currentTier < CAPACITY_TIERS.length
@@ -2468,7 +2400,7 @@ function upgradeTarget(state: GameState, franchise: FranchiseState, upgrade: "st
   const roles = (Object.keys(ROLE_INFO) as Employee["role"][]).filter((role) => canHireEmployee(state, role));
   const missing = roles.find((role) => !franchise.employees.some((employee) => employee.role === role));
   if (missing) return { kind: "hire", id: missing, label: `Contratación: ${ROLE_INFO[missing].name}`, currentTier: 0 };
-  const employee = [...franchise.employees].filter((candidate) => candidate.level < 10).sort((a, b) => a.level - b.level || a.id.localeCompare(b.id))[0];
+  const employee = [...franchise.employees].filter((candidate) => candidate.level < 5).sort((a, b) => a.level - b.level || a.id.localeCompare(b.id))[0];
   return employee ? { kind: "employee", id: employee.id, label: `Formación de ${employee.name}`, currentTier: employee.level } : null;
 }
 
@@ -2509,7 +2441,7 @@ export function upgradeQuote(state: GameState, upgrade: "station" | "player-spee
   return {
     label: target.label,
     currentTier: target.currentTier,
-    nextTier: Math.min(10, target.currentTier + 1),
+    nextTier: Math.min(5, target.currentTier + 1),
     costMinor,
     contributedMinor,
     remainingMinor: Math.max(0, costMinor - contributedMinor),
@@ -2522,7 +2454,7 @@ function applyRosterUpgrade(franchise: FranchiseState, entry: RosterEntry) {
     const base = rosterPlayerBase(franchise);
     const step = entry.step + 1;
     franchise.playerSpeedTier = base.speedTier + step;
-    franchise.carry.capacity = base.capacity + step;
+    franchise.carry.capacity = employeeCarryCapacity(step + 1);
     franchise.playerCapacityTier = carryCapacityTier(franchise.carry.capacity);
     return;
   }
@@ -2544,7 +2476,7 @@ function applyRosterUpgrade(franchise: FranchiseState, entry: RosterEntry) {
 }
 
 function applyUpgradeTarget(state: GameState, franchise: FranchiseState, target: UpgradeTarget) {
-  const nextTier = Math.min(10, target.currentTier + 1);
+  const nextTier = Math.min(5, target.currentTier + 1);
   if (target.kind === "station") {
     franchise.stationTiers[target.id] = nextTier;
     const crop = franchise.crops.find((candidate) => candidate.id === target.id);

@@ -185,6 +185,9 @@ export interface FranchiseState {
   checkoutTransactions: CheckoutTransaction[];
   /** Sales awaiting physical collection, one balance per checkout lane. */
   registerCashMinor: [number, number, number];
+  supplyFocus?: { productId: ProductId; target: number };
+  businessDay?: number;
+  businessMinute?: number;
   purchases?: PurchaseState;
   returnsBin: Inventory;
   returnedCartCount: number;

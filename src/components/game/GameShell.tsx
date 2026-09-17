@@ -23,6 +23,7 @@ import { carriedProductIds, carryQuantity, carryTotal, departmentStockingPulses 
 import { rosterEntries } from "@/game/progression/RosterUpgrades";
 import { isPurchaseInteractionId, purchaseIdFromInteraction } from "@/game/stations/purchase-layout";
 import { AvatarGallery, AvatarThumbnail } from "./AvatarThumbnails";
+import { newlyCompletedPurchase } from "@/game/feedback/PurchaseCelebration";
 import { MissionComplete } from "./MissionComplete";
 import { LoadingCurtain } from "./LoadingCurtain";
 import { deriveVisualTransferPresentation, updateVisualTransferRemaining } from "@/game/player/VisualTransferLedger";
@@ -53,7 +54,7 @@ export function GameShell({ playerName }: { playerName: string }) {
   const restoreServerCopy = useMarketStore((state) => state.restoreServerCopy);
   const lastSaveConfirmedAt = useMarketStore((state) => state.lastSaveConfirmedAt);
   const [panel, setPanel] = useState<Panel>(null);
-  const [completedPurchase, setCompletedPurchase] = useState<{ id: string; label: string } | null>(null);
+  const [completedPurchase, setCompletedPurchase] = useState<{ id: string; label: string; franchiseId: string } | null>(null);
   const [levelHint, setLevelHint] = useState<{ level: number; purchase: OpeningPurchaseId; label: string } | null>(null);
   const [lastInteraction, setLastInteraction] = useState<InteractionVisualEvent | null>(null);
   const [transferEvents, setTransferEvents] = useState<InteractionVisualEvent[]>([]);
@@ -74,16 +75,20 @@ export function GameShell({ playerName }: { playerName: string }) {
   // action that happened to be dispatched, so a reload never replays them.
   const activeFranchise = game?.franchises.find((item) => item.id === game.currentFranchiseId) ?? game?.franchises[0];
   const purchasedSignature = (activeFranchise?.purchases?.purchased ?? []).join("|");
-  const previousPurchased = useRef<string[] | null>(null);
+  const previousPurchased = useRef<{ franchiseId: string; purchased: string[] } | null>(null);
   useEffect(() => {
     if (!activeFranchise) return;
     const purchased = purchasedSignature ? purchasedSignature.split("|") : [];
     const previous = previousPurchased.current;
-    previousPurchased.current = purchased;
-    if (!previous) return;
-    const added = purchased.find((id) => !previous.includes(id));
+    previousPurchased.current = { franchiseId: activeFranchise.id, purchased };
+    if (!previous || previous.franchiseId !== activeFranchise.id) {
+      setCompletedPurchase(null);
+      setLevelHint(null);
+      return;
+    }
+    const added = newlyCompletedPurchase(previous, { franchiseId: activeFranchise.id, purchased });
     const definition = OPENING_PURCHASES.find((purchase) => purchase.id === added);
-    if (definition) setCompletedPurchase({ id: definition.id, label: definition.label });
+    if (definition) setCompletedPurchase({ id: definition.id, label: definition.label, franchiseId: activeFranchise.id });
   }, [purchasedSignature, activeFranchise]);
 
   const availablePurchases = game ? campaignPurchaseQuotes(game).filter((purchase) => purchase.available) : [];
@@ -91,23 +96,26 @@ export function GameShell({ playerName }: { playerName: string }) {
   const currentLevel = activeFranchise ? campaignLevel(activeFranchise) : 1;
   const previousAvailable = useRef<string[] | null>(null);
   const previousLevel = useRef<number | null>(null);
+  const previousLevelFranchise = useRef<string | undefined>(undefined);
   const loaded = Boolean(game);
   useEffect(() => {
     // The first snapshot after loading is the baseline: opening a saved game
     // is not a level-up and must not announce what was already available.
     if (!loaded) return;
     const available = availableSignature ? availableSignature.split("|") : [];
+    const sameStore = previousLevelFranchise.current === activeFranchise?.id;
+    previousLevelFranchise.current = activeFranchise?.id;
     const previous = previousAvailable.current;
     const previousLevelValue = previousLevel.current;
     previousAvailable.current = available;
     previousLevel.current = currentLevel;
-    if (previous === null || previousLevelValue === null || currentLevel <= previousLevelValue) return;
+    if (!sameStore || previous === null || previousLevelValue === null || currentLevel <= previousLevelValue) return;
     // Every level shows a pointer: what it just opened, or failing that what
     // the owner can already pay for next.
     const fresh = available.find((id) => !previous.includes(id)) ?? available[0];
     const definition = OPENING_PURCHASES.find((purchase) => purchase.id === fresh);
     if (definition) setLevelHint({ level: currentLevel, purchase: definition.id, label: definition.label });
-  }, [availableSignature, currentLevel, loaded]);
+  }, [availableSignature, currentLevel, loaded, activeFranchise?.id]);
   useEffect(() => {
     if (!levelHint) return;
     const timer = setTimeout(() => setLevelHint(null), 9_000);
@@ -399,7 +407,7 @@ export function GameShell({ playerName }: { playerName: string }) {
 
       <nav className="quick-menu glass-panel" data-game-ui-interactive="true" aria-label="Menú del supermercado">
         <QuickButton icon="inventory" label="Inventario" onClick={() => setPanel("stock")} />
-        <QuickButton icon="suppliers" label="Pedidos" onClick={() => setPanel("orders")} />
+        <QuickButton icon="suppliers" label="Pedidos" count={(franchise.purchases ? campaignPersonalTasks(game) : levelObjectiveTasks(game.level, game)).filter(task => task.progress < task.target).length} onClick={() => setPanel("orders")} />
         <QuickButton icon="team" label="Equipo" onClick={() => setPanel("team")} />
         <QuickButton icon="map" label="Franquicias" onClick={() => setPanel("map")} />
         <QuickButton icon="finance" label="Finanzas" onClick={() => setPanel("finance")} />
@@ -419,7 +427,7 @@ export function GameShell({ playerName }: { playerName: string }) {
         void saveGame();
       }} />}
       {panel && <ManagementPanel panel={panel} close={() => setPanel(null)} />}
-      {completedPurchase && <MissionComplete label={completedPurchase.label} onDone={() => setCompletedPurchase(null)} />}
+      {completedPurchase?.franchiseId === franchise.id && <MissionComplete label={completedPurchase.label} onDone={() => setCompletedPurchase(null)} />}
     </main>
   </>
   );
@@ -450,8 +458,8 @@ function GameIcon({ name }: { name: GameIconName }) {
   return <svg className="game-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">{GAME_ICON_PATHS[name].map((path) => <path key={path} d={path} />)}</svg>;
 }
 
-function QuickButton({ icon, label, onClick }: { icon: GameIconName; label: string; onClick: () => void }) {
-  return <button aria-label={label} title={label} onClick={onClick}><span><GameIcon name={icon} /></span><small>{label}</small></button>;
+function QuickButton({ icon, label, onClick, count }: { icon: GameIconName; label: string; onClick: () => void; count?: number }) {
+  return <button aria-label={count === undefined ? label : `${label}: ${count} misiones personales pendientes`} title={label} onClick={onClick}><span><GameIcon name={icon} />{count !== undefined && <b className="quest-count">{count}</b>}</span><small>{label}</small></button>;
 }
 
 function LevelOneGuide({ game, franchise }: { game: GameState; franchise: FranchiseState }) {

@@ -18,25 +18,17 @@ export const DEFAULT_PLAYER_MOTION: PlayerMotionConfig = {
   maxTurnRate: Math.PI * 3,
 };
 
-/**
- * The enlarged market uses the former walk speed as a calibration unit, not as
- * the live tier-one cap. Tier one is 10% below the previous 6.6-unit cap so a
- * full shop/farm traversal stays fast without feeling over-sensitive; later
- * upgrades keep their existing percentage progression. Acceleration and
- * braking scale with the same multiplier so touch and keyboard preserve the
- * same response-to-speed ratio.
- */
+/** Keep the calibrated starting pace; each of four upgrades adds 25% of it. */
 export const PLAYER_MAX_SPEED_MULTIPLIER = 2.7;
 export const PLAYER_TIER_ONE_SPEED_MULTIPLIER = PLAYER_MAX_SPEED_MULTIPLIER * 0.6;
 // Campaign T1 was 70% of 5.94. Requested: 2.5 times that speed,
 // now representing 75% of the new maximum, with the requested 20% reduction.
-// Legacy games stay unchanged.
+// Both modes use the same four-step training curve.
 export const CAMPAIGN_MAX_SPEED_MULTIPLIER = PLAYER_MAX_SPEED_MULTIPLIER * 0.7 * 2.5 * 0.8 / 0.75;
 
 export function playerSpeedProgressForTier(tier: number, campaign = false) {
-  const safeTier = Math.max(1, Math.min(10, Math.floor(Number.isFinite(tier) ? tier : 1)));
-  if (campaign) return safeTier === 1 ? 0.75 : 0.7725 + (safeTier - 2) / 8 * 0.2275;
-  return 0.6 + (safeTier - 1) / 9 * 0.4;
+  const safeTier = Math.max(1, Math.min(5, Math.floor(Number.isFinite(tier) ? tier : 1)));
+  return (campaign ? 0.75 : 0.6) * (1 + (safeTier - 1) * 0.25);
 }
 
 export function playerMotionForTier(tier: number, campaign = false): PlayerMotionConfig {

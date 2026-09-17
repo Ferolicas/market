@@ -9,7 +9,9 @@ export function LoadingCurtain({ title, detail, progress }: { title: string; det
   const value = progress === undefined ? undefined : Math.max(0, Math.min(100, Math.round(progress)));
   return <div className="loading-curtain" role="status" aria-live="polite">
     <div className="loading-card">
+      <span className="experience-eyebrow">MINI MARKET · TU HISTORIA EMPIEZA AQUÍ</span>
       <div className="loading-art" aria-hidden="true">
+        <div className="market-orbit orbit-one" /><div className="market-orbit orbit-two" />
         <span className="loading-glow" />
         <svg viewBox="0 0 140 120" className="loading-store">
           <defs>
@@ -35,12 +37,13 @@ export function LoadingCurtain({ title, detail, progress }: { title: string; det
           </g>
         </svg>
       </div>
+      <h1 className="loading-brand">Pequeña tienda.<br /><em>Grandes sueños.</em></h1>
       <strong>{title}</strong>
       <span>{detail}</span>
       <div className="loading-rail" role="progressbar" aria-label={title} aria-valuemin={0} aria-valuemax={100} aria-valuenow={value}>
         <i className={value === undefined ? "indeterminate" : ""} style={value === undefined ? undefined : { width: `${value}%` }} />
       </div>
-      {value !== undefined && <b>{value} %</b>}
+      <div className="loading-footer"><span>DE LA GRANJA A TU BARRIO</span><b>{value === undefined ? "PREPARANDO" : `${value} %`}</b></div>
     </div>
   </div>;
 }

@@ -20,6 +20,7 @@ function farmWithWheat() {
     if (crop.status === "LOCKED") continue;
     Object.assign(crop, { status: "READY", available: 8 });
   }
+  franchise.warehouse.eggs = 300;
   // Every shelf is full, so restocking never pre-empts the harvest choice.
   for (const productId of ["tomatoes", "wheat", "eggs"] as const) {
     franchise.shelves[productId] = retailShelfCapacityForTier(franchise.stationTiers["shelves-1"] ?? 1, productId, franchise.unlockedAreas);
@@ -47,15 +48,15 @@ describe("farmers harvest the scarcest product first", () => {
     expect(assigned.every((id) => id === "crop-wheat-1")).toBe(true);
   });
 
-  it("leaves a shelf missing a few units alone and restocks only below thirty percent", () => {
+  it("restocks any incomplete shelf before building warehouse reserves", () => {
     const state = farmWithWheat();
     state.franchises[0].warehouse.tomatoes = 100;
     state.franchises[0].warehouse.wheat = 100;
     const capacity = state.franchises[0].shelves.tomatoes;
     state.franchises[0].shelves.tomatoes = Math.ceil(capacity * 0.5);
     let assigned = assignments(advanceWorld(state, 400).state);
-    expect(assigned.some((id) => id === "stockroom")).toBe(false);
-    expect(assigned.every((id) => id?.startsWith("crop-"))).toBe(true);
+    expect(assigned.some((id) => id === "stockroom")).toBe(true);
+
 
     state.franchises[0].shelves.tomatoes = Math.floor(capacity * 0.2);
     for (const employee of state.franchises[0].employees) employee.runtime!.stateSince = -10_000;
@@ -87,7 +88,7 @@ describe("farmers harvest the scarcest product first", () => {
     expect(assigned.every((id) => id?.startsWith("crop-tomato"))).toBe(true);
   });
 
-  it("counts what a farmer already carries, so two do not chase the same shortage", () => {
+  it("compares warehouse quantities when choosing the next reserve to rebuild", () => {
     const state = farmWithWheat();
     // Shelves hold 30 tomatoes and 12 wheat. Without the basket in flight,
     // wheat (38) would be the scarcer crop and the second farmer would wait.

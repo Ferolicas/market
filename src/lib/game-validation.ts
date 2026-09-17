@@ -78,6 +78,8 @@ const franchiseSchema = z.object({
   expansionLevel: z.number().int().min(1).max(10), shelvesLevel: z.number().int().min(1).max(10), checkoutLevel: z.number().int().min(1).max(10),
   warehouse: inventorySchema, shelves: inventorySchema,
   machines: z.object({ flourMillLevel: z.number().int().min(1).max(10), bakeryLevel: z.number().int().min(1).max(10), flourQueue: inventoryQuantitySchema, breadQueue: inventoryQuantitySchema }),
+  supplyFocus: z.object({ productId: productIdSchema, target: z.number().int().min(1) }).optional(),
+  businessDay: z.number().int().min(1).optional(), businessMinute: z.number().finite().min(0).optional(),
   carry: carrySchema, crops: z.array(cropSchema).max(20), productionMachines: z.array(productionMachineSchema).max(20),
   buildProjects: z.array(z.object({ id: z.string().min(1).max(100), level: z.number().int().min(2).max(30), costMinor: z.number().int().min(0), contributedMinor: z.number().int().min(0), completed: z.boolean() })).max(30),
   checkoutTransactions: z.array(transactionSchema).max(100),

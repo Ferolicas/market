@@ -33,11 +33,7 @@ export function buildFundingQuote(
 }
 
 export function stationTierModifiers(tierInput: number) {
-  const tier = Math.max(1, Math.min(10, Math.floor(tierInput)));
-  let capacity = 1; let speed = 1; let value = 1;
-  if (tier >= 2) capacity += 0.25; if (tier >= 3) speed += 0.15; if (tier >= 4) capacity += 0.25; if (tier >= 5) speed += 0.2;
-  if (tier >= 6) value += 0.08; if (tier >= 7) capacity += 0.3; if (tier >= 8) speed += 0.2; if (tier >= 9) value += 0.1;
-  if (tier >= 10) { capacity += 0.4; speed += 0.15; }
-  const exact = (valueToRound: number) => Math.round(valueToRound * 10_000) / 10_000;
-  return { capacity: exact(capacity), speed: exact(speed), value: exact(value) };
+  const tier = Math.max(1, Math.min(5, Math.floor(Number.isFinite(tierInput) ? tierInput : 1)));
+  const multiplier = 1 + (tier - 1) * 0.25;
+  return { capacity: multiplier, speed: multiplier, value: 1 };
 }

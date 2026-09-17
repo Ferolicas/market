@@ -23,6 +23,6 @@ describe("progression", () => {
 
   it("calculates tier bonuses from base without accumulating floats", () => {
     expect(stationTierModifiers(1)).toEqual({ capacity: 1, speed: 1, value: 1 });
-    expect(stationTierModifiers(10)).toEqual({ capacity: 2.2, speed: 1.7, value: 1.18 });
+    expect(stationTierModifiers(10)).toEqual({ capacity: 2, speed: 2, value: 1 });
   });
 });

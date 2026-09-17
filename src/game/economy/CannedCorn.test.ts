@@ -29,6 +29,9 @@ describe("canned corn supplier chain", () => {
     const franchise = state.franchises[0];
     franchise.productionMachines = franchise.productionMachines.filter((item) => item.id === "corn-canner-1");
     franchise.warehouse.corn = 1;
+    franchise.crops = [];
+    franchise.shelves.corn = shelfCapacityForTier(1, "corn", franchise.unlockedAreas);
+    franchise.shelves.cannedCorn = shelfCapacityForTier(1, "cannedCorn", franchise.unlockedAreas);
     franchise.employees = [{ id: "canner-operator", name: "Luna", role: "operator", level: 1, salaryMinor: 0, energy: 100, hat: "frog" }];
     await ensureStoreNavigation(91_225, franchise.unlockedAreas);
     for (let tick = 0; tick < 240 && state.franchises[0].warehouse.cannedCorn < 3; tick++) {

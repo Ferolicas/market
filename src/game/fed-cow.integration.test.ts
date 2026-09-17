@@ -11,7 +11,7 @@ describe("fed cows", () => {
     expect(updateMachine(cow, 60_000).output).toBe(0);
   });
 
-  it.each([[1, 6, 6_000], [2, 6, 4_000], [3, 8, 3_000]])("tier %s buffers %s inputs and uses %s ms cycles", (tier, capacity, cycle) => {
+  it.each([[1, 6, 6_000], [2, 8, 4_800], [3, 9, 4_000], [5, 12, 3_000]])("tier %s buffers %s inputs and uses %s ms cycles", (tier, capacity, cycle) => {
     const fed = loadMachine(createMachine("cow-station-1", "milk", tier), { ...createEmptyInventory(), wheat: 20 }, 0);
     expect(fed.inventory.wheat).toBe(20 - capacity);
     expect(animalFeedStatus(fed.machine).occupied).toBe(capacity);

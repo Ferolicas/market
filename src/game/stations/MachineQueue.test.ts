@@ -49,6 +49,8 @@ describe("machine input queue", () => {
   it("has the operator bring baskets to the queue and collect flour in batches", () => {
     const { state, franchise, mill } = millStore();
     franchise.warehouse.wheat = 20;
+    franchise.crops = [];
+    franchise.shelves.tomatoes = 30;
     franchise.employees = [{
       id: "queue-operator", name: "Luna", role: "operator", level: 1, salaryMinor: 3_000, energy: 100, hat: "frog",
       runtime: {

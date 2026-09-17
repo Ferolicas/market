@@ -1543,3 +1543,35 @@
   .mission-complete-crate svg, .loading-store, .loading-crates, .loading-rail i.indeterminate,
   .mission-complete-burst i, .save-badge.saving .save-badge-mark { animation: none !important }
 }
+
+/* Shared emerald / champagne presentation for loading and milestones. */
+.loading-curtain { background: radial-gradient(ellipse at 50% 30%, #244e40, #0d241d 75%); padding: max(20px, env(safe-area-inset-top)) 20px; }
+.loading-card { width: min(460px, 92vw); padding: clamp(24px, 5vw, 44px); gap: 14px; border: 1px solid #dab77944; border-radius: 32px; background: linear-gradient(145deg, #294f41ee, #142e26ee); box-shadow: 0 32px 100px #0005; color: #faf3df; }
+.experience-eyebrow, .loading-card > .experience-eyebrow { color: #d7bd86; font-size: 9px; font-weight: 700; letter-spacing: .2em; line-height: 1.6; }
+.loading-art { height: 190px; isolation: isolate; }
+.loading-glow { background: radial-gradient(circle, #eac68133, transparent 70%); width: 270px; height: 270px; }
+.loading-store { width: 180px; filter: drop-shadow(0 20px 20px #0004); }
+.market-orbit { position: absolute; width: 220px; height: 220px; border: 1px solid #d7bd8633; border-radius: 50%; transform: rotateX(58deg) rotate(-20deg); }
+.orbit-two { width: 280px; height: 280px; transform: rotateX(58deg) rotate(20deg); border-style: dashed; animation: market-orbit-turn 18s linear infinite; }
+.loading-brand { font-family: Georgia, serif; font-size: clamp(29px, 7vw, 40px); font-weight: 400; line-height: 1.13; letter-spacing: -.035em; margin: 6px 0 12px; }
+.loading-brand em { color: #e8ce96; font-weight: 400; }
+.loading-card strong { color: #f9f2df; font-size: 13px; }
+.loading-card > span { color: #bdcfc4; font-size: 11px; }
+.loading-rail { height: 3px; background: #ffffff16; margin-top: 14px; }
+.loading-rail i { background: linear-gradient(90deg, #8aab87, #f5d59b); }
+.loading-footer { display: flex; justify-content: space-between; width: 100%; gap: 10px; color: #a5bbad; font-size: 8px; letter-spacing: .12em; }
+.loading-card b { color: #e8ce96; font-size: 9px; }
+.mission-complete { background: #071b15a8; backdrop-filter: blur(10px); }
+.mission-complete-card { width: min(410px, 90vw); padding: 34px 24px 30px; gap: 13px; border: 1px solid #e6c68788; background: radial-gradient(ellipse at 50% 0, #3c6954, #183c2f 65%); box-shadow: 0 30px 100px #0006, inset 0 0 0 6px #ffffff04; }
+.achievement-medal { width: 140px; margin-top: 8px; filter: drop-shadow(0 12px 20px #0004); animation: mission-crate 620ms cubic-bezier(.2, 1.4, .4, 1) both; }
+.achievement-medal svg { display: block; width: 100%; }
+.mission-complete h2 { font-size: clamp(16px, 4.8vw, 22px); letter-spacing: .035em; margin: 5px 0 0; }
+.mission-complete p { font-family: Georgia, serif; font-size: 24px; font-weight: 400; line-height: 1.25; color: #f0dba9; margin: 0; }
+.mission-complete small { color: #bbcfbf; font-size: 11px; font-weight: 400; letter-spacing: 0; }
+.achievement-timer { position: absolute; bottom: 0; left: 0; height: 3px; width: 100%; background: #e5c88a; transform-origin: left; animation: achievement-dismiss 3s linear forwards; }
+.quick-menu button > span { position: relative; }
+.quest-count { position: absolute; top: -6px; right: -8px; min-width: 19px; height: 19px; padding: 0 4px; display: grid; place-items: center; border-radius: 10px; background: #a4422d; border: 2px solid #fff4da; color: white; font-size: 10px; line-height: 1; }
+@keyframes market-orbit-turn { to { transform: rotateX(58deg) rotate(380deg); } }
+@keyframes achievement-dismiss { to { transform: scaleX(0); } }
+@media (max-height: 650px) { .loading-art { height: 130px; } .loading-store { width: 130px; } .loading-card { gap: 9px; padding: 22px; } }
+@media (prefers-reduced-motion: reduce) { .market-orbit, .achievement-medal, .achievement-timer { animation: none; } }

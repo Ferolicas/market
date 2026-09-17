@@ -9,8 +9,8 @@ export const ANIMAL_PRODUCTION = {
 export function animalProduction(product: ProductId, tier: number) {
   if (product !== "eggs" && product !== "milk") return null;
   const definition = ANIMAL_PRODUCTION[product];
-  const index = Math.min(2, Math.max(0, Math.floor(tier) - 1));
-  return { species: definition.species, input: definition.input, capacity: definition.capacity[index], cycleMs: definition.cycleMs[index] };
+  const multiplier = 1 + Math.min(4, Math.max(0, Math.floor(tier) - 1)) * 0.25;
+  return { species: definition.species, input: definition.input, capacity: Math.round(definition.capacity[0] * multiplier), cycleMs: Math.round(definition.cycleMs[0] / multiplier) };
 }
 
 export interface FedAnimalState {

@@ -87,6 +87,7 @@ describe("farm employee destinations", () => {
         machine.output = machine.id === machineId ? 1 : 0;
         if (machine.id === machineId) machine.status = "OUTPUT_READY";
       });
+      franchise.crops = [];
       franchise.employees = [{
         ...employee("operator"),
         runtime: {
@@ -131,6 +132,7 @@ describe("farm employee destinations", () => {
     franchise.employees = [employee("operator")];
     const machine = franchise.productionMachines.find((candidate) => candidate.id === machineId)!;
     Object.assign(machine, { status: "OUTPUT_READY" as const, output: 1 });
+    franchise.crops = [];
     const requestedTargets: [number, number][] = [];
     const pathfinder: WorldPathfinder = (_start, target) => {
       requestedTargets.push([...target]);
@@ -152,6 +154,7 @@ describe("farm employee destinations", () => {
     franchise.employees = [employee("operator")];
     const machine = franchise.productionMachines.find((candidate) => candidate.id === machineId)!;
     Object.assign(machine, { status: "OUTPUT_READY" as const, output: 1 });
+    franchise.crops = [];
 
     state = advanceWorld(state, 400).state;
     const home = [state.franchises[0].employees[0].runtime!.x, state.franchises[0].employees[0].runtime!.z] as [number, number];

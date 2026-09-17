@@ -15,15 +15,15 @@ describe("player controller", () => {
     expect(stopped).toEqual({ x: 0, y: 0 });
   });
 
-  it("progresa del 60% inicial al 100% anterior en diez tiers", () => {
+  it("añade 25% por mejora hasta duplicar la velocidad", () => {
     const tierOne = playerMotionForTier(1);
     const tierTwo = playerMotionForTier(2);
     const tierTen = playerMotionForTier(10);
 
     expect(tierOne.walkSpeed).toBeCloseTo(DEFAULT_PLAYER_MOTION.walkSpeed * PLAYER_TIER_ONE_SPEED_MULTIPLIER);
     expect(tierOne.walkSpeed).toBeCloseTo(3.564);
-    expect(tierTen.walkSpeed).toBeCloseTo(DEFAULT_PLAYER_MOTION.walkSpeed * PLAYER_MAX_SPEED_MULTIPLIER);
-    expect(tierTen.walkSpeed).toBeCloseTo(5.94);
+    expect(tierTen.walkSpeed).toBeCloseTo(tierOne.walkSpeed * 2);
+    expect(tierTen.walkSpeed).toBeCloseTo(7.128);
     expect(tierOne.acceleration).toBe(DEFAULT_PLAYER_MOTION.acceleration * PLAYER_MAX_SPEED_MULTIPLIER);
     expect(tierOne.braking).toBe(DEFAULT_PLAYER_MOTION.braking * PLAYER_MAX_SPEED_MULTIPLIER);
     expect(tierTwo.walkSpeed).toBeGreaterThan(tierOne.walkSpeed);
@@ -34,16 +34,16 @@ describe("player controller", () => {
     expect(playerMotionForTier(Number.NaN)).toEqual(playerMotionForTier(1));
     expect(playerMotionForTier(-3)).toEqual(playerMotionForTier(1));
   });
-  it("reduces campaign speed by 20%, preserving the 75% start and upgrades", () => {
+  it("preserves the starting campaign speed and doubles it in four steps", () => {
     const previousStart = DEFAULT_PLAYER_MOTION.walkSpeed * PLAYER_MAX_SPEED_MULTIPLIER * 0.7;
     const maximum = playerMotionForTier(10, true).walkSpeed;
     expect(playerMotionForTier(1, true).walkSpeed).toBeCloseTo(previousStart * 2.5 * 0.8);
     expect(playerMotionForTier(1, true).walkSpeed).toBeCloseTo(8.316);
-    expect(maximum).toBeCloseTo(11.088);
-    expect(playerMotionForTier(1, true).walkSpeed).toBeCloseTo(maximum * 0.75);
-    expect(playerMotionForTier(2, true).walkSpeed).toBeCloseTo(playerMotionForTier(1, true).walkSpeed * 1.03);
+    expect(maximum).toBeCloseTo(16.632);
+    expect(playerMotionForTier(1, true).walkSpeed).toBeCloseTo(maximum * 0.5);
+    expect(playerMotionForTier(2, true).walkSpeed).toBeCloseTo(playerMotionForTier(1, true).walkSpeed * 1.25);
     expect(playerMotionForTier(10, true).walkSpeed).toBeCloseTo(maximum);
-    for (let tier = 2; tier <= 10; tier++) {
+    for (let tier = 2; tier <= 5; tier++) {
       expect(playerMotionForTier(tier, true).walkSpeed).toBeGreaterThan(playerMotionForTier(tier - 1, true).walkSpeed);
     }
   });
