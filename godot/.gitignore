@@ -1,0 +1,4 @@
+# Godot import cache and local editor state
+.godot/
+*.import.tmp
+android/build/

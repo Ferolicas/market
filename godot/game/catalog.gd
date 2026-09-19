@@ -1,0 +1,99 @@
+class_name Catalog
+extends RefCounted
+## Port of src/game/catalog.ts: static catalog tables (Spanish copy, base
+## amounts in Spanish minor units scaled per country by the engine).
+
+const COUNTRIES := {
+	"ES": { "code": "ES", "name": "España", "currency": "EUR", "locale": "es-ES", "corporateTaxRate": 0.25, "salesTaxRate": 0.21, "payrollBurdenRate": 0.31, "startingCapitalMinor": 220000 },
+	"US": { "code": "US", "name": "Estados Unidos", "currency": "USD", "locale": "en-US", "corporateTaxRate": 0.21, "salesTaxRate": 0.07, "payrollBurdenRate": 0.153, "startingCapitalMinor": 250000 },
+	"CO": { "code": "CO", "name": "Colombia", "currency": "COP", "locale": "es-CO", "corporateTaxRate": 0.35, "salesTaxRate": 0.19, "payrollBurdenRate": 0.30, "startingCapitalMinor": 900000000 },
+	"MX": { "code": "MX", "name": "México", "currency": "MXN", "locale": "es-MX", "corporateTaxRate": 0.30, "salesTaxRate": 0.16, "payrollBurdenRate": 0.28, "startingCapitalMinor": 4200000 },
+	"AR": { "code": "AR", "name": "Argentina", "currency": "ARS", "locale": "es-AR", "corporateTaxRate": 0.35, "salesTaxRate": 0.21, "payrollBurdenRate": 0.29, "startingCapitalMinor": 380000000 },
+	"CL": { "code": "CL", "name": "Chile", "currency": "CLP", "locale": "es-CL", "corporateTaxRate": 0.27, "salesTaxRate": 0.19, "payrollBurdenRate": 0.24, "startingCapitalMinor": 180000000 },
+	"PE": { "code": "PE", "name": "Perú", "currency": "PEN", "locale": "es-PE", "corporateTaxRate": 0.295, "salesTaxRate": 0.18, "payrollBurdenRate": 0.23, "startingCapitalMinor": 780000 },
+}
+
+const PRODUCTS := {
+	"wheat": { "name": "Trigo", "emoji": "🌾", "wholesaleMinor": 70, "saleMinor": 110, "supplier": "campo" },
+	"flour": { "name": "Harina", "emoji": "🥣", "wholesaleMinor": 120, "saleMinor": 210, "supplier": "campo" },
+	"bread": { "name": "Pan", "emoji": "🥖", "wholesaleMinor": 180, "saleMinor": 350, "supplier": "panal" },
+	"corn": { "name": "Maíz", "emoji": "🌽", "wholesaleMinor": 90, "saleMinor": 700, "supplier": "campo" },
+	"milk": { "name": "Leche", "emoji": "🥛", "wholesaleMinor": 130, "saleMinor": 260, "supplier": "fresco" },
+	"eggs": { "name": "Huevos", "emoji": "🥚", "wholesaleMinor": 160, "saleMinor": 310, "supplier": "fresco" },
+	"cheese": { "name": "Queso", "emoji": "🧀", "wholesaleMinor": 260, "saleMinor": 2600, "supplier": "fresco" },
+	"apples": { "name": "Manzanas", "emoji": "🍎", "wholesaleMinor": 90, "saleMinor": 190, "supplier": "fresco" },
+	"tomatoes": { "name": "Tomates", "emoji": "🍅", "wholesaleMinor": 80, "saleMinor": 175, "supplier": "fresco" },
+	"oranges": { "name": "Naranjas", "emoji": "🍊", "wholesaleMinor": 90, "saleMinor": 210, "supplier": "fresco" },
+	"coffee": { "name": "Café", "emoji": "☕", "wholesaleMinor": 280, "saleMinor": 540, "supplier": "andes" },
+	"juice": { "name": "Zumo", "emoji": "🧃", "wholesaleMinor": 170, "saleMinor": 330, "supplier": "fresco" },
+	"cannedCorn": { "name": "Maíz en conserva", "emoji": "🥫", "wholesaleMinor": 160, "saleMinor": 360, "supplier": "campo" },
+}
+
+const SUPPLIERS := [
+	{ "id": "campo", "name": "Campo Cercano", "leadMinutes": 80, "discount": 0, "unlockLevel": 1 },
+	{ "id": "fresco", "name": "Ruta Fresca", "leadMinutes": 110, "discount": 0.04, "unlockLevel": 2 },
+	{ "id": "panal", "name": "Panal Mayorista", "leadMinutes": 65, "discount": 0.07, "unlockLevel": 5 },
+	{ "id": "andes", "name": "Origen Andes", "leadMinutes": 140, "discount": 0.11, "unlockLevel": 9 },
+]
+
+const ROLE_INFO := {
+	"farmer": { "name": "Granjero-reponedor", "salaryMinor": 2800, "unlockLevel": 2, "description": "Cosecha, recoge la producción y repone las estanterías." },
+	"feeder": { "name": "Alimentador", "salaryMinor": 3000, "unlockLevel": 6, "description": "Solo alimenta a los animales de la granja." },
+	"operator": { "name": "Operario", "salaryMinor": 3200, "unlockLevel": 4, "description": "Carga molinos y hornos." },
+	"stocker": { "name": "Reponedor", "salaryMinor": 3000, "unlockLevel": 3, "description": "Surte todas las estanterías." },
+	"cashier": { "name": "Cajero", "salaryMinor": 3400, "unlockLevel": 5, "description": "Atiende cobros y métodos de pago." },
+	"builder": { "name": "Constructor", "salaryMinor": 4200, "unlockLevel": 7, "description": "Reduce el coste de ampliaciones." },
+	"manager": { "name": "Gerente", "salaryMinor": 5600, "unlockLevel": 12, "description": "Coordina el negocio cuando viajas." },
+}
+
+const HATS := [
+	{ "id": "red-panda", "name": "Panda rojo", "emoji": "🦊", "color": "#b84f2f" },
+	{ "id": "red-fox", "name": "Zorro rojo", "emoji": "🦊", "color": "#e26436" },
+	{ "id": "chicken", "name": "Gallina", "emoji": "🐔", "color": "#fff1c9" },
+	{ "id": "owl", "name": "Búho", "emoji": "🦉", "color": "#7d5d42" },
+	{ "id": "elephant", "name": "Elefante", "emoji": "🐘", "color": "#84a2ad" },
+	{ "id": "rhino", "name": "Rinoceronte", "emoji": "🦏", "color": "#8f9699" },
+	{ "id": "giraffe", "name": "Jirafa", "emoji": "🦒", "color": "#e3a945" },
+	{ "id": "panda", "name": "Panda", "emoji": "🐼", "color": "#f4f0df" },
+	{ "id": "frog", "name": "Sapo", "emoji": "🐸", "color": "#70b85d" },
+	{ "id": "cow", "name": "Vaca", "emoji": "🐮", "color": "#f5efe1" },
+	{ "id": "rabbit", "name": "Conejo", "emoji": "🐰", "color": "#f2eee6" },
+	{ "id": "capybara", "name": "Capibara", "emoji": "🤎", "color": "#9a6d4d" },
+]
+
+const CHARACTERS := [
+	{ "id": "adult-man", "name": "Hombre", "description": "Adulto" },
+	{ "id": "adult-woman", "name": "Mujer", "description": "Adulta" },
+	{ "id": "boy", "name": "Niño", "description": "Joven" },
+	{ "id": "girl", "name": "Niña", "description": "Joven" },
+]
+
+const HAIRSTYLES := [
+	{ "id": "side-part", "name": "Raya lateral" },
+	{ "id": "fade", "name": "Degradado" },
+	{ "id": "waves", "name": "Ondulado" },
+	{ "id": "swept", "name": "Peinado atrás" },
+	{ "id": "bob", "name": "Bob" },
+	{ "id": "ponytail", "name": "Coleta" },
+	{ "id": "long-wavy", "name": "Largo ondulado" },
+	{ "id": "bun", "name": "Moño" },
+	{ "id": "messy", "name": "Despeinado" },
+	{ "id": "curls", "name": "Rizos" },
+	{ "id": "short-fringe", "name": "Flequillo corto" },
+	{ "id": "quiff", "name": "Tupé" },
+	{ "id": "blunt-bob", "name": "Bob recto" },
+	{ "id": "pigtails", "name": "Dos coletas" },
+	{ "id": "braid", "name": "Trenza" },
+	{ "id": "high-ponytail", "name": "Coleta alta" },
+]
+
+const FRANCHISE_TEMPLATES := [
+	{ "id": "barrio", "name": "Mercado del Barrio", "city": "Distrito inicial", "unlockLevel": 1, "purchaseCostMinor": 0 },
+	{ "id": "estacion", "name": "Market Estación", "city": "Centro", "unlockLevel": 5, "purchaseCostMinor": 1000000 },
+	{ "id": "marina", "name": "Market Marina", "city": "Zona costera", "unlockLevel": 10, "purchaseCostMinor": 2500000 },
+	{ "id": "aeropuerto", "name": "Market Terminal", "city": "Aeropuerto", "unlockLevel": 16, "purchaseCostMinor": 7000000 },
+	{ "id": "campus", "name": "Market Campus", "city": "Ciudad universitaria", "unlockLevel": 24, "purchaseCostMinor": 17000000 },
+	{ "id": "megastore", "name": "Olcas Mega Market", "city": "Distrito financiero", "unlockLevel": 30, "purchaseCostMinor": 50000000 },
+]
+
+const EMPLOYEE_NAMES := ["Luna", "Mateo", "Sofía", "Leo", "Emma", "Nico", "Vera", "Bruno", "Mía", "Teo", "Alma", "Gael"]

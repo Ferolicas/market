@@ -1,0 +1,42 @@
+; Engine configuration file.
+; Mini Market — Godot 4.7 port of the Three.js market simulator.
+
+config_version=5
+
+[application]
+
+config/name="Mini Market"
+config/description="Simulador 3D de supermercados, empleados y franquicias."
+run/main_scene="res://scenes/main.tscn"
+config/features=PackedStringArray("4.7", "Mobile")
+run/low_processor_mode=false
+boot_splash/bg_color=Color(0.917647, 0.968627, 0.933333, 1)
+config/icon="res://icon.svg"
+
+[audio]
+
+buses/default_bus_layout="res://audio_bus_layout.tres"
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=720
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+window/handheld/orientation=4
+
+[input_devices]
+
+pointing/emulate_touch_from_mouse=true
+pointing/emulate_mouse_from_touch=true
+
+[rendering]
+
+renderer/rendering_method="mobile"
+renderer/rendering_method.mobile="mobile"
+textures/vram_compression/import_etc2_astc=true
+anti_aliasing/quality/msaa_3d=0
+lights_and_shadows/directional_shadow/size=2048
+lights_and_shadows/directional_shadow/soft_shadow_filter_quality=1
+textures/default_filters/anisotropic_filtering_level=1
+environment/defaults/default_clear_color=Color(0.917647, 0.968627, 0.933333, 1)
