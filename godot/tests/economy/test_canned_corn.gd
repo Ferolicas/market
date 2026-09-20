@@ -120,3 +120,6 @@ func test_adds_a_non_overlapping_fixture_and_keeps_routes_from_warehouse_and_che
 		var route: Array = NavMeshService.store_pathfinder(start, destination)
 		assert_gt(route.size(), 0)
 		assert_lt(JS.hypot(JS.at(route, -1)[0] - destination[0], JS.at(route, -1)[1] - destination[1]), 0.3)
+
+func after_each() -> void:
+	NavMeshService.dispose_store_navigation()

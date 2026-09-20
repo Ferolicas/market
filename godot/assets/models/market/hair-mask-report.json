@@ -1,0 +1,86 @@
+[
+  {
+    "source": "characters/owner_man.glb",
+    "output": "godot/assets/models/market/characters/owner_man_bald.glb",
+    "originalTriangles": 196979,
+    "removedTriangles": 19416,
+    "retainedTriangles": 177563
+  },
+  {
+    "source": "characters/lod1/owner_man.glb",
+    "output": "godot/assets/models/market/characters/lod1/owner_man_bald.glb",
+    "originalTriangles": 8864,
+    "removedTriangles": 967,
+    "retainedTriangles": 7897
+  },
+  {
+    "source": "characters/lod2/owner_man.glb",
+    "output": "godot/assets/models/market/characters/lod2/owner_man_bald.glb",
+    "originalTriangles": 5318,
+    "removedTriangles": 613,
+    "retainedTriangles": 4705
+  },
+  {
+    "source": "characters/owner_woman.glb",
+    "output": "godot/assets/models/market/characters/owner_woman_bald.glb",
+    "originalTriangles": 192349,
+    "removedTriangles": 34412,
+    "retainedTriangles": 157937
+  },
+  {
+    "source": "characters/lod1/owner_woman.glb",
+    "output": "godot/assets/models/market/characters/lod1/owner_woman_bald.glb",
+    "originalTriangles": 8654,
+    "removedTriangles": 1500,
+    "retainedTriangles": 7154
+  },
+  {
+    "source": "characters/lod2/owner_woman.glb",
+    "output": "godot/assets/models/market/characters/lod2/owner_woman_bald.glb",
+    "originalTriangles": 5192,
+    "removedTriangles": 923,
+    "retainedTriangles": 4269
+  },
+  {
+    "source": "characters/owner_boy.glb",
+    "output": "godot/assets/models/market/characters/owner_boy_bald.glb",
+    "originalTriangles": 195322,
+    "removedTriangles": 31619,
+    "retainedTriangles": 163703
+  },
+  {
+    "source": "characters/lod1/owner_boy.glb",
+    "output": "godot/assets/models/market/characters/lod1/owner_boy_bald.glb",
+    "originalTriangles": 8788,
+    "removedTriangles": 1413,
+    "retainedTriangles": 7375
+  },
+  {
+    "source": "characters/lod2/owner_boy.glb",
+    "output": "godot/assets/models/market/characters/lod2/owner_boy_bald.glb",
+    "originalTriangles": 5270,
+    "removedTriangles": 853,
+    "retainedTriangles": 4417
+  },
+  {
+    "source": "characters/owner_girl.glb",
+    "output": "godot/assets/models/market/characters/owner_girl_bald.glb",
+    "originalTriangles": 198204,
+    "removedTriangles": 47413,
+    "retainedTriangles": 150791
+  },
+  {
+    "source": "characters/lod1/owner_girl.glb",
+    "output": "godot/assets/models/market/characters/lod1/owner_girl_bald.glb",
+    "originalTriangles": 8918,
+    "removedTriangles": 2517,
+    "retainedTriangles": 6401
+  },
+  {
+    "source": "characters/lod2/owner_girl.glb",
+    "output": "godot/assets/models/market/characters/lod2/owner_girl_bald.glb",
+    "originalTriangles": 5350,
+    "removedTriangles": 1492,
+    "retainedTriangles": 3858
+  }
+]

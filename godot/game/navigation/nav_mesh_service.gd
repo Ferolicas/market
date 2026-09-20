@@ -1,12 +1,7 @@
 class_name NavMeshService
 extends RefCounted
-## Port of src/game/navigation/NavMeshService.ts — pure geometry only.
-##
-## The web version builds a Recast solo NavMesh from a grid of walkable cells
-## and queries it for paths. Here the walkability predicate, the navigation
-## bounds, the wall bands and the walkable-cell geometry are ported 1:1; the
-## Recast build/query is replaced by TODO hooks for Godot's NavigationServer3D
-## (see `rebuild`, `find_path`, `pathfinder_backend`).
+## src/game/navigation/NavMeshService.ts. Real Recast bake and queries through
+## NavigationServer3D, using the original walkable grid and agent dimensions.
 
 const NAVIGATION_CELL_SIZE = 0.36
 const NAVMESH_FURNITURE_PADDING = 0.31 * WorldScale.STORE_LAYOUT_SCALE
@@ -42,48 +37,77 @@ const PATH_QUERY_HALF_EXTENTS = Vector3(1.5, 2, 1.5)
 
 var _revision := -1
 var _ready := false
-## TODO(godot): replace with a NavigationServer3D map RID / NavigationMesh
-## baked from `create_walkable_store_geometry(areas)` (scene layer owns the
-## NavigationRegion3D). Until then paths come from `pathfinder_backend`.
 var _map_rid: RID = RID()
+var _region_rid: RID = RID()
+var _mesh: NavigationMesh
 
-## Rebuilds the navigation data for `structure_revision`. Returns true when the
-## service can answer `find_path`. Synchronous here (the web build awaited
-## Recast's WASM init).
 func rebuild(areas: Array, structure_revision: int) -> bool:
 	if _revision == structure_revision and _ready: return true
-	# TODO(godot): bake a NavigationMesh from create_walkable_store_geometry(areas)
-	# with RECAST_BUILD_PARAMETERS (agent_radius = cs * walkableRadius) and
-	# register it on a NavigationServer3D map; set _map_rid.
-	_ready = pathfinder_backend.is_valid()
-	_revision = structure_revision if _ready else -1
-	return _ready
+	var geometry := create_walkable_store_geometry(areas)
+	var faces := PackedVector3Array()
+	# Three uses counterclockwise front faces; Godot source faces are clockwise.
+	for triangle in range(0, geometry.indices.size(), 3):
+		for corner in [0, 2, 1]: faces.append(geometry.positions[geometry.indices[triangle + corner]])
+	var source := NavigationMeshSourceGeometryData3D.new()
+	source.add_faces(faces, Transform3D.IDENTITY)
+	var mesh := NavigationMesh.new()
+	mesh.cell_size = RECAST_BUILD_PARAMETERS.cs
+	mesh.cell_height = RECAST_BUILD_PARAMETERS.ch
+	mesh.agent_radius = RECAST_BUILD_PARAMETERS.cs * RECAST_BUILD_PARAMETERS.walkableRadius
+	mesh.agent_height = RECAST_BUILD_PARAMETERS.ch * RECAST_BUILD_PARAMETERS.walkableHeight
+	mesh.agent_max_climb = RECAST_BUILD_PARAMETERS.ch * RECAST_BUILD_PARAMETERS.walkableClimb
+	mesh.agent_max_slope = 60
+	mesh.region_min_size = 8
+	mesh.region_merge_size = 20
+	mesh.edge_max_length = 12 * mesh.cell_size
+	mesh.edge_max_error = 1.3
+	mesh.vertices_per_polygon = 6
+	mesh.detail_sample_distance = 6
+	mesh.detail_sample_max_error = 1
+	mesh.filter_low_hanging_obstacles = true
+	mesh.filter_ledge_spans = true
+	mesh.filter_walkable_low_height_spans = true
+	NavigationServer3D.bake_from_source_geometry_data(mesh, source)
+	if mesh.get_polygon_count() == 0: return false
+	dispose()
+	_mesh = mesh
+	_map_rid = NavigationServer3D.map_create()
+	NavigationServer3D.map_set_cell_size(_map_rid, mesh.cell_size)
+	NavigationServer3D.map_set_cell_height(_map_rid, mesh.cell_height)
+	NavigationServer3D.map_set_use_async_iterations(_map_rid, false)
+	NavigationServer3D.map_set_active(_map_rid, true)
+	_region_rid = NavigationServer3D.region_create()
+	NavigationServer3D.region_set_use_async_iterations(_region_rid, false)
+	NavigationServer3D.region_set_navigation_mesh(_region_rid, mesh)
+	NavigationServer3D.region_set_map(_region_rid, _map_rid)
+	NavigationServer3D.map_force_update(_map_rid)
+	_revision = structure_revision
+	_ready = true
+	return true
 
-## Straight path between two world points (Vector3, y ignored). Empty when no
-## backend is ready.
 func find_path(start: Vector3, end: Vector3) -> Array:
 	if not _ready: return []
-	# TODO(godot): NavigationServer3D.map_get_path(_map_rid, start, end, true)
-	# once the region is baked; `pathfinder_backend` is the injectable stand-in.
-	var path: Array = pathfinder_backend.call([start.x, start.z], [end.x, end.z])
-	var out := []
-	for point in path: out.append(Vector3(point[0], 0, point[1]))
-	return out
+	var projected_start := NavigationServer3D.map_get_closest_point(_map_rid, start)
+	var projected_end := NavigationServer3D.map_get_closest_point(_map_rid, end)
+	# Recast's nearest-polygon query is bounded by these half-extents.
+	for pair in [[start, projected_start], [end, projected_end]]:
+		var distance: Vector3 = (pair[0] - pair[1]).abs()
+		if distance.x > PATH_QUERY_HALF_EXTENTS.x or distance.y > PATH_QUERY_HALF_EXTENTS.y or distance.z > PATH_QUERY_HALF_EXTENTS.z: return []
+	return Array(NavigationServer3D.map_get_path(_map_rid, projected_start, projected_end, true))
 
 func dispose() -> void:
-	# TODO(godot): NavigationServer3D.free_rid(_map_rid) when a map is owned.
+	if _region_rid.is_valid(): NavigationServer3D.free_rid(_region_rid)
+	if _map_rid.is_valid(): NavigationServer3D.free_rid(_map_rid)
+	_region_rid = RID()
 	_map_rid = RID()
+	_mesh = null
 	_ready = false
 	_revision = -1
 
-# ---------------------------------------------------------------------------
-# Module-level store navigation (ensureStoreNavigation / storePathfinder).
-# ---------------------------------------------------------------------------
-
-## Injectable pathfinder: Callable(start: [x, z], end: [x, z]) -> Array of [x, z]
-## in layout units. The scene layer installs one backed by NavigationServer3D;
-## tests may install a deterministic stub. Invalid → navigation never "ready".
-static var pathfinder_backend: Callable = Callable()
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_PREDELETE:
+		if _region_rid.is_valid(): NavigationServer3D.free_rid(_region_rid)
+		if _map_rid.is_valid(): NavigationServer3D.free_rid(_map_rid)
 
 static var _store_navigation: NavMeshService = NavMeshService.new()
 static var _store_navigation_ready := false
@@ -92,7 +116,7 @@ static var _requested_signature := ""
 static var _navigation_generation := 0
 
 ## Synchronous counterpart of the async TS function: true once a pathfinder
-## backend is installed and built for this revision/areas signature.
+## navigation is baked for this revision/areas signature.
 static func ensure_store_navigation(structure_revision: int, areas: Array = []) -> bool:
 	var sorted_areas := areas.duplicate()
 	sorted_areas.sort()
@@ -108,6 +132,11 @@ static func ensure_store_navigation(structure_revision: int, areas: Array = []) 
 	return success
 
 ## Path in layout units ([x, z] points) or [] while navigation is not ready.
+static func dispose_store_navigation() -> void:
+	_store_navigation.dispose()
+	_store_navigation_ready = false
+	_store_navigation_revision = -1
+
 static func store_pathfinder(start: Array, end: Array) -> Array:
 	if not _store_navigation_ready: return []
 	var path := _store_navigation.find_path(Vector3(start[0], 0, start[1]), Vector3(end[0], 0, end[1]))

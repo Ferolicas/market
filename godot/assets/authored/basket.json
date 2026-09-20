@@ -1,0 +1,1099 @@
+{
+  "source": "src/components/game",
+  "part": "basket",
+  "meshes": 21,
+  "manifest": [
+    {
+      "name": "n0",
+      "sourceName": "authored",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": null,
+      "route": [],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n1",
+      "sourceName": "HarvestBasket",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": null,
+      "route": [
+        0
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n2",
+      "sourceName": "",
+      "authored": null,
+      "castShadow": true,
+      "receiveShadow": false,
+      "light": null,
+      "materials": [
+        {
+          "transparent": false,
+          "opacity": 1,
+          "transmission": 0,
+          "depthWrite": true,
+          "unshaded": false,
+          "toneMapped": true,
+          "fog": true
+        }
+      ],
+      "route": [
+        0,
+        0
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        -0.13,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n3",
+      "sourceName": "",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": [
+        {
+          "transparent": false,
+          "opacity": 1,
+          "transmission": 0,
+          "depthWrite": true,
+          "unshaded": false,
+          "toneMapped": true,
+          "fog": true
+        }
+      ],
+      "route": [
+        0,
+        1
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        -0.045,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n4",
+      "sourceName": "",
+      "authored": null,
+      "castShadow": true,
+      "receiveShadow": false,
+      "light": null,
+      "materials": [
+        {
+          "transparent": false,
+          "opacity": 1,
+          "transmission": 0,
+          "depthWrite": true,
+          "unshaded": false,
+          "toneMapped": true,
+          "fog": true
+        }
+      ],
+      "route": [
+        0,
+        2
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        -0.19,
+        -0.025,
+        0.185,
+        1
+      ]
+    },
+    {
+      "name": "n5",
+      "sourceName": "",
+      "authored": null,
+      "castShadow": true,
+      "receiveShadow": false,
+      "light": null,
+      "materials": [
+        {
+          "transparent": false,
+          "opacity": 1,
+          "transmission": 0,
+          "depthWrite": true,
+          "unshaded": false,
+          "toneMapped": true,
+          "fog": true
+        }
+      ],
+      "route": [
+        0,
+        3
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        -0.025,
+        0.185,
+        1
+      ]
+    },
+    {
+      "name": "n6",
+      "sourceName": "",
+      "authored": null,
+      "castShadow": true,
+      "receiveShadow": false,
+      "light": null,
+      "materials": [
+        {
+          "transparent": false,
+          "opacity": 1,
+          "transmission": 0,
+          "depthWrite": true,
+          "unshaded": false,
+          "toneMapped": true,
+          "fog": true
+        }
+      ],
+      "route": [
+        0,
+        4
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0.19,
+        -0.025,
+        0.185,
+        1
+      ]
+    },
+    {
+      "name": "n7",
+      "sourceName": "",
+      "authored": null,
+      "castShadow": true,
+      "receiveShadow": false,
+      "light": null,
+      "materials": [
+        {
+          "transparent": false,
+          "opacity": 1,
+          "transmission": 0,
+          "depthWrite": true,
+          "unshaded": false,
+          "toneMapped": true,
+          "fog": true
+        }
+      ],
+      "route": [
+        0,
+        5
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        -0.09,
+        0.19,
+        1
+      ]
+    },
+    {
+      "name": "n8",
+      "sourceName": "",
+      "authored": null,
+      "castShadow": true,
+      "receiveShadow": false,
+      "light": null,
+      "materials": [
+        {
+          "transparent": false,
+          "opacity": 1,
+          "transmission": 0,
+          "depthWrite": true,
+          "unshaded": false,
+          "toneMapped": true,
+          "fog": true
+        }
+      ],
+      "route": [
+        0,
+        6
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0.02,
+        0.19,
+        1
+      ]
+    },
+    {
+      "name": "n9",
+      "sourceName": "",
+      "authored": null,
+      "castShadow": true,
+      "receiveShadow": false,
+      "light": null,
+      "materials": [
+        {
+          "transparent": false,
+          "opacity": 1,
+          "transmission": 0,
+          "depthWrite": true,
+          "unshaded": false,
+          "toneMapped": true,
+          "fog": true
+        }
+      ],
+      "route": [
+        0,
+        7
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0.13,
+        0.19,
+        1
+      ]
+    },
+    {
+      "name": "n10",
+      "sourceName": "",
+      "authored": null,
+      "castShadow": true,
+      "receiveShadow": false,
+      "light": null,
+      "materials": [
+        {
+          "transparent": false,
+          "opacity": 1,
+          "transmission": 0,
+          "depthWrite": true,
+          "unshaded": false,
+          "toneMapped": true,
+          "fog": true
+        }
+      ],
+      "route": [
+        0,
+        8
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        -0.305,
+        -0.09,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n11",
+      "sourceName": "",
+      "authored": null,
+      "castShadow": true,
+      "receiveShadow": false,
+      "light": null,
+      "materials": [
+        {
+          "transparent": false,
+          "opacity": 1,
+          "transmission": 0,
+          "depthWrite": true,
+          "unshaded": false,
+          "toneMapped": true,
+          "fog": true
+        }
+      ],
+      "route": [
+        0,
+        9
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        -0.305,
+        0.02,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n12",
+      "sourceName": "",
+      "authored": null,
+      "castShadow": true,
+      "receiveShadow": false,
+      "light": null,
+      "materials": [
+        {
+          "transparent": false,
+          "opacity": 1,
+          "transmission": 0,
+          "depthWrite": true,
+          "unshaded": false,
+          "toneMapped": true,
+          "fog": true
+        }
+      ],
+      "route": [
+        0,
+        10
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        -0.305,
+        0.13,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n13",
+      "sourceName": "",
+      "authored": null,
+      "castShadow": true,
+      "receiveShadow": false,
+      "light": null,
+      "materials": [
+        {
+          "transparent": false,
+          "opacity": 1,
+          "transmission": 0,
+          "depthWrite": true,
+          "unshaded": false,
+          "toneMapped": true,
+          "fog": true
+        }
+      ],
+      "route": [
+        0,
+        11
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0.305,
+        -0.09,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n14",
+      "sourceName": "",
+      "authored": null,
+      "castShadow": true,
+      "receiveShadow": false,
+      "light": null,
+      "materials": [
+        {
+          "transparent": false,
+          "opacity": 1,
+          "transmission": 0,
+          "depthWrite": true,
+          "unshaded": false,
+          "toneMapped": true,
+          "fog": true
+        }
+      ],
+      "route": [
+        0,
+        12
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0.305,
+        0.02,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n15",
+      "sourceName": "",
+      "authored": null,
+      "castShadow": true,
+      "receiveShadow": false,
+      "light": null,
+      "materials": [
+        {
+          "transparent": false,
+          "opacity": 1,
+          "transmission": 0,
+          "depthWrite": true,
+          "unshaded": false,
+          "toneMapped": true,
+          "fog": true
+        }
+      ],
+      "route": [
+        0,
+        13
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0.305,
+        0.13,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n16",
+      "sourceName": "HarvestBasketAdaptiveHandle",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": null,
+      "route": [
+        0,
+        14
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n17",
+      "sourceName": "BasketGripBar",
+      "authored": null,
+      "castShadow": true,
+      "receiveShadow": false,
+      "light": null,
+      "materials": [
+        {
+          "transparent": false,
+          "opacity": 1,
+          "transmission": 0,
+          "depthWrite": true,
+          "unshaded": false,
+          "toneMapped": true,
+          "fog": true
+        }
+      ],
+      "route": [
+        0,
+        14,
+        0
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n18",
+      "sourceName": "",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": null,
+      "route": [
+        0,
+        14,
+        1
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n19",
+      "sourceName": "BasketHandleStayLeft",
+      "authored": null,
+      "castShadow": true,
+      "receiveShadow": false,
+      "light": null,
+      "materials": [
+        {
+          "transparent": false,
+          "opacity": 1,
+          "transmission": 0,
+          "depthWrite": true,
+          "unshaded": false,
+          "toneMapped": true,
+          "fog": true
+        }
+      ],
+      "route": [
+        0,
+        14,
+        1,
+        0
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n20",
+      "sourceName": "BasketGripLeft",
+      "authored": null,
+      "castShadow": true,
+      "receiveShadow": false,
+      "light": null,
+      "materials": [
+        {
+          "transparent": false,
+          "opacity": 1,
+          "transmission": 0,
+          "depthWrite": true,
+          "unshaded": false,
+          "toneMapped": true,
+          "fog": true
+        }
+      ],
+      "route": [
+        0,
+        14,
+        1,
+        1
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n21",
+      "sourceName": "",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": null,
+      "route": [
+        0,
+        14,
+        2
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n22",
+      "sourceName": "BasketHandleStayRight",
+      "authored": null,
+      "castShadow": true,
+      "receiveShadow": false,
+      "light": null,
+      "materials": [
+        {
+          "transparent": false,
+          "opacity": 1,
+          "transmission": 0,
+          "depthWrite": true,
+          "unshaded": false,
+          "toneMapped": true,
+          "fog": true
+        }
+      ],
+      "route": [
+        0,
+        14,
+        2,
+        0
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n23",
+      "sourceName": "BasketGripRight",
+      "authored": null,
+      "castShadow": true,
+      "receiveShadow": false,
+      "light": null,
+      "materials": [
+        {
+          "transparent": false,
+          "opacity": 1,
+          "transmission": 0,
+          "depthWrite": true,
+          "unshaded": false,
+          "toneMapped": true,
+          "fog": true
+        }
+      ],
+      "route": [
+        0,
+        14,
+        2,
+        1
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n24",
+      "sourceName": "HarvestBasketProducts",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": null,
+      "route": [
+        0,
+        15
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0.08,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n25",
+      "sourceName": "",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": null,
+      "route": [
+        0,
+        15,
+        0
+      ],
+      "matrix": [
+        0.7775053309160432,
+        0.06233346129595469,
+        0,
+        0,
+        -0.06233346129595469,
+        0.7775053309160432,
+        0,
+        0,
+        0,
+        0,
+        0.78,
+        0,
+        -0.195,
+        0,
+        -0.065,
+        1
+      ]
+    },
+    {
+      "name": "n26",
+      "sourceName": "",
+      "authored": null,
+      "castShadow": true,
+      "receiveShadow": false,
+      "light": null,
+      "materials": [
+        {
+          "transparent": false,
+          "opacity": 1,
+          "transmission": 0,
+          "depthWrite": true,
+          "unshaded": false,
+          "toneMapped": true,
+          "fog": true
+        }
+      ],
+      "route": [
+        0,
+        15,
+        0,
+        0
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        0.86,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n27",
+      "sourceName": "",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": [
+        {
+          "transparent": false,
+          "opacity": 1,
+          "transmission": 0,
+          "depthWrite": true,
+          "unshaded": false,
+          "toneMapped": true,
+          "fog": true
+        }
+      ],
+      "route": [
+        0,
+        15,
+        0,
+        1
+      ],
+      "matrix": [
+        -1,
+        1.2246467991473532e-16,
+        0,
+        0,
+        -1.2246467991473532e-16,
+        -1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0.075,
+        0,
+        1
+      ]
+    }
+  ],
+  "labels": [],
+  "externalModels": []
+}

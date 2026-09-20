@@ -137,7 +137,7 @@ static func scaled_farm_harvest_sensor(element_scale: float) -> Dictionary:
 ## actors and its timbers clear the gate, with its east edge at the fence.
 const FARM_FRONT_BED_ROW_Z = -13.7
 const FARM_REAR_BED_ROW_Z = -16.9
-const FARM_PLOTS = [
+static var FARM_PLOTS = [
 	{ "id": "crop-tomato-1", "productId": "tomatoes", "position": [-9, 0, FARM_REAR_BED_ROW_Z], "accent": "#e34f3f" },
 	{ "id": "crop-tomato-2", "productId": "tomatoes", "position": [-6.3, 0, FARM_REAR_BED_ROW_Z], "accent": "#ef6a4b" },
 	{ "id": "crop-tomato-3", "productId": "tomatoes", "position": [-3.6, 0, FARM_REAR_BED_ROW_Z], "accent": "#e34f3f" },

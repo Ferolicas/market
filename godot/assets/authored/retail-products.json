@@ -1,0 +1,2411 @@
+{
+  "source": "src/components/game",
+  "part": "retail-products",
+  "meshes": 24,
+  "manifest": [
+    {
+      "name": "n0",
+      "sourceName": "authored",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": null,
+      "route": [],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n1",
+      "sourceName": "",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": null,
+      "route": [
+        0
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n2",
+      "sourceName": "retail-template:wheat",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": null,
+      "route": [
+        0,
+        0
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n3",
+      "sourceName": "retail-product:wheat",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": null,
+      "route": [
+        0,
+        0,
+        0
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n4",
+      "sourceName": "",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": true,
+      "light": null,
+      "materials": [
+        {
+          "transparent": false,
+          "opacity": 1,
+          "transmission": 0,
+          "depthWrite": true,
+          "unshaded": false,
+          "toneMapped": true,
+          "fog": true
+        }
+      ],
+      "route": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n5",
+      "sourceName": "",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": [
+        {
+          "transparent": true,
+          "opacity": 1,
+          "transmission": 0,
+          "depthWrite": true,
+          "unshaded": true,
+          "toneMapped": true,
+          "fog": true
+        }
+      ],
+      "route": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0.064,
+        1
+      ]
+    },
+    {
+      "name": "n6",
+      "sourceName": "retail-template:flour",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": null,
+      "route": [
+        0,
+        1
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n7",
+      "sourceName": "retail-product:flour",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": null,
+      "route": [
+        0,
+        1,
+        0
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n8",
+      "sourceName": "",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": true,
+      "light": null,
+      "materials": [
+        {
+          "transparent": false,
+          "opacity": 1,
+          "transmission": 0,
+          "depthWrite": true,
+          "unshaded": false,
+          "toneMapped": true,
+          "fog": true
+        }
+      ],
+      "route": [
+        0,
+        1,
+        0,
+        0
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n9",
+      "sourceName": "",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": [
+        {
+          "transparent": true,
+          "opacity": 1,
+          "transmission": 0,
+          "depthWrite": true,
+          "unshaded": true,
+          "toneMapped": true,
+          "fog": true
+        }
+      ],
+      "route": [
+        0,
+        1,
+        0,
+        1
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0.064,
+        1
+      ]
+    },
+    {
+      "name": "n10",
+      "sourceName": "retail-template:bread",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": null,
+      "route": [
+        0,
+        2
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n11",
+      "sourceName": "retail-product:bread",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": null,
+      "route": [
+        0,
+        2,
+        0
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n12",
+      "sourceName": "",
+      "authored": null,
+      "castShadow": true,
+      "receiveShadow": false,
+      "light": null,
+      "materials": [
+        {
+          "transparent": false,
+          "opacity": 1,
+          "transmission": 0,
+          "depthWrite": true,
+          "unshaded": false,
+          "toneMapped": true,
+          "fog": true
+        }
+      ],
+      "route": [
+        0,
+        2,
+        0,
+        0
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n13",
+      "sourceName": "",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": [
+        {
+          "transparent": false,
+          "opacity": 1,
+          "transmission": 0,
+          "depthWrite": true,
+          "unshaded": false,
+          "toneMapped": true,
+          "fog": true
+        }
+      ],
+      "route": [
+        0,
+        2,
+        0,
+        1
+      ],
+      "matrix": [
+        0.955336489125606,
+        -0.29552020666133955,
+        0,
+        0,
+        0.29552020666133955,
+        0.955336489125606,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        -0.05,
+        0.073,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n14",
+      "sourceName": "",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": [
+        {
+          "transparent": false,
+          "opacity": 1,
+          "transmission": 0,
+          "depthWrite": true,
+          "unshaded": false,
+          "toneMapped": true,
+          "fog": true
+        }
+      ],
+      "route": [
+        0,
+        2,
+        0,
+        2
+      ],
+      "matrix": [
+        0.955336489125606,
+        -0.29552020666133955,
+        0,
+        0,
+        0.29552020666133955,
+        0.955336489125606,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0.02,
+        0.073,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n15",
+      "sourceName": "",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": [
+        {
+          "transparent": false,
+          "opacity": 1,
+          "transmission": 0,
+          "depthWrite": true,
+          "unshaded": false,
+          "toneMapped": true,
+          "fog": true
+        }
+      ],
+      "route": [
+        0,
+        2,
+        0,
+        3
+      ],
+      "matrix": [
+        0.955336489125606,
+        -0.29552020666133955,
+        0,
+        0,
+        0.29552020666133955,
+        0.955336489125606,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0.085,
+        0.073,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n16",
+      "sourceName": "retail-template:corn",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": null,
+      "route": [
+        0,
+        3
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n17",
+      "sourceName": "retail-product:corn",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": null,
+      "route": [
+        0,
+        3,
+        0
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n18",
+      "sourceName": "",
+      "authored": null,
+      "castShadow": true,
+      "receiveShadow": false,
+      "light": null,
+      "materials": [
+        {
+          "transparent": false,
+          "opacity": 1,
+          "transmission": 0,
+          "depthWrite": true,
+          "unshaded": false,
+          "toneMapped": true,
+          "fog": true
+        }
+      ],
+      "route": [
+        0,
+        3,
+        0,
+        0
+      ],
+      "matrix": [
+        0.62,
+        0,
+        0,
+        0,
+        0,
+        1.22,
+        0,
+        0,
+        0,
+        0,
+        0.62,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n19",
+      "sourceName": "",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": [
+        {
+          "transparent": false,
+          "opacity": 1,
+          "transmission": 0,
+          "depthWrite": true,
+          "unshaded": false,
+          "toneMapped": true,
+          "fog": true
+        }
+      ],
+      "route": [
+        0,
+        3,
+        0,
+        1
+      ],
+      "matrix": [
+        0.4178990860094296,
+        -0.1669142112358422,
+        0,
+        0,
+        0.3709204694129827,
+        0.9286646355765102,
+        0,
+        0,
+        0,
+        0,
+        0.35,
+        0,
+        -0.048,
+        -0.02,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n20",
+      "sourceName": "",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": [
+        {
+          "transparent": false,
+          "opacity": 1,
+          "transmission": 0,
+          "depthWrite": true,
+          "unshaded": false,
+          "toneMapped": true,
+          "fog": true
+        }
+      ],
+      "route": [
+        0,
+        3,
+        0,
+        2
+      ],
+      "matrix": [
+        0.4178990860094296,
+        0.1669142112358422,
+        0,
+        0,
+        -0.3709204694129827,
+        0.9286646355765102,
+        0,
+        0,
+        0,
+        0,
+        0.35,
+        0,
+        0.048,
+        -0.02,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n21",
+      "sourceName": "retail-template:milk",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": null,
+      "route": [
+        0,
+        4
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n22",
+      "sourceName": "retail-product:milk",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": null,
+      "route": [
+        0,
+        4,
+        0
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n23",
+      "sourceName": "delivered:milk",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": null,
+      "route": [
+        0,
+        4,
+        0,
+        0
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n24",
+      "sourceName": "",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": null,
+      "route": [
+        0,
+        4,
+        0,
+        0,
+        0
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n25",
+      "sourceName": "RootNode",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": null,
+      "route": [
+        0,
+        4,
+        0,
+        0,
+        0,
+        0
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n26",
+      "sourceName": "tripo_node_6e084a1e",
+      "authored": null,
+      "castShadow": true,
+      "receiveShadow": true,
+      "light": null,
+      "materials": [
+        {
+          "transparent": false,
+          "opacity": 1,
+          "transmission": 0,
+          "depthWrite": true,
+          "unshaded": false,
+          "toneMapped": true,
+          "fog": true
+        }
+      ],
+      "route": [
+        0,
+        4,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "matrix": [
+        0.12999999523162842,
+        0,
+        0,
+        0,
+        0,
+        0.12999999523162842,
+        0,
+        0,
+        0,
+        0,
+        0.12999999523162842,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n27",
+      "sourceName": "retail-template:eggs",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": null,
+      "route": [
+        0,
+        5
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n28",
+      "sourceName": "retail-product:eggs",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": null,
+      "route": [
+        0,
+        5,
+        0
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n29",
+      "sourceName": "delivered:egg",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": null,
+      "route": [
+        0,
+        5,
+        0,
+        0
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n30",
+      "sourceName": "",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": null,
+      "route": [
+        0,
+        5,
+        0,
+        0,
+        0
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n31",
+      "sourceName": "RootNode",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": null,
+      "route": [
+        0,
+        5,
+        0,
+        0,
+        0,
+        0
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n32",
+      "sourceName": "tripo_node_77079bf8",
+      "authored": null,
+      "castShadow": true,
+      "receiveShadow": true,
+      "light": null,
+      "materials": [
+        {
+          "transparent": false,
+          "opacity": 1,
+          "transmission": 0,
+          "depthWrite": true,
+          "unshaded": false,
+          "toneMapped": true,
+          "fog": true
+        }
+      ],
+      "route": [
+        0,
+        5,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "matrix": [
+        0.07999999821186066,
+        0,
+        0,
+        0,
+        0,
+        0.07999999821186066,
+        0,
+        0,
+        0,
+        0,
+        0.07999999821186066,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n33",
+      "sourceName": "retail-template:cheese",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": null,
+      "route": [
+        0,
+        6
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n34",
+      "sourceName": "retail-product:cheese",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": null,
+      "route": [
+        0,
+        6,
+        0
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n35",
+      "sourceName": "delivered:cheese",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": null,
+      "route": [
+        0,
+        6,
+        0,
+        0
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n36",
+      "sourceName": "",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": null,
+      "route": [
+        0,
+        6,
+        0,
+        0,
+        0
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n37",
+      "sourceName": "RootNode",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": null,
+      "route": [
+        0,
+        6,
+        0,
+        0,
+        0,
+        0
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n38",
+      "sourceName": "tripo_node_cb4fd872",
+      "authored": null,
+      "castShadow": true,
+      "receiveShadow": true,
+      "light": null,
+      "materials": [
+        {
+          "transparent": false,
+          "opacity": 1,
+          "transmission": 0,
+          "depthWrite": true,
+          "unshaded": false,
+          "toneMapped": true,
+          "fog": true
+        }
+      ],
+      "route": [
+        0,
+        6,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "matrix": [
+        0.07999999821186066,
+        0,
+        0,
+        0,
+        0,
+        0.07999999821186066,
+        0,
+        0,
+        0,
+        0,
+        0.07999999821186066,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n39",
+      "sourceName": "retail-template:apples",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": null,
+      "route": [
+        0,
+        7
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n40",
+      "sourceName": "retail-product:apples",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": null,
+      "route": [
+        0,
+        7,
+        0
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n41",
+      "sourceName": "",
+      "authored": null,
+      "castShadow": true,
+      "receiveShadow": false,
+      "light": null,
+      "materials": [
+        {
+          "transparent": false,
+          "opacity": 1,
+          "transmission": 0,
+          "depthWrite": true,
+          "unshaded": false,
+          "toneMapped": true,
+          "fog": true
+        }
+      ],
+      "route": [
+        0,
+        7,
+        0,
+        0
+      ],
+      "matrix": [
+        0.92,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0.92,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n42",
+      "sourceName": "",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": [
+        {
+          "transparent": false,
+          "opacity": 1,
+          "transmission": 0,
+          "depthWrite": true,
+          "unshaded": false,
+          "toneMapped": true,
+          "fog": true
+        }
+      ],
+      "route": [
+        0,
+        7,
+        0,
+        1
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0.102,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n43",
+      "sourceName": "",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": [
+        {
+          "transparent": false,
+          "opacity": 1,
+          "transmission": 0,
+          "depthWrite": true,
+          "unshaded": false,
+          "toneMapped": true,
+          "fog": true
+        }
+      ],
+      "route": [
+        0,
+        7,
+        0,
+        2
+      ],
+      "matrix": [
+        0.8525245220595057,
+        -0.5226872289306592,
+        0,
+        0,
+        0.18294053012573072,
+        0.298383582720827,
+        0,
+        0,
+        0,
+        0,
+        0.55,
+        0,
+        0.045,
+        0.112,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n44",
+      "sourceName": "retail-template:tomatoes",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": null,
+      "route": [
+        0,
+        8
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n45",
+      "sourceName": "retail-product:tomatoes",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": null,
+      "route": [
+        0,
+        8,
+        0
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n46",
+      "sourceName": "",
+      "authored": null,
+      "castShadow": true,
+      "receiveShadow": false,
+      "light": null,
+      "materials": [
+        {
+          "transparent": false,
+          "opacity": 1,
+          "transmission": 0,
+          "depthWrite": true,
+          "unshaded": false,
+          "toneMapped": true,
+          "fog": true
+        }
+      ],
+      "route": [
+        0,
+        8,
+        0,
+        0
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        0.86,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n47",
+      "sourceName": "",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": [
+        {
+          "transparent": false,
+          "opacity": 1,
+          "transmission": 0,
+          "depthWrite": true,
+          "unshaded": false,
+          "toneMapped": true,
+          "fog": true
+        }
+      ],
+      "route": [
+        0,
+        8,
+        0,
+        1
+      ],
+      "matrix": [
+        -1,
+        1.2246467991473532e-16,
+        0,
+        0,
+        -1.2246467991473532e-16,
+        -1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0.078,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n48",
+      "sourceName": "retail-template:oranges",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": null,
+      "route": [
+        0,
+        9
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n49",
+      "sourceName": "retail-product:oranges",
+      "authored": null,
+      "castShadow": true,
+      "receiveShadow": false,
+      "light": null,
+      "materials": [
+        {
+          "transparent": false,
+          "opacity": 1,
+          "transmission": 0,
+          "depthWrite": true,
+          "unshaded": false,
+          "toneMapped": true,
+          "fog": true
+        }
+      ],
+      "route": [
+        0,
+        9,
+        0
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n50",
+      "sourceName": "retail-template:coffee",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": null,
+      "route": [
+        0,
+        10
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n51",
+      "sourceName": "retail-product:coffee",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": null,
+      "route": [
+        0,
+        10,
+        0
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n52",
+      "sourceName": "",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": true,
+      "light": null,
+      "materials": [
+        {
+          "transparent": false,
+          "opacity": 1,
+          "transmission": 0,
+          "depthWrite": true,
+          "unshaded": false,
+          "toneMapped": true,
+          "fog": true
+        }
+      ],
+      "route": [
+        0,
+        10,
+        0,
+        0
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n53",
+      "sourceName": "",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": [
+        {
+          "transparent": true,
+          "opacity": 1,
+          "transmission": 0,
+          "depthWrite": true,
+          "unshaded": true,
+          "toneMapped": true,
+          "fog": true
+        }
+      ],
+      "route": [
+        0,
+        10,
+        0,
+        1
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0.064,
+        1
+      ]
+    },
+    {
+      "name": "n54",
+      "sourceName": "retail-template:juice",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": null,
+      "route": [
+        0,
+        11
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n55",
+      "sourceName": "retail-product:juice",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": null,
+      "route": [
+        0,
+        11,
+        0
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n56",
+      "sourceName": "",
+      "authored": null,
+      "castShadow": true,
+      "receiveShadow": false,
+      "light": null,
+      "materials": [
+        {
+          "transparent": false,
+          "opacity": 1,
+          "transmission": 0,
+          "depthWrite": true,
+          "unshaded": false,
+          "toneMapped": true,
+          "fog": true
+        }
+      ],
+      "route": [
+        0,
+        11,
+        0,
+        0
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n57",
+      "sourceName": "",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": [
+        {
+          "transparent": false,
+          "opacity": 1,
+          "transmission": 0,
+          "depthWrite": true,
+          "unshaded": false,
+          "toneMapped": true,
+          "fog": true
+        }
+      ],
+      "route": [
+        0,
+        11,
+        0,
+        1
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0.135,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n58",
+      "sourceName": "",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": [
+        {
+          "transparent": false,
+          "opacity": 1,
+          "transmission": 0,
+          "depthWrite": true,
+          "unshaded": false,
+          "toneMapped": true,
+          "fog": true
+        }
+      ],
+      "route": [
+        0,
+        11,
+        0,
+        2
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0.061,
+        1
+      ]
+    },
+    {
+      "name": "n59",
+      "sourceName": "retail-template:cannedCorn",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": null,
+      "route": [
+        0,
+        12
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n60",
+      "sourceName": "product:cannedCorn",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": null,
+      "route": [
+        0,
+        12,
+        0
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n61",
+      "sourceName": "",
+      "authored": null,
+      "castShadow": true,
+      "receiveShadow": false,
+      "light": null,
+      "materials": [
+        {
+          "transparent": false,
+          "opacity": 1,
+          "transmission": 0,
+          "depthWrite": true,
+          "unshaded": false,
+          "toneMapped": true,
+          "fog": true
+        }
+      ],
+      "route": [
+        0,
+        12,
+        0,
+        0
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n62",
+      "sourceName": "",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": [
+        {
+          "transparent": false,
+          "opacity": 1,
+          "transmission": 0,
+          "depthWrite": true,
+          "unshaded": false,
+          "toneMapped": true,
+          "fog": true
+        }
+      ],
+      "route": [
+        0,
+        12,
+        0,
+        1
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    }
+  ],
+  "labels": [
+    {
+      "name": "n5",
+      "parent": "n3",
+      "text": "TRIGO",
+      "fontSize": 0.037,
+      "color": "59462d",
+      "anchorX": "center",
+      "anchorY": "middle",
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0.064,
+        1
+      ]
+    },
+    {
+      "name": "n9",
+      "parent": "n7",
+      "text": "HARINA",
+      "fontSize": 0.037,
+      "color": "59462d",
+      "anchorX": "center",
+      "anchorY": "middle",
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0.064,
+        1
+      ]
+    },
+    {
+      "name": "n53",
+      "parent": "n51",
+      "text": "CAFÉ",
+      "fontSize": 0.037,
+      "color": "fff1d0",
+      "anchorX": "center",
+      "anchorY": "middle",
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0.064,
+        1
+      ]
+    }
+  ],
+  "externalModels": []
+}

@@ -33,12 +33,16 @@ func test_wraps_every_side_and_corner_of_each_workstation_with_one_magnet() -> v
 			assert_lte(InteractionZone.interaction_zone_planar_distance(zone, sample[0], sample[1]), zone.enterRadius, "%s at %s,%s" % [id, sample[0], sample[1]])
 
 func test_keeps_every_automated_operator_socket_connected_through_the_glass_doorway() -> void:
-	# The Recast path from the doorway is not ported (see NavMeshService TODOs);
-	# the walkability of every socket is.
+	assert_true(NavMeshService.ensure_store_navigation(90021))
+	var start := [ProductionLayout.PRODUCTION_CUBICLE.doorway.centerX, ProductionLayout.PRODUCTION_CUBICLE.bounds.front + 0.25]
 	for id in ProductionLayout.PRODUCTION_WORKSTATION_IDS:
 		if id == "juice" or id == "canner": continue
 		var target: Array = ProductionLayout.production_fixture_for_workstation(id).operatorWorkPoint
 		assert_true(NavMeshService.is_store_navigation_point(target), id)
+		var path := NavMeshService.store_pathfinder(start, target)
+		assert_gt(path.size(), 0, id)
+		if not path.is_empty(): assert_lt(JS.hypot(path[-1][0] - target[0], path[-1][1] - target[1]), 0.2, id)
+	NavMeshService.dispose_store_navigation()
 
 func test_keeps_the_front_glass_doorway_open_while_sealing_its_two_sides() -> void:
 	var cubicle: Dictionary = ProductionLayout.PRODUCTION_CUBICLE

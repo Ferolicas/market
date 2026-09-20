@@ -24,8 +24,8 @@ func _segment_intersects_expanded_obstacle(start: Array, end: Array, obstacle: D
 		if absf(delta) < 1e-8:
 			if a[axis] < lower or a[axis] > upper: return false
 			continue
-		var first := (lower - a[axis]) / delta
-		var second := (upper - a[axis]) / delta
+		var first: float = (lower - a[axis]) / delta
+		var second: float = (upper - a[axis]) / delta
 		minimum = maxf(minimum, minf(first, second))
 		maximum = minf(maximum, maxf(first, second))
 		if minimum > maximum: return false

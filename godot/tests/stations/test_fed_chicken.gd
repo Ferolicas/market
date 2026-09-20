@@ -69,9 +69,9 @@ func test_stops_with_full_output_preserves_unused_feed_and_resumes_on_collection
 
 func test_rejects_invalid_simulation_timestamps() -> void:
 	for time in [NAN, INF, -1, 0.5]:
-		var initial := FedChicken.create_fed_chicken()
+		var initial: Variant = FedChicken.create_fed_chicken()
 		assert_eq(FedChicken.feed_chicken(initial, 4, time)["consumed"], 0, str(time))
 		assert_eq(FedChicken.collect_chicken_eggs(initial, 3, time)["collected"], 0, str(time))
 		assert_eq(FedChicken.upgrade_fed_chicken(initial, time), initial, str(time))
 		assert_true(is_same(FedChicken.advance_fed_chicken(initial, time), initial), str(time))
-	assert_null(FedChicken.create_fed_chicken(-1))
+	assert_null(assert_engine_error("Invalid simulation time", func(): return FedChicken.create_fed_chicken(-1)))

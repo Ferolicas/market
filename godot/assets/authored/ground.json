@@ -1,0 +1,1501 @@
+{
+  "source": "src/components/game",
+  "part": "ground",
+  "meshes": 7,
+  "manifest": [
+    {
+      "name": "n0",
+      "sourceName": "authored",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": null,
+      "route": [],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n1",
+      "sourceName": "",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": null,
+      "route": [
+        0
+      ],
+      "matrix": [
+        2,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        2,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n2",
+      "sourceName": "",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": null,
+      "route": [
+        0,
+        0
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n3",
+      "sourceName": "",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": true,
+      "light": null,
+      "materials": [
+        {
+          "transparent": false,
+          "opacity": 1,
+          "transmission": 0,
+          "depthWrite": true,
+          "unshaded": false,
+          "toneMapped": true,
+          "fog": true
+        }
+      ],
+      "route": [
+        0,
+        0,
+        0
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        -0.08,
+        -0.35,
+        1
+      ]
+    },
+    {
+      "name": "n4",
+      "sourceName": "",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": true,
+      "light": null,
+      "materials": [
+        {
+          "transparent": false,
+          "opacity": 1,
+          "transmission": 0,
+          "depthWrite": true,
+          "unshaded": false,
+          "toneMapped": true,
+          "fog": true
+        }
+      ],
+      "route": [
+        0,
+        0,
+        11
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        -0.1,
+        11.9,
+        1
+      ]
+    },
+    {
+      "name": "n5",
+      "sourceName": "",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": true,
+      "light": null,
+      "materials": [
+        {
+          "transparent": false,
+          "opacity": 1,
+          "transmission": 0,
+          "depthWrite": true,
+          "unshaded": false,
+          "toneMapped": true,
+          "fog": true
+        }
+      ],
+      "route": [
+        0,
+        0,
+        12
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        -0.09,
+        16.15,
+        1
+      ]
+    },
+    {
+      "name": "n6",
+      "sourceName": "",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": true,
+      "light": null,
+      "materials": [
+        {
+          "transparent": false,
+          "opacity": 1,
+          "transmission": 0,
+          "depthWrite": true,
+          "unshaded": false,
+          "toneMapped": true,
+          "fog": true
+        }
+      ],
+      "route": [
+        0,
+        0,
+        16
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        7.5,
+        -0.015,
+        -9.61,
+        1
+      ]
+    },
+    {
+      "name": "n7",
+      "sourceName": "perf-static-batches",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": null,
+      "route": [
+        0,
+        0,
+        20
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n8",
+      "sourceName": "perf-static-batch:0",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": [
+        {
+          "transparent": false,
+          "opacity": 1,
+          "transmission": 0,
+          "depthWrite": true,
+          "unshaded": false,
+          "toneMapped": true,
+          "fog": true
+        }
+      ],
+      "route": [
+        0,
+        0,
+        20,
+        0
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n9",
+      "sourceName": "perf-static-batch:1",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": [
+        {
+          "transparent": false,
+          "opacity": 1,
+          "transmission": 0,
+          "depthWrite": true,
+          "unshaded": false,
+          "toneMapped": true,
+          "fog": true
+        }
+      ],
+      "route": [
+        0,
+        0,
+        20,
+        1
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n10",
+      "sourceName": "perf-static-batch:2",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": [
+        {
+          "transparent": false,
+          "opacity": 1,
+          "transmission": 0,
+          "depthWrite": true,
+          "unshaded": false,
+          "toneMapped": true,
+          "fog": true
+        }
+      ],
+      "route": [
+        0,
+        0,
+        20,
+        2
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    }
+  ],
+  "labels": [],
+  "externalModels": [],
+  "zones": [
+    {
+      "id": "purchase:farmer-1",
+      "type": "purchase:farmer-1",
+      "x": -17.6,
+      "z": -24.6,
+      "enterRadius": 0.8,
+      "exitRadius": 1.1199999999999999,
+      "actorMask": [
+        "player"
+      ],
+      "priority": 30,
+      "dwellMs": 0,
+      "repeatEveryMs": 200,
+      "exitGraceMs": 120,
+      "channel": "passive"
+    },
+    {
+      "id": "purchase:egg-display-1",
+      "type": "purchase:egg-display-1",
+      "x": -17.812,
+      "z": -1.484,
+      "enterRadius": 0.8,
+      "exitRadius": 1.1199999999999999,
+      "actorMask": [
+        "player"
+      ],
+      "priority": 30,
+      "dwellMs": 0,
+      "repeatEveryMs": 200,
+      "exitGraceMs": 120,
+      "channel": "passive"
+    },
+    {
+      "id": "purchase:chicken-1",
+      "type": "purchase:chicken-1",
+      "x": 2.448,
+      "z": -30.988,
+      "enterRadius": 0.8,
+      "exitRadius": 1.1199999999999999,
+      "actorMask": [
+        "player"
+      ],
+      "priority": 30,
+      "dwellMs": 0,
+      "repeatEveryMs": 200,
+      "exitGraceMs": 120,
+      "channel": "passive"
+    },
+    {
+      "id": "purchase:player-2",
+      "type": "purchase:player-2",
+      "x": -7.6,
+      "z": 9.6,
+      "enterRadius": 0.8,
+      "exitRadius": 1.1199999999999999,
+      "actorMask": [
+        "player"
+      ],
+      "priority": 30,
+      "dwellMs": 0,
+      "repeatEveryMs": 200,
+      "exitGraceMs": 120,
+      "channel": "passive"
+    },
+    {
+      "id": "purchase:tomato-2",
+      "type": "purchase:tomato-2",
+      "x": -14.904,
+      "z": -32.088,
+      "enterRadius": 0.8,
+      "exitRadius": 1.1199999999999999,
+      "actorMask": [
+        "player"
+      ],
+      "priority": 30,
+      "dwellMs": 0,
+      "repeatEveryMs": 200,
+      "exitGraceMs": 120,
+      "channel": "passive"
+    },
+    {
+      "id": "purchase:farmer-2",
+      "type": "purchase:farmer-2",
+      "x": -12.2,
+      "z": -24.6,
+      "enterRadius": 0.8,
+      "exitRadius": 1.1199999999999999,
+      "actorMask": [
+        "player"
+      ],
+      "priority": 30,
+      "dwellMs": 0,
+      "repeatEveryMs": 200,
+      "exitGraceMs": 120,
+      "channel": "passive"
+    },
+    {
+      "id": "purchase:expansion-1",
+      "type": "purchase:expansion-1",
+      "x": 10.4,
+      "z": -15.6,
+      "enterRadius": 0.8,
+      "exitRadius": 1.1199999999999999,
+      "actorMask": [
+        "player"
+      ],
+      "priority": 30,
+      "dwellMs": 0,
+      "repeatEveryMs": 200,
+      "exitGraceMs": 120,
+      "channel": "passive"
+    },
+    {
+      "id": "purchase:chicken-1-tier-3",
+      "type": "purchase:chicken-1-tier-3",
+      "x": 2.448,
+      "z": -30.988,
+      "enterRadius": 0.8,
+      "exitRadius": 1.1199999999999999,
+      "actorMask": [
+        "player"
+      ],
+      "priority": 30,
+      "dwellMs": 0,
+      "repeatEveryMs": 200,
+      "exitGraceMs": 120,
+      "channel": "passive"
+    },
+    {
+      "id": "purchase:tomato-3",
+      "type": "purchase:tomato-3",
+      "x": -9.504,
+      "z": -32.088,
+      "enterRadius": 0.8,
+      "exitRadius": 1.1199999999999999,
+      "actorMask": [
+        "player"
+      ],
+      "priority": 30,
+      "dwellMs": 0,
+      "repeatEveryMs": 200,
+      "exitGraceMs": 120,
+      "channel": "passive"
+    },
+    {
+      "id": "purchase:chicken-1-tier-2",
+      "type": "purchase:chicken-1-tier-2",
+      "x": 2.448,
+      "z": -30.988,
+      "enterRadius": 0.8,
+      "exitRadius": 1.1199999999999999,
+      "actorMask": [
+        "player"
+      ],
+      "priority": 30,
+      "dwellMs": 0,
+      "repeatEveryMs": 200,
+      "exitGraceMs": 120,
+      "channel": "passive"
+    },
+    {
+      "id": "purchase:farmer-3",
+      "type": "purchase:farmer-3",
+      "x": -2.8,
+      "z": -24.6,
+      "enterRadius": 0.8,
+      "exitRadius": 1.1199999999999999,
+      "actorMask": [
+        "player"
+      ],
+      "priority": 30,
+      "dwellMs": 0,
+      "repeatEveryMs": 200,
+      "exitGraceMs": 120,
+      "channel": "passive"
+    },
+    {
+      "id": "purchase:wheat-1",
+      "type": "purchase:wheat-1",
+      "x": -9.504,
+      "z": -25.688,
+      "enterRadius": 0.8,
+      "exitRadius": 1.1199999999999999,
+      "actorMask": [
+        "player"
+      ],
+      "priority": 30,
+      "dwellMs": 0,
+      "repeatEveryMs": 200,
+      "exitGraceMs": 120,
+      "channel": "passive"
+    },
+    {
+      "id": "purchase:chicken-2",
+      "type": "purchase:chicken-2",
+      "x": 15.608,
+      "z": -30.988,
+      "enterRadius": 0.8,
+      "exitRadius": 1.1199999999999999,
+      "actorMask": [
+        "player"
+      ],
+      "priority": 30,
+      "dwellMs": 0,
+      "repeatEveryMs": 200,
+      "exitGraceMs": 120,
+      "channel": "passive"
+    },
+    {
+      "id": "purchase:flour-mill-1",
+      "type": "purchase:flour-mill-1",
+      "x": -21.288,
+      "z": -13.932,
+      "enterRadius": 0.8,
+      "exitRadius": 1.1199999999999999,
+      "actorMask": [
+        "player"
+      ],
+      "priority": 30,
+      "dwellMs": 0,
+      "repeatEveryMs": 200,
+      "exitGraceMs": 120,
+      "channel": "passive"
+    },
+    {
+      "id": "purchase:bread-oven-1",
+      "type": "purchase:bread-oven-1",
+      "x": -14.476,
+      "z": -13.932,
+      "enterRadius": 0.8,
+      "exitRadius": 1.1199999999999999,
+      "actorMask": [
+        "player"
+      ],
+      "priority": 30,
+      "dwellMs": 0,
+      "repeatEveryMs": 200,
+      "exitGraceMs": 120,
+      "channel": "passive"
+    },
+    {
+      "id": "purchase:dairy-display-1",
+      "type": "purchase:dairy-display-1",
+      "x": -21.256,
+      "z": 7.502,
+      "enterRadius": 0.8,
+      "exitRadius": 1.1199999999999999,
+      "actorMask": [
+        "player"
+      ],
+      "priority": 30,
+      "dwellMs": 0,
+      "repeatEveryMs": 200,
+      "exitGraceMs": 120,
+      "channel": "passive"
+    },
+    {
+      "id": "purchase:cow-1",
+      "type": "purchase:cow-1",
+      "x": 8.168,
+      "z": -30.548,
+      "enterRadius": 0.8,
+      "exitRadius": 1.1199999999999999,
+      "actorMask": [
+        "player"
+      ],
+      "priority": 30,
+      "dwellMs": 0,
+      "repeatEveryMs": 200,
+      "exitGraceMs": 120,
+      "channel": "passive"
+    },
+    {
+      "id": "purchase:cow-1-tier-2",
+      "type": "purchase:cow-1-tier-2",
+      "x": 8.168,
+      "z": -30.548,
+      "enterRadius": 0.8,
+      "exitRadius": 1.1199999999999999,
+      "actorMask": [
+        "player"
+      ],
+      "priority": 30,
+      "dwellMs": 0,
+      "repeatEveryMs": 200,
+      "exitGraceMs": 120,
+      "channel": "passive"
+    },
+    {
+      "id": "purchase:cow-1-tier-3",
+      "type": "purchase:cow-1-tier-3",
+      "x": 8.168,
+      "z": -30.548,
+      "enterRadius": 0.8,
+      "exitRadius": 1.1199999999999999,
+      "actorMask": [
+        "player"
+      ],
+      "priority": 30,
+      "dwellMs": 0,
+      "repeatEveryMs": 200,
+      "exitGraceMs": 120,
+      "channel": "passive"
+    },
+    {
+      "id": "purchase:cheese-maker-1",
+      "type": "purchase:cheese-maker-1",
+      "x": -16.228,
+      "z": -10.228,
+      "enterRadius": 0.8,
+      "exitRadius": 1.1199999999999999,
+      "actorMask": [
+        "player"
+      ],
+      "priority": 30,
+      "dwellMs": 0,
+      "repeatEveryMs": 200,
+      "exitGraceMs": 120,
+      "channel": "passive"
+    },
+    {
+      "id": "purchase:apple-1",
+      "type": "purchase:apple-1",
+      "x": -20.304,
+      "z": -25.688,
+      "enterRadius": 0.8,
+      "exitRadius": 1.1199999999999999,
+      "actorMask": [
+        "player"
+      ],
+      "priority": 30,
+      "dwellMs": 0,
+      "repeatEveryMs": 200,
+      "exitGraceMs": 120,
+      "channel": "passive"
+    },
+    {
+      "id": "purchase:corn-1",
+      "type": "purchase:corn-1",
+      "x": -14.904,
+      "z": -25.688,
+      "enterRadius": 0.8,
+      "exitRadius": 1.1199999999999999,
+      "actorMask": [
+        "player"
+      ],
+      "priority": 30,
+      "dwellMs": 0,
+      "repeatEveryMs": 200,
+      "exitGraceMs": 120,
+      "channel": "passive"
+    },
+    {
+      "id": "purchase:coffee-supply-1",
+      "type": "purchase:coffee-supply-1",
+      "x": 17.336,
+      "z": -27.988,
+      "enterRadius": 0.8,
+      "exitRadius": 1.1199999999999999,
+      "actorMask": [
+        "player"
+      ],
+      "priority": 30,
+      "dwellMs": 0,
+      "repeatEveryMs": 200,
+      "exitGraceMs": 120,
+      "channel": "passive"
+    },
+    {
+      "id": "purchase:orange-1",
+      "type": "purchase:orange-1",
+      "x": 12.096,
+      "z": -25.688,
+      "enterRadius": 0.8,
+      "exitRadius": 1.1199999999999999,
+      "actorMask": [
+        "player"
+      ],
+      "priority": 30,
+      "dwellMs": 0,
+      "repeatEveryMs": 200,
+      "exitGraceMs": 120,
+      "channel": "passive"
+    },
+    {
+      "id": "purchase:juice-machine-1",
+      "type": "purchase:juice-machine-1",
+      "x": -11.768,
+      "z": -10.832,
+      "enterRadius": 0.8,
+      "exitRadius": 1.1199999999999999,
+      "actorMask": [
+        "player"
+      ],
+      "priority": 30,
+      "dwellMs": 0,
+      "repeatEveryMs": 200,
+      "exitGraceMs": 120,
+      "channel": "passive"
+    },
+    {
+      "id": "purchase:preserves-supply-1",
+      "type": "purchase:preserves-supply-1",
+      "x": 21.456,
+      "z": -6.912,
+      "enterRadius": 0.8,
+      "exitRadius": 1.1199999999999999,
+      "actorMask": [
+        "player"
+      ],
+      "priority": 30,
+      "dwellMs": 0,
+      "repeatEveryMs": 200,
+      "exitGraceMs": 120,
+      "channel": "passive"
+    },
+    {
+      "id": "purchase:corn-canner-1",
+      "type": "purchase:corn-canner-1",
+      "x": 21.728,
+      "z": -14.032,
+      "enterRadius": 0.8,
+      "exitRadius": 1.1199999999999999,
+      "actorMask": [
+        "player"
+      ],
+      "priority": 30,
+      "dwellMs": 0,
+      "repeatEveryMs": 200,
+      "exitGraceMs": 120,
+      "channel": "passive"
+    },
+    {
+      "id": "register-0",
+      "type": "register-0",
+      "x": 13.600000000000001,
+      "z": 10.24,
+      "enterRadius": 1.2000000000000002,
+      "exitRadius": 1.4400000000000002,
+      "actorMask": [
+        "player"
+      ],
+      "priority": 10,
+      "dwellMs": 80,
+      "repeatEveryMs": 220,
+      "exitGraceMs": 120,
+      "channel": "passive"
+    },
+    {
+      "id": "register-1",
+      "type": "register-1",
+      "x": 13.600000000000001,
+      "z": 4.24,
+      "enterRadius": 1.2000000000000002,
+      "exitRadius": 1.4400000000000002,
+      "actorMask": [
+        "player"
+      ],
+      "priority": 10,
+      "dwellMs": 80,
+      "repeatEveryMs": 220,
+      "exitGraceMs": 120,
+      "channel": "passive"
+    },
+    {
+      "id": "register-2",
+      "type": "register-2",
+      "x": 13.600000000000001,
+      "z": -1.76,
+      "enterRadius": 1.2000000000000002,
+      "exitRadius": 1.4400000000000002,
+      "actorMask": [
+        "player"
+      ],
+      "priority": 10,
+      "dwellMs": 80,
+      "repeatEveryMs": 220,
+      "exitGraceMs": 120,
+      "channel": "passive"
+    },
+    {
+      "id": "mill",
+      "type": "mill",
+      "x": -21,
+      "z": -15.628,
+      "halfExtents": [
+        1.04,
+        0.9279999999999999
+      ],
+      "enterRadius": 0.38,
+      "exitRadius": 0.55,
+      "actorMask": [
+        "player"
+      ],
+      "priority": 70,
+      "dwellMs": 0,
+      "repeatEveryMs": 180,
+      "exitGraceMs": 120,
+      "channel": "transfer"
+    },
+    {
+      "id": "bakery",
+      "type": "bakery",
+      "x": -15.7,
+      "z": -15.58,
+      "halfExtents": [
+        1.2160000000000002,
+        0.8800000000000001
+      ],
+      "enterRadius": 0.38,
+      "exitRadius": 0.55,
+      "actorMask": [
+        "player"
+      ],
+      "priority": 70,
+      "dwellMs": 0,
+      "repeatEveryMs": 180,
+      "exitGraceMs": 120,
+      "channel": "transfer"
+    },
+    {
+      "id": "chicken",
+      "type": "chicken",
+      "x": 5.6,
+      "z": -33.5,
+      "halfExtents": [
+        2.384,
+        1.7440000000000002
+      ],
+      "enterRadius": 0.38,
+      "exitRadius": 0.55,
+      "actorMask": [
+        "player"
+      ],
+      "priority": 65,
+      "dwellMs": 80,
+      "repeatEveryMs": 220,
+      "exitGraceMs": 120,
+      "channel": "transfer"
+    },
+    {
+      "id": "chicken2",
+      "type": "chicken2",
+      "x": 18,
+      "z": -33.5,
+      "halfExtents": [
+        2.384,
+        1.7440000000000002
+      ],
+      "enterRadius": 0.38,
+      "exitRadius": 0.55,
+      "actorMask": [
+        "player"
+      ],
+      "priority": 10,
+      "dwellMs": 80,
+      "repeatEveryMs": 220,
+      "exitGraceMs": 120,
+      "channel": "transfer"
+    },
+    {
+      "id": "cow",
+      "type": "cow",
+      "x": 11.8,
+      "z": -33.3,
+      "halfExtents": [
+        2.8640000000000003,
+        1.984
+      ],
+      "enterRadius": 0.38,
+      "exitRadius": 0.55,
+      "actorMask": [
+        "player"
+      ],
+      "priority": 65,
+      "dwellMs": 80,
+      "repeatEveryMs": 220,
+      "exitGraceMs": 120,
+      "channel": "transfer"
+    },
+    {
+      "id": "cheese",
+      "type": "cheese",
+      "x": -14.5,
+      "z": -8.58,
+      "halfExtents": [
+        0.96,
+        0.8800000000000001
+      ],
+      "enterRadius": 0.38,
+      "exitRadius": 0.55,
+      "actorMask": [
+        "player"
+      ],
+      "priority": 70,
+      "dwellMs": 0,
+      "repeatEveryMs": 180,
+      "exitGraceMs": 120,
+      "channel": "transfer"
+    },
+    {
+      "id": "juice",
+      "type": "juice",
+      "x": -10.8,
+      "z": -12.48,
+      "halfExtents": [
+        0.96,
+        0.8800000000000001
+      ],
+      "enterRadius": 0.38,
+      "exitRadius": 0.55,
+      "actorMask": [
+        "player"
+      ],
+      "priority": 70,
+      "dwellMs": 0,
+      "repeatEveryMs": 180,
+      "exitGraceMs": 120,
+      "channel": "transfer"
+    },
+    {
+      "id": "canner",
+      "type": "canner",
+      "x": 20,
+      "z": -15.680000000000001,
+      "halfExtents": [
+        0.96,
+        0.8800000000000001
+      ],
+      "enterRadius": 0.38,
+      "exitRadius": 0.55,
+      "actorMask": [
+        "player"
+      ],
+      "priority": 10,
+      "dwellMs": 0,
+      "repeatEveryMs": 180,
+      "exitGraceMs": 120,
+      "channel": "transfer"
+    },
+    {
+      "id": "checkout",
+      "type": "checkout",
+      "x": 16.1,
+      "z": 10.24,
+      "enterRadius": 1.2800000000000002,
+      "exitRadius": 1.6,
+      "actorMask": [
+        "player"
+      ],
+      "priority": 100,
+      "dwellMs": 180,
+      "repeatEveryMs": 450,
+      "exitGraceMs": 120,
+      "channel": "hands"
+    },
+    {
+      "id": "stock:preserves",
+      "type": "stock:preserves",
+      "x": 20.2,
+      "z": -9.6,
+      "halfExtents": [
+        1.2480000000000002,
+        1.92
+      ],
+      "enterRadius": 0.38,
+      "exitRadius": 0.55,
+      "actorMask": [
+        "player"
+      ],
+      "priority": 80,
+      "dwellMs": 0,
+      "repeatEveryMs": 180,
+      "exitGraceMs": 120,
+      "channel": "transfer"
+    },
+    {
+      "id": "stock:bakery",
+      "type": "stock:bakery",
+      "x": -8.6,
+      "z": -10,
+      "halfExtents": [
+        1.2480000000000002,
+        1.92
+      ],
+      "enterRadius": 0.38,
+      "exitRadius": 0.55,
+      "actorMask": [
+        "player"
+      ],
+      "priority": 80,
+      "dwellMs": 0,
+      "repeatEveryMs": 180,
+      "exitGraceMs": 120,
+      "channel": "transfer"
+    },
+    {
+      "id": "stock:pantry",
+      "type": "stock:pantry",
+      "x": -3.8,
+      "z": -15.8,
+      "halfExtents": [
+        1.92,
+        1.2480000000000002
+      ],
+      "enterRadius": 0.38,
+      "exitRadius": 0.55,
+      "actorMask": [
+        "player"
+      ],
+      "priority": 80,
+      "dwellMs": 0,
+      "repeatEveryMs": 180,
+      "exitGraceMs": 120,
+      "channel": "transfer"
+    },
+    {
+      "id": "stock:pantry",
+      "type": "stock:pantry",
+      "x": -8,
+      "z": -15.8,
+      "halfExtents": [
+        1.92,
+        1.2480000000000002
+      ],
+      "enterRadius": 0.38,
+      "exitRadius": 0.55,
+      "actorMask": [
+        "player"
+      ],
+      "priority": 80,
+      "dwellMs": 0,
+      "repeatEveryMs": 180,
+      "exitGraceMs": 120,
+      "channel": "transfer"
+    },
+    {
+      "id": "stock:eggs",
+      "type": "stock:eggs",
+      "x": -20.5,
+      "z": -3.5,
+      "halfExtents": [
+        1.92,
+        1.2480000000000002
+      ],
+      "enterRadius": 0.38,
+      "exitRadius": 0.55,
+      "actorMask": [
+        "player"
+      ],
+      "priority": 80,
+      "dwellMs": 0,
+      "repeatEveryMs": 180,
+      "exitGraceMs": 120,
+      "channel": "transfer"
+    },
+    {
+      "id": "stock:produce",
+      "type": "stock:produce",
+      "x": -9.1,
+      "z": 3.0888888888888886,
+      "halfExtents": [
+        2,
+        1.328
+      ],
+      "enterRadius": 0.38,
+      "exitRadius": 0.55,
+      "actorMask": [
+        "player"
+      ],
+      "priority": 80,
+      "dwellMs": 0,
+      "repeatEveryMs": 180,
+      "exitGraceMs": 120,
+      "channel": "transfer"
+    },
+    {
+      "id": "stock:produce",
+      "type": "stock:produce",
+      "x": -14.6,
+      "z": 3.0888888888888886,
+      "halfExtents": [
+        2,
+        1.328
+      ],
+      "enterRadius": 0.38,
+      "exitRadius": 0.55,
+      "actorMask": [
+        "player"
+      ],
+      "priority": 80,
+      "dwellMs": 0,
+      "repeatEveryMs": 180,
+      "exitGraceMs": 120,
+      "channel": "transfer"
+    },
+    {
+      "id": "stock:dairy",
+      "type": "stock:dairy",
+      "x": -20.68,
+      "z": 4.733333333333333,
+      "halfExtents": [
+        1.328,
+        2
+      ],
+      "enterRadius": 0.38,
+      "exitRadius": 0.55,
+      "actorMask": [
+        "player"
+      ],
+      "priority": 80,
+      "dwellMs": 0,
+      "repeatEveryMs": 180,
+      "exitGraceMs": 120,
+      "channel": "transfer"
+    },
+    {
+      "id": "stock:drinks",
+      "type": "stock:drinks",
+      "x": 8.7,
+      "z": -6.2,
+      "halfExtents": [
+        1.2800000000000002,
+        1.888
+      ],
+      "enterRadius": 0.38,
+      "exitRadius": 0.55,
+      "actorMask": [
+        "player"
+      ],
+      "priority": 80,
+      "dwellMs": 0,
+      "repeatEveryMs": 180,
+      "exitGraceMs": 120,
+      "channel": "transfer"
+    },
+    {
+      "id": "warehouseReturn",
+      "type": "warehouseReturn",
+      "x": 6.2,
+      "z": -15.7,
+      "halfExtents": [
+        1.344,
+        0.512
+      ],
+      "enterRadius": 0.38,
+      "exitRadius": 0.55,
+      "actorMask": [
+        "player"
+      ],
+      "priority": 6,
+      "dwellMs": 80,
+      "repeatEveryMs": 60000,
+      "exitGraceMs": 120,
+      "channel": "transfer"
+    },
+    {
+      "id": "farmBarn",
+      "type": "farmBarn",
+      "x": 0,
+      "z": -33.8,
+      "halfExtents": [
+        2.4000000000000004,
+        1.36
+      ],
+      "enterRadius": 0.38,
+      "exitRadius": 0.55,
+      "actorMask": [
+        "player"
+      ],
+      "priority": 6,
+      "dwellMs": 80,
+      "repeatEveryMs": 60000,
+      "exitGraceMs": 120,
+      "channel": "transfer"
+    },
+    {
+      "id": "orders",
+      "type": "orders",
+      "x": 1.8,
+      "z": -10.4,
+      "enterRadius": 1.2000000000000002,
+      "exitRadius": 1.4400000000000002,
+      "actorMask": [
+        "player"
+      ],
+      "priority": 25,
+      "dwellMs": 700,
+      "repeatEveryMs": 60000,
+      "exitGraceMs": 120,
+      "channel": "passive"
+    },
+    {
+      "id": "door",
+      "type": "door",
+      "x": 0,
+      "z": 17,
+      "halfExtents": [
+        4.7,
+        4.6
+      ],
+      "enterRadius": 0.16,
+      "exitRadius": 0.48,
+      "actorMask": [
+        "player"
+      ],
+      "priority": 20,
+      "dwellMs": 0,
+      "repeatEveryMs": 60000,
+      "exitGraceMs": 120,
+      "channel": "passive"
+    },
+    {
+      "id": "farm:crop-tomato-1",
+      "type": "farm-plot",
+      "x": -18,
+      "z": -33.8,
+      "halfExtents": [
+        1.536,
+        0.944
+      ],
+      "enterRadius": 0.38,
+      "exitRadius": 0.55,
+      "actorMask": [
+        "player"
+      ],
+      "priority": 92,
+      "dwellMs": 35,
+      "repeatEveryMs": 220,
+      "exitGraceMs": 90,
+      "channel": "transfer"
+    },
+    {
+      "id": "farm:crop-tomato-2",
+      "type": "farm-plot",
+      "x": -12.6,
+      "z": -33.8,
+      "halfExtents": [
+        1.536,
+        0.944
+      ],
+      "enterRadius": 0.38,
+      "exitRadius": 0.55,
+      "actorMask": [
+        "player"
+      ],
+      "priority": 92,
+      "dwellMs": 35,
+      "repeatEveryMs": 220,
+      "exitGraceMs": 90,
+      "channel": "transfer"
+    },
+    {
+      "id": "farm:crop-tomato-3",
+      "type": "farm-plot",
+      "x": -7.2,
+      "z": -33.8,
+      "halfExtents": [
+        1.536,
+        0.944
+      ],
+      "enterRadius": 0.38,
+      "exitRadius": 0.55,
+      "actorMask": [
+        "player"
+      ],
+      "priority": 92,
+      "dwellMs": 35,
+      "repeatEveryMs": 220,
+      "exitGraceMs": 90,
+      "channel": "transfer"
+    },
+    {
+      "id": "farm:crop-wheat-1",
+      "type": "farm-plot",
+      "x": -7.2,
+      "z": -27.4,
+      "halfExtents": [
+        1.536,
+        0.944
+      ],
+      "enterRadius": 0.38,
+      "exitRadius": 0.55,
+      "actorMask": [
+        "player"
+      ],
+      "priority": 92,
+      "dwellMs": 35,
+      "repeatEveryMs": 220,
+      "exitGraceMs": 90,
+      "channel": "transfer"
+    },
+    {
+      "id": "farm:crop-corn-1",
+      "type": "farm-plot",
+      "x": -12.6,
+      "z": -27.4,
+      "halfExtents": [
+        1.536,
+        0.944
+      ],
+      "enterRadius": 0.38,
+      "exitRadius": 0.55,
+      "actorMask": [
+        "player"
+      ],
+      "priority": 92,
+      "dwellMs": 35,
+      "repeatEveryMs": 220,
+      "exitGraceMs": 90,
+      "channel": "transfer"
+    },
+    {
+      "id": "farm:crop-orange-1",
+      "type": "farm-plot",
+      "x": 14.4,
+      "z": -27.4,
+      "halfExtents": [
+        1.536,
+        0.944
+      ],
+      "enterRadius": 0.38,
+      "exitRadius": 0.55,
+      "actorMask": [
+        "player"
+      ],
+      "priority": 92,
+      "dwellMs": 35,
+      "repeatEveryMs": 220,
+      "exitGraceMs": 90,
+      "channel": "transfer"
+    },
+    {
+      "id": "farm:crop-apple-1",
+      "type": "farm-plot",
+      "x": -18,
+      "z": -27.4,
+      "halfExtents": [
+        1.536,
+        0.944
+      ],
+      "enterRadius": 0.38,
+      "exitRadius": 0.55,
+      "actorMask": [
+        "player"
+      ],
+      "priority": 92,
+      "dwellMs": 35,
+      "repeatEveryMs": 220,
+      "exitGraceMs": 90,
+      "channel": "transfer"
+    },
+    {
+      "id": "farm:crop-coffee-1",
+      "type": "farm-plot",
+      "x": 19.64,
+      "z": -29.7,
+      "halfExtents": [
+        1.536,
+        0.944
+      ],
+      "enterRadius": 0.38,
+      "exitRadius": 0.55,
+      "actorMask": [
+        "player"
+      ],
+      "priority": 92,
+      "dwellMs": 35,
+      "repeatEveryMs": 220,
+      "exitGraceMs": 90,
+      "channel": "transfer"
+    }
+  ]
+}

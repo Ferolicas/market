@@ -60,6 +60,8 @@ static func character_model_tier_for_capabilities(capabilities: Dictionary) -> i
 
 ## Live device capabilities from the Godot runtime (the browser store equivalent).
 static func current_character_capabilities() -> Dictionary:
+	if OS.has_feature("web"):
+		return JSON.parse_string(str(JavaScriptBridge.eval("JSON.stringify({width:innerWidth,height:innerHeight,coarsePointer:matchMedia('(pointer: coarse)').matches,hardwareConcurrency:navigator.hardwareConcurrency??8,deviceMemory:navigator.deviceMemory??8,devicePixelRatio:devicePixelRatio})", true)))
 	var size := DisplayServer.window_get_size()
 	return {
 		"width": size.x,
@@ -262,12 +264,17 @@ static func apply_premium_material(material: StandardMaterial3D, crowd: bool) ->
 		material.emission_enabled = true
 		material.emission = Color(finish.emissiveColor)
 		material.emission_texture = material.albedo_texture
+		material.emission_operator = BaseMaterial3D.EMISSION_OP_MULTIPLY
 		material.emission_energy_multiplier = finish.emissiveIntensity
 	if finish.has("clearcoat"):
 		material.clearcoat_enabled = true
 		material.clearcoat = finish.clearcoat
 		material.clearcoat_roughness = finish.clearcoatRoughness
 		material.metallic_specular = finish.specularIntensity
+		material.set_meta("three_specular_intensity", finish.specularIntensity)
+		material.set_meta("three_sheen", finish.sheen)
+		material.set_meta("three_sheen_color", finish.sheenColor)
+		material.set_meta("three_sheen_roughness", finish.sheenRoughness)
 
 ## Godot samples textures per material: the shared map keeps its data and the
 ## material asks for anisotropic mipmapped filtering once.

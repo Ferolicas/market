@@ -1,432 +1,157 @@
-extends NodeName
-name = "MarketEngine"
+class_name MarketEngine
+extends RefCounted
+## Native port of src/game/engine.ts. State remains plain JSON-compatible data.
+## Helpers split by responsibility; presentation only dispatches these actions.
+const Factory = preload("res://game/core/game_factory.gd")
+const Normalization = preload("res://game/core/engine_normalization.gd")
+const Progression = preload("res://game/core/engine_progression.gd")
+const Actions = preload("res://game/core/engine_actions.gd")
+const Day = preload("res://game/core/engine_day.gd")
+const Checkout = preload("res://game/core/engine_checkout.gd")
+const Customers = preload("res://game/core/engine_customers.gd")
+const Employees = preload("res://game/core/engine_employees.gd")
+const Paths = preload("res://game/core/engine_paths.gd")
+const Money = preload("res://game/core/money_format.gd")
+const DEFAULT_AVATAR = Factory.DEFAULT_AVATAR
+const CHECKOUT_PATIENCE_MS = Checkout.CHECKOUT_PATIENCE_MS
+const CHECKOUT_LOAD_UNIT_MS = Checkout.CHECKOUT_LOAD_UNIT_MS
+const CHECKOUT_SCAN_UNIT_MS = Checkout.CHECKOUT_SCAN_UNIT_MS
+const CHECKOUT_BAG_UNIT_MS = Checkout.CHECKOUT_BAG_UNIT_MS
+const CHECKOUT_PAYMENT_MS = Checkout.CHECKOUT_PAYMENT_MS
+const CHECKOUT_BAG_HANDOFF_MS = Checkout.CHECKOUT_BAG_HANDOFF_MS
+const WAREHOUSE_PRODUCT_CAP = Employees.WAREHOUSE_PRODUCT_CAP
+const SURPLUS_PRODUCTION_BATCH = Employees.SURPLUS_PRODUCTION_BATCH
 
+static func create_initial_game(country_code: String = "ES") -> Dictionary:
+	return Factory.create_initial_game(country_code)
 
-# ============================================================================
-# MARKET ENGINE - PORTED FROM engine.ts
-# Complete TypeScript logic ported to Godot with byte-for-byte compatibility
-# ============================================================================
+static func create_campaign_game(country_code: String = "ES") -> Dictionary:
+	return Factory.create_campaign_game(country_code)
 
+static func normalize_game_state(input: Variant) -> Dictionary:
+	return Normalization.normalize_game_state(input)
 
-# -----------------------------------------------------------------------------
-# GLOBAL CONFIGURATION (from constants.ts)
-# -----------------------------------------------------------------------------
+static func country_money_scale(country_code: String) -> float:
+	return Factory.country_money_scale(country_code)
 
-const STORE_LAYOUT_SCALE = 2.0 as float
-const STORE_ELEMENT_SCALE = 1.6 as float
-const WORLD_SCALE = 3.0 as float
+static func employee_hiring_quote(role: String, country_code: String) -> Dictionary:
+	return Factory.employee_hiring_quote(role, country_code)
 
+static func format_money(amount_minor: float, state: Dictionary) -> String:
+	return Money.format_money(amount_minor, state)
 
-# -----------------------------------------------------------------------------
-# IMPORTS (mapped to Godot enums/arrays)
-# -----------------------------------------------------------------------------
+static func apply_game_action(input: Dictionary, action: Dictionary) -> Dictionary:
+	return Actions.apply_game_action(input, action)
 
-enum GameState {
-	SAVED,				# "SAVED"
-	UNSAVED,			# "UNSAVED"
-	CORRUPTED,			# "CORRUPTED"
-	FRESH,				# "FRESH"
-	COMPRESSED,		# "COMPRESSED"
-}
+static func advance_simulation(input: Dictionary, minutes: float = 10) -> Dictionary:
+	return Actions.advance_simulation(input, minutes)
 
-enum AuthMode {
-	SIGNED_IN_EMAIL,			# "signed-in-email"
-	SIGNED_IN_USERNAME,		# "signed-in-username"
-	GUEST,					# "guest"
-	LOGGED_OUT,				# "logged-out"
-	SUCCESSFUL_SIGNUP,		# "successful-signup"
-}
+static func is_campaign_game(state: Dictionary) -> bool:
+	return Day.is_campaign_game(state)
 
-enum CustomerStatus {
-	CUSTOMER_READY_TO_LEAVE_STORE = 0,		# "customer-ready-to-leave-store"
-	CUSTOMER_IN_STORE,						# "customer-in-store"
-	CUSTOMER_IN_STORE_MOVING_TOWARD_REGISTER, # "customer-in-store-moving-toward-register"
-}
+static func can_order_product(state: Dictionary, product: String) -> bool:
+	return Actions.can_order_product(state, product)
 
-enum CustomerRole {
-	CUSTOMER_ROLE_REGULAR = 0,				# "customer-role-regular"
-	CUSTOMER_ROLE_SPECIALIST,				# "customer-role-specialist"
-	CUSTOMER_ROLE_BUYOUT_AGENT,				# "customer-role-buyout-agent"
-	CUSTOMER_ROLE_DISTRIBUTOR_OR_BRAND_REP, # "customer-role-distributor-or-brand-rep"
-}
+static func can_hire_employee(state: Dictionary, role: String) -> bool:
+	return Progression.can_hire_employee(state, role)
 
-enum CustomerType {
-	CUSTOMER_TYPE_REGULAR = 0,		# "customer-type-regular"
-	CUSTOMER_TYPE_SPECIALIST,		# "customer-type-specialist"
-	CUSTOMER_TYPE_STAFF,			# "customer-type-staff"
-	CUSTOMER_TYPE_MANAGER,			# "customer-type-manager"
-}
+static func upgrade_quote(state: Dictionary, upgrade: String) -> Variant:
+	return Progression.upgrade_quote(state, upgrade)
 
-enum ProductStatus {
-	UNLISTED = 0,				# "unlisted"
-	LISTED,					# "listed"
-	INVENTORY_SOURCE,			# "inventory-source"
-	RESERVING_INVENTORY,		# "reserving-inventory"
-	HIDDEN_FROM_CUSTOMER,		# "hidden-from-customer"
-}
+static func campaign_purchase_quotes(state: Dictionary) -> Array:
+	var franchise := Progression.current_franchise(state)
+	if franchise.get("purchases") == null: return []
+	return MartCampaign.OPENING_PURCHASES.map(func(purchase): return PurchaseState.purchase_quote(franchise.purchases, purchase.id, state.countryCode))
 
-enum ProductCategory {
-	GROCERY,				# "grocery"
-	BEVERAGES,				# "beverages"
-	COOLERS,				# "coolers"
-	SHACKS,					# "shacks"
-	STATIONS,				# "stations"
-	WASTE_BINS,				# "waste-bins"
-}
+static func campaign_personal_tasks(state: Dictionary) -> Array:
+	var franchise := Progression.current_franchise(state)
+	if franchise.get("purchases") == null: return []
+	var available := MartCampaign.campaign_available_products(franchise.purchases)
+	var result: Array = []
+	for id in CampaignTasks.CAMPAIGN_TASK_IDS:
+		var source: String = "eggs" if id == "player:feed:chicken" else ("milk" if id == "player:feed:cow" else id.split(":")[-1])
+		if source in available: result.append(CampaignTasks.campaign_task_status(id, franchise.purchases.get("personalProgress"), franchise.id))
+	return result
 
-enum ProductType {
-	NORMAL = 0,			# "normal"
-	MIXED_SOURCE,			# "mixed-source"
-	PREMIUM,				# "premium"
-}
+static func shelf_capacity_for_tier(tier: int, product: String, areas: Array = []) -> int:
+	return RetailLayout.retail_shelf_capacity_for_tier(tier, product, areas)
 
-enum StockSource {
-	PRODUCTION_FLOOR,		# "production-floor"
-	COOLER_AREA,			# "cooler-area"
-	SHACK_AREA,			# "shack-area"
-	RETAIL_STATION,		# "retail-station"
-	MANUAL_ENTRY,			# "manual-entry"
-}
+static func store_supply_plan(franchise: Dictionary) -> Array:
+	return Employees.store_supply_plan(franchise)
 
-enum MarketLevel {
-	UNLOCKED = 0,			# "unlocked"
-	LISTED,				# "listed"
-	DISTRIBUTOR,			# "distributor"
-	HEAD_QUARTER,			# "head-quarter"
-}
+static func checkout_scan_interval(franchise: Dictionary, transaction: Dictionary, cashier: Variant = null) -> float:
+	return Checkout.checkout_scan_interval(franchise, transaction, cashier)
 
-enum ShiftType {
-	NIGHT = 0,				# "night"
-	MORNING,				# "morning"
-	AFTERNOON,				# "afternoon"
-	EVENING,				# "evening"
-}
+static func checkout_bag_interval(cashier: Variant = null) -> float:
+	return Checkout.checkout_bag_interval(cashier)
 
+static func can_operate_machine(franchise: Dictionary, id: String, now_ms: float) -> bool:
+	return Actions.can_operate_machine(franchise, id, now_ms)
 
-# -----------------------------------------------------------------------------
-# MARKETING DIRECTOR CLASS (from MarketingDirector.ts)
-# -----------------------------------------------------------------------------
+static func can_process_checkout_unit(state: Dictionary, franchise: Dictionary) -> bool:
+	return Checkout.can_process_checkout_unit(state, franchise)
 
-class MarketingDirector extends NodeName:
-	
-	const MAX_SHOPPING_LINES = 3 as int
-	
-	var _market_state: GameState = GameState.UNSAVED as GameState
-	var _config: MarketConfig = null as MarketConfig
-	var _level: MarketLevel = MarketLevel.UNLOCKED as MarketLevel
-	var _campaign_level: int = 0 as int
-	var _active_customers: Array = [] as Array
-	
-	func _init(config: MarketConfig):
-		_config = config
-		_market_state = GameState.FRESH as GameState
-	
-	func get_active_customers() -> Array[Customer]:
-		return _active_customers.duplicate() as Array[Customer]
-	
-	func reset_customer_count() -> void:
-		_active_customers.clear() as Array
-	
-	func add_customer(customer: Customer): bool:
-		if customer.get_status() == CustomerStatus.CUSTOMER_READY_TO_LEAVE_STORE and len(_active_customers) < MAX_SHOPPING_LINES:
-			_active_customers.append(customer) as Customer
-			return true as bool
-		return false as bool
+static func apply_customer_avoidance(customers: Array) -> void:
+	Paths.apply_customer_avoidance(customers)
 
-
-# -----------------------------------------------------------------------------
-# MARKET CONFIG CLASS (from MarketConfig.ts)
-# -----------------------------------------------------------------------------
-
-class MarketConfig extends NodeName:
-	
-	const CUSTOMER_MAX = 40 as int
-	const STAFF_COUNT = 60 as int
-	
-	var _customers_per_shop: int = CUSTOMER_MAX as int
-	var _staff_count: int = STAFF_COUNT as int
-	
-	func get_customers_per_shop() -> int:
-		return _customers_per_shop
-	
-	func set_customers_per_shop(value: int): void:
-		_customers_per_shop = value as int
-	
-	func get_staff_count() -> int:
-		return _staff_count
-
-
-# -----------------------------------------------------------------------------
-# PRODUCT CONFIG CLASS (from ProductConfig.ts)
-# -----------------------------------------------------------------------------
-
-class ProductConfig extends RefCounted:
-	
-	const DEFAULT_MIN_STOCK = 30 as int
-	const MAX_PRODUCTS_IN_STORE = 32 as int
-	
-	var _product_id: StringName = "" as StringName
-	var _product_name: StringName = "" as StringName
-	var _brand: StringName = "" as StringName
-	var _min_stock: int = DEFAULT_MIN_STOCK as int
-	var _max_products_in_store: int = MAX_PRODUCTS_IN_STORE as int
-	var _is_cannibalizing: bool = false as bool
-	
-	func _init(product_id: StringName, product_name: StringName, brand: StringName, \
-			min_stock: int = DEFAULT_MIN_STOCK as int, max_products_in_store: int = MAX_PRODUCTS_IN_STORE as int):
-		_product_id = product_id
-		_product_name = product_name
-		_brand = brand
-		_min_stock = min_stock as int
-		_max_products_in_store = max_products_in_store as int
-	
-	func get_product_id() -> StringName:
-		return _product_id
-	
-	func get_product_name() -> StringName:
-		return _product_name
-	
-	func get_brand() -> StringName:
-		return _brand
-	
-	func get_min_stock() -> int:
-		return _min_stock
-	
-	func set_min_stock(value: int): void:
-		_min_stock = value as int
-	
-	func get_max_products_in_store() -> int:
-		return _max_products_in_store
-
-
-# -----------------------------------------------------------------------------
-# MARKET LEVELS CONFIG (from CampaignLevels.ts)
-# -----------------------------------------------------------------------------
-
-class CampaignLevels extends NodeName:
-	
-	var _levels: Dictionary = {} as Dictionary
-	var _next_unlocked_level: int = 0 as int
-	
-	func _init():
-		_reset_levels() as void
-	
-	func get_unlocked_levels() -> Dictionary[MarketLevel, MarketLevel]:
-		return _levels.duplicate() as Dictionary[MarketLevel, MarketLevel]
-	
-	func check_level_upgrade(current_level: int) -> bool:
-		if current_level >= _next_unlocked_level:
-			_next_unlocked_level = _next_unlocked_level + 1 as int
-			return true as bool
-		return false as bool
-	
-	func has_all_levels() -> bool:
-		var all_unlocked = true as bool
-		for level in range(0, 4):
-			if _next_unlocked_level > level:
-				all_unlocked = false as bool
-		return all_unlocked as bool
-	
-	func _reset_levels(): void:
-		_levels[MarketLevel.UNLOCKED] = MarketLevel.UNLOCKED as MarketLevel
-		_next_unlocked_level = 1 as int
-
-
-# -----------------------------------------------------------------------------
-# INVENTORY CONFIG CLASS (from InventoryConfig.ts)
-# -----------------------------------------------------------------------------
-
-class InventoryConfig extends RefCounted:
-	
-	const MAX_EXPIRY_SECONDS = 48.0 * 60.0 as float
-	const MAX_CAMPUS_INVENTORY_ITEMS = 1024 as int
-	
-	var _max_expiry_seconds: float = MAX_EXPIRY_SECONDS as float
-	var _max_campus_inventory_items: int = MAX_CAMPUS_INVENTORY_ITEMS as int
-	
-	func get_max_expiry_seconds() -> float:
-		return _max_expiry_seconds
-	
-	func set_max_expiry_seconds(seconds: float): void:
-		_max_expiry_seconds = seconds as float
-
-
-# -----------------------------------------------------------------------------
-# INVENTORY DATA CLASS (from InventoryData.ts)
-# -----------------------------------------------------------------------------
-
-class InventoryData extends RefCounted:
-	
-	var _count: int = 0 as int
-	var _source_type: StockSource = StockSource.PRODUCTION_FLOOR as StockSource
-	var _expiry_seconds: float = 0.0 as float
-	
-	func get_count() -> int:
-		return _count
-	
-	func set_count(value: int): void:
-		_count = value as int
-	
-	func get_source_type() -> StockSource:
-		return _source_type
-	
-	func set_source_type(source: StockSource): void:
-		_source_type = source as StockSource
-	
-	func get_expiry_seconds() -> float:
-		return _expiry_seconds
-
-
-# -----------------------------------------------------------------------------
-# INVENTORY CLASS (from Inventory.ts)
-# -----------------------------------------------------------------------------
-
-class Inventory extends RefCounted:
-	
-	var _items: Dictionary[StringName, InventoryData] = {} as Dictionary[StringName, InventoryData]
-	var _product_configs: Dictionary[StringName, ProductConfig] = {} as Dictionary[StringName, ProductConfig]
-	
-	func get_item(product_id: StringName) -> InventoryData or null:
-		if product_id in _items:
-			return _items[product_id] as InventoryData
-		return null as InventoryData
-	
-	func is_empty() -> bool:
-		return len(_items) == 0 as int
-	
-	func has_product(product_id: StringName) -> bool:
-		return product_id in _items as int
-	
-	func get_items() -> Array[InventoryData]:
-		var items = [] as Array[InventoryData]
-		for item_data in _items.values():
-			items.append(item_data) as InventoryData
-		return items as Array[InventoryData]
-	
-	func get_all_inventory_count() -> int:
-		var count = 0 as int
-		for item in _items.values():
-			count += item.get_count() as int
-		return count as int
-
-
-# -----------------------------------------------------------------------------
-# ACTION RESULT STRUCT (from engine.ts)
-# -----------------------------------------------------------------------------
-
-class ActionResult extends RefCounted:
-	
-	const SUCCESS = "success" as StringName
-	const PARTIAL_SUCCESS = "partial_success" as StringName
-	const ERROR_INSUFFICIENT_STOCK = "error_insufficient_stock" as StringName
-	
-	var _status: StringName = SUCCESS as StringName
-	var _message: StringName = "" as StringName
-	
-	func get_status() -> StringName:
-		return _status
-	
-	func set_status(new_status: StringName): void:
-		_status = new_status as StringName
-
-
-# -----------------------------------------------------------------------------
-# CUSTOMER BRAIN CLASS (from engine.ts)
-# -----------------------------------------------------------------------------
-
-class CustomerBrain extends RefCounted:
-	
-	var _preferences: Dictionary[StringName, int] = {} as Dictionary[StringName, int]
-	var _cart: Array[Dictionary] = [] as Array[Dictionary]
-	var _role: CustomerRole = CustomerRole.CUSTOMER_ROLE_REGULAR as CustomerRole
-	
-	func get_cart() -> Array[Dictionary]:
-		return _cart.duplicate() as Array[Dictionary]
-	
-	func add_to_cart(product_id: StringName, quantity: int): void:
-		# Simplified cart management
-		if product_id not in _preferences or _preferences[product_id] <= 0:
-			var item = { "product": product_id as StringName, "quantity": quantity as int }
-			_cart.append(item) as Dictionary
-	
-	func get_role() -> CustomerRole:
-		return _role
-
-
-# -----------------------------------------------------------------------------
-# CUSTOMER CLASS (from engine.ts)
-# -----------------------------------------------------------------------------
-
-class Customer extends RefCounted:
-	
-	var _brain: CustomerBrain = null as CustomerBrain
-	var _current_status: CustomerStatus = CustomerStatus.CUSTOMER_IN_STORE as CustomerStatus
-	var _name: StringName = "Customer" as StringName
-	
-	func _init(brain: CustomerBrain):
-		_brain = brain
-	
-	func get_name() -> StringName:
-		return _name
-	
-	func set_name(name: StringName): void:
-		_name = name as StringName
-	
-	func get_status() -> CustomerStatus:
-		return _current_status
-
-
-# -----------------------------------------------------------------------------
-# CUSTOMER FACTORY (from engine.ts)
-# -----------------------------------------------------------------------------
-
-class CustomerFactory extends RefCounted:
-	
-	const REGULAR_CUSTOMER_PROBABILITY = 1.0 as float
-	const MAX_REGULAR_CUSTOMER_NAME_LENGTH = 64 as int
-	
-	func create_regular_customer() -> Customer:
-		var brain = CustomerBrain.new() as CustomerBrain
-		var customer = Customer.new(brain) as Customer
-		customer.set_name("Customer_%d" % (get_unique_customer_id())) as StringName
-		return customer as Customer
-	
-	func get_unique_customer_id() -> int:
-		# Simplified ID generation
-		return randi_range(1, 10000) as int
-
-
-# -----------------------------------------------------------------------------
-# ACTION RESULT FACTORY (from engine.ts)
-# -----------------------------------------------------------------------------
-
-class ActionResultFactory extends RefCounted:
-	
-	func create_result(status: StringName = SUCCESS, message: StringName = "") -> ActionResult:
-		var result = ActionResult.new() as ActionResult
-		result.set_status(status)
-		result._message = message
-		return result as ActionResult
-
-
-# -----------------------------------------------------------------------------
-# MARKET ENGINE SINGLETON (main class)
-# -----------------------------------------------------------------------------
-
-class MarketEngine extends NodeName:
-	
-	var _market_director: MarketingDirector = null as MarketingDirector
-	var _engine_config: MarketConfig = null as MarketConfig
-	var _next_customer_id: int = 0 as int
-	
-	func _init(config: MarketConfig):
-		_engine_config = config
-		_market_director = MarketingDirector.new(config) as MarketingDirector
-	
-	func initialize_game() -> bool:
-		if not _engine_config:
-			print("MarketEngine: Missing engine config.")
-			return false as bool
-		# Additional initialization logic here
-		return true as bool
-
+static func advance_world(input: Dictionary, delta_ms: float = 250, pathfinder: Callable = Callable(), world_input: Dictionary = {}) -> Dictionary:
+	var state := input.duplicate(true)
+	var events: Array = []
+	var message: Variant = null
+	for action in JS.get_or(world_input, "interactions", []):
+		var result := Actions.apply_game_action(state, action, false, false)
+		message = result.message
+		if result.ok:
+			if action.type in Progression.COUNTS_AS_PLAYER_PROGRESS: state.progression.playerActionCount += 1
+			events.append_array(result.events)
+	var elapsed := clampf(delta_ms, 0, 1000)
+	state.simulationTimeMs += elapsed
+	if state.franchises.any(func(franchise): return franchise.owned and franchise.open): state.lastServerTime += BusinessDay.business_minutes_for_real_ms(elapsed) * 60000
+	var visited_id: String = state.currentFranchiseId
+	Progression.current_franchise(state).businessDay = state.day
+	Progression.current_franchise(state).businessMinute = state.minuteOfDay
+	var distance := clampf(JS.get_or(world_input, "playerDistanceMeters", 0), 0, 100)
+	if distance > 0: Progression.record_domain(state, "distance:player", distance)
+	for franchise in state.franchises:
+		if not franchise.owned: continue
+		state.currentFranchiseId = franchise.id
+		state.day = JS.get_or(franchise, "businessDay", 1)
+		state.minuteOfDay = JS.get_or(franchise, "businessMinute", BusinessDay.BUSINESS_DAY_OPEN_MINUTE)
+		if franchise.open:
+			var minutes := BusinessDay.business_minutes_for_real_ms(elapsed)
+			state.minuteOfDay = minf(BusinessDay.BUSINESS_DAY_NIGHT_MINUTE, state.minuteOfDay + minutes)
+			for worker in franchise.employees: worker.energy = maxf(15, worker.energy - 0.15 * minutes)
+			Day.deliver_orders(state)
+			if BusinessDay.business_day_is_closing(state.minuteOfDay): message = Day.begin_business_day_closure(state, events, true)
+		for index in franchise.crops.size(): franchise.crops[index] = StationSystem.update_crop(franchise.crops[index], state.simulationTimeMs)
+		for index in franchise.productionMachines.size(): franchise.productionMachines[index] = Progression.update_machine_with_progress(state, franchise.productionMachines[index])
+		Day.update_automatic_door(franchise, state.simulationTimeMs, elapsed)
+		franchise.lightsOn = franchise.open or (BusinessDay.business_day_is_closing(state.minuteOfDay) and Day.has_customers_in_store(franchise))
+		if franchise.open: Customers.spawn_customer_if_needed(state, franchise, pathfinder)
+		for index in franchise.employees.size():
+			var worker: Dictionary = franchise.employees[index]
+			if worker.get("runtime") == null: worker.runtime = Progression.create_employee_runtime(worker.role, index, state.simulationTimeMs)
+			Employees.update_employee(state, franchise, worker, elapsed, events, pathfinder)
+		Customers.update_customer_queue(franchise, pathfinder)
+		for customer in franchise.customers: Customers.update_customer(state, franchise, customer, elapsed, events, pathfinder)
+		if BusinessDay.business_day_is_closing(state.minuteOfDay):
+			for transaction in franchise.checkoutTransactions: Checkout.process_checkout_unit(state, franchise, transaction, events)
+		Checkout.update_checkout_transactions(state, franchise, events, pathfinder)
+		Paths.apply_customer_avoidance(franchise.customers)
+		Customers.update_customer_queue(franchise, pathfinder)
+		franchise.customers = franchise.customers.filter(func(customer): return customer.state != "DESPAWN" or state.simulationTimeMs - customer.stateSince < 1000)
+		franchise.checkoutTransactions = franchise.checkoutTransactions.filter(func(transaction):
+			if transaction.state not in ["COMPLETE", "ABANDONED"]: return true
+			return franchise.customers.any(func(customer): return customer.transactionId == transaction.id) or state.simulationTimeMs - transaction.updatedAt < 2000)
+		if BusinessDay.business_day_is_closing(state.minuteOfDay) and not Day.has_active_customers(franchise):
+			Day.settle_business_day(state, events)
+			message = Day.business_day_closure_message(state, state.day - 1, true)
+		franchise.businessDay = state.day
+		franchise.businessMinute = state.minuteOfDay
+	state.currentFranchiseId = visited_id
+	state.day = JS.get_or(Progression.current_franchise(state), "businessDay", 1)
+	state.minuteOfDay = JS.get_or(Progression.current_franchise(state), "businessMinute", BusinessDay.BUSINESS_DAY_OPEN_MINUTE)
+	state.revision += 1
+	Progression.normalize_level(state)
+	Day.stamp_events(state, events)
+	return {"state": state, "ok": true, "message": "Mundo actualizado." if message == null else message, "events": events}

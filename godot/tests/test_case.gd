@@ -5,6 +5,8 @@ extends RefCounted
 
 var _failures: Array[String] = []
 var _current := ""
+var error_count: Callable = Callable()
+var error_collector: Variant = null
 
 func before_each() -> void: pass
 func after_each() -> void: pass
@@ -87,8 +89,26 @@ func _run_all() -> Dictionary:
 		if not name.begins_with("test_"): continue
 		_current = name
 		var before := _failures.size()
-		before_each()
-		call(name)
-		after_each()
+		var errors_before: int = error_count.call() if error_count.is_valid() else 0
+		print("CASE START ", get_script().resource_path, "::", name)
+		await before_each()
+		await call(name)
+		await after_each()
+		print("CASE END ", get_script().resource_path, "::", name)
+		if error_count.is_valid() and error_count.call() > errors_before:
+			fail("Godot runtime error; see engine log")
 		if _failures.size() == before: passed += 1
 	return { "passed": passed, "failures": _failures }
+
+## Equivalent of TS expect(fn).toThrow(message), with exact error accounting.
+func assert_engine_error(message: String, action: Callable) -> Variant:
+	if error_collector == null:
+		fail("Missing engine error collector")
+		return null
+	var previous: int = error_collector.count()
+	print("EXPECTED ERROR START ", JSON.stringify(message))
+	var value = action.call()
+	var matched: bool = error_collector.consume_expected(message, previous)
+	print("EXPECTED ERROR END ", "VERIFIED" if matched else "MISMATCH")
+	assert_true(matched, "Expected exactly one engine error: " + message)
+	return value

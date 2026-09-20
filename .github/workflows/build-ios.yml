@@ -1,0 +1,133 @@
+name: Build iOS
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-26
+    timeout-minutes: 45
+    env:
+      GODOT_VERSION: 4.7.2
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install exact Godot and iOS export template
+        run: |
+          set -euo pipefail
+          download_dir="$RUNNER_TEMP/godot-download"
+          mkdir -p "$download_dir"
+          cd "$download_dir"
+          release="https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}-stable"
+          editor="Godot_v${GODOT_VERSION}-stable_macos.universal.zip"
+          templates="Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          for asset in "$editor" "$templates" SHA512-SUMS.txt; do
+            curl --fail --location --retry 4 --output "$asset" "$release/$asset"
+          done
+          export GODOT_EDITOR_ARCHIVE="$editor" GODOT_TEMPLATE_ARCHIVE="$templates"
+          python3 - <<'PY'
+          import hashlib, os, pathlib
+          sums = {}
+          for line in pathlib.Path('SHA512-SUMS.txt').read_text().splitlines():
+              digest, name = line.split(maxsplit=1)
+              sums[name.lstrip('*')] = digest
+          for key in ('GODOT_EDITOR_ARCHIVE', 'GODOT_TEMPLATE_ARCHIVE'):
+              name = os.environ[key]
+              digest = hashlib.sha512()
+              with open(name, 'rb') as stream:
+                  for chunk in iter(lambda: stream.read(1024 * 1024), b''):
+                      digest.update(chunk)
+              actual = digest.hexdigest()
+              if actual != sums[name]:
+                  raise SystemExit(f'SHA512 mismatch: {name}')
+              print(f'SHA512 verified: {name}')
+          PY
+          ditto -x -k "$editor" "$RUNNER_TEMP/godot"
+          python3 - <<'PY'
+          import os, pathlib, shutil, zipfile
+          version = os.environ['GODOT_VERSION'] + '.stable'
+          destination = pathlib.Path.home() / 'Library/Application Support/Godot/export_templates' / version
+          destination.mkdir(parents=True, exist_ok=True)
+          with zipfile.ZipFile(os.environ['GODOT_TEMPLATE_ARCHIVE']) as archive:
+              if archive.read('templates/version.txt').decode().strip() != version:
+                  raise SystemExit('Wrong export template version')
+              for name in ('ios.zip', 'version.txt'):
+                  with archive.open('templates/' + name) as source, (destination / name).open('wb') as output:
+                      shutil.copyfileobj(source, output)
+          PY
+          godot_bin="$RUNNER_TEMP/godot/Godot.app/Contents/MacOS/Godot"
+          chmod +x "$godot_bin"
+          echo "GODOT_BIN=$godot_bin" >> "$GITHUB_ENV"
+          "$godot_bin" --version | tee godot-version.txt
+          grep -Eq '^4\.7\.2\.stable([.]|$)' godot-version.txt
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
+
+      - name: Import project and export native Xcode project
+        run: |
+          set -euo pipefail
+          mkdir -p build/ios
+          "$GODOT_BIN" --headless --path godot --editor --import --quit 2>&1 | tee build/ios/import.log
+          if grep -Fq 'ERROR:' build/ios/import.log; then exit 1; fi
+          "$GODOT_BIN" --headless --path godot --export-release iOS "$GITHUB_WORKSPACE/build/ios/MiniMarket.zip" 2>&1 | tee build/ios/export.log
+          if grep -Fq 'ERROR:' build/ios/export.log; then exit 1; fi
+          test -f build/ios/MiniMarket.xcodeproj/project.pbxproj
+          # Remove Godot's required generator placeholder. No Apple account is used.
+          python3 - <<'PY'
+          import pathlib, re
+          project = pathlib.Path('build/ios/MiniMarket.xcodeproj/project.pbxproj')
+          text = project.read_text()
+          text, count = re.subn(r'DEVELOPMENT_TEAM\s*=\s*[^;]*;', 'DEVELOPMENT_TEAM = "";', text)
+          if count == 0:
+              raise SystemExit('Expected DEVELOPMENT_TEAM template field is missing')
+          project.write_text(text)
+          PY
+
+      - name: Build unsigned iPhone arm64 app
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project build/ios/MiniMarket.xcodeproj \
+            -scheme MiniMarket \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build/ios/DerivedData \
+            ARCHS=arm64 ONLY_ACTIVE_ARCH=NO SUPPORTED_PLATFORMS=iphoneos \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            DEVELOPMENT_TEAM="" PROVISIONING_PROFILE_SPECIFIER="" PROVISIONING_PROFILE="" \
+            build 2>&1 | tee build/ios/xcodebuild.log
+
+      - name: Verify app and package unsigned IPA for SideStore
+        run: |
+          set -euo pipefail
+          app="$GITHUB_WORKSPACE/build/ios/DerivedData/Build/Products/Release-iphoneos/MiniMarket.app"
+          test -d "$app"
+          plutil -lint "$app/Info.plist"
+          executable=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$app/Info.plist")
+          test -x "$app/$executable"
+          test "$(lipo -archs "$app/$executable")" = arm64
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Info.plist")" = app.olcas.market
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleSupportedPlatforms:0' "$app/Info.plist")" = iPhoneOS
+          test ! -f "$app/embedded.mobileprovision"
+          mkdir -p build/ios/package/Payload
+          ditto --norsrc --noextattr "$app" build/ios/package/Payload/MiniMarket.app
+          cd build/ios/package
+          zip -qry ../MiniMarket.ipa Payload
+          unzip -t ../MiniMarket.ipa
+
+      - name: Upload MiniMarket.ipa
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: MiniMarket.ipa
+          path: build/ios/MiniMarket.ipa
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7

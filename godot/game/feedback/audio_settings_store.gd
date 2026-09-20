@@ -48,12 +48,17 @@ func _assign(next: Dictionary) -> void:
 	changed.emit(settings())
 
 func _read_stored() -> Dictionary:
+	if OS.has_feature("web") and _storage_path == STORAGE_PATH:
+		var browser: Variant = JavaScriptBridge.eval("(() => { try { return localStorage.getItem(%s); } catch { return null; } })()" % JSON.stringify(AudioSettings.AUDIO_SETTINGS_KEY), true)
+		if browser is String: return AudioSettings.parse_audio_settings(browser)
 	if not FileAccess.file_exists(_storage_path): return AudioSettings.DEFAULT_AUDIO_SETTINGS.duplicate()
 	var file := FileAccess.open(_storage_path, FileAccess.READ)
 	if file == null: return AudioSettings.DEFAULT_AUDIO_SETTINGS.duplicate()
 	return AudioSettings.parse_audio_settings(file.get_as_text())
 
 func _write_stored(next: Dictionary) -> void:
+	if OS.has_feature("web") and _storage_path == STORAGE_PATH:
+		JavaScriptBridge.eval("try { localStorage.setItem(%s,%s); } catch {}" % [JSON.stringify(AudioSettings.AUDIO_SETTINGS_KEY), JSON.stringify(AudioSettings.serialize_audio_settings(next))], true)
 	var file := FileAccess.open(_storage_path, FileAccess.WRITE)
 	if file == null: return  # blocked storage: the session keeps the value
 	file.store_string(AudioSettings.serialize_audio_settings(next))

@@ -1,0 +1,698 @@
+{
+  "source": "src/components/game",
+  "part": "closed-checkouts",
+  "meshes": 8,
+  "manifest": [
+    {
+      "name": "n0",
+      "sourceName": "authored",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": null,
+      "route": [],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n1",
+      "sourceName": "",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": null,
+      "route": [
+        0
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n2",
+      "sourceName": "closed-checkout:1",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": null,
+      "route": [
+        0,
+        0
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        15.1,
+        0,
+        1.9,
+        1
+      ]
+    },
+    {
+      "name": "n3",
+      "sourceName": "fixture:closed-checkout",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": null,
+      "route": [
+        0,
+        0,
+        0
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n4",
+      "sourceName": "",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": true,
+      "light": null,
+      "materials": [
+        {
+          "transparent": false,
+          "opacity": 1,
+          "transmission": 0,
+          "clearcoat": 0,
+          "clearcoatRoughness": 0,
+          "depthWrite": true,
+          "unshaded": false,
+          "toneMapped": true,
+          "fog": true
+        }
+      ],
+      "route": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0.46,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n5",
+      "sourceName": "",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": true,
+      "light": null,
+      "materials": [
+        {
+          "transparent": false,
+          "opacity": 1,
+          "transmission": 0,
+          "clearcoat": 0,
+          "clearcoatRoughness": 0,
+          "depthWrite": true,
+          "unshaded": false,
+          "toneMapped": true,
+          "fog": true
+        }
+      ],
+      "route": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0.98,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n6",
+      "sourceName": "",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": true,
+      "light": null,
+      "materials": [
+        {
+          "transparent": false,
+          "opacity": 1,
+          "transmission": 0,
+          "clearcoat": 0,
+          "clearcoatRoughness": 0,
+          "depthWrite": true,
+          "unshaded": false,
+          "toneMapped": true,
+          "fog": true
+        }
+      ],
+      "route": [
+        0,
+        0,
+        0,
+        2
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        1.1,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n7",
+      "sourceName": "",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": true,
+      "light": null,
+      "materials": [
+        {
+          "transparent": false,
+          "opacity": 1,
+          "transmission": 0,
+          "clearcoat": 0,
+          "clearcoatRoughness": 0,
+          "depthWrite": true,
+          "unshaded": false,
+          "toneMapped": true,
+          "fog": true
+        }
+      ],
+      "route": [
+        0,
+        0,
+        0,
+        3
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        1.48,
+        0.04,
+        1
+      ]
+    },
+    {
+      "name": "n8",
+      "sourceName": "",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": [
+        {
+          "transparent": true,
+          "opacity": 1,
+          "transmission": 0,
+          "clearcoat": 0,
+          "clearcoatRoughness": 0,
+          "depthWrite": true,
+          "unshaded": true,
+          "toneMapped": true,
+          "fog": true
+        }
+      ],
+      "route": [
+        0,
+        0,
+        0,
+        4
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        1.48,
+        0.085,
+        1
+      ]
+    },
+    {
+      "name": "n9",
+      "sourceName": "closed-checkout:2",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": null,
+      "route": [
+        0,
+        1
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        15.1,
+        0,
+        -4.1,
+        1
+      ]
+    },
+    {
+      "name": "n10",
+      "sourceName": "fixture:closed-checkout",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": null,
+      "route": [
+        0,
+        1,
+        0
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n11",
+      "sourceName": "",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": true,
+      "light": null,
+      "materials": [
+        {
+          "transparent": false,
+          "opacity": 1,
+          "transmission": 0,
+          "clearcoat": 0,
+          "clearcoatRoughness": 0,
+          "depthWrite": true,
+          "unshaded": false,
+          "toneMapped": true,
+          "fog": true
+        }
+      ],
+      "route": [
+        0,
+        1,
+        0,
+        0
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0.46,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n12",
+      "sourceName": "",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": true,
+      "light": null,
+      "materials": [
+        {
+          "transparent": false,
+          "opacity": 1,
+          "transmission": 0,
+          "clearcoat": 0,
+          "clearcoatRoughness": 0,
+          "depthWrite": true,
+          "unshaded": false,
+          "toneMapped": true,
+          "fog": true
+        }
+      ],
+      "route": [
+        0,
+        1,
+        0,
+        1
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0.98,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n13",
+      "sourceName": "",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": true,
+      "light": null,
+      "materials": [
+        {
+          "transparent": false,
+          "opacity": 1,
+          "transmission": 0,
+          "clearcoat": 0,
+          "clearcoatRoughness": 0,
+          "depthWrite": true,
+          "unshaded": false,
+          "toneMapped": true,
+          "fog": true
+        }
+      ],
+      "route": [
+        0,
+        1,
+        0,
+        2
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        1.1,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "n14",
+      "sourceName": "",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": true,
+      "light": null,
+      "materials": [
+        {
+          "transparent": false,
+          "opacity": 1,
+          "transmission": 0,
+          "clearcoat": 0,
+          "clearcoatRoughness": 0,
+          "depthWrite": true,
+          "unshaded": false,
+          "toneMapped": true,
+          "fog": true
+        }
+      ],
+      "route": [
+        0,
+        1,
+        0,
+        3
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        1.48,
+        0.04,
+        1
+      ]
+    },
+    {
+      "name": "n15",
+      "sourceName": "",
+      "authored": null,
+      "castShadow": false,
+      "receiveShadow": false,
+      "light": null,
+      "materials": [
+        {
+          "transparent": true,
+          "opacity": 1,
+          "transmission": 0,
+          "clearcoat": 0,
+          "clearcoatRoughness": 0,
+          "depthWrite": true,
+          "unshaded": true,
+          "toneMapped": true,
+          "fog": true
+        }
+      ],
+      "route": [
+        0,
+        1,
+        0,
+        4
+      ],
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        1.48,
+        0.085,
+        1
+      ]
+    }
+  ],
+  "labels": [
+    {
+      "name": "n8",
+      "parent": "n3",
+      "text": "CAJA 2 · CERRADA",
+      "fontSize": 0.15,
+      "color": "315044",
+      "anchorX": "center",
+      "anchorY": "middle",
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        1.48,
+        0.085,
+        1
+      ]
+    },
+    {
+      "name": "n15",
+      "parent": "n10",
+      "text": "CAJA 3 · CERRADA",
+      "fontSize": 0.15,
+      "color": "315044",
+      "anchorX": "center",
+      "anchorY": "middle",
+      "matrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        1.48,
+        0.085,
+        1
+      ]
+    }
+  ],
+  "externalModels": []
+}

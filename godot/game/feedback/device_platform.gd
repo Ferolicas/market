@@ -12,6 +12,8 @@ static func is_apple_touch_device(hints: Dictionary) -> bool:
 ## the user agent ("iOS iPhone14,2"), "MacIntel" on macOS, touch points from the
 ## display server.
 static func current_device_hints() -> Dictionary:
+	if OS.has_feature("web"):
+		return JSON.parse_string(str(JavaScriptBridge.eval("JSON.stringify({userAgent:navigator.userAgent??'',platform:navigator.platform??'',maxTouchPoints:navigator.maxTouchPoints??0})", true)))
 	var os_name := OS.get_name()
 	var user_agent := "%s %s" % [os_name, OS.get_model_name()]
 	if os_name == "iOS" and not user_agent.contains("iP"): user_agent += " iPhone"

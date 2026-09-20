@@ -32,7 +32,7 @@ static func same_farm_presentation(previous: Dictionary, next: Dictionary) -> bo
 			or left.status != right.status
 			or left.available != right.available
 			or left.tier != right.tier
-			or left.baseYield != right.baseYield
+			or left.get("baseYield") != right.get("baseYield")
 			or crop_presentation_stage(left, previous.nowMs) != crop_presentation_stage(right, next.nowMs)
 		): return false
 	return _same_farm_machine(previous.machines, next.machines, "chicken-coop-1") \

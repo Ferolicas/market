@@ -14,21 +14,39 @@ const MAX_SHOPPING_LINE_UNITS := 3
 ## CustomerMind: { id, state: CustomerState, shoppingList: ShoppingLine[], currentLine: int, basket: Partial<Inventory>,
 ##   patienceMs: int, waitingSince: int|null, reservedSocket: String|null, queueSlot: int|null }
 
-## Legacy (pre-campaign) shopper generator. The TS version shuffles with
-## `sort(() => random() - 0.5)`, whose exact order depends on V8's sort; here
-## a Fisher–Yates shuffle drawn from the same LCG keeps determinism, lengths
-## and uniqueness but the shuffled order for a given seed is not identical.
+## Legacy source uses Array.sort with a random comparator. Reproduce V8's
+## small-array comparisons (the catalog has only 13 products),
+## so the reference runtime consumes exactly the same random samples.
+## https://github.com/nodejs/node/blob/v26.8.2/deps/v8/third_party/v8/builtins/array-sort.tq
 static func create_customer_mind(id: String, unlocked: Array, seed: int, level: int) -> Dictionary:
 	var rng := [JS.to_uint32(seed)]
 	var random := func() -> float:
 		rng[0] = JS.lcg_next(rng[0])
 		return float(rng[0]) / 4294967296.0
 	var candidates := unlocked.duplicate()
-	for index in range(candidates.size() - 1, 0, -1):
-		var swap := JS.floor(random.call() * (index + 1))
-		var held = candidates[index]
-		candidates[index] = candidates[swap]
-		candidates[swap] = held
+	var sorted_prefix := 1
+	# V8 14.6 uses direct binary insertion below eight elements. Larger
+	# catalog lists first identify/reverse a run, then extend it by insertion.
+	if candidates.size() >= 8:
+		sorted_prefix = 2
+		var descending: bool = random.call() < 0.5
+		for index in range(2, candidates.size()):
+			if (random.call() < 0.5) != descending: break
+			sorted_prefix += 1
+		if descending:
+			var reversed := candidates.slice(0, sorted_prefix)
+			reversed.reverse()
+			for index in sorted_prefix: candidates[index] = reversed[index]
+	for index in range(sorted_prefix, candidates.size()):
+		var pivot: Variant = candidates[index]
+		var left := 0
+		var right := index
+		while left < right:
+			var middle: int = (left + right) / 2
+			if random.call() < 0.5: right = middle
+			else: left = middle + 1
+		for position in range(index, left, -1): candidates[position] = candidates[position - 1]
+		candidates[left] = pivot
 	var maximum_types: int = 5 if level >= 25 else 3
 	var type_count: int = mini(candidates.size(), 5 if level >= 25 else 1 + JS.floor(random.call() * maximum_types))
 	var shopping_list := JS.map(JS.slice(candidates, 0, type_count), func(product_id): return { "productId": product_id, "requested": 1 + JS.floor(random.call() * 3), "picked": 0 })

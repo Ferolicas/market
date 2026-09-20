@@ -10,8 +10,8 @@ extends Node
 ## pauses the music while the window has no focus.
 ##
 ## iPhone/iPad keep the decision of the web version: the music is the smaller
-## mono "music-lite" decode. Godot owns the playback session, so the silent
-## keep-alive element and the media-element routing are not needed.
+## mono "music-lite" decode. Web keeps the original silent media element
+## playback session, started in the same gesture as native audio unlock.
 
 ## Headroom under the music so effects and the till stay on top of it.
 const MUSIC_TRIM := 0.85
@@ -45,11 +45,15 @@ func _init(settings: Dictionary = AudioSettings.DEFAULT_AUDIO_SETTINGS) -> void:
 	name = "GameAudio"
 	process_mode = Node.PROCESS_MODE_ALWAYS
 
+func _ready() -> void:
+	if _apple_touch and OS.has_feature("web"): _keep_web_session_alive(true)
+
 func settings() -> Dictionary:
 	return _settings
 
 func apply_settings(settings: Dictionary) -> void:
 	_settings = settings
+	if OS.has_feature("web"): JavaScriptBridge.eval("if(window.__marketAudioSession) window.__marketAudioSession.enabled=" + str(settings.music > 0).to_lower(), true)
 	_set_bus_gain(EFFECTS_BUS, AudioSettings.volume_gain(settings.effects))
 	if settings.effects <= 0: _stop_money_loop(true)
 	_apply_music_gain()
@@ -69,6 +73,7 @@ func is_unlocked() -> bool:
 ## A hidden window is silent: the music pauses and resumes with focus.
 func set_hidden(hidden: bool) -> void:
 	_hidden = hidden
+	if OS.has_feature("web"): JavaScriptBridge.eval("if(window.__marketAudioSession) window.__marketAudioSession.hidden=" + str(hidden).to_lower(), true)
 	if hidden:
 		_pause_music()
 		_stop_money_loop(true)
@@ -102,6 +107,8 @@ func play(signal_value: Dictionary) -> bool:
 	return true
 
 func close() -> void:
+	if OS.has_feature("web"):
+		JavaScriptBridge.eval("(() => {const session=window.__marketAudioSession;if(!session)return;for(const type of ['pointerdown','pointerup','touchend','click','keydown'])window.removeEventListener(type,session.gesture,true);session.element.pause();session.element.removeAttribute('src');session.element.load();URL.revokeObjectURL(session.url);delete window.__marketAudioSession;})()", true)
 	_stop_money_loop(true)
 	_pause_music()
 	if _music != null:
@@ -113,6 +120,7 @@ func close() -> void:
 	_unlocked = false
 
 func _process(_delta: float) -> void:
+	if _apple_touch and OS.has_feature("web") and _unlocked and bool(JavaScriptBridge.eval("window.__marketAudioSession?.rejected === true", true)): _unlocked = false
 	if _money_deadline_ms >= 0 and Time.get_ticks_msec() >= _money_deadline_ms:
 		_money_deadline_ms = -1
 		_stop_money_loop(false)
@@ -130,6 +138,7 @@ func _set_bus_gain(bus: String, gain: float) -> void:
 
 func _start_music() -> void:
 	if not _unlocked or _hidden or _settings.music <= 0 or not is_inside_tree(): return
+	if _apple_touch and OS.has_feature("web"): _keep_web_session_alive()
 	if _music == null:
 		var stream := _stream("music-lite" if _apple_touch else "music")
 		if stream == null: return
@@ -144,8 +153,28 @@ func _start_music() -> void:
 	if _music.stream_paused: _music.stream_paused = false
 	elif not _music.playing: _music.play()
 
+func _keep_web_session_alive(prepare_only: bool = false) -> void:
+	var sample := _stream("silence") as AudioStreamMP3
+	if sample == null: return
+	var encoded := Marshalls.raw_to_base64(sample.data)
+	JavaScriptBridge.eval("""(() => {
+		let session=window.__marketAudioSession;
+		if(!session){
+			const bytes=Uint8Array.from(atob(%s), c=>c.charCodeAt(0));
+			const url=URL.createObjectURL(new Blob([bytes],{type:'audio/mpeg'}));
+			const element=new Audio(url);element.loop=true;element.preload='auto';element.setAttribute('playsinline','');
+			session=window.__marketAudioSession={element,url,rejected:false,enabled:%s,hidden:false};
+			session.gesture=()=>{if(session.enabled&&!session.hidden&&element.paused){session.rejected=false;element.play().catch(()=>{session.rejected=true;});}};
+			for(const type of ['pointerdown','pointerup','touchend','click','keydown'])window.addEventListener(type,session.gesture,{capture:true,passive:true});
+		}
+		if(!%s)session.gesture();
+	})()""" % [JSON.stringify(encoded), str(_settings.music > 0).to_lower(), str(prepare_only).to_lower()], true)
+
 func _pause_music() -> void:
-	if _music != null and _music.playing: _music.stream_paused = true
+	if OS.has_feature("web"): JavaScriptBridge.eval("window.__marketAudioSession?.element.pause()", true)
+	if _music != null and _music.playing:
+		if _apple_touch: _music.stop()
+		else: _music.stream_paused = true
 
 func _apply_music_gain() -> void:
 	_set_bus_gain(MUSIC_BUS, AudioSettings.volume_gain(_settings.music) * MUSIC_TRIM)
@@ -180,6 +209,7 @@ func _tone(frequency: float, level: float) -> void:
 		generator.buffer_length = 0.25
 		_tone_player = AudioStreamPlayer.new()
 		_tone_player.name = "Tone"
+		_tone_player.playback_type = AudioServer.PLAYBACK_TYPE_STREAM
 		_tone_player.bus = EFFECTS_BUS
 		_tone_player.stream = generator
 		add_child(_tone_player)
@@ -196,7 +226,7 @@ func _tone(frequency: float, level: float) -> void:
 		var gain := start_gain * pow(0.0001 / maxf(0.0001, start_gain), minf(1.0, t / 0.11)) if t <= 0.11 else 0.0
 		phase = fmod(phase + f / TONE_MIX_RATE, 1.0)
 		var value := sin(phase * TAU) * gain
-		if not playback.can_push_frame(): break
+		if not playback.can_push_buffer(1): break
 		playback.push_frame(Vector2(value, value))
 
 func _sustain_money_loop(playback: Dictionary) -> void:

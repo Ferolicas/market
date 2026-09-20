@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Generated engine binaries and diagnostic bundles, never authored source.
+    ".migration-validation/**",
   ]),
 ]);
 

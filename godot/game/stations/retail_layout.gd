@@ -22,12 +22,12 @@ const PANTRY_DISPLAY_POSITIONS = [
 	[-1.9, 0, -7.9],
 	[-4, 0, -7.9],
 ]
-const PRODUCE_DISPLAY_POSITIONS = [
+static var PRODUCE_DISPLAY_POSITIONS = [
 	[-4.55, 0, 4.1 - 4 * INDIVIDUAL_FLOOR_TILE_LAYOUT],
 	[-7.3, 0, 4.1 - 4 * INDIVIDUAL_FLOOR_TILE_LAYOUT],
 ]
 
-const RETAIL_DEPARTMENTS = {
+static var RETAIL_DEPARTMENTS = {
 	"preserves": { "id": "preserves", "label": "CONSERVAS", "color": "#65833d", "display": [10.1, 0, -4.8], "yaw": 90, "fixtureHalfExtents": [1.2, 0.78], "service": [8.7, -4.8], "products": ["cannedCorn"] },
 	# Service points remain useful route destinations, but the actual stocking
 	# volume wraps the complete fixture footprint so every walkable side works.

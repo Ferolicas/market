@@ -1,24 +1,10 @@
 extends TestCase
 
-## Uses the engine's initial game when the engine port exists; otherwise a
-## franchise fixture with the fields these comparisons read.
+## Use the real constructor, validated field-for-field against TypeScript.
+const Factory = preload("res://game/core/game_factory.gd")
 func _fixture() -> Dictionary:
-	if ResourceLoader.exists("res://game/engine.gd"):
-		var engine = load("res://game/engine.gd")
-		if engine != null and engine.has_method("create_initial_game"):
-			var game: Dictionary = engine.call("create_initial_game")
-			return { "game": game, "franchise": game.franchises[0] }
-	var shelves := {}
-	for product_id in ProductRegistry.PRODUCT_IDS: shelves[product_id] = 0
-	var machines := []
-	for id in ["chicken-coop-1", "chicken-coop-2", "cow-station-1", "flour-mill-1"]:
-		machines.append({ "id": id, "status": "IDLE", "output": 0, "tier": 1, "outputCapacity": 40, "input": { "tomatoes": 0, "wheat": 0 } })
-	var franchise := {
-		"shelves": shelves, "productionMachines": machines, "checkoutTransactions": [], "returnsBin": shelves.duplicate(),
-		"returnedCartCount": 0, "lightsOn": true, "unlockedAreas": ["farm"],
-		"crops": [{ "id": "crop-1", "productId": "tomatoes", "status": "EMPTY", "available": 0, "tier": 1, "baseYield": 6, "plantedAt": 0, "readyAt": 0 }],
-	}
-	return { "game": { "franchises": [franchise] }, "franchise": franchise }
+	var game := Factory.create_initial_game()
+	return {"game": game, "franchise": game.franchises[0]}
 
 func test_refreshes_the_feeder_label_when_tomatoes_change_during_an_active_cycle() -> void:
 	var franchise: Dictionary = _fixture().franchise

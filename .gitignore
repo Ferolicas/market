@@ -69,3 +69,6 @@ Unity/.vs/
 # dentro de la build WebGL, que se publica por rsync y no por git.
 Unity/MiniMarketUnity/Assets/StreamingAssets/Art/
 GameAssets/
+
+# Local Godot migration verification logs
+/.migration-validation/

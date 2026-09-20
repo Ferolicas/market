@@ -45,9 +45,13 @@ static func _device_dpr(capabilities: Dictionary) -> float:
 
 ## Live capabilities from the Godot runtime.
 static func current_render_capabilities() -> Dictionary:
+	if OS.has_feature("web"):
+		return JSON.parse_string(str(JavaScriptBridge.eval("JSON.stringify({width:innerWidth,coarsePointer:matchMedia('(pointer: coarse)').matches,devicePixelRatio:devicePixelRatio})", true)))
 	return {
 		"width": DisplayServer.window_get_size().x,
-		"coarsePointer": DisplayServer.is_touchscreen_available() or OS.has_feature("mobile"),
+		# Godot reports emulated mouse-to-touch as touchscreen availability.
+		# That does not change the primary pointer on a desktop browser.
+		"coarsePointer": OS.get_name() in ["Android", "iOS"],
 		"devicePixelRatio": DisplayServer.screen_get_scale(),
 	}
 
@@ -114,7 +118,7 @@ static func legacy_mobile_render_profile(capabilities: Dictionary) -> Dictionary
 static func advance_adaptive_quality(previous: Dictionary, frame_ms: float, config: Dictionary = MOBILE_ADAPTIVE_QUALITY) -> Dictionary:
 	var safe_frame_ms := maxf(0.0, minf(250.0, frame_ms if is_finite(frame_ms) else 0.0))
 	var cooldown_ms := maxf(0.0, previous.cooldownMs - safe_frame_ms)
-	var slow := safe_frame_ms >= config.slowFrameMs
+	var slow: bool = safe_frame_ms >= config.slowFrameMs
 	var slow_for_ms: float = previous.slowForMs + safe_frame_ms if slow else maxf(0.0, previous.slowForMs - safe_frame_ms * config.recoveryRate)
 	var healthy_for_ms: float = 0.0 if slow else previous.healthyForMs + safe_frame_ms
 	if cooldown_ms == 0.0 and slow_for_ms >= config.sustainedSlowMs:

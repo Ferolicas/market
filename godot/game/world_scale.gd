@@ -1,85 +1,59 @@
 class_name WorldScale
+extends RefCounted
+## Port of src/game/world-scale.ts. Coordinates stay in simulation space;
+## WORLD_SCALE is applied once by the scene parent, never by these helpers.
 
-const STORE_LAYOUT_SCALE: float = 2.0
-const STORE_ELEMENT_SCALE: float = 1.6
-const WORLD_SCALE: float = 3.0
+const WORLD_SCALE = 3
+const STORE_LAYOUT_SCALE = 2
+const STORE_ELEMENT_SCALE = 1.6
+const STORE_PRODUCTION_FIXTURES = ProductionLayout.STORE_PRODUCTION_FIXTURES
+static var STORE_OBSTACLES: Array = _build_obstacles()
 
-const LAYOUT: float = STORE_LAYOUT_SCALE * WORLD_SCALE
+static func _build_obstacles() -> Array:
+	var base: Array = []
+	for department_id in RetailLayout.RETAIL_DEPARTMENT_IDS:
+		var department: Dictionary = RetailLayout.RETAIL_DEPARTMENTS[department_id]
+		var quarter_turn: bool = fmod(absf(department.get("yaw", 0)), 180) == 90
+		var displays: Array = RetailLayout.PANTRY_DISPLAY_POSITIONS if department_id == "pantry" else (RetailLayout.PRODUCE_DISPLAY_POSITIONS if department_id == "produce" else [department.display])
+		for i in displays.size():
+			base.append({"id": "fixture:retail-%s-%d" % [department_id, i + 1], "x": displays[i][0], "z": displays[i][2], "halfX": department.fixtureHalfExtents[1 if quarter_turn else 0], "halfZ": department.fixtureHalfExtents[0 if quarter_turn else 1]})
+	for i in 3:
+		base.append({"id": null if i == 0 else "fixture:checkout-%d" % (i + 1), "x": CheckoutLayout.CHECKOUT_LANES[i].counter[0], "z": CheckoutLayout.CHECKOUT_LANES[i].counter[2], "halfX": 2.25, "halfZ": 0.65})
+	for fixture in STORE_PRODUCTION_FIXTURES.values():
+		base.append({"id": fixture.obstacleId, "x": fixture.position[0] + fixture.localFootprint.centerX * STORE_ELEMENT_SCALE / STORE_LAYOUT_SCALE, "z": fixture.position[2] + fixture.localFootprint.centerZ * STORE_ELEMENT_SCALE / STORE_LAYOUT_SCALE, "halfX": fixture.localFootprint.halfX, "halfZ": fixture.localFootprint.halfZ})
+	for wall in ProductionLayout.PRODUCTION_CUBICLE.walls:
+		base.append({"id": wall.id, "x": wall.position[0], "z": wall.position[2], "halfX": wall.halfX * STORE_LAYOUT_SCALE / STORE_ELEMENT_SCALE, "halfZ": wall.halfZ * STORE_LAYOUT_SCALE / STORE_ELEMENT_SCALE})
+	var station: Dictionary = WarehouseLayout.WAREHOUSE_RETURN_STATION
+	base.append({"id": station.obstacleId, "x": station.position[0], "z": station.position[2], "halfX": station.footprint.halfX, "halfZ": station.footprint.halfZ})
+	for fixture_id in StoreServiceLayout.STORE_SERVICE_FIXTURE_IDS:
+		var fixture: Dictionary = StoreServiceLayout.STORE_SERVICE_FIXTURES[fixture_id]
+		base.append({"id": fixture.obstacleId, "x": fixture.position[0], "z": fixture.position[2], "halfX": fixture.footprint.halfX, "halfZ": fixture.footprint.halfZ})
+	base.append_array(FarmLayout.FARM_OBSTACLES)
+	var result: Array = []
+	for obstacle in base:
+		result.append({"id": obstacle.get("id"), "x": obstacle.x * STORE_LAYOUT_SCALE, "z": obstacle.z * STORE_LAYOUT_SCALE, "halfX": obstacle.halfX * STORE_ELEMENT_SCALE, "halfZ": obstacle.halfZ * STORE_ELEMENT_SCALE})
+	return result
 
-const WORLD_UNITS_TO_LAYOUT: float = 1.0 / STORE_LAYOUT_SCALE
-const LAYOUT_TO_WORLD_UNITS: float = STORE_LAYOUT_SCALE
+static func scale_store_position(position: Array) -> Array:
+	return [position[0] * STORE_LAYOUT_SCALE, position[1], position[2] * STORE_LAYOUT_SCALE]
 
-const CHARACTER_SCENE_SCALE_BODY: float = 1.0
+static func scale_store_point(point: Array) -> Array:
+	return [point[0] * STORE_LAYOUT_SCALE, point[1] * STORE_LAYOUT_SCALE]
 
-const MINUTE_MS: float = 60000.0
+static func store_segment_is_clear(start: Array, end: Array, padding_layout: float = 0.31) -> bool:
+	var distance := JS.hypot(end[0] - start[0], end[1] - start[1])
+	var steps := maxi(1, ceili(distance / 0.2))
+	for step in steps + 1:
+		var progress := float(step) / steps
+		var point := [start[0] + (end[0] - start[0]) * progress, start[1] + (end[1] - start[1]) * progress]
+		if overlaps_store_obstacle(scale_store_point(point), padding_layout * STORE_LAYOUT_SCALE): return false
+	return true
 
-const STORE_OBSTACLES: Array = [
-    {"id": "checkout-1", "x": 0.0, "z": 0.0, "halfX": 2.5, "halfZ": 1.0},
-    {"id": "checkout-2", "x": 8.0, "z": 0.0, "halfX": 2.5, "halfZ": 1.0},
-    {"id": "checkout-3", "x": 16.0, "z": 0.0, "halfX": 2.5, "halfZ": 1.0},
-    {"id": "store-front-wall", "x": 19.0, "z": -8.5, "halfX": 0.5, "halfZ": 12.0},
-    {"id": "store-back-wall", "x": 19.0, "z": 12.5, "halfX": 0.5, "halfZ": 12.0},
-    {"id": "farm-center", "x": 25.0, "z": 0.0, "halfX": 5.0, "halfZ": 5.0},
-]
+static func store_obstacles_for_areas(areas: Array = []) -> Array:
+	return STORE_OBSTACLES.filter(func(obstacle): return FixtureAvailability.fixture_available(obstacle.get("id"), areas))
 
-func store_obstacles_for_areas(areas: Array) -> Array:
-    var result = []
-    for area in areas:
-        var obstacle = JS.find(STORE_OBSTACLES, func(candidate): return candidate.id == area.obstacleId)
-        if obstacle:
-            result.append(obstacle)
-    return result
-
-func store_obstacle_by_id(obstacle_id: String) -> Dictionary:
-    return JS.find(STORE_OBSTACLES, func(candidate): return candidate.id == obstacle_id)
-
-func world_position_to_layout(world_position: Array) -> Array:
-    return [world_position[0] / WORLD_SCALE, world_position[2] / WORLD_SCALE]
-
-func layout_to_world_position(layout_position: Array) -> Array:
-    return [layout_position[0] * WORLD_SCALE, 0.0, layout_position[1] * WORLD_SCALE]
-
-func scaled_store_position(layout_position: Array) -> Array:
-    return [layout_position[0] * LAYOUT, 0.0, layout_position[1] * LAYOUT]
-
-func world_position_to_scaled_store(layout_position: Array) -> Array:
-    return [layout_position[0] / LAYOUT, 0.0, layout_position[1] / LAYOUT]
-
-func scale_store_position(node_position: Array) -> Array:
-    return [node_position[0] / (STORE_LAYOUT_SCALE * STORE_ELEMENT_SCALE), 0.0, node_position[2] / (STORE_LAYOUT_SCALE * STORE_ELEMENT_SCALE)]
-
-func character_scene_scale(body: String) -> float:
-    return CHARACTER_SCENE_SCALE_BODY * WORLD_SCALE
-
-func is_within_door_passable_zone(x: float, z: float, layout_x: float, layout_z: float) -> bool:
-    var half_width = STOREFRONT_LAYOUT.door.outerPostX / 2.0
-    var local_x = x / WORLD_SCALE - layout_x
-    var local_z = z / WORLD_SCALE - layout_z
-    return abs(local_x) <= half_width and abs(local_z) <= STOREFRONT_LAYOUT.door.innerDepth
-
-func store_layout_scale() -> float:
-    return STORE_LAYOUT_SCALE
-
-func store_element_scale() -> float:
-    return STORE_ELEMENT_SCALE
-
-func world_scale() -> float:
-    return WORLD_SCALE
-
-func layout_to_world_scale_factor() -> float:
-    return LAYOUT
-
-func scaled_layout_to_world_units(value: float) -> float:
-    return value * LAYOUT
-
-func scaled_world_units_to_layout(value: float) -> float:
-    return value / LAYOUT
-
-func business_minutes_to_ms(business_minutes: float) -> float:
-    return business_minutes * MINUTE_MS
-
-func ms_to_business_minutes(ms: float) -> float:
-    return ms / MINUTE_MS
-
-func is_valid_layout_position(x: float, z: float) -> bool:
-    return x >= -10.0 and x <= 30.0 and z >= -10.0 and z <= 30.0
+static func overlaps_store_obstacle(point: Array, radius: float, areas: Array = []) -> bool:
+	for obstacle in STORE_OBSTACLES:
+		if FixtureAvailability.fixture_available(obstacle.get("id"), areas) and absf(point[0] - obstacle.x) < obstacle.halfX + radius and absf(point[1] - obstacle.z) < obstacle.halfZ + radius:
+			return true
+	return false

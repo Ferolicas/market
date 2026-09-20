@@ -26,7 +26,13 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "godot:run": "godot --path godot",
+    "godot:test": "bash godot/tools/test.sh",
+    "godot:export:web": "node scripts/export-godot.mjs Web",
+    "godot:export:linux": "node scripts/export-godot.mjs Linux",
+    "godot:qa:api": "node scripts/qa-godot-live-api.mjs",
+    "godot:qa:web": "MARKET_QA_WEB=1 MARKET_QA_JOURNEY=1 MARKET_QA_PANELS=1 MARKET_QA_CONTEXT=1 MARKET_QA_TOUCH=1 MARKET_QA_LIFECYCLE=1 node scripts/qa-godot-live-api.mjs"
   },
   "dependencies": {
     "@prisma/adapter-pg": "7.10.0",
