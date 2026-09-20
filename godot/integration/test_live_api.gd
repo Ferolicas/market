@@ -119,3 +119,33 @@ func test_real_password_reset_form_changes_password_and_consumes_token() -> void
 	await screen._submit()
 	assert_ne(screen.status.text, "Contraseña actualizada. Ya puedes volver a entrar.", "Single-use token cannot be replayed")
 	screen.free()
+
+func test_native_registration_and_login_forms_against_real_backend() -> void:
+	var screen := MarketAuthScreen.new()
+	screen.api = api
+	screen.mode = "register"
+	var authenticated_users: Array = []
+	screen.authenticated.connect(func(user: Dictionary): authenticated_users.append(user))
+	Engine.get_main_loop().root.add_child(screen)
+	screen.fields.name.text = "Native form QA"
+	screen.fields.username.text = username
+	screen.fields.identity.text = email
+	screen.fields.password.text = password
+	await screen._submit()
+	assert_eq(authenticated_users.size(), 1, screen.status.text)
+	var session := await api.request_json("/api/auth/get-session")
+	assert_eq(session.data.get("user", {}).get("email"), email)
+	await api.sign_out()
+	screen.mode = "login"
+	screen._show_mode()
+	screen.fields.identity.text = email
+	screen.fields.password.text = password
+	await screen._submit()
+	assert_eq(authenticated_users.size(), 2, screen.status.text)
+	await api.sign_out()
+	screen.fields.identity.text = username
+	await screen._submit()
+	assert_eq(authenticated_users.size(), 3, screen.status.text)
+	assert_false(screen.busy)
+	assert_false(screen.submit_button.disabled)
+	screen.free()

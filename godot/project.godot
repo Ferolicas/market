@@ -32,6 +32,10 @@ window/size/viewport_height.ios=932
 window/stretch/mode.ios="canvas_items"
 window/stretch/aspect.ios="ignore"
 
+[market]
+
+network/api_origin="https://market.olcas.app"
+
 [input_devices]
 
 pointing/emulate_touch_from_mouse=true

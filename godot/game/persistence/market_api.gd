@@ -1,7 +1,7 @@
 class_name MarketApi
 extends Node
 ## Uses the existing authenticated API; accounts and save revisions stay server-owned.
-@export var base_url: String = "http://127.0.0.1:4010"
+@export var base_url: String = ProjectSettings.get_setting("market/network/api_origin", "https://market.olcas.app")
 var _cookies: Dictionary = {}
 var session_directory := ""
 var _cookie_origin := ""

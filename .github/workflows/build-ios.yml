@@ -91,6 +91,12 @@ jobs:
           PY
           python3 scripts/verify-ios-orientation.py build/ios/MiniMarket/MiniMarket-Info.plist
 
+      - name: Verify native backend configuration and HTTPS endpoints
+        run: |
+          set -euo pipefail
+          "$GODOT_BIN" --headless --path godot -s tools/verify_native_backend.gd 2>&1 | tee build/ios/backend.log
+          if grep -Fq 'ERROR:' build/ios/backend.log; then exit 1; fi
+
       - name: Build unsigned iPhone arm64 app
         run: |
           set -euo pipefail
