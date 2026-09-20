@@ -41,7 +41,7 @@ var input := InputManager.new()
 var motion_velocity := Vector2.ZERO
 var angular_velocity := 0.0
 var checkout_camera_blend := 0.0
-var camera_zoom := 0.0
+var camera_zoom := 1.0
 var unreported_distance := 0.0
 var zone_signature := ""
 var structure_signature := ""
@@ -99,6 +99,7 @@ func _ready() -> void:
 	sun.shadow_enabled = true
 	add_child(camera)
 	camera.projection = Camera3D.PROJECTION_ORTHOGONAL
+	camera.keep_aspect = Camera3D.KEEP_HEIGHT
 	camera.near = 0.3
 	camera.far = 360
 	camera.current = true
@@ -296,19 +297,7 @@ func _process(delta: float) -> void:
 		player_actor.yaw_delta = heading - player_actor.rotation.y
 		player_actor.rotation.y = turn.yaw
 		angular_velocity = turn.angularVelocity
-	var checkout_focused: bool = work_id == "checkout"
-	checkout_camera_blend = lerpf(checkout_camera_blend, 1.0 if checkout_focused else 0.0, 1 - exp(-(4.8 if checkout_focused else 3.2) * step))
-	var focus := player_body.position + Vector3(0, 0.9 * 1.65 * 3, 0)
-	var checkout_target: Array = WorldScale.scale_store_position(CheckoutLayout.CHECKOUT_CAMERA_TARGET)
-	var checkout_position: Array = WorldScale.scale_store_position(CheckoutLayout.CHECKOUT_CAMERA_POSITION)
-	camera.position = (focus + Vector3(16, 23, 25.75) * 3).lerp(Vector3(checkout_position[0], checkout_position[1], checkout_position[2]) * 3, checkout_camera_blend)
-	camera.look_at(focus.lerp(Vector3(checkout_target[0], checkout_target[1], checkout_target[2]) * 3, checkout_camera_blend))
-	var viewport := get_viewport().get_visible_rect().size
-	var overview_zoom := minf(viewport.x / 32, viewport.y / 28.5) / 1.15 * 1.3
-	var checkout_zoom := minf(viewport.x / CheckoutLayout.CHECKOUT_CAMERA_FRAME.width, viewport.y / CheckoutLayout.CHECKOUT_CAMERA_FRAME.height) * 1.3
-	if camera_zoom <= 0: camera_zoom = overview_zoom
-	camera_zoom = lerpf(camera_zoom, lerpf(overview_zoom, checkout_zoom, checkout_camera_blend), 1 - exp(-5 * step))
-	camera.size = viewport.y / camera_zoom
+	_update_camera(delta, work_id == "checkout")
 	for actor in actors.values():
 		actor.external_time = presentation_elapsed
 		if actor.snapshot.is_empty(): continue
@@ -503,3 +492,17 @@ static func _same_position(a: Array, b: Array) -> bool:
 
 func _exit_tree() -> void:
 	crops.dispose()
+
+## OrthographicCamera in MarketScene.tsx: size is the vertical frustum span.
+func _update_camera(delta: float, checkout_focused: bool) -> void:
+	checkout_camera_blend = lerpf(checkout_camera_blend, 1.0 if checkout_focused else 0.0, Locomotion.damp_factor(4.8 if checkout_focused else 3.2, delta))
+	var focus := Vector3(player_body.position.x, 0.9 * 1.65 * 3, player_body.position.z)
+	var checkout_target: Array = WorldScale.scale_store_position(CheckoutLayout.CHECKOUT_CAMERA_TARGET)
+	var checkout_position: Array = WorldScale.scale_store_position(CheckoutLayout.CHECKOUT_CAMERA_POSITION)
+	camera.position = (focus + Vector3(16, 23, 25.75) * 3).lerp(Vector3(checkout_position[0], checkout_position[1], checkout_position[2]) * 3, checkout_camera_blend)
+	camera.look_at(focus.lerp(Vector3(checkout_target[0], checkout_target[1], checkout_target[2]) * 3, checkout_camera_blend))
+	var viewport := get_viewport().get_visible_rect().size
+	var overview_zoom := minf(viewport.x / 32, viewport.y / 28.5) / 1.15 * 1.3
+	var checkout_zoom := minf(viewport.x / CheckoutLayout.CHECKOUT_CAMERA_FRAME.width, viewport.y / CheckoutLayout.CHECKOUT_CAMERA_FRAME.height) * 1.3
+	camera_zoom = lerpf(camera_zoom, lerpf(overview_zoom, checkout_zoom, checkout_camera_blend), Locomotion.damp_factor(5, delta))
+	camera.size = viewport.y / camera_zoom

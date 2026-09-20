@@ -24,6 +24,13 @@ window/size/viewport_height=720
 window/stretch/mode="disabled"
 window/stretch/aspect="expand"
 window/handheld/orientation=4
+; iPhone launches portrait; desktop/Web retain their original configuration.
+window/handheld/orientation.ios=1
+; Startup reference only: application.gd derives UIKit points from live density.
+window/size/viewport_width.ios=430
+window/size/viewport_height.ios=932
+window/stretch/mode.ios="canvas_items"
+window/stretch/aspect.ios="ignore"
 
 [input_devices]
 

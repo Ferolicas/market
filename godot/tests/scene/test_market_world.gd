@@ -571,3 +571,33 @@ func test_high_density_3d_scale_uses_backing_pixels_independently_of_ui_units() 
 	window.content_scale_size = previous_size
 	window.content_scale_mode = previous_mode
 	world.rendering.refresh_profile()
+
+func test_portrait_camera_projection_matches_actual_three_callback() -> void:
+	var cases: Array = JSON.parse_string(FileAccess.get_file_as_bytes("res://tests/fixtures/camera-oracle.json.gz").decompress_dynamic(8 * 1024 * 1024, FileAccess.COMPRESSION_GZIP).get_string_from_utf8())
+	var viewport := SubViewport.new()
+	viewport.own_world_3d = true
+	Engine.get_main_loop().root.add_child(viewport)
+	world.reparent(viewport)
+	world.set_process(false)
+	world.set_physics_process(false)
+	var max_error := 0.0
+	for fixture in cases:
+		viewport.size = Vector2i(fixture.width, fixture.height)
+		world.camera_zoom = 1.0
+		world.checkout_camera_blend = 0.0
+		for frame in fixture.frames:
+			world.player_body.position = Vector3(frame.focus[0], frame.focus[1], frame.focus[2])
+			world._update_camera(frame.delta, frame.checkoutFocused)
+			assert_near(world.camera.near, frame.near)
+			assert_near(world.camera.far, frame.far)
+			assert_near(world.camera_zoom, frame.zoom, 0.0001)
+			assert_lt(world.camera.position.distance_to(Vector3(frame.position[0], frame.position[1], frame.position[2])), 0.0001)
+			for index in fixture.points.size():
+				var point: Array = fixture.points[index]
+				var projected := world.camera.unproject_position(Vector3(point[0], point[1], point[2]))
+				var expected := Vector2(frame.projected[index][0], frame.projected[index][1])
+				max_error = maxf(max_error, projected.distance_to(expected))
+	assert_lt(max_error, 0.01, "Three/Godot landmark projection mismatch in logical pixels")
+	print("Portrait camera oracle maximum error: ", max_error, " logical pixels")
+	world.reparent(Engine.get_main_loop().root)
+	viewport.free()

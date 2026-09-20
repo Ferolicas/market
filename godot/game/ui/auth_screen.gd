@@ -82,10 +82,12 @@ func _reflow() -> void:
 	var left := size.x * 0.55 if desktop else 0.0
 	hero.position = Vector2.ZERO
 	hero.size = Vector2(left, size.y)
-	scroll.position = Vector2(left + 20, 20)
-	var available := maxf(size.x - left - 40, 0)
+	var safe := MarketSafeArea.insets(get_viewport())
+	var margins := Vector4(maxf(20, safe.x), maxf(20, safe.y), maxf(20, safe.z), maxf(20, safe.w))
+	scroll.position = Vector2(left + margins.x, margins.y)
+	var available := maxf(size.x - left - margins.x - margins.z, 0)
 	card.custom_minimum_size.x = minf(440, maxf(available - 12, 0))
-	scroll.size = Vector2(available, maxf(size.y - 40, 0))
+	scroll.size = Vector2(available, maxf(size.y - margins.y - margins.w, 0))
 
 func _show_mode() -> void:
 	Widgets.clear(form)

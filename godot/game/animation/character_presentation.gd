@@ -62,7 +62,7 @@ static func character_model_tier_for_capabilities(capabilities: Dictionary) -> i
 static func current_character_capabilities() -> Dictionary:
 	if OS.has_feature("web"):
 		return JSON.parse_string(str(JavaScriptBridge.eval("JSON.stringify({width:innerWidth,height:innerHeight,coarsePointer:matchMedia('(pointer: coarse)').matches,hardwareConcurrency:navigator.hardwareConcurrency??8,deviceMemory:navigator.deviceMemory??8,devicePixelRatio:devicePixelRatio})", true)))
-	var size := DisplayServer.window_get_size()
+	var size := MarketDisplayMetrics.current_size()
 	return {
 		"width": size.x,
 		"height": size.y,

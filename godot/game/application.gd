@@ -25,11 +25,11 @@ var world_prepared := false
 var browser_lifecycle_callback: JavaScriptObject
 
 func _ready() -> void:
-	if OS.has_feature("web"):
+	if OS.has_feature("web") or OS.has_feature("ios"):
 		get_window().content_scale_aspect = Window.CONTENT_SCALE_ASPECT_IGNORE
 		get_window().content_scale_mode = Window.CONTENT_SCALE_MODE_CANVAS_ITEMS
-		get_window().size_changed.connect(_sync_web_display_size)
-		_sync_web_display_size()
+		get_window().size_changed.connect(_sync_display_size)
+		_sync_display_size()
 	if OS.has_feature("web") and OS.is_debug_build(): browser_qa = bool(JavaScriptBridge.eval("location.hostname === '127.0.0.1' && (new URLSearchParams(location.search).has('qa') || new URLSearchParams(location.hash.slice(1)).has('qa'))", true))
 	add_child(store)
 	if not OS.has_feature("web"): store.api.session_directory = "user://auth-sessions"
@@ -67,7 +67,11 @@ func _resume_session() -> void:
 			player_name = remembered if remembered is String else ""
 		await _load_game()
 
-func _sync_web_display_size() -> void:
+func _sync_display_size() -> void:
+	if OS.has_feature("ios"):
+		var logical_size := MarketDisplayMetrics.logical_size(get_window().size, DisplayServer.screen_get_scale())
+		if get_window().content_scale_size != logical_size: get_window().content_scale_size = logical_size
+		return
 	# DOM UI in the original uses CSS pixels, independent of the backing buffer.
 	var dimensions: Array = JSON.parse_string(str(JavaScriptBridge.eval("JSON.stringify([innerWidth,innerHeight])", true)))
 	var logical_size := Vector2i(maxi(1, int(dimensions[0])), maxi(1, int(dimensions[1])))

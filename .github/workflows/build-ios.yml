@@ -89,6 +89,7 @@ jobs:
               raise SystemExit('Expected DEVELOPMENT_TEAM template field is missing')
           project.write_text(text)
           PY
+          python3 scripts/verify-ios-orientation.py build/ios/MiniMarket/MiniMarket-Info.plist
 
       - name: Build unsigned iPhone arm64 app
         run: |
@@ -111,6 +112,7 @@ jobs:
           app="$GITHUB_WORKSPACE/build/ios/DerivedData/Build/Products/Release-iphoneos/MiniMarket.app"
           test -d "$app"
           plutil -lint "$app/Info.plist"
+          python3 scripts/verify-ios-orientation.py "$app/Info.plist"
           executable=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$app/Info.plist")
           test -x "$app/$executable"
           test "$(lipo -archs "$app/$executable")" = arm64

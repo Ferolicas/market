@@ -12,6 +12,8 @@ import sharp from 'sharp';
 import {getDFGLUT} from 'three/src/renderers/shaders/DFGLUTData.js';
 import {chromium} from 'playwright';
 const root=process.cwd();
+const referenceWidth=Number(process.env.MARKET_QA_WIDTH??1280);
+const referenceHeight=Number(process.env.MARKET_QA_HEIGHT??720);
 const output=path.join(root,'godot/assets/authored');
 await mkdir(output,{recursive:true});
 const io=new NodeIO().registerExtensions(ALL_EXTENSIONS);
@@ -46,7 +48,7 @@ const server=createServer(async(req,res)=>{
    const chunks=[];for await(const chunk of req)chunks.push(chunk);
    await writeFile(path.join(output,path.basename(url.pathname)),Buffer.concat(chunks));res.end('ok');return;
   }
-  if(url.pathname==='/'){res.setHeader('Content-Type','text/html');res.end('<style>body{margin:0}</style><div id="root" style="width:1280px;height:720px"></div><script type="module" src="/bundle.js"></script>');return;}
+  if(url.pathname==='/'){res.setHeader('Content-Type','text/html');res.end(`<style>body{margin:0}</style><div id="root" style="width:${referenceWidth}px;height:${referenceHeight}px"></div><script type="module" src="/bundle.js"></script>`);return;}
   if(url.pathname==='/bundle.js'){res.setHeader('Content-Type','text/javascript');res.end(result.outputFiles[0].contents);return;}
   const file=path.resolve(root,'public','.'+decodeURIComponent(url.pathname));
   if(!file.startsWith(path.join(root,'public')+path.sep)){res.writeHead(403).end();return;}
@@ -58,7 +60,7 @@ let browser;
 try {
  browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_BIN??'/home/ferney_oliveros/.local/bin/google-chrome',args:['--no-sandbox','--enable-gpu','--ignore-gpu-blocklist','--use-angle=vulkan','--enable-features=Vulkan','--disable-background-timer-throttling']});
  for(const part of process.argv.slice(2).length?process.argv.slice(2):['ground','city','building','furniture','farm','crops','basket','carry-products','retail-products','checkout-bag','rear-door','customer-cart','customer-bag','closed-checkouts',...['wheat','flour','bread','corn','milk','eggs','cheese','apples','tomatoes','oranges','coffee','juice','cannedCorn'].map(id=>'product-'+id)]) {
-  const page=await browser.newPage({viewport:{width:1280,height:720}});const errors=[];
+  const page=await browser.newPage({viewport:{width:referenceWidth,height:referenceHeight}});const errors=[];
   page.on('pageerror',error=>{errors.push(error.message);console.error(error.stack);});
   page.on('console',message=>{if(message.type()==='error'){errors.push(message.text());console.error(message.text());}});
   await page.goto(`http://127.0.0.1:${server.address().port}/?part=${part}`);

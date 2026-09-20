@@ -8,18 +8,27 @@ var world: World
 var frames := 0
 func _init() -> void: _run.call_deferred()
 func _run() -> void:
+	# Offscreen portrait target avoids desktop window-manager height limits.
+	var viewport: Viewport = root
+	if not OS.get_environment("MARKET_QA_WIDTH").is_empty():
+		var target := SubViewport.new()
+		target.size = Vector2i(int(OS.get_environment("MARKET_QA_WIDTH")), int(OS.get_environment("MARKET_QA_HEIGHT")))
+		target.own_world_3d = true
+		target.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+		root.add_child(target)
+		viewport = target
 	if OS.get_environment("MARKET_QA_HDR") == "1": root.use_hdr_2d = true
 	store = Store.new()
 	store.recovery = RecoveryStorage.new()
 	store.recovery.directory = "user://visual-qa-" + JS.uuid()
 	store.add_child(store.recovery)
-	root.add_child(store)
+	viewport.add_child(store)
 	var fixture := OS.get_environment("MARKET_QA_REFERENCE_STATE")
 	store.game = JsonExact.parse(FileAccess.get_file_as_string(fixture)) if not fixture.is_empty() else MarketEngine.create_campaign_game()
 	store.game.tutorialStep = 1
 	world = World.new()
 	world.store = store
-	root.add_child(world)
+	viewport.add_child(world)
 	if OS.get_environment("MARKET_QA_HIDE_GLASS") == "1":
 		for node in world.parts.building.nodes.values():
 			if node is MeshInstance3D and node.get_active_material(0).transparency != BaseMaterial3D.TRANSPARENCY_DISABLED: node.visible = false
@@ -28,7 +37,7 @@ func _run() -> void:
 		world.environment.ambient_light_energy = 1.15 / PI
 		world.sun.light_energy = 2.3 / PI
 	var canvas := CanvasLayer.new()
-	root.add_child(canvas)
+	viewport.add_child(canvas)
 	var shell := Shell.new()
 	shell.store = store
 	shell.world = world
@@ -52,7 +61,7 @@ func _run() -> void:
 	await process_frame
 	await RenderingServer.frame_post_draw
 	var output := OS.get_cmdline_user_args()[0] if not OS.get_cmdline_user_args().is_empty() else "/tmp/market-godot-campaign.png"
-	var image := root.get_texture().get_image()
+	var image := viewport.get_texture().get_image()
 	assert(not image.is_empty())
 	assert(image.save_png(output) == OK)
 	print("RENDERED ", output, " ", image.get_size())
@@ -103,4 +112,5 @@ func _run() -> void:
 	for file in directory.get_files(): directory.remove(file)
 	DirAccess.remove_absolute(directory_path)
 	NavMeshService.dispose_store_navigation()
+	if viewport != root: viewport.free()
 	quit()

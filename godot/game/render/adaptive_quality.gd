@@ -48,7 +48,7 @@ static func current_render_capabilities() -> Dictionary:
 	if OS.has_feature("web"):
 		return JSON.parse_string(str(JavaScriptBridge.eval("JSON.stringify({width:innerWidth,coarsePointer:matchMedia('(pointer: coarse)').matches,devicePixelRatio:devicePixelRatio})", true)))
 	return {
-		"width": DisplayServer.window_get_size().x,
+		"width": MarketDisplayMetrics.current_size().x,
 		# Godot reports emulated mouse-to-touch as touchscreen availability.
 		# That does not change the primary pointer on a desktop browser.
 		"coarsePointer": OS.get_name() in ["Android", "iOS"],
