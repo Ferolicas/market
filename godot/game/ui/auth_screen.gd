@@ -15,6 +15,10 @@ var reset_token := ""
 var scroll: ScrollContainer
 var card: PanelContainer
 var hero: PanelContainer
+var keyboard_height := 0.0
+var keyboard_bar: HBoxContainer
+var keyboard_next: Button
+var keyboard_hide: Button
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -61,6 +65,7 @@ func _ready() -> void:
 	copy.add_child(illustration)
 	scroll = ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.follow_focus = true
 	add_child(scroll)
 	var center := CenterContainer.new()
 	center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -71,6 +76,15 @@ func _ready() -> void:
 	form = VBoxContainer.new()
 	form.add_theme_constant_override("separation", 10)
 	card.add_child(form)
+	keyboard_bar = HBoxContainer.new()
+	keyboard_bar.add_theme_constant_override("separation", 8)
+	add_child(keyboard_bar)
+	keyboard_next = Widgets.button(keyboard_bar, "Siguiente", _focus_next_field)
+	keyboard_hide = Widgets.button(keyboard_bar, "Ocultar teclado", _dismiss_keyboard)
+	for button in [keyboard_next, keyboard_hide]:
+		button.focus_mode = Control.FOCUS_NONE
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	keyboard_bar.hide()
 	resized.connect(_settle_layout)
 	_show_mode()
 	_reflow()
@@ -87,7 +101,11 @@ func _reflow() -> void:
 	scroll.position = Vector2(left + margins.x, margins.y)
 	var available := maxf(size.x - left - margins.x - margins.z, 0)
 	card.custom_minimum_size.x = minf(440, maxf(available - 12, 0))
-	scroll.size = Vector2(available, maxf(size.y - margins.y - margins.w, 0))
+	var bottom := maxf(margins.w, keyboard_height + 64 if keyboard_height > 0 else 0)
+	scroll.size = Vector2(available, maxf(size.y - margins.y - bottom, 0))
+	keyboard_bar.visible = keyboard_height > 0
+	keyboard_bar.position = Vector2(margins.x, size.y - keyboard_height - 56)
+	keyboard_bar.size = Vector2(maxf(0, size.x - margins.x - margins.z), 48)
 
 func _show_mode() -> void:
 	Widgets.clear(form)
@@ -107,7 +125,10 @@ func _show_mode() -> void:
 	for key in fields:
 		var field: LineEdit = fields[key]
 		field.custom_minimum_size.x = 0
-		field.text_submitted.connect(func(_value: String): _submit())
+		field.focus_entered.connect(_field_focused)
+		field.text_submitted.connect(func(_value: String):
+			if OS.has_feature("ios"): _submit_or_next()
+			else: _submit())
 		field.placeholder_text = {"name": "Ferney", "username": "ferney_market", "identity": "tu@correo.com", "password": "Mínimo 10 caracteres"}.get(key, "")
 		if key == "identity" and mode != "login": field.virtual_keyboard_type = LineEdit.KEYBOARD_TYPE_EMAIL_ADDRESS
 	status = Widgets.label(form, "")
@@ -126,7 +147,8 @@ func _show_mode() -> void:
 	for child in form.get_children():
 		if child is Label: child.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		if child is Button: child.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	fields["password" if mode == "reset" else "identity"].grab_focus()
+	# Let the user open the native keyboard deliberately; do not obscure a new form.
+	if not OS.has_feature("ios"): fields["password" if mode == "reset" else "identity"].grab_focus()
 	_reflow()
 	_settle_layout.call_deferred()
 
@@ -134,12 +156,14 @@ func _settle_layout() -> void:
 	card.reset_size()
 	scroll.get_child(0).reset_size()
 	_reflow()
+	_reveal_focused_field()
 
 func _change_mode(value: String) -> void:
 	if busy: return
 	if mode == "reset" and OS.has_feature("web"):
 		JavaScriptBridge.eval("(() => { const u = new URL(location.href); for (const k of ['auth','token','error']) u.searchParams.delete(k); history.replaceState(null,'',u); })()", true)
 	var was_reset := mode == "reset"
+	_dismiss_keyboard()
 	mode = value
 	_show_mode()
 	if was_reset: returned_home.emit()
@@ -162,6 +186,7 @@ func _submit() -> void:
 		if fields.name.text.strip_edges().length() < 2 or valid_username.search(fields.username.text.strip_edges()) == null:
 			status.text = "Introduce tu nombre y un usuario de 3 a 24 letras, números, puntos o guiones bajos."
 			return
+	if OS.has_feature("ios"): _dismiss_keyboard()
 	busy = true
 	submit_button.disabled = true
 	status.text = "Un momento…"
@@ -186,3 +211,48 @@ func _reset_redirect() -> String:
 	if OS.has_feature("web"):
 		return str(JavaScriptBridge.eval("location.origin + location.pathname + '?auth=reset'", true))
 	return api.base_url.trim_suffix("/") + "/reset-password"
+
+func _process(_delta: float) -> void:
+	if OS.has_feature("ios"):
+		# Godot's Apple display server reports keyboard height in backing pixels.
+		var height := DisplayServer.virtual_keyboard_get_height() * get_viewport().get_visible_rect().size.y / maxf(1, get_window().size.y)
+		_apply_keyboard_height(height)
+
+func _apply_keyboard_height(height: float) -> void:
+	if is_equal_approx(keyboard_height, height): return
+	keyboard_height = maxf(0, height)
+	_reflow()
+	_reveal_focused_field()
+
+func _field_focused() -> void:
+	keyboard_next.disabled = _next_field() == null
+	_reveal_focused_field()
+
+func _reveal_focused_field() -> void:
+	# Containers need a frame to apply the reduced scroll area before scrolling.
+	await get_tree().process_frame
+	if not is_inside_tree(): return
+	var focused := get_viewport().gui_get_focus_owner()
+	if focused != null and focused in fields.values(): scroll.ensure_control_visible(focused)
+
+func _next_field() -> LineEdit:
+	var items := fields.values()
+	var index := items.find(get_viewport().gui_get_focus_owner())
+	return items[index + 1] if index >= 0 and index + 1 < items.size() else null
+
+func _focus_next_field() -> void:
+	var next := _next_field()
+	if next != null: next.grab_focus()
+
+func _submit_or_next() -> void:
+	if _next_field() != null:
+		_focus_next_field()
+	else:
+		_dismiss_keyboard()
+		_submit()
+
+func _dismiss_keyboard() -> void:
+	var focused := get_viewport().gui_get_focus_owner()
+	if focused != null and focused in fields.values(): focused.release_focus()
+	if OS.has_feature("ios"): DisplayServer.virtual_keyboard_hide()
+	_apply_keyboard_height(0)

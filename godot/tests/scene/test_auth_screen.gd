@@ -36,3 +36,63 @@ func test_all_modes_fit_small_phone_and_submit_with_keyboard() -> void:
 		for field in screen.fields.values():
 			assert_lte(field.size.x, 320.0)
 			assert_eq(field.text_submitted.get_connections().size(), 1)
+
+func test_keyboard_occlusion_keeps_every_field_visible_and_navigable() -> void:
+	var window: Window = Engine.get_main_loop().root
+	var previous_size := window.size
+	screen.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
+	for dimensions in [Vector2(360, 640), Vector2(390, 844), Vector2(430, 932)]:
+		window.size = Vector2i(dimensions)
+		for frame in 2: await Engine.get_main_loop().process_frame
+		for mode in ["login", "register", "forgot", "reset"]:
+			screen._change_mode(mode)
+			screen.size = dimensions
+			screen._apply_keyboard_height(320)
+			var items := screen.fields.values()
+			items[0].grab_focus()
+			for index in items.size():
+				for frame in 4: await Engine.get_main_loop().process_frame
+				var field: LineEdit = items[index]
+				assert_true(field.has_focus())
+				assert_true(screen.keyboard_bar.visible)
+				assert_lte(screen.scroll.get_global_rect().end.y, dimensions.y - 320 - 56)
+				assert_gte(field.get_global_rect().position.y, screen.scroll.get_global_rect().position.y - 1)
+				assert_lte(field.get_global_rect().end.y, screen.scroll.get_global_rect().end.y + 1)
+				assert_lte(screen.keyboard_bar.get_global_rect().end.y, dimensions.y - 320)
+				assert_eq(screen.keyboard_next.disabled, index == items.size() - 1)
+				if index + 1 < items.size(): await _tap_button(screen.keyboard_next)
+			await _tap_button(screen.keyboard_hide)
+			assert_false(screen.keyboard_bar.visible)
+			assert_false(items[-1].has_focus())
+			assert_near(screen.scroll.size.y, dimensions.y - 40, 0.01)
+
+	window.size = previous_size
+
+func test_return_moves_to_next_field_without_sending_incomplete_form() -> void:
+	screen._change_mode("register")
+	screen.fields.name.grab_focus()
+	screen._submit_or_next()
+	assert_true(screen.fields.username.has_focus())
+	assert_false(screen.busy)
+	assert_eq(screen.status.text, "")
+	screen._submit_or_next()
+	assert_true(screen.fields.identity.has_focus())
+	screen._submit_or_next()
+	assert_true(screen.fields.password.has_focus())
+
+func _tap_button(button: Button) -> void:
+	var motion := InputEventMouseMotion.new()
+	motion.position = button.get_global_rect().get_center()
+	motion.global_position = motion.position
+	Engine.get_main_loop().root.push_input(motion, true)
+	var press := InputEventMouseButton.new()
+	press.position = button.get_global_rect().get_center()
+	press.global_position = press.position
+	press.button_index = MOUSE_BUTTON_LEFT
+	press.pressed = true
+	Engine.get_main_loop().root.push_input(press, true)
+	await Engine.get_main_loop().process_frame
+	var release: InputEventMouseButton = press.duplicate()
+	release.pressed = false
+	Engine.get_main_loop().root.push_input(release, true)
+	await Engine.get_main_loop().process_frame
