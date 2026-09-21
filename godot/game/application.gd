@@ -41,6 +41,9 @@ func _ready() -> void:
 	add_child(audio)
 	settings.changed.connect(audio.apply_settings)
 	unsubscribe_audio = FeedbackBus.shared().subscribe(audio.play)
+	# Only the web export needs a user gesture before audio can play; native
+	# builds (iOS, desktop) can start the music the moment the app opens.
+	if not OS.has_feature("web"): audio.unlock()
 	if OS.has_feature("web"):
 		browser_lifecycle_callback = JavaScriptBridge.create_callback(_browser_lifecycle)
 		JavaScriptBridge.eval(FileAccess.get_file_as_string("res://game/persistence/browser_lifecycle.js"), true)
@@ -150,7 +153,7 @@ func _load_game() -> void:
 	if not is_instance_valid(curtain) and store.game.tutorialStep > 0:
 		curtain = MarketLoadingCurtain.new()
 		canvas.add_child(curtain)
-		await get_tree().process_frame
+	if is_instance_valid(curtain): await get_tree().process_frame
 	world = World.new()
 	world.store = store
 	add_child(world)
