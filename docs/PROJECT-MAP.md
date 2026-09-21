@@ -1,5 +1,11 @@
 # Mini Market — mapa vivo
 
+## Segunda muestra real: causa del arranque encontrada, tirón en partida descartada — 21-09-2026
+
+Con el desglose fino (commit `6a2c9d6`) llegó la muestra completa (iPhone real, `total_ms`=15601): **`crops_bind_ms`=6161** (el hueco de ~6.8 s de la primera muestra era casi todo `crops.bind(parts.farm)`, en `market_world.gd`), `sync_state_ms`=4385, `furniture_ms`=2622, `farm_ms`=1620; el resto (`doors`, `inventory_bind`, `production_bind`, `checkout_bind`, `environment_setup`) es insignificante (≤51 ms cada uno). `crops.bind()` solo es el 40 % del arranque — candidato principal para optimizar antes que ningún otro paso.
+
+La hipótesis del guardado de recuperación como causa del tirón en partida (~0.5 s, cada pocos segundos) **quedó descartada con datos reales**: en un minuto con 22 escrituras de recuperación, `recoveryPersistMaxMs`=15 ms (`recoveryPersistOverThresholdCount`=0) — muy lejos de 500 ms. El resumen de un minuto tampoco es la herramienta correcta para detectar un tirón aislado: p95 y framesOver25 no se mueven con solo 1-2 frames muy lentos entre miles. Se añadió `maxFrameMs` y `framesOver100` a `FieldPerformanceSampler` (`godot/game/telemetry/field_performance.gd`) para que el próximo reporte de un minuto muestre directamente el peor frame real, en vez de un promedio/percentil que los disuelve. Pendiente: una muestra con esta métrica para confirmar si el tirón sigue existiendo y de qué magnitud es.
+
 ## Datos reales de arranque y sospecha de tirones en partida — 21-09-2026
 
 Con la telemetría de `startup-world-load` (ver entrada anterior) llegó el primer dato real de un iPhone: de 16149 ms totales, `furniture_ms`=2801, `farm_ms`=1693, `sync_state_ms`=4377 (primera construcción de colisiones/visibilidad) y quedaba un hueco de ~6.8 s sin explicar. Se añadieron cronómetros a `doors_ms`, `inventory_bind_ms`, `crops_bind_ms`, `production_bind_ms`, `checkout_bind_ms` y `environment_setup_ms` (commit `6a2c9d6`) para atribuir ese hueco en la siguiente muestra.
