@@ -1,5 +1,11 @@
 # Mini Market — mapa vivo
 
+## Datos reales de arranque y sospecha de tirones en partida — 21-09-2026
+
+Con la telemetría de `startup-world-load` (ver entrada anterior) llegó el primer dato real de un iPhone: de 16149 ms totales, `furniture_ms`=2801, `farm_ms`=1693, `sync_state_ms`=4377 (primera construcción de colisiones/visibilidad) y quedaba un hueco de ~6.8 s sin explicar. Se añadieron cronómetros a `doors_ms`, `inventory_bind_ms`, `crops_bind_ms`, `production_bind_ms`, `checkout_bind_ms` y `environment_setup_ms` (commit `6a2c9d6`) para atribuir ese hueco en la siguiente muestra.
+
+Aparte, el usuario reportó tirones de ~0.5 s mientras camina, recurrentes cada pocos segundos ("al rato otro"). El reporte automático de rendimiento de un minuto (`client_telemetry.gd`, ya existente) no mostró nada anómalo (p95 a 60 fps, 0.8% de frames por debajo de 40 fps) — la cadencia descrita encaja mejor con `RecoveryStorage.persist_recovery_snapshot()` (`godot/game/persistence/recovery_storage.gd`), que cada `RECOVERY_WRITE_INTERVAL_MS` (3000 ms) duplica el estado completo de la partida, lo serializa a JSON y lo escribe a disco de forma síncrona en el hilo principal. Se instrumentó (`recoveryPersistMaxMs`, `recoveryPersistOverThresholdCount`, desglose duplicate/stringify/write en ms) y se pliega en el mismo reporte de un minuto para confirmar o descartar esta causa con datos reales del dispositivo, sin necesidad de Xcode Instruments ni el profiler remoto de Godot. Cubierto por `godot/tests/persistence/test_recovery_storage_persist_timing.gd`.
+
 ## Música desde la apertura y telón de carga menos brusco — 21-09-2026
 
 Confirmado en dispositivo real: ya no aparece el splash de Godot ni el login con sesión activa (build 4). Pendiente reportado por el usuario: el telón de carga se queda congelado ~15 s y luego arranca la barra; la música no sonaba hasta la primera interacción. Cambios:

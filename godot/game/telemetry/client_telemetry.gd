@@ -63,7 +63,8 @@ func _process(delta: float) -> void:
 		summary.viewportWidth = JavaScriptBridge.eval("innerWidth", true)
 		summary.viewportHeight = JavaScriptBridge.eval("innerHeight", true)
 		summary.devicePixelRatio = JavaScriptBridge.eval("devicePixelRatio", true)
-	report({"kind": "performance", "name": "one-minute-window", "severity": "warning" if summary.p95FrameMs > 40 or summary.longTaskCount > 2 else "info", "payload": summary})
+	if store != null and store.recovery != null: summary.merge(store.recovery.take_persist_stats())
+	report({"kind": "performance", "name": "one-minute-window", "severity": "warning" if summary.p95FrameMs > 40 or summary.longTaskCount > 2 or summary.get("recoveryPersistMaxMs", 0) > 200 else "info", "payload": summary})
 
 func _exit_tree() -> void:
 	if OS.has_feature("web"): JavaScriptBridge.eval("window.__marketFieldPerformance?.close(); delete window.__marketFieldPerformance;", true)
