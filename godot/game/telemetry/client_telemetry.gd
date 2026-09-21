@@ -66,6 +66,7 @@ func _process(delta: float) -> void:
 		summary.devicePixelRatio = JavaScriptBridge.eval("devicePixelRatio", true)
 	if store != null and store.recovery != null: summary.merge(store.recovery.take_persist_stats())
 	if is_instance_valid(world): summary.merge(world.take_actor_creation_stats())
+	summary.merge(MarketActor.take_rig_phase_stats())
 	report({"kind": "performance", "name": "one-minute-window", "severity": "warning" if summary.p95FrameMs > 40 or summary.longTaskCount > 2 or summary.get("recoveryPersistMaxMs", 0) > 200 or summary.get("actorCreationMaxMs", 0) > 100 else "info", "payload": summary})
 
 func _exit_tree() -> void:

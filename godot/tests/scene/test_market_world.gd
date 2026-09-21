@@ -72,6 +72,22 @@ func test_customers_share_a_finish_but_employees_never_do() -> void:
 	first_employee.free()
 	second_employee.free()
 
+## Backs the rig*MaxMs fields folded into client_telemetry's one-minute-window
+## report — caching the finished material (test above) did not move
+## actorCreationMaxMs on the next real device sample, so _load_rig() is timed
+## phase by phase to find where the real cost actually is.
+func test_load_rig_records_a_max_time_per_phase_for_telemetry() -> void:
+	MarketActor.take_rig_phase_stats() # drain anything left over from other tests
+	var actor := MarketActor.new()
+	world.add_child(actor)
+	actor.configure_customer(2)
+	var stats := MarketActor.take_rig_phase_stats()
+	for phase in ["rigInstantiateMaxMs", "rigPrepareModelMaxMs", "rigSkeletonScanMaxMs", "rigAnimationSetupMaxMs"]:
+		assert_true(stats.has(phase), phase)
+		assert_gte(stats[phase], 0)
+	assert_eq(MarketActor.take_rig_phase_stats(), {}, "Stats drain on read")
+	actor.free()
+
 func test_scene_loads_native_physics_original_rig_and_initial_campaign() -> void:
 	assert_eq(world.player_body.position, Vector3(0, 0, 37.5))
 	assert_gt(world.static_bodies.get_child_count(), 10)

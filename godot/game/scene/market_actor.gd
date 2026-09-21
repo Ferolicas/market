@@ -139,11 +139,34 @@ func configure_customer(customer_identity: int) -> void:
 		add_child(shopping_bag)
 		shopping_bag.load_part("customer-bag")
 
+## Static per-phase timing, aggregated the same way as
+## RecoveryStorage.take_persist_stats(): drained and folded into the
+## one-minute-window telemetry report so the real _load_rig() bottleneck can
+## be identified from device data instead of guessed at. Caching the finished
+## customer material (see prepare_character_model) did not move
+## actorCreationMaxMs at all on the next real sample — the cost is somewhere
+## else in this function, and this pinpoints exactly where.
+static var _phase_max_ms := {}
+
+static func _record_phase(phase: String, duration_ms: int) -> void:
+	if not _phase_max_ms.has(phase) or duration_ms >= _phase_max_ms[phase]: _phase_max_ms[phase] = duration_ms
+
+## Drains and resets the stats gathered since the last call.
+static func take_rig_phase_stats() -> Dictionary:
+	var stats := {}
+	for phase in _phase_max_ms:
+		var key: String = "rig" + phase[0].to_upper() + phase.substr(1) + "MaxMs"
+		stats[key] = _phase_max_ms[phase]
+	_phase_max_ms = {}
+	return stats
+
 func _load_rig(path: String, factor: float) -> void:
 	if model != null:
 		remove_child(model)
 		model.queue_free()
+	var phase_start := Time.get_ticks_msec()
 	var source: Node3D = load(path).instantiate()
+	_record_phase("instantiate", Time.get_ticks_msec() - phase_start)
 	# Customers (identity > 0) never get a per-instance color customization
 	# after this (see configure_customer), so every spawn of the same
 	# identity can safely share one cached finished material. Employees and
@@ -151,10 +174,13 @@ func _load_rig(path: String, factor: float) -> void:
 	# which mutates these materials' albedo in place per instance — sharing
 	# would bleed one character's colors onto every other one using the same
 	# base body GLB, so they keep their own always-duplicated materials.
+	phase_start = Time.get_ticks_msec()
 	model = CharacterPresentation.prepare_character_model(source, {"crowd": identity > 0, "reducedDetail": model_tier > 0, "shareFinish": identity > 0})
+	_record_phase("prepareModel", Time.get_ticks_msec() - phase_start)
 	source.free()
 	model.scale = Vector3.ONE * factor
 	add_child(model)
+	phase_start = Time.get_ticks_msec()
 	skeleton = model.find_children("*", "Skeleton3D", true, false)[0]
 	skeleton.skeleton_updated.connect(_update_carry_pose)
 	grounding.reset()
@@ -164,6 +190,8 @@ func _load_rig(path: String, factor: float) -> void:
 		var shapes := {}
 		for index in mesh.get_blend_shape_count(): shapes[mesh.mesh.get_blend_shape_name(index)] = index
 		if not shapes.is_empty(): face_meshes.append({"mesh": mesh, "shapes": shapes})
+	_record_phase("skeletonScan", Time.get_ticks_msec() - phase_start)
+	phase_start = Time.get_ticks_msec()
 	player = model.find_children("*", "AnimationPlayer", true, false)[0]
 	for library_name in player.get_animation_library_list():
 		var library := CarrySocket.compose_carry_animation_library(player.get_animation_library(library_name))
@@ -178,6 +206,7 @@ func _load_rig(path: String, factor: float) -> void:
 		actions[short_name] = action
 	active_clip = ""
 	locomotion = LocomotionController.new()
+	_record_phase("animationSetup", Time.get_ticks_msec() - phase_start)
 
 func _process(delta: float) -> void:
 	if player == null: return

@@ -167,6 +167,7 @@ func _ready() -> void:
 	transmission.world = self
 	add_child(transmission)
 	load_timings_ms["total_ms"] = Time.get_ticks_msec() - ready_start
+	load_timings_ms.merge(Authored.take_load_phase_stats())
 
 func sync_state() -> void:
 	if store.game == null: return

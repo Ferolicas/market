@@ -9,13 +9,33 @@ var animals: Array = []
 var part: String
 var manifest: Dictionary
 
+## Per (part, phase) timing so a slow part (e.g. crops taking ~2x longer than
+## furniture despite a smaller and fewer-manifest-entries .glb) can be
+## attributed to loading the .glb, instantiating it, _index()'s recursive
+## vertex-color scan, or the per-entry shadow/material loop, instead of
+## guessed at. Folded into world.load_timings_ms (application.gd's
+## startup-world-load telemetry report) after every part has loaded.
+static var _load_phase_ms := {}
+
+static func take_load_phase_stats() -> Dictionary:
+	var stats := _load_phase_ms.duplicate()
+	_load_phase_ms.clear()
+	return stats
+
 func load_part(part_name: String) -> void:
 	part = part_name
+	var phase_start := Time.get_ticks_msec()
 	manifest = JSON.parse_string(FileAccess.get_file_as_string("res://assets/authored/%s.json" % part))
 	var packed: PackedScene = load("res://assets/authored/%s.glb" % part)
+	_load_phase_ms["%s_glbLoadMs" % part] = Time.get_ticks_msec() - phase_start
+	phase_start = Time.get_ticks_msec()
 	var content := packed.instantiate()
 	add_child(content)
+	_load_phase_ms["%s_instantiateMs" % part] = Time.get_ticks_msec() - phase_start
+	phase_start = Time.get_ticks_msec()
 	_index(content)
+	_load_phase_ms["%s_indexMs" % part] = Time.get_ticks_msec() - phase_start
+	phase_start = Time.get_ticks_msec()
 	for entry in manifest.manifest:
 		if nodes.has(entry.name):
 			nodes[entry.name].set_meta("source_name", entry.sourceName)
@@ -46,6 +66,7 @@ func load_part(part_name: String) -> void:
 						if authored.unshaded: material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 						mesh.set_surface_override_material(index, material)
 			if entry.get("authored") != null: nodes[entry.name].set_meta("authored", entry.authored)
+	_load_phase_ms["%s_entriesLoopMs" % part] = Time.get_ticks_msec() - phase_start
 	for entry in manifest.labels:
 		var label := Label3D.new()
 		label.name = entry.name
@@ -73,8 +94,14 @@ func _index(node: Node) -> void:
 	nodes[str(node.name)] = node
 	if node is MeshInstance3D and node.mesh != null:
 		for surface in node.mesh.get_surface_count():
-			var colors: Variant = node.mesh.surface_get_arrays(surface)[Mesh.ARRAY_COLOR]
-			if colors != null and not colors.is_empty():
+			# surface_get_arrays() decodes the entire vertex buffer just to
+			# check whether a color channel is present — surface_get_format()
+			# answers the same question from the format flags alone, with no
+			# buffer decode. Vertex-color-heavy organic content (crop/fruit
+			# meshes) walked this for every surface of every instance during
+			# _ready()'s authored-scene load (crops_bind_ms in
+			# market_world.gd's startup telemetry).
+			if node.mesh.surface_get_format(surface) & Mesh.ARRAY_FORMAT_COLOR != 0:
 				var material: Material = SourcePbr.source_material(node, surface)
 				if material is StandardMaterial3D:
 					material = material.duplicate()

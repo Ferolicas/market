@@ -1,5 +1,15 @@
 # Mini Market — mapa vivo
 
+## El caché de material no movió el tirón; instrumentación más fina + fix real del arranque — 22-09-2026
+
+**El fix del material compartido de clientes (entrada anterior) no funcionó**: instalación limpia, mismos tirones. Confirmado con datos: `actorCreationMaxMs`=189 ms (antes 178 ms, sin mejora), `maxFrameMs` sigue ~148-149 ms. La caché de materiales solo cubría una parte de `_load_rig()`; el costo real está en otra fase de esa función.
+
+1. **`_load_rig()` instrumentado fase a fase** (`market_actor.gd`): `rigInstantiateMaxMs`, `rigPrepareModelMaxMs`, `rigSkeletonScanMaxMs`, `rigAnimationSetupMaxMs`, plegados en el reporte de un minuto. Pendiente una muestra real para saber cuál de las cuatro fases es la culpable antes de tocar nada más — sin eso, cualquier otro cambio sería adivinar otra vez.
+
+2. **Fix real (no instrumentación) para el arranque**: `AuthoredScene._index()` (`authored_scene.gd`) llamaba `surface_get_arrays(surface)` — que decodifica el buffer de vértices completo — solo para comprobar si una superficie tiene color por vértice, en cada superficie de cada malla de todo el árbol. Reemplazado por `surface_get_format(surface) & Mesh.ARRAY_FORMAT_COLOR`, un chequeo de flags sin decodificar nada; mismo resultado booleano, sin extraer el array. Es plausible que esto explique buena parte de por qué `crops_bind_ms` (~6.2-6.4 s) costaba más del doble que `furniture_ms` (~2.8 s) pese a un `.glb` más pequeño y menos entradas de manifiesto (735 vs 858): las mallas de fruta/planta son las que más probablemente llevan color por vértice. Cubierto por `tests/assets/test_authored_scene.gd::test_index_still_enables_vertex_color_only_on_surfaces_that_carry_it` (misma salida exacta con y sin color). También se instrumentó `AuthoredScene.load_part()` fase a fase (`*_glbLoadMs`, `*_instantiateMs`, `*_indexMs`, `*_entriesLoopMs` por parte) para confirmar la magnitud real de la mejora en la próxima muestra.
+
+430 pruebas en verde. Pendiente: una muestra de `startup-world-load` para confirmar cuánto bajó `crops_bind_ms`, y una muestra de un minuto de juego con el desglose de `_load_rig()` para encontrar la causa real del tirón en partida.
+
 ## Fix del tirón en partida: material del cliente compartido por identidad — 22-09-2026
 
 Con `actorCreationMaxMs`/`actorCreationCount` llegó la confirmación: en un minuto, 21 clientes nuevos creados, `actorCreationMaxMs`=178 ms — coincide con `maxFrameMs`=148 ms y los 20 frames >100 ms del mismo minuto. Causa: `configure_customer()` → `_load_rig()` → `CharacterPresentation.prepare_character_model()` volvía a duplicar y re-acabar (`premium_material()`) el material del cuerpo **desde cero en cada aparición**, aunque solo hay 6 identidades fijas de cliente y el resultado es siempre idéntico para la misma identidad — trabajo repetido de forma síncrona justo en el frame donde aparece el cliente.
