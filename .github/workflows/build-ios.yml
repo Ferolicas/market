@@ -89,6 +89,18 @@ jobs:
               raise SystemExit('Expected DEVELOPMENT_TEAM template field is missing')
           project.write_text(text)
           PY
+          python3 - <<'PY'
+          import pathlib, re
+          storyboard = pathlib.Path('build/ios/MiniMarket/Launch Screen.storyboard')
+          if storyboard.exists():
+              text = storyboard.read_text()
+              text = re.sub(r'<imageView[^>]*>.*?</imageView>', '', text, flags=re.DOTALL)
+              text = re.sub(r'\s*<constraint[^>]*tjZ-vn-Lsv[^>]*/>', '', text)
+              text = re.sub(r'\s*<constraints>\s*</constraints>', '', text)
+              text = re.sub(r'\s*<resources>\s*<image name="SplashImage"[^>]*/>\s*</resources>', '', text)
+              storyboard.write_text(text)
+              print('Launch Screen storyboard cleaned of splash image')
+          PY
           python3 scripts/verify-ios-orientation.py build/ios/MiniMarket/MiniMarket-Info.plist
 
       - name: Verify native backend configuration and HTTPS endpoints

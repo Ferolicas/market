@@ -10,9 +10,9 @@ var _cookie_expiry := {}
 func _session_path() -> String:
 	return session_directory.path_join(base_url.trim_suffix("/").sha256_text() + ".json")
 
-func _load_session() -> void:
+func _load_session(force: bool = false) -> void:
 	var origin := base_url.trim_suffix("/")
-	if _cookie_origin == origin: return
+	if not force and _cookie_origin == origin: return
 	_cookie_origin = origin
 	_cookies.clear()
 	_cookie_expiry.clear()
@@ -37,6 +37,14 @@ func _persist_session() -> void:
 	file.close()
 	if OS.get_name() in ["Linux", "macOS"]: FileAccess.set_unix_permissions(_session_path(), FileAccess.UNIX_READ_OWNER | FileAccess.UNIX_WRITE_OWNER)
 
+func has_saved_session() -> bool:
+	_load_session(true)
+	var now := Time.get_unix_time_from_system()
+	for key in _cookie_expiry.keys():
+		if _cookie_expiry[key] <= now:
+			_cookies.erase(key)
+			_cookie_expiry.erase(key)
+	return not _cookies.is_empty()
 
 func request_json(path: String, method: String = "GET", payload: Variant = null, extra_headers: Dictionary = {}, keepalive: bool = false) -> Dictionary:
 	var url := base_url.trim_suffix("/") + path

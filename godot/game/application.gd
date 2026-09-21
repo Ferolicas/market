@@ -51,9 +51,36 @@ func _ready() -> void:
 	if OS.has_feature("web"):
 		store.api.base_url = str(JavaScriptBridge.eval("window.location.origin", true))
 	get_tree().auto_accept_quit = false
-	_show_auth()
-	if screen is MarketAuthScreen and screen.mode == "reset": return
-	await _resume_session()
+	var is_reset := OS.has_feature("web") and bool(JavaScriptBridge.eval("new URLSearchParams(location.search).get('auth') === 'reset'", true))
+	if is_reset:
+		_show_auth()
+		return
+	if _has_saved_session():
+		_show_loading()
+		await _resume_session()
+		if store.game == null:
+			_show_auth()
+	else:
+		_show_auth()
+
+func _has_saved_session() -> bool:
+	if store.api.has_saved_session():
+		return true
+	if store.recovery.read_recovery_snapshot() != null:
+		return true
+	if OS.has_feature("web"):
+		var remembered: Variant = JavaScriptBridge.eval("localStorage.getItem('mini-market-offline-player-v1')", true)
+		if remembered is String and not remembered.is_empty():
+			return true
+	return false
+
+func _show_loading() -> void:
+	if screen != null:
+		screen.queue_free()
+		screen = null
+	if not is_instance_valid(curtain):
+		curtain = MarketLoadingCurtain.new()
+		canvas.add_child(curtain)
 
 func _resume_session() -> void:
 	await store.recovery.import_browser_recovery()
@@ -97,7 +124,11 @@ func _show_auth() -> void:
 	if OS.has_feature("web") and bool(JavaScriptBridge.eval("new URLSearchParams(location.search).get('auth') === 'reset'", true)):
 		auth.mode = "reset"
 		auth.reset_token = str(JavaScriptBridge.eval("new URLSearchParams(location.search).get('token') || ''", true))
-	auth.returned_home.connect(_resume_session)
+	auth.returned_home.connect(func():
+		_show_loading()
+		await _resume_session()
+		if store.game == null:
+			_show_auth())
 	auth.authenticated.connect(func(user: Dictionary):
 		_remember_player(user)
 		await _load_game())
@@ -112,9 +143,11 @@ func _load_game() -> void:
 		add_child(telemetry)
 	await store.load_game()
 	if store.game == null: return
-	if screen != null: screen.queue_free()
+	if screen != null:
+		screen.queue_free()
+		screen = null
 	world_prepared = false
-	if store.game.tutorialStep > 0:
+	if not is_instance_valid(curtain) and store.game.tutorialStep > 0:
 		curtain = MarketLoadingCurtain.new()
 		canvas.add_child(curtain)
 		await get_tree().process_frame
@@ -128,6 +161,9 @@ func _load_game() -> void:
 	shell.sign_out_requested.connect(_sign_out)
 	canvas.add_child(shell)
 	screen = shell
+	if is_instance_valid(curtain) and store.game.tutorialStep == 0:
+		curtain.queue_free()
+		curtain = null
 	_publish_browser_qa()
 
 func _process(delta: float) -> void:
