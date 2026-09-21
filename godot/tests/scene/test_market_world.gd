@@ -33,7 +33,7 @@ func after_each() -> void:
 ## find the real cause of the loading-curtain freeze from device data,
 ## without needing Xcode Instruments or the Godot editor's remote profiler.
 func test_ready_records_a_load_time_per_authored_part_for_telemetry() -> void:
-	for part in ["ground", "city", "building", "furniture", "farm", "closed_checkouts", "rear_door", "sync_state", "total"]:
+	for part in ["ground", "city", "building", "furniture", "farm", "closed_checkouts", "rear_door", "doors", "inventory_bind", "crops_bind", "production_bind", "checkout_bind", "environment_setup", "sync_state", "total"]:
 		assert_true(world.load_timings_ms.has(part + "_ms"), part)
 		assert_gte(world.load_timings_ms[part + "_ms"], 0)
 	assert_gte(world.load_timings_ms.total_ms, world.load_timings_ms.furniture_ms)

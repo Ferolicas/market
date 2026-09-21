@@ -84,6 +84,7 @@ func _ready() -> void:
 	rear.load_part("rear-door")
 	parts["rear-door"] = rear
 	load_timings_ms["rear_door_ms"] = Time.get_ticks_msec() - rear_start
+	var doors_start := Time.get_ticks_msec()
 	for entry in rear.manifest.manifest:
 		if entry.sourceName == "dynamic:rear-farm-door": rear_door_visual = rear.nodes[entry.name]
 	rear_door_indicator = SourcePbr.source_material(rear_door_visual.get_child(2).get_child(1), 0)
@@ -91,10 +92,20 @@ func _ready() -> void:
 		if node.get_meta("source_name", "") == "dynamic:storefront-door":
 			front_door_indicator = SourcePbr.source_material(node.get_child(node.get_child_count() - 1).get_child(1))
 	front_door_progress = Progression.current_franchise(store.game).doorProgress
+	load_timings_ms["doors_ms"] = Time.get_ticks_msec() - doors_start
+	var bind_start := Time.get_ticks_msec()
 	inventory.bind(parts.furniture)
+	load_timings_ms["inventory_bind_ms"] = Time.get_ticks_msec() - bind_start
+	bind_start = Time.get_ticks_msec()
 	crops.bind(parts.farm)
+	load_timings_ms["crops_bind_ms"] = Time.get_ticks_msec() - bind_start
+	bind_start = Time.get_ticks_msec()
 	production.bind(parts.furniture, parts.farm)
+	load_timings_ms["production_bind_ms"] = Time.get_ticks_msec() - bind_start
+	bind_start = Time.get_ticks_msec()
 	checkout.bind(parts.furniture, production.templates)
+	load_timings_ms["checkout_bind_ms"] = Time.get_ticks_msec() - bind_start
+	var environment_start := Time.get_ticks_msec()
 	add_child(static_bodies)
 	var background := WorldEnvironment.new()
 	background.environment = environment
@@ -127,6 +138,7 @@ func _ready() -> void:
 	player_body.add_child(player_actor)
 	player_actor.feedback_source = "player"
 	player_actor.feedback_actor_id = "player"
+	load_timings_ms["environment_setup_ms"] = Time.get_ticks_msec() - environment_start
 	store.changed.connect(sync_state)
 	var sync_start := Time.get_ticks_msec()
 	sync_state()
