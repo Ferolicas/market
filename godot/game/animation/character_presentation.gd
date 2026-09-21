@@ -43,6 +43,13 @@ static var _scheduled_character_preloads := {}
 static var _sole_geometries := {}
 static var _sole_material: StandardMaterial3D = null
 static var _prepared_character_maps := {}
+## instantiate() shares GLB sub-resources by reference, so a customer's source
+## materials keep the same instance id across every spawn of that identity;
+## premium_material() used to re-duplicate and re-finish them from scratch on
+## every single spawn (a real per-frame cost — see actorCreationMaxMs in
+## client_telemetry.gd), even though every spawn of that same identity always
+## produces an identical result. Cached like compose_carry_animation_library.
+static var _premium_material_cache := {}
 
 ## Pure policy shared by device selection and unit tests. A coarse pointer is
 ## the strongest phone/tablet signal; CPU/RAM and the live viewport cover
@@ -225,6 +232,11 @@ static func prepare_character_model(source: Node3D, options: Dictionary = {}) ->
 	var model: Node3D = source.duplicate()
 	var crowd: bool = JS.get_or(options, "crowd", false)
 	var reduced_detail: bool = JS.get_or(options, "reducedDetail", false)
+	# Only for callers that never customize the result afterwards per
+	# instance (see the shareFinish callers below); anyone that mutates the
+	# returned material's albedo per spawn (configure_avatar) must opt out,
+	# since sharing would apply the last mutation to every instance.
+	var share_finish: bool = JS.get_or(options, "shareFinish", false)
 	for mesh in _mesh_instances(model):
 		mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF if (crowd or reduced_detail) else GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 		apply_conservative_character_bounds(mesh)
@@ -232,7 +244,7 @@ static func prepare_character_model(source: Node3D, options: Dictionary = {}) ->
 		for surface in mesh.mesh.get_surface_count():
 			var material: Material = mesh.get_active_material(surface)
 			if material is StandardMaterial3D:
-				mesh.set_surface_override_material(surface, premium_material(material, crowd))
+				mesh.set_surface_override_material(surface, _cached_premium_material(material, crowd) if share_finish else premium_material(material, crowd))
 	if JS.get_or(options, "repairOpenSoles", false): attach_closed_soles(model, JS.get_or(options, "build", "adult"), crowd)
 	return model
 
@@ -252,6 +264,21 @@ static func premium_material(source: StandardMaterial3D, crowd: bool) -> Standar
 	var material: StandardMaterial3D = source.duplicate()
 	prepare_shared_character_maps(material)
 	apply_premium_material(material, crowd)
+	return material
+
+## Every spawn of the same customer/employee identity shares the same source
+## material instance (see instantiate()'s sub-resource sharing), so its
+## premium_material() result is deterministic — cache it per (source, crowd)
+## instead of re-duplicating and re-finishing it on every single actor spawn.
+## Marked SHARED_RESOURCE_META so dispose_character_materials() (an actor's
+## own teardown) never frees a material other live actors still reference.
+static func _cached_premium_material(source: StandardMaterial3D, crowd: bool) -> StandardMaterial3D:
+	var key := "%d:%s" % [source.get_instance_id(), crowd]
+	var cached: Variant = _premium_material_cache.get(key)
+	if cached is StandardMaterial3D and is_instance_valid(cached): return cached
+	var material := premium_material(source, crowd)
+	material.set_meta(SHARED_RESOURCE_META, true)
+	_premium_material_cache[key] = material
 	return material
 
 ## Applies premium_material_finish to a StandardMaterial3D in place.

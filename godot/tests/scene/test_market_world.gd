@@ -38,6 +38,40 @@ func test_ready_records_a_load_time_per_authored_part_for_telemetry() -> void:
 		assert_gte(world.load_timings_ms[part + "_ms"], 0)
 	assert_gte(world.load_timings_ms.total_ms, world.load_timings_ms.furniture_ms)
 
+## Two customers sharing an identity must reuse the same finished material
+## (the fix for the actorCreationMaxMs hitch — see character_presentation.gd),
+## but two employees must keep fully independent materials, since
+## configure_avatar mutates their albedo per instance; sharing there would
+## make every employee sharing a body GLB flash the last-configured colors.
+func test_customers_share_a_finish_but_employees_never_do() -> void:
+	var first_customer := MarketActor.new()
+	var second_customer := MarketActor.new()
+	world.add_child(first_customer)
+	world.add_child(second_customer)
+	first_customer.configure_customer(1)
+	second_customer.configure_customer(1)
+	var first_customer_material: Material = first_customer.model.find_children("*", "MeshInstance3D", true, false)[0].get_surface_override_material(0)
+	var second_customer_material: Material = second_customer.model.find_children("*", "MeshInstance3D", true, false)[0].get_surface_override_material(0)
+	assert_true(is_same(first_customer_material, second_customer_material))
+	var first_employee := MarketActor.new()
+	var second_employee := MarketActor.new()
+	world.add_child(first_employee)
+	world.add_child(second_employee)
+	first_employee.configure_avatar({"body": "adult-man", "hair": "fade", "skin": "#ff0000", "shirt": "#00ff00", "hairColor": "#3b2820", "hat": "none"})
+	second_employee.configure_avatar({"body": "adult-man", "hair": "fade", "skin": "#0000ff", "shirt": "#ffff00", "hairColor": "#3b2820", "hat": "none"})
+	var body_material_of: Callable = func(actor: MarketActor): return actor.model.find_children("*", "MeshInstance3D", true, false)[0].get_surface_override_material(0)
+	# configure_avatar mutates whichever surface materials happen to carry the
+	# "skin"/"shirt"/hair naming (asset-dependent, may be a no-op on the
+	# current combined-atlas body GLB); the guarantee that must hold
+	# regardless of the current art is that two employees never end up on the
+	# very same material instance, so a future per-instance mutation can never
+	# bleed from one onto the other the way it would for shared customers.
+	assert_false(is_same(body_material_of.call(first_employee), body_material_of.call(second_employee)))
+	first_customer.free()
+	second_customer.free()
+	first_employee.free()
+	second_employee.free()
+
 func test_scene_loads_native_physics_original_rig_and_initial_campaign() -> void:
 	assert_eq(world.player_body.position, Vector3(0, 0, 37.5))
 	assert_gt(world.static_bodies.get_child_count(), 10)

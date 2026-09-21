@@ -1,5 +1,13 @@
 # Mini Market — mapa vivo
 
+## Fix del tirón en partida: material del cliente compartido por identidad — 22-09-2026
+
+Con `actorCreationMaxMs`/`actorCreationCount` llegó la confirmación: en un minuto, 21 clientes nuevos creados, `actorCreationMaxMs`=178 ms — coincide con `maxFrameMs`=148 ms y los 20 frames >100 ms del mismo minuto. Causa: `configure_customer()` → `_load_rig()` → `CharacterPresentation.prepare_character_model()` volvía a duplicar y re-acabar (`premium_material()`) el material del cuerpo **desde cero en cada aparición**, aunque solo hay 6 identidades fijas de cliente y el resultado es siempre idéntico para la misma identidad — trabajo repetido de forma síncrona justo en el frame donde aparece el cliente.
+
+Arreglado: `_cached_premium_material()` (`character_presentation.gd`) cachea el resultado por `(source.get_instance_id(), crowd)` — `instantiate()` comparte los sub-recursos del GLB entre instancias, así que la misma identidad reutiliza siempre el mismo material fuente. Marcado `SHARED_RESOURCE_META` como los soles compartidos. **Importante**: esto solo se activa para clientes (`configure_customer`, `shareFinish: true` en las opciones de `_load_rig`) — los empleados/jugador (`configure_avatar`) mutan el color del material por instancia (piel/camisa/pelo), así que comparten materiales rompería eso (el último empleado configurado "ganaría" el color para todos los que compartan el mismo GLB base). `identity > 0` ya distinguía ambos casos en `_load_rig`, se reutilizó esa condición.
+
+Cubierto por `tests/animation/test_character_presentation.gd` (cache, no-colisión entre identidades, opt-out cuando no hay `shareFinish`) y `tests/scene/test_market_world.gd::test_customers_share_a_finish_but_employees_never_do` (integración: dos clientes comparten instancia de material, dos empleados nunca). 427 pruebas en verde. Pendiente: una muestra más de `actorCreationMaxMs`/`maxFrameMs` para confirmar la mejora real en dispositivo.
+
 ## Tercera muestra real: el tirón en partida sí existe, siguiente sospechoso — 21-09-2026
 
 Con `maxFrameMs`/`framesOver100` (commit `96b2314`) llegó la primera confirmación real del tirón: en un minuto de juego, `maxFrameMs`=147.72 ms y **16 frames por encima de 100 ms** (antes invisibles para p95/promedio). No llega a los ~500 ms que describe el usuario pero sí es un frame ~9× más lento de lo normal, y con esa frecuencia (uno cada ~3.75 s) encaja con "al rato otro". `recoveryPersistMaxMs` se mantuvo en 15-18 ms en las dos muestras — descartado con confianza.

@@ -78,14 +78,57 @@ func test_keeps_conservative_mesh_culling_and_disables_dynamic_shadows_for_reduc
 	assert_gte(body.custom_aabb.size.x / 2.0, 2.4)
 	assert_gte(body.custom_aabb.get_longest_axis_size() / 2.0, 2.4)
 
-func test_disposes_the_instance_finish_but_preserves_shared_sole_resources() -> void:
-	var model := _prepare(_character_fixture().root, { "repairOpenSoles": true })
+## premium_material() results are cached per (source material, crowd) — a
+## spawn of the same identity is deterministic, so re-finishing it from
+## scratch on every single actor was a real per-spawn cost (actorCreationMaxMs
+## in client_telemetry.gd). Body materials are therefore SHARED_RESOURCE_META
+## too now, same as the sole: dispose_character_materials has nothing
+## instance-local left to release once a body finish has been cached.
+func test_disposal_preserves_the_now_cached_body_finish_and_shared_sole_resources() -> void:
+	var model := _prepare(_character_fixture().root, { "repairOpenSoles": true, "shareFinish": true })
 	var sole: MeshInstance3D = model.find_child("PremiumSole_L", true, false)
 	var sole_material := sole.material_override
-	assert_eq(CharacterPresentation.dispose_character_materials(model), 1)
-	assert_null(_body(model).get_surface_override_material(0))
+	var body_material := _body(model).get_surface_override_material(0)
+	assert_eq(CharacterPresentation.dispose_character_materials(model), 0)
+	assert_true(is_same(_body(model).get_surface_override_material(0), body_material))
+	assert_true(body_material.get_meta(CharacterPresentation.SHARED_RESOURCE_META, false))
 	assert_true(is_same(sole.material_override, sole_material))
 	assert_true(sole_material.get_meta(CharacterPresentation.SHARED_RESOURCE_META, false))
+
+## Two different source materials (distinct identities/body parts) must never
+## collide into the same cache entry and bleed one identity's finish onto
+## another's.
+func test_caches_premium_finish_per_source_material_not_globally() -> void:
+	var first := _character_fixture()
+	var second := _character_fixture()
+	second.material.roughness = 0.2
+	var first_model := _prepare(first.root, { "shareFinish": true })
+	var second_model := _prepare(second.root, { "shareFinish": true })
+	var first_material: StandardMaterial3D = _body(first_model).get_surface_override_material(0)
+	var second_material: StandardMaterial3D = _body(second_model).get_surface_override_material(0)
+	assert_false(is_same(first_material, second_material))
+	assert_ne(first_material.roughness, second_material.roughness)
+
+## A second spawn of the same identity reuses the exact same finished
+## material instead of paying to re-duplicate and re-finish it again.
+func test_reuses_the_cached_finish_for_a_second_spawn_of_the_same_identity() -> void:
+	var fixture := _character_fixture()
+	var first_model := _prepare(fixture.root, { "shareFinish": true })
+	var second_model := _prepare(fixture.root, { "shareFinish": true })
+	assert_true(is_same(_body(first_model).get_surface_override_material(0), _body(second_model).get_surface_override_material(0)))
+
+## Without shareFinish (configure_avatar's employees/player), every spawn must
+## keep getting its own independent material — configure_avatar mutates its
+## albedo per instance, and sharing it would bleed one character's colors
+## onto every other actor using the same base body GLB.
+func test_never_shares_the_finish_when_the_caller_customizes_per_instance() -> void:
+	var fixture := _character_fixture()
+	var first_model := _prepare(fixture.root)
+	var second_model := _prepare(fixture.root)
+	var first_material: StandardMaterial3D = _body(first_model).get_surface_override_material(0)
+	var second_material: StandardMaterial3D = _body(second_model).get_surface_override_material(0)
+	assert_false(is_same(first_material, second_material))
+	assert_false(first_material.get_meta(CharacterPresentation.SHARED_RESOURCE_META, false))
 
 func _rubber_insert(build: String) -> void:
 	var model := _prepare(_character_fixture().root, { "build": build, "repairOpenSoles": true })

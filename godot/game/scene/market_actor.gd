@@ -144,7 +144,14 @@ func _load_rig(path: String, factor: float) -> void:
 		remove_child(model)
 		model.queue_free()
 	var source: Node3D = load(path).instantiate()
-	model = CharacterPresentation.prepare_character_model(source, {"crowd": identity > 0, "reducedDetail": model_tier > 0})
+	# Customers (identity > 0) never get a per-instance color customization
+	# after this (see configure_customer), so every spawn of the same
+	# identity can safely share one cached finished material. Employees and
+	# the player (identity 0) go through configure_avatar right after this,
+	# which mutates these materials' albedo in place per instance — sharing
+	# would bleed one character's colors onto every other one using the same
+	# base body GLB, so they keep their own always-duplicated materials.
+	model = CharacterPresentation.prepare_character_model(source, {"crowd": identity > 0, "reducedDetail": model_tier > 0, "shareFinish": identity > 0})
 	source.free()
 	model.scale = Vector3.ONE * factor
 	add_child(model)
