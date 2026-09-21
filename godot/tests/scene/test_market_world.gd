@@ -37,6 +37,12 @@ func test_ready_records_a_load_time_per_authored_part_for_telemetry() -> void:
 		assert_true(world.load_timings_ms.has(part + "_ms"), part)
 		assert_gte(world.load_timings_ms[part + "_ms"], 0)
 	assert_gte(world.load_timings_ms.total_ms, world.load_timings_ms.furniture_ms)
+	# sync_state_ms became the dominant remaining startup cost (2523 of
+	# 3304 ms) after the crops_bind_ms fix; the first sync_state() call is
+	# broken down phase by phase to find what inside it actually costs that.
+	for phase in ["configureAvatarMs", "buildCollisionsMs", "updateFixtureVisibilityMs", "interactionDirectorMs", "refreshVisualInventoryMs", "productionUpdateMs", "checkoutUpdateMs", "syncActorsMs"]:
+		assert_true(world.load_timings_ms.has(phase), phase)
+		assert_gte(world.load_timings_ms[phase], 0)
 
 ## Two customers sharing an identity must reuse the same finished material
 ## (the fix for the actorCreationMaxMs hitch — see character_presentation.gd),

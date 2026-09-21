@@ -1,5 +1,13 @@
 # Mini Market — mapa vivo
 
+## Confirmado en dispositivo: arranque 4.7× más rápido, tirón muy reducido — 22-09-2026
+
+Muestra real tras el fix de `_index()` (entrada anterior): **`total_ms` bajó de ~15600 a 3304 ms**. `crops_bind_ms` de ~6200 a **122 ms**, `furniture_ms` de ~2800 a **220 ms**. El fix del flag de formato (`surface_get_format` en vez de `surface_get_arrays`) fue la causa real, confirmada con números, no solo una teoría plausible.
+
+Tirón en partida: `actorCreationMaxMs` bajó de ~180 ms a 100 ms en una muestra y a 6 ms en la siguiente (0 frames >100 ms esa ventana) — el caché de material sí ayudaba, solo que menos de lo esperado por sí solo.
+
+Nuevo cuello de botella del arranque: `sync_state_ms`=2523 ms, el **76 % del tiempo restante**. Es la primera llamada a `sync_state()` (`market_world.gd`), la única que reconstruye colisiones/visibilidad y crea el `InteractionDirector` (las demás llamadas, en cada tick, saltan eso por firma). Instrumentado fase a fase (`configureAvatarMs`, `buildCollisionsMs`, `updateFixtureVisibilityMs`, `interactionDirectorMs`, `refreshVisualInventoryMs`, `productionUpdateMs`, `checkoutUpdateMs`, `syncActorsMs`) y plegado en `load_timings_ms`/telemetría de arranque. Cubierto en `tests/scene/test_market_world.gd`. 430 pruebas en verde. Pendiente: una muestra más para saber cuál de las ocho fases es la real culpable de los 2523 ms.
+
 ## El caché de material no movió el tirón; instrumentación más fina + fix real del arranque — 22-09-2026
 
 **El fix del material compartido de clientes (entrada anterior) no funcionó**: instalación limpia, mismos tirones. Confirmado con datos: `actorCreationMaxMs`=189 ms (antes 178 ms, sin mejora), `maxFrameMs` sigue ~148-149 ms. La caché de materiales solo cubría una parte de `_load_rig()`; el costo real está en otra fase de esa función.

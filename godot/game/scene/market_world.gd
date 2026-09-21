@@ -60,6 +60,13 @@ var front_door_indicator: StandardMaterial3D
 ## dominant startup-freeze contributor can be identified from real devices
 ## without needing Xcode Instruments or the Godot editor's remote profiler.
 var load_timings_ms: Dictionary = {}
+## sync_state() runs on every store.changed signal, but its FIRST call (from
+## _ready(), before structure/zone_signature have a prior value to compare
+## against) is the one that pays for _build_collisions/_update_fixture_visibility
+## and a fresh InteractionDirector — it was sync_state_ms=2523ms of a 3304ms
+## startup, by far the largest remaining piece after the crops.bind() fix.
+## Overwritten every call; _ready() reads it once right after the first one.
+var sync_state_phase_ms: Dictionary = {}
 ## A new customer's first frame loads a character GLB and duplicates several
 ## materials (market_actor.gd::configure_customer/_load_rig) synchronously,
 ## right when it spawns during play — timed here to test it as the source of
@@ -160,6 +167,7 @@ func _ready() -> void:
 	var sync_start := Time.get_ticks_msec()
 	sync_state()
 	load_timings_ms["sync_state_ms"] = Time.get_ticks_msec() - sync_start
+	load_timings_ms.merge(sync_state_phase_ms)
 	lighting.scope = self
 	add_child(lighting)
 	rendering.world = self
@@ -171,6 +179,8 @@ func _ready() -> void:
 
 func sync_state() -> void:
 	if store.game == null: return
+	sync_state_phase_ms = {}
+	var phase_start := Time.get_ticks_msec()
 	var state: Dictionary = store.game
 	var franchise := Progression.current_franchise(state)
 	front_door_indicator.albedo_color = Color("72e8a9" if franchise.open else "f08d73")
@@ -178,6 +188,7 @@ func sync_state() -> void:
 	SourcePbr.touch(front_door_indicator)
 	player_actor.configure_avatar(state.avatar, 3)
 	player_actor.update_carry(visual_franchise(franchise).carry)
+	sync_state_phase_ms["configureAvatarMs"] = Time.get_ticks_msec() - phase_start
 	var appearance := BusinessDay.daylight_presentation(state.minuteOfDay)
 	environment.background_color = Color(appearance.background)
 	environment.ambient_light_energy = 0
@@ -187,20 +198,34 @@ func sync_state() -> void:
 	var structure: String = franchise.id + ":" + str(franchise.unlockedAreas)
 	if structure != structure_signature:
 		structure_signature = structure
+		phase_start = Time.get_ticks_msec()
 		_build_collisions(franchise.unlockedAreas)
+		sync_state_phase_ms["buildCollisionsMs"] = Time.get_ticks_msec() - phase_start
+		phase_start = Time.get_ticks_msec()
 		_update_fixture_visibility(franchise)
+		sync_state_phase_ms["updateFixtureVisibilityMs"] = Time.get_ticks_msec() - phase_start
 	var crop_ids: Array = franchise.crops.filter(func(crop): return crop.status != "LOCKED").map(func(crop): return crop.id)
 	var purchases: Array = Game.campaign_purchase_quotes(state).filter(func(quote): return quote.available).map(func(quote): return quote.id) if franchise.get("purchases") != null else []
 	var signature := str([structure, crop_ids, purchases, franchise.checkoutLevel])
 	if signature != zone_signature:
 		zone_signature = signature
+		phase_start = Time.get_ticks_msec()
 		director = InteractionDirector.new(Zones.configs(franchise.checkoutLevel, franchise.unlockedAreas, crop_ids, purchases))
 		workstation = WorkstationController.new()
+		sync_state_phase_ms["interactionDirectorMs"] = Time.get_ticks_msec() - phase_start
+	phase_start = Time.get_ticks_msec()
 	_refresh_visual_inventory()
+	sync_state_phase_ms["refreshVisualInventoryMs"] = Time.get_ticks_msec() - phase_start
 	cash_markers.update(state)
+	phase_start = Time.get_ticks_msec()
 	production.update(franchise)
+	sync_state_phase_ms["productionUpdateMs"] = Time.get_ticks_msec() - phase_start
+	phase_start = Time.get_ticks_msec()
 	checkout.update(franchise)
+	sync_state_phase_ms["checkoutUpdateMs"] = Time.get_ticks_msec() - phase_start
+	phase_start = Time.get_ticks_msec()
 	_sync_actors(franchise)
+	sync_state_phase_ms["syncActorsMs"] = Time.get_ticks_msec() - phase_start
 	for animal in parts.farm.animals:
 		var machine_id := "cow-station-1" if animal.kind == "cow" else "chicken-coop-1"
 		if animal.kind == "chicken":
