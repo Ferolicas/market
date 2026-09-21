@@ -52,12 +52,21 @@ func test_world_tick_creates_customers_with_original_models_and_animations() -> 
 	store.game = Game.create_initial_game()
 	store.game.tutorialStep = 1
 	store.game.franchises[0].open = true
+	assert_eq(world.take_actor_creation_stats().actorCreationCount, 0)
 	store.tick_world(200)
 	assert_gt(world.actors.size(), 0)
 	for actor in world.actors.values():
 		assert_not_null(actor.player)
 		assert_gt(actor.clips.size(), 10)
 	world._process(0.016)
+	# Backs the actorCreationMaxMs field folded into client_telemetry's
+	# one-minute-window report, testing whether a new customer's first-frame
+	# GLB load + material setup is the source of the reported mid-play hitches.
+	var stats := world.take_actor_creation_stats()
+	assert_gt(stats.actorCreationCount, 0)
+	assert_lte(stats.actorCreationCount, world.actors.size())
+	assert_gte(stats.actorCreationMaxMs, 0)
+	assert_eq(world.take_actor_creation_stats().actorCreationCount, 0, "Stats drain on read")
 
 func test_management_panels_use_the_live_store_without_parse_errors() -> void:
 	var shell := Shell.new()

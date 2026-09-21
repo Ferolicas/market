@@ -60,6 +60,23 @@ var front_door_indicator: StandardMaterial3D
 ## dominant startup-freeze contributor can be identified from real devices
 ## without needing Xcode Instruments or the Godot editor's remote profiler.
 var load_timings_ms: Dictionary = {}
+## A new customer's first frame loads a character GLB and duplicates several
+## materials (market_actor.gd::configure_customer/_load_rig) synchronously,
+## right when it spawns during play — timed here to test it as the source of
+## the mid-play hitches maxFrameMs/framesOver25 picked up in real telemetry.
+var _actor_creation_count := 0
+var _actor_creation_max_ms := 0
+
+func _record_actor_creation(duration_ms: int) -> void:
+	_actor_creation_count += 1
+	if duration_ms > _actor_creation_max_ms: _actor_creation_max_ms = duration_ms
+
+## Drains and resets the stats gathered since the last call.
+func take_actor_creation_stats() -> Dictionary:
+	var stats := {"actorCreationCount": _actor_creation_count, "actorCreationMaxMs": _actor_creation_max_ms}
+	_actor_creation_count = 0
+	_actor_creation_max_ms = 0
+	return stats
 
 func _ready() -> void:
 	var ready_start := Time.get_ticks_msec()
@@ -215,10 +232,12 @@ func _sync_actors(franchise: Dictionary) -> void:
 		var id: String = customer.id
 		present[id] = true
 		if id not in actors:
+			var create_start := Time.get_ticks_msec()
 			var actor := Actor.new()
 			world.add_child(actor)
 			actor.configure_customer(customer.identity)
 			actors[id] = actor
+			_record_actor_creation(Time.get_ticks_msec() - create_start)
 		var actor: Actor = actors[id]
 		actor.snapshot = CustomerVisualMotion.capture_customer_motion(customer, Time.get_ticks_msec())
 		actor.customer_runtime = customer

@@ -1,5 +1,11 @@
 # Mini Market — mapa vivo
 
+## Tercera muestra real: el tirón en partida sí existe, siguiente sospechoso — 21-09-2026
+
+Con `maxFrameMs`/`framesOver100` (commit `96b2314`) llegó la primera confirmación real del tirón: en un minuto de juego, `maxFrameMs`=147.72 ms y **16 frames por encima de 100 ms** (antes invisibles para p95/promedio). No llega a los ~500 ms que describe el usuario pero sí es un frame ~9× más lento de lo normal, y con esa frecuencia (uno cada ~3.75 s) encaja con "al rato otro". `recoveryPersistMaxMs` se mantuvo en 15-18 ms en las dos muestras — descartado con confianza.
+
+Sospechoso siguiente: `MarketActor.configure_customer()`/`_load_rig()` (vía `market_world.gd::_sync_actors()`) carga un GLB de personaje y duplica varios materiales de forma síncrona la primera vez que aparece un cliente nuevo — trabajo pesado justo en el frame en que se crea, sin relación con el pre-calentamiento del reparto del arranque (`MarketCastWarmup`, que solo cubre un set fijo de identidades "prioritarias"). Instrumentado (`actorCreationMaxMs`, `actorCreationCount`) y plegado en el mismo reporte de un minuto. Cubierto por `godot/tests/scene/test_market_world.gd::test_world_tick_creates_customers_with_original_models_and_animations`. Pendiente: una muestra más para confirmar si coincide con los frames >100 ms.
+
 ## Segunda muestra real: causa del arranque encontrada, tirón en partida descartada — 21-09-2026
 
 Con el desglose fino (commit `6a2c9d6`) llegó la muestra completa (iPhone real, `total_ms`=15601): **`crops_bind_ms`=6161** (el hueco de ~6.8 s de la primera muestra era casi todo `crops.bind(parts.farm)`, en `market_world.gd`), `sync_state_ms`=4385, `furniture_ms`=2622, `farm_ms`=1620; el resto (`doors`, `inventory_bind`, `production_bind`, `checkout_bind`, `environment_setup`) es insignificante (≤51 ms cada uno). `crops.bind()` solo es el 40 % del arranque — candidato principal para optimizar antes que ningún otro paso.

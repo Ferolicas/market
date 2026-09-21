@@ -2,6 +2,7 @@ class_name MarketClientTelemetry
 extends Node
 ## GameRuntime + lib/client-telemetry: original authenticated endpoint and schema.
 var store: MarketStore
+var world: MarketWorld
 var sampler := FieldPerformanceSampler.new()
 var elapsed := 0.0
 var previous_status := ""
@@ -64,7 +65,8 @@ func _process(delta: float) -> void:
 		summary.viewportHeight = JavaScriptBridge.eval("innerHeight", true)
 		summary.devicePixelRatio = JavaScriptBridge.eval("devicePixelRatio", true)
 	if store != null and store.recovery != null: summary.merge(store.recovery.take_persist_stats())
-	report({"kind": "performance", "name": "one-minute-window", "severity": "warning" if summary.p95FrameMs > 40 or summary.longTaskCount > 2 or summary.get("recoveryPersistMaxMs", 0) > 200 else "info", "payload": summary})
+	if is_instance_valid(world): summary.merge(world.take_actor_creation_stats())
+	report({"kind": "performance", "name": "one-minute-window", "severity": "warning" if summary.p95FrameMs > 40 or summary.longTaskCount > 2 or summary.get("recoveryPersistMaxMs", 0) > 200 or summary.get("actorCreationMaxMs", 0) > 100 else "info", "payload": summary})
 
 func _exit_tree() -> void:
 	if OS.has_feature("web"): JavaScriptBridge.eval("window.__marketFieldPerformance?.close(); delete window.__marketFieldPerformance;", true)

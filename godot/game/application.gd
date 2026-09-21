@@ -157,6 +157,7 @@ func _load_game() -> void:
 	world = World.new()
 	world.store = store
 	add_child(world)
+	telemetry.world = world
 	if not world.load_timings_ms.is_empty():
 		telemetry.report({"kind": "performance", "name": "startup-world-load", "payload": world.load_timings_ms})
 	var shell := Shell.new()
