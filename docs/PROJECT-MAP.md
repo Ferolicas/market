@@ -1,5 +1,9 @@
 # Mini Market — mapa vivo
 
+## Corrección: la sesión guardada no sobrevivía a un reinicio de la app — 21-09-2026
+
+El build 3 (commit `f1708aa`) implementó el arranque sin login/splash pero se probó en dispositivo real (reinstalación limpia, con sesión ya iniciada antes de reabrir) y seguía mostrando el login. Causa real en `MarketApi` (`godot/game/persistence/market_api.gd`): Better Auth puede emitir una cookie de sesión sin atributo `Max-Age` (cookie de alcance de sesión); `_persist_session()` solo escribía a disco las cookies cuya expiración registrada fuera un número futuro (`_cookie_expiry.get(key, 0) > now`), así que cualquier cookie sin `Max-Age` se guardaba en memoria pero se **descartaba silenciosamente** al persistir, y `has_saved_session()` no encontraba nada en el próximo arranque. Corregido: una cookie sin expiración conocida ahora se persiste igualmente (la validez real la decide el servidor vía `/api/auth/get-session`, no esta heurística local); solo se descarta si su expiración ya venció. Cubierto por `godot/tests/persistence/test_market_api_session.gd` (confirmado en rojo contra el código anterior antes de aplicar el fix). El número de build de iOS (`application/version` en `export_presets.cfg`) se subió de 3 a 4 para invalidar la instantánea de pantalla de lanzamiento que iOS cachea por versión.
+
 ## Arranque sin splash de Godot y carga inmediata de sesión — 21-09-2026
 
 Corrección del arranque en iOS y clientes nativos:

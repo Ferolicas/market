@@ -21,15 +21,21 @@ func _load_session(force: bool = false) -> void:
 	if not saved is Dictionary: return
 	for key in saved:
 		var cookie: Variant = saved[key]
-		if cookie is Dictionary and cookie.get("value") is String and float(cookie.get("expires", 0)) > Time.get_unix_time_from_system():
+		if not (cookie is Dictionary and cookie.get("value") is String): continue
+		# A cookie with no "expires" entry had no Max-Age on the wire (e.g. a
+		# session-scoped cookie); the server, not this heuristic, owns whether
+		# it is still valid, so keep it and let /api/auth/get-session decide.
+		if not cookie.has("expires") or float(cookie.get("expires")) > Time.get_unix_time_from_system():
 			_cookies[key] = cookie.value
-			_cookie_expiry[key] = cookie.expires
+			if cookie.has("expires"): _cookie_expiry[key] = cookie.expires
 
 func _persist_session() -> void:
 	if session_directory.is_empty(): return
 	var saved := {}
+	var now := Time.get_unix_time_from_system()
 	for key in _cookies:
-		if _cookie_expiry.get(key, 0) > Time.get_unix_time_from_system(): saved[key] = {"value": _cookies[key], "expires": _cookie_expiry[key]}
+		if not _cookie_expiry.has(key): saved[key] = {"value": _cookies[key]}
+		elif _cookie_expiry[key] > now: saved[key] = {"value": _cookies[key], "expires": _cookie_expiry[key]}
 	DirAccess.make_dir_recursive_absolute(session_directory)
 	var file := FileAccess.open(_session_path(), FileAccess.WRITE)
 	if file == null: return
