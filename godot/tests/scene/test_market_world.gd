@@ -29,6 +29,15 @@ func after_each() -> void:
 		for file in directory.get_files(): directory.remove(file)
 		DirAccess.remove_absolute(recovery_directory)
 
+## Backs the startup-world-load telemetry report (application.gd) used to
+## find the real cause of the loading-curtain freeze from device data,
+## without needing Xcode Instruments or the Godot editor's remote profiler.
+func test_ready_records_a_load_time_per_authored_part_for_telemetry() -> void:
+	for part in ["ground", "city", "building", "furniture", "farm", "closed_checkouts", "rear_door", "sync_state", "total"]:
+		assert_true(world.load_timings_ms.has(part + "_ms"), part)
+		assert_gte(world.load_timings_ms[part + "_ms"], 0)
+	assert_gte(world.load_timings_ms.total_ms, world.load_timings_ms.furniture_ms)
+
 func test_scene_loads_native_physics_original_rig_and_initial_campaign() -> void:
 	assert_eq(world.player_body.position, Vector3(0, 0, 37.5))
 	assert_gt(world.static_bodies.get_child_count(), 10)

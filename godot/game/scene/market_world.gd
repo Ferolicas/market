@@ -56,7 +56,13 @@ var rear_door_visual: Node3D
 var rear_door_indicator: StandardMaterial3D
 var front_door_indicator: StandardMaterial3D
 
+## Populated by _ready()'s authored-scene load; reported as telemetry so the
+## dominant startup-freeze contributor can be identified from real devices
+## without needing Xcode Instruments or the Godot editor's remote profiler.
+var load_timings_ms: Dictionary = {}
+
 func _ready() -> void:
+	var ready_start := Time.get_ticks_msec()
 	world.name = "AuthoredWorld"
 	world.add_child(cash_markers)
 	world.add_child(transfers)
@@ -66,14 +72,18 @@ func _ready() -> void:
 	world.scale = Vector3.ONE * WorldScale.WORLD_SCALE
 	add_child(world)
 	for part in ["ground", "city", "building", "furniture", "farm", "closed-checkouts"]:
+		var part_start := Time.get_ticks_msec()
 		var content := Authored.new()
 		world.add_child(content)
 		content.load_part(part)
 		parts[part] = content
+		load_timings_ms[part.replace("-", "_") + "_ms"] = Time.get_ticks_msec() - part_start
+	var rear_start := Time.get_ticks_msec()
 	var rear := Authored.new()
 	add_child(rear)
 	rear.load_part("rear-door")
 	parts["rear-door"] = rear
+	load_timings_ms["rear_door_ms"] = Time.get_ticks_msec() - rear_start
 	for entry in rear.manifest.manifest:
 		if entry.sourceName == "dynamic:rear-farm-door": rear_door_visual = rear.nodes[entry.name]
 	rear_door_indicator = SourcePbr.source_material(rear_door_visual.get_child(2).get_child(1), 0)
@@ -118,13 +128,16 @@ func _ready() -> void:
 	player_actor.feedback_source = "player"
 	player_actor.feedback_actor_id = "player"
 	store.changed.connect(sync_state)
+	var sync_start := Time.get_ticks_msec()
 	sync_state()
+	load_timings_ms["sync_state_ms"] = Time.get_ticks_msec() - sync_start
 	lighting.scope = self
 	add_child(lighting)
 	rendering.world = self
 	add_child(rendering)
 	transmission.world = self
 	add_child(transmission)
+	load_timings_ms["total_ms"] = Time.get_ticks_msec() - ready_start
 
 func sync_state() -> void:
 	if store.game == null: return
