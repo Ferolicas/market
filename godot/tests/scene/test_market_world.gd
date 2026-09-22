@@ -156,6 +156,36 @@ func test_open_panel_keeps_the_nav_bar_visible_above_and_clear_of_the_card() -> 
 	assert_eq(shell.hud.active_panel_id, "")
 	shell.free()
 
+## stock/orders rebuild their whole card list on nearly every economy tick
+## (warehouse/shelves/carry change continuously during live play). The
+## rebuild used to run unconditionally, freeing and recreating every card
+## mid-drag and cancelling Godot's own touch/mouse capture on whatever the
+## finger was on — no gesture ever accumulated enough movement to read as a
+## scroll, though the scroll *value* itself was already preserved across the
+## rebuild. Refreshing must now defer while the player has a finger down on
+## the scroll area, and catch up the moment it lifts.
+func test_panel_refresh_defers_while_a_finger_is_down_on_the_scroll_area() -> void:
+	var shell := Shell.new()
+	shell.store = store
+	shell.world = world
+	Engine.get_main_loop().root.add_child(shell)
+	shell.open_panel("stock")
+	var original_child_count := shell.panel_content.get_child_count()
+	assert_gt(original_child_count, 0)
+	shell.panel_key = "stale" # force refresh() to see a changed key
+	shell.panel_pointer_down = true
+	shell.refresh()
+	await Engine.get_main_loop().process_frame
+	await Engine.get_main_loop().process_frame
+	assert_eq(shell.panel_content.get_child_count(), original_child_count, "must not rebuild while the finger is still down")
+	assert_eq(shell.panel_key, "stale", "must retry rather than give up")
+	shell.panel_pointer_down = false
+	shell.refresh()
+	await Engine.get_main_loop().process_frame
+	await Engine.get_main_loop().process_frame
+	assert_eq(shell.panel_key, shell._panel_state_key(), "must catch up once the finger lifts")
+	shell.free()
+
 func test_harvest_and_stock_update_real_carry_canopy_and_display_meshes() -> void:
 	var plot: Dictionary = world.crops.plots["crop-tomato-1"]
 	assert_eq(plot.key, "crop:tomato:0")

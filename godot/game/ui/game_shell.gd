@@ -19,6 +19,7 @@ var close_day_button: Button
 var panel_reflow := Callable()
 var panel_key := ""
 var panel_refresh_pending := false
+var panel_pointer_down := false
 var avatar_gallery: MarketAvatarGallery
 var avatar_choices := []
 var avatar_preview: MarketAvatarPreview
@@ -76,6 +77,7 @@ func refresh() -> void:
 func close_panel() -> void:
 	avatar_preview = null
 	close_day_button = null
+	panel_pointer_down = false
 	panel_reflow = Callable()
 	if overlay != null:
 		remove_child(overlay)
@@ -119,6 +121,19 @@ func open_panel(id: String) -> void:
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	panel_scroll = scroll
+	# Stock/orders rebuild their whole card list on nearly every economy tick
+	# (warehouse/shelves/carry change continuously during live play — see
+	# _panel_state_key()); _refresh_panel() already preserved the scroll
+	# *value* across that rebuild, but Widgets.clear()+_fill_panel() frees and
+	# recreates every card mid-gesture, which cancels Godot's own touch/mouse
+	# capture on whatever the finger was dragging — the scroll never had a
+	# chance to accumulate any movement, which read as "locked". Deferring
+	# the rebuild while a pointer is down on the scroll area fixes that.
+	scroll.gui_input.connect(func(event: InputEvent):
+		if (event is InputEventScreenTouch or event is InputEventMouseButton) and event.pressed: panel_pointer_down = true
+		elif (event is InputEventScreenTouch or event is InputEventMouseButton) and not event.pressed:
+			panel_pointer_down = false
+			if panel_refresh_pending: _refresh_panel.call_deferred())
 	column.add_child(scroll)
 	panel_content = VBoxContainer.new()
 	panel_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -526,6 +541,12 @@ func _panel_state_key() -> String:
 	return ""
 
 func _refresh_panel() -> void:
+	if panel_pointer_down:
+		# Retried from refresh()'s "key != panel_key" check on the next tick;
+		# panel_refresh_pending only guards against scheduling this call more
+		# than once per tick, not against retrying on a later one.
+		panel_refresh_pending = false
+		return
 	panel_refresh_pending = false
 	if panel not in ["stock", "orders", "team", "map", "finance"] or overlay == null: return
 	var scroll := panel_scroll.scroll_vertical

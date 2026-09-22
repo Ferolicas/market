@@ -1,5 +1,13 @@
 # Mini Market — mapa vivo
 
+## Scroll de inventario/pedidos: la causa real era el refresco, no el mouse_filter — 22-09-2026
+
+El fix de `Widgets.card()` (entrada anterior) no bastó para Inventario/Pedidos según el usuario. Inspeccioné el árbol real de nodos de ambos paneles con una prueba (`mouse_filter` de cada nodo) y todo ya estaba en PASS/IGNORE correctamente — el bloqueo no era de `mouse_filter`.
+
+Causa real: `_panel_state_key()` (`game_shell.gd`) para "stock" es `[franchise.warehouse, franchise.shelves]` y para "orders" incluye además `franchise.carry` — cantidades que cambian casi en cada tick de la economía mientras el jugador juega en vivo (clientes comprando, reposición). Cada cambio dispara `_refresh_panel()`, que hace `Widgets.clear(panel_content)` + `_fill_panel()`: **libera y recrea todas las tarjetas**. El valor de scroll ya se preservaba entre refrescos, pero si el jugador tenía el dedo puesto arrastrando cuando esto ocurría, Godot perdía la captura táctil del nodo que el dedo estaba tocando — el gesto nunca acumulaba movimiento suficiente para registrarse como scroll. "Equipo"/"Mapa"/"Finanzas" dependen de datos que cambian con mucha menos frecuencia durante el juego activo, por eso no se notaba ahí.
+
+Arreglado: `game_shell.gd` ahora rastrea `panel_pointer_down` (conectado a `scroll.gui_input`) y `_refresh_panel()` difiere la reconstrucción mientras el dedo sigue abajo, reintentando en el siguiente tick hasta que se suelta. Cubierto por `tests/scene/test_market_world.gd::test_panel_refresh_defers_while_a_finger_is_down_on_the_scroll_area`. 449 pruebas en verde.
+
 ## Los paneles ya no tapan el menú; scroll desbloqueado en todos los paneles — 22-09-2026
 
 Dos arreglos pedidos tras el rediseño del menú:
