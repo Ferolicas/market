@@ -164,7 +164,8 @@ func _load_rig(path: String, factor: float) -> void:
 	if model != null:
 		remove_child(model)
 		model.queue_free()
-	var phase_start := Time.get_ticks_msec()
+	var call_start := Time.get_ticks_msec()
+	var phase_start := call_start
 	var source: Node3D = load(path).instantiate()
 	_record_phase("instantiate", Time.get_ticks_msec() - phase_start)
 	# Customers (identity > 0) never get a per-instance color customization
@@ -197,6 +198,8 @@ func _load_rig(path: String, factor: float) -> void:
 		var library := CarrySocket.compose_carry_animation_library(player.get_animation_library(library_name))
 		player.remove_animation_library(library_name)
 		player.add_animation_library(library_name, library)
+	_record_phase("animationLibrarySwap", Time.get_ticks_msec() - phase_start)
+	phase_start = Time.get_ticks_msec()
 	clips.clear()
 	actions.clear()
 	for animation_name in player.get_animation_list():
@@ -206,7 +209,8 @@ func _load_rig(path: String, factor: float) -> void:
 		actions[short_name] = action
 	active_clip = ""
 	locomotion = LocomotionController.new()
-	_record_phase("animationSetup", Time.get_ticks_msec() - phase_start)
+	_record_phase("clipsActionsBuild", Time.get_ticks_msec() - phase_start)
+	PerformanceLog.record("load_rig", Time.get_ticks_msec() - call_start, {"identity": identity, "path": path.get_file()})
 
 func _process(delta: float) -> void:
 	if player == null: return

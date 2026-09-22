@@ -113,7 +113,9 @@ func persist_recovery_snapshot(snapshot: Dictionary) -> bool:
 	var write_ms := Time.get_ticks_msec() - write_start
 	last_write_error = file.get_error()
 	file.close()
-	_record_persist_timing(Time.get_ticks_msec() - call_start, duplicate_ms, stringify_ms, write_ms)
+	var persist_total_ms := Time.get_ticks_msec() - call_start
+	_record_persist_timing(persist_total_ms, duplicate_ms, stringify_ms, write_ms)
+	PerformanceLog.record("recovery_persist", persist_total_ms, {"dup": duplicate_ms, "json": stringify_ms, "write": write_ms})
 	if last_write_error != OK: return false
 	last_write_error = DirAccess.rename_absolute(temporary, path)
 	if last_write_error != OK: return false

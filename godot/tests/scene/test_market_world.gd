@@ -88,7 +88,7 @@ func test_load_rig_records_a_max_time_per_phase_for_telemetry() -> void:
 	world.add_child(actor)
 	actor.configure_customer(2)
 	var stats := MarketActor.take_rig_phase_stats()
-	for phase in ["rigInstantiateMaxMs", "rigPrepareModelMaxMs", "rigSkeletonScanMaxMs", "rigAnimationSetupMaxMs"]:
+	for phase in ["rigInstantiateMaxMs", "rigPrepareModelMaxMs", "rigSkeletonScanMaxMs", "rigAnimationLibrarySwapMaxMs", "rigClipsActionsBuildMaxMs"]:
 		assert_true(stats.has(phase), phase)
 		assert_gte(stats[phase], 0)
 	assert_eq(MarketActor.take_rig_phase_stats(), {}, "Stats drain on read")

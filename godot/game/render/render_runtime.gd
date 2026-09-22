@@ -44,11 +44,19 @@ func _process(delta: float) -> void:
 	Engine.max_fps = profile.motionFps if moving or actor_moving else profile.targetFps
 	advance_frame(delta * 1000, moving, int(Performance.get_monitor(Performance.OBJECT_NODE_COUNT)))
 
+## advance_frame() runs every single frame (60x/second); logging at the
+## generic one-frame threshold would flood the session log with routine
+## 16-17ms frames and bury the real hitches. A real stutter is a frame that
+## missed its budget by 2x or more.
+const HITCH_FRAME_MS := 33.0
+
 func advance_frame(frame_ms: float, moving: bool, objects: int) -> void:
+	if frame_ms >= HITCH_FRAME_MS: PerformanceLog.record("render_frame", frame_ms, {"phase": phase, "settled": scene_settled})
 	if not scene_settled:
 		warmup_ms += frame_ms
 		if warmup_ms >= 10000:
 			scene_settled = true
+			PerformanceLog.mark("scene_settled:timeout")
 			return
 		if objects != previous_objects:
 			previous_objects = objects
@@ -62,9 +70,11 @@ func advance_frame(frame_ms: float, moving: bool, objects: int) -> void:
 				# observation; require the same 30 stable presentation frames.
 				phase = "compiled"
 				stable_frames = 0
+				PerformanceLog.mark("render_phase:compiled")
 		else:
 			stable_frames = stable_frames + 1 if frame_ms <= 50 else 0
 			scene_settled = stable_frames >= 30
+			if scene_settled: PerformanceLog.mark("scene_settled")
 		return
 	if settled_ms < AdaptiveQuality.ADAPTIVE_QUALITY_GRACE_MS:
 		settled_ms += frame_ms

@@ -140,11 +140,14 @@ func _show_auth() -> void:
 	_publish_browser_qa()
 
 func _load_game() -> void:
+	PerformanceLog.mark("load_game_begin")
 	if not is_instance_valid(telemetry):
 		telemetry = MarketClientTelemetry.new()
 		telemetry.store = store
 		add_child(telemetry)
+	var load_start := Time.get_ticks_msec()
 	await store.load_game()
+	PerformanceLog.record("store_load_game", Time.get_ticks_msec() - load_start)
 	if store.game == null: return
 	if screen != null:
 		screen.queue_free()
@@ -154,9 +157,11 @@ func _load_game() -> void:
 		curtain = MarketLoadingCurtain.new()
 		canvas.add_child(curtain)
 	if is_instance_valid(curtain): await get_tree().process_frame
+	var world_start := Time.get_ticks_msec()
 	world = World.new()
 	world.store = store
 	add_child(world)
+	PerformanceLog.record("world_construct", Time.get_ticks_msec() - world_start)
 	telemetry.world = world
 	if not world.load_timings_ms.is_empty():
 		telemetry.report({"kind": "performance", "name": "startup-world-load", "payload": world.load_timings_ms})
@@ -173,6 +178,7 @@ func _load_game() -> void:
 	_publish_browser_qa()
 
 func _process(delta: float) -> void:
+	var frame_start := Time.get_ticks_msec()
 	if browser_qa and screen is MarketAuthScreen: _publish_browser_qa()
 	# The TS runtime uses performance.now(), not a capped physics/frame delta.
 	var now := Time.get_ticks_msec()
@@ -185,6 +191,7 @@ func _process(delta: float) -> void:
 		if not is_instance_valid(curtain):
 			curtain = MarketLoadingCurtain.new()
 			canvas.add_child(curtain)
+		PerformanceLog.mark("cast_warmup_begin")
 		cast_warmup = MarketCastWarmup.new()
 		world.add_child(cast_warmup)
 		cast_warmup.prepare(world.player_body.position)
@@ -195,6 +202,7 @@ func _process(delta: float) -> void:
 	if is_instance_valid(curtain):
 		world.driveable = false
 		if world_prepared and world.rendering.scene_settled:
+			PerformanceLog.mark("curtain_removed")
 			curtain.queue_free()
 			curtain = null
 			cast_warmup.queue_free()
@@ -203,11 +211,18 @@ func _process(delta: float) -> void:
 	world_elapsed += elapsed
 	sync_elapsed += elapsed
 	if world_elapsed * 1000 >= Timing.WORLD_TICK_INTERVAL_MS:
+		var tick_start := Time.get_ticks_msec()
 		store.tick_world(minf(1000, world_elapsed * 1000))
+		var tick_ms := Time.get_ticks_msec() - tick_start
+		if tick_ms >= PerformanceLog.THRESHOLD_MS:
+			var franchise := EngineProgression.current_franchise(store.game)
+			PerformanceLog.record("tick_world", tick_ms, {"customers": franchise.customers.size(), "employees": franchise.employees.size()})
 		world_elapsed = 0
 	if sync_elapsed >= 30:
 		sync_elapsed = 0
 		store.save_game()
+	var frame_ms := Time.get_ticks_msec() - frame_start
+	if frame_ms >= PerformanceLog.THRESHOLD_MS: PerformanceLog.record("application_process", frame_ms)
 
 func _sign_out() -> void:
 	if OS.has_feature("web"): JavaScriptBridge.eval("try { localStorage.removeItem('mini-market-offline-player-v1'); navigator.serviceWorker?.controller?.postMessage({type:'CLEAR_PRIVATE_CACHE'}); } catch {}", true)
@@ -219,6 +234,8 @@ func _sign_out() -> void:
 func _browser_lifecycle(arguments: Array) -> void:
 	var event: String = arguments[0]
 	if event in ["hidden", "pagehide"]:
+		PerformanceLog.mark("background")
+		if is_instance_valid(telemetry): telemetry.flush_performance_log_immediately()
 		set_process(false)
 		if store.game != null: store.save_game(true)
 		# The keepalive attempt must survive even if this page never gets its ACK.
@@ -229,6 +246,7 @@ func _browser_lifecycle(arguments: Array) -> void:
 			world.input.clear_all()
 			world.joystick.end()
 	elif event == "visible":
+		PerformanceLog.mark("foreground")
 		runtime_at_ms = Time.get_ticks_msec()
 		world_elapsed = 0
 		sync_elapsed = 0
@@ -239,13 +257,18 @@ func _browser_lifecycle(arguments: Array) -> void:
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_CLOSE_REQUEST:
+		PerformanceLog.mark("close")
+		if is_instance_valid(telemetry): telemetry.flush_performance_log_immediately()
 		store.recovery.flush_recovery_snapshot()
 		NavMeshService.dispose_store_navigation()
 		get_tree().quit()
 	elif what == NOTIFICATION_APPLICATION_PAUSED:
+		PerformanceLog.mark("background")
+		if is_instance_valid(telemetry): telemetry.flush_performance_log_immediately()
 		store.recovery.flush_recovery_snapshot()
 		set_process(false)
 	elif what == NOTIFICATION_APPLICATION_RESUMED:
+		PerformanceLog.mark("foreground")
 		runtime_at_ms = Time.get_ticks_msec()
 		world_elapsed = 0
 		set_process(true)

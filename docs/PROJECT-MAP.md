@@ -1,5 +1,19 @@
 # Mini Market — mapa vivo
 
+## Registro de rendimiento de toda la sesión (abrir → cerrar) — 22-09-2026
+
+El usuario pidió no seguir instrumentando un sospechoso a la vez ("no te cierres solo en la creación del personaje... coloca logs desde que se abre la app hasta que se cierra"). Nuevo `PerformanceLog` (`godot/game/telemetry/performance_log.gd`): línea de tiempo de toda la sesión, no solo los puntos elegidos a mano.
+
+- `PerformanceLog.record(op, ms, context)`: registra cualquier operación ≥16 ms (un frame a 60 fps) en cualquier parte del código, con marca de tiempo desde el arranque y contexto compacto (p. ej. `t12500:sync_state:143ms,customers=11,employees=16,slowest=syncActorsMs`).
+- `PerformanceLog.mark(label)`: eventos sin duración (arranque, primer plano/segundo plano, cierre, `render_phase:compiled`, `scene_settled`) para no perder el contexto de huecos entre logs.
+- Instrumentado en TODO el ciclo de vida: `application.gd` (`_process` completo, `tick_world`, `load_game`, construcción del `MarketWorld`, ciclo de vida foreground/background/close), `market_world.gd` (cada llamada a `sync_state`, no solo la primera), `market_actor.gd` (`_load_rig` completo con identidad y ruta del modelo), `recovery_storage.gd` (cada escritura de recuperación), `market_api.gd` (cada petición HTTP con su ruta), `render_runtime.gd` (frames que superan 33 ms, cambios de fase de renderizado).
+- Volcado: `client_telemetry.gd` envía un lote de hasta 8 líneas cada 5 s (`kind: performance, name: session-log`), muy por debajo del límite de 12 peticiones/minuto del endpoint. Al pasar a segundo plano o cerrar, `flush_performance_log_immediately()` vacía todo lo pendiente antes de que el proceso pueda morir (mismo patrón que el guardado de recuperación existente).
+- Cubierto por `tests/telemetry/test_performance_log.gd` (umbral, formato compacto, drenaje del cursor, volcado total).
+
+**Nota de mantenimiento**: al añadir un script nuevo con `class_name`, el caché global de clases de Godot necesita `godot --headless --path godot --editor --import --quit` antes de que `tools/test.sh` lo reconozca (si no, "Identifier ... not declared in the current scope" en cualquier archivo que lo use). El pipeline de `build-ios.yml` ya hace este import antes de exportar, así que el build real no se ve afectado — solo hace falta localmente tras crear una clase global nueva.
+
+435 pruebas en verde. Próxima muestra: con la sesión completa mapeada, la causa real de los tirones restantes (y no solo hipótesis) debería quedar clara sin más rondas de "instrumentar y adivinar".
+
 ## Confirmado en dispositivo: arranque 4.7× más rápido, tirón muy reducido — 22-09-2026
 
 Muestra real tras el fix de `_index()` (entrada anterior): **`total_ms` bajó de ~15600 a 3304 ms**. `crops_bind_ms` de ~6200 a **122 ms**, `furniture_ms` de ~2800 a **220 ms**. El fix del flag de formato (`surface_get_format` en vez de `surface_get_arrays`) fue la causa real, confirmada con números, no solo una teoría plausible.

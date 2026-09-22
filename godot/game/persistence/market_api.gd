@@ -74,12 +74,16 @@ func request_json(path: String, method: String = "GET", payload: Variant = null,
 		for key in _cookies: cookies.append(key + "=" + _cookies[key])
 		headers.append("Cookie: " + "; ".join(cookies))
 	var methods := {"GET": HTTPClient.METHOD_GET, "POST": HTTPClient.METHOD_POST, "PUT": HTTPClient.METHOD_PUT, "DELETE": HTTPClient.METHOD_DELETE}
+	var request_start := Time.get_ticks_msec()
 	var started := request.request(url, headers, methods[method], "" if payload == null else JSON.stringify(payload, "", false, true))
 	if started != OK:
 		request.queue_free()
 		return {"ok": false, "status": 0, "data": {}, "transportError": started}
 	var response: Array = await request.request_completed
 	request.queue_free()
+	# Network waits do not block a frame (this is an await), but they are
+	# still useful timeline context for the whole open-to-close session log.
+	PerformanceLog.record("http_" + method.to_lower(), Time.get_ticks_msec() - request_start, {"path": path.get_slice("?", 0)})
 	for header in response[2]:
 		if not header.to_lower().begins_with("set-cookie:"): continue
 		var pair: String = header.substr(header.find(":") + 1).strip_edges().get_slice(";", 0)

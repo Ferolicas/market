@@ -180,7 +180,8 @@ func _ready() -> void:
 func sync_state() -> void:
 	if store.game == null: return
 	sync_state_phase_ms = {}
-	var phase_start := Time.get_ticks_msec()
+	var call_start := Time.get_ticks_msec()
+	var phase_start := call_start
 	var state: Dictionary = store.game
 	var franchise := Progression.current_franchise(state)
 	front_door_indicator.albedo_color = Color("72e8a9" if franchise.open else "f08d73")
@@ -238,6 +239,15 @@ func sync_state() -> void:
 				parent = parent.get_parent()
 		var machine: Variant = Progression.find_id(franchise.productionMachines, machine_id)
 		animal.active = machine != null and machine.status == "PROCESSING"
+	var total_ms := Time.get_ticks_msec() - call_start
+	if total_ms >= PerformanceLog.THRESHOLD_MS:
+		var slowest_phase := ""
+		var slowest_ms := 0
+		for phase in sync_state_phase_ms:
+			if sync_state_phase_ms[phase] > slowest_ms:
+				slowest_ms = sync_state_phase_ms[phase]
+				slowest_phase = phase
+		PerformanceLog.record("sync_state", total_ms, {"customers": franchise.customers.size(), "employees": franchise.employees.size(), "slowest": slowest_phase})
 
 func visual_franchise(franchise: Dictionary) -> Dictionary:
 	var presentation := VisualTransferLedger.derive_visual_transfer_presentation(franchise.carry, franchise.crops, franchise.shelves, transfers.entries)

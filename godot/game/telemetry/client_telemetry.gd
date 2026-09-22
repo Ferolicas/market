@@ -6,6 +6,9 @@ var world: MarketWorld
 var sampler := FieldPerformanceSampler.new()
 var elapsed := 0.0
 var previous_status := ""
+var log_elapsed := 0.0
+const LOG_FLUSH_INTERVAL_S := 5.0
+const LOG_BATCH_SIZE := 8
 
 func _ready() -> void:
 	if store != null: store.changed.connect(_save_changed)
@@ -38,8 +41,32 @@ func _save_changed() -> void:
 	if previous_status in ["offline", "conflict", "error"]:
 		report({"kind": "save", "name": previous_status, "severity": "error" if previous_status == "error" else "warning", "message": store.message})
 
+## One batch of PerformanceLog lines, e.g. {"n": 3, "l0": "...", "l1": "...",
+## "l2": "..."} — the whole-session timeline (open to close), not just the
+## handful of subsystems picked by hand so far. One batch per
+## LOG_FLUSH_INTERVAL_S keeps this at most 12/minute, matching the telemetry
+## endpoint's own rate limit even during a burst of hitches.
+func flush_performance_log() -> void:
+	var batch := PerformanceLog.take_batch(LOG_BATCH_SIZE)
+	if batch.is_empty(): return
+	var payload := {"n": batch.size()}
+	for index in batch.size(): payload["l%d" % index] = batch[index]
+	report({"kind": "performance", "name": "session-log", "payload": payload})
+
+## Drains everything still unflushed in one go — used only when the app is
+## about to background or close, where there will be no next _process tick
+## to send it gradually. Best-effort: some of these may race the app's
+## actual suspension and never land, same as the existing save(true)/
+## flush_recovery_snapshot() calls on the same lifecycle events.
+func flush_performance_log_immediately() -> void:
+	while PerformanceLog.has_unflushed(): flush_performance_log()
+
 func _process(delta: float) -> void:
 	if not OS.has_feature("web"): sampler.add_frame(delta * 1000)
+	log_elapsed += delta
+	if log_elapsed >= LOG_FLUSH_INTERVAL_S:
+		log_elapsed = 0
+		flush_performance_log()
 	elapsed += delta
 	if elapsed < 60: return
 	elapsed = 0
