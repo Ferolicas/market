@@ -82,11 +82,13 @@ func close_panel() -> void:
 		overlay.queue_free()
 		overlay = null
 	panel = ""
+	hud.set_active_panel("")
 	world.driveable = store.game != null and store.game.tutorialStep > 0
 
 func open_panel(id: String) -> void:
 	close_panel()
 	panel = id
+	hud.set_active_panel(id)
 	if id == "setup":
 		setup_avatar = store.game.avatar.duplicate(true)
 		setup_country = store.game.countryCode

@@ -26,6 +26,13 @@ var guide: PanelContainer
 var guide_button: Button
 var guide_detail: Label
 var guide_progress: ProgressBar
+var nav_buttons: Dictionary = {}
+var nav_row: HBoxContainer
+var active_panel_id := ""
+const NAV_ACCENT := "ef6c4c"
+const NAV_ICON_IDLE := "8f8a78"
+const NAV_BAR_BG := "fffaf0"
+const NAV_LABEL_ES := {"stock": "Inventario", "orders": "Pedidos", "team": "Equipo", "map": "Sucursales", "finance": "Finanzas", "avatar": "Avatar", "help": "Ayuda"}
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(PRESET_FULL_RECT)
@@ -52,13 +59,14 @@ func _ready() -> void:
 	sound = _button(row, "sound", "Sonido y vibración", func(): panel_requested.emit("settings"))
 	save = _button(row, "cloud", "Guardar ahora", func(): save_requested.emit())
 	save.name = "SaveGame"
-	menu = _card(5, 19)
-	var buttons := HBoxContainer.new()
-	buttons.add_theme_constant_override("separation", 3)
-	menu.add_child(buttons)
-	for entry in [["stock", "inventory", "Inventario"], ["orders", "suppliers", "Pedidos"], ["team", "team", "Equipo"], ["map", "map", "Franquicias"], ["finance", "finance", "Finanzas"], ["avatar", "avatar", "Avatar"], ["help", "help", "Cómo jugar"]]:
-		var button := _button(buttons, entry[1], entry[2], func(): panel_requested.emit(entry[0]))
-		button.custom_minimum_size = Vector2(46, 46)
+	menu = _nav_bar()
+	var menu_center := CenterContainer.new()
+	menu.add_child(menu_center)
+	nav_row = HBoxContainer.new()
+	nav_row.add_theme_constant_override("separation", 0)
+	menu_center.add_child(nav_row)
+	for entry in [["stock", "inventory"], ["orders", "suppliers"], ["team", "team"], ["map", "map"], ["finance", "finance"], ["avatar", "avatar"], ["help", "help"]]:
+		nav_buttons[entry[0]] = _nav_button(nav_row, entry[1], NAV_LABEL_ES[entry[0]], func(): panel_requested.emit(entry[0]))
 	player_card = _card(7, 16)
 	var player_row := HBoxContainer.new()
 	player_card.add_child(player_row)
@@ -127,6 +135,78 @@ func _button(parent: Node, icon: String, title: String, action: Callable) -> But
 	parent.add_child(button)
 	return button
 
+## Docked flush to the screen's bottom edge (the footer), full width, rounded
+## only at the top so it reads as an attached dock rather than a floating
+## pill. The lifted-off-the-scene feel a premium tab bar needs comes from a
+## soft upward shadow instead of a border, since there is no bottom/side
+## border to frame it against the 3D world behind it.
+func _nav_bar() -> PanelContainer:
+	var bar := PanelContainer.new()
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(NAV_BAR_BG)
+	style.set_corner_radius_all(0)
+	style.corner_radius_top_left = 26
+	style.corner_radius_top_right = 26
+	style.border_width_top = 1
+	style.border_color = Color("efe8d4")
+	style.shadow_color = Color(0.11, 0.2, 0.16, 0.16)
+	style.shadow_size = 18
+	style.shadow_offset = Vector2(0, -4)
+	style.content_margin_left = 6
+	style.content_margin_right = 6
+	style.content_margin_top = 10
+	bar.add_theme_stylebox_override("panel", style)
+	add_child(bar)
+	return bar
+
+## Icon above a micro-label (native tab-bar convention), evenly filling the
+## bar's width. The idle/active look is entirely color (icon + label tint
+## plus a soft accent pill behind the icon) so it stays true to the same SVG
+## glyphs; see set_active_panel().
+func _nav_button(parent: Node, icon: String, title: String, action: Callable) -> Button:
+	var button := Button.new()
+	button.name = "Nav" + icon.capitalize()
+	button.tooltip_text = title
+	button.text = title
+	button.custom_minimum_size = Vector2(0, 56)
+	button.size_flags_horizontal = SIZE_EXPAND_FILL
+	button.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	button.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP
+	button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	button.expand_icon = false
+	button.add_theme_font_size_override("font_size", 9)
+	button.add_theme_constant_override("icon_max_width", 22)
+	button.add_theme_constant_override("h_separation", 4)
+	if not icon.is_empty(): button.icon = load("res://assets/ui/%s.svg" % icon)
+	for state in ["normal", "hover", "pressed", "disabled", "focus"]:
+		var box := StyleBoxFlat.new()
+		box.bg_color = Color(0, 0, 0, 0)
+		box.set_corner_radius_all(16)
+		box.content_margin_top = 6
+		box.content_margin_bottom = 4
+		button.add_theme_stylebox_override(state, box)
+	_paint_nav_button(button, false)
+	button.pressed.connect(action)
+	parent.add_child(button)
+	return button
+
+func _paint_nav_button(button: Button, active: bool) -> void:
+	var tint := Color(NAV_ACCENT) if active else Color(NAV_ICON_IDLE)
+	for state in ["icon_normal_color", "icon_hover_color", "icon_pressed_color", "icon_focus_color"]:
+		button.add_theme_color_override(state, tint)
+	for state in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+		button.add_theme_color_override(state, tint)
+	var normal: StyleBoxFlat = button.get_theme_stylebox("normal")
+	normal.bg_color = Color(NAV_ACCENT + "17") if active else Color(0, 0, 0, 0)
+
+## Highlights the nav item for the currently open management panel (or none
+## while driving the store floor), called from game_shell.gd's
+## open_panel/close_panel so the bar always reflects where the player is.
+func set_active_panel(id: String) -> void:
+	if active_panel_id == id: return
+	active_panel_id = id
+	for panel_id in nav_buttons: _paint_nav_button(nav_buttons[panel_id], panel_id == id)
+
 func _layout() -> void:
 	if top == null: return
 	var safe := MarketSafeArea.insets(get_viewport())
@@ -138,16 +218,40 @@ func _layout() -> void:
 	money.add_theme_font_size_override("font_size", 14 if compact else 18)
 	top.size = Vector2(maxf(top.get_combined_minimum_size().x, minf(790, size.x - 24)), 58)
 	top.position = Vector2((size.x - top.size.x) / 2, maxf(10, safe.y))
-	menu.size = menu.get_combined_minimum_size()
-	menu.position = Vector2((size.x - menu.size.x) / 2, size.y - menu.size.y - maxf(10, safe.w))
+	# Flush against the footer: the bar's own background reaches the screen's
+	# bottom edge (covering the home-indicator strip like a native tab bar),
+	# with the safe-area inset added as inner bottom padding instead of a gap
+	# above it, so the tappable icons stay clear of that strip.
+	var menu_style: StyleBoxFlat = menu.get_theme_stylebox("panel")
+	menu_style.content_margin_bottom = maxf(8, safe.w)
+	# Seven labeled buttons need ~402px minimum; below that (an iPhone SE or
+	# narrower) drop to icon-only so the bar still actually fits its own
+	# footer instead of overflowing it.
+	var nav_compact := size.x < 420
+	for panel_id in nav_buttons:
+		var button: Button = nav_buttons[panel_id]
+		button.text = "" if nav_compact else NAV_LABEL_ES[panel_id]
+	# Full width on a phone; capped so seven icons do not end up paper-thin
+	# and far apart on a tablet/desktop viewport, while the bar's own
+	# background still reaches edge to edge like a real footer. -12 accounts
+	# for the panel's own fixed 6+6 left/right content margins, or this
+	# request for the bar's own minimum size overshoots size.x by exactly
+	# that much and the "flush footer" contract breaks on a narrow phone.
+	nav_row.custom_minimum_size.x = minf(620, size.x) - 12
+	menu.size = Vector2(size.x, menu.get_combined_minimum_size().y)
+	menu.position = Vector2(0, size.y - menu.size.y)
+	# The nav bar is now flush with the footer and spans the full width, so
+	# anything that used to float above the bottom edge/safe-area independently
+	# must instead clear the bar's own top edge (menu.position.y) or it now
+	# sits underneath the bar.
 	player_card.visible = size.x > 820
 	player_card.size = player_card.get_combined_minimum_size()
-	player_card.position = Vector2(size.x - player_card.size.x - maxf(14, safe.z), size.y - player_card.size.y - maxf(14, safe.w))
+	player_card.position = Vector2(size.x - player_card.size.x - maxf(14, safe.z), menu.position.y - player_card.size.y - 14)
 	carry_card.size = carry_card.get_combined_minimum_size()
-	carry_card.position = Vector2(maxf(14, safe.x), size.y - carry_card.size.y - maxf(14, safe.w)) if size.x > 820 else Vector2(size.x - carry_card.size.x - maxf(8, safe.z), size.y - carry_card.size.y - maxf(64, safe.w + 54))
+	carry_card.position = Vector2(maxf(14, safe.x), menu.position.y - carry_card.size.y - 14) if size.x > 820 else Vector2(size.x - carry_card.size.x - maxf(8, safe.z), menu.position.y - carry_card.size.y - 10)
 	guide.size.x = 256
 	guide.position = Vector2(size.x - 256 - maxf(12, safe.z), maxf(80, safe.y + 70))
-	toast.position = Vector2((size.x - toast.size.x) / 2, size.y - maxf(112, safe.w + 102))
+	toast.position = Vector2((size.x - toast.size.x) / 2, menu.position.y - toast.size.y - 12)
 
 func update(game: Dictionary, franchise: Dictionary, store: MarketStore, player_name: String) -> void:
 	guide.visible = game.level == 1 and game.tutorialStep > 0

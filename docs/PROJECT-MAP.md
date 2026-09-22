@@ -1,5 +1,17 @@
 # Mini Market — mapa vivo
 
+## Menú inferior rediseñado: dock premium pegado al footer — 22-09-2026
+
+Rediseño de la barra de navegación inferior (`godot/game/ui/market_hud.gd`), antes un pill flotante centrado con iconos monocromos planos ("horribles ultra básicos" según el usuario):
+
+- **Pegado al footer**: la barra ahora ocupa el ancho completo y su fondo llega exactamente al borde inferior de la pantalla (como una tab bar nativa), con el inset del safe-area de iOS absorbido como padding interno en vez de un hueco flotante encima.
+- **Más premium**: esquinas redondeadas solo arriba, sombra suave hacia arriba (en vez de borde) para despegarla visualmente de la escena 3D, iconos con trazo más grueso (2.1 en vez de 1.8) recoloreados por tema (`icon_normal_color` etc., no SVGs nuevos), etiqueta de texto bajo cada icono al estilo tab-bar nativo, y estado activo real: el botón del panel abierto se resalta con acento naranja de marca (`#ef6c4c`) y una píldora de fondo — antes no existía ningún indicador de "dónde estás". `game_shell.gd` avisa a `MarketHud.set_active_panel()` en `open_panel`/`close_panel`.
+- **Responsive**: por debajo de 420 px de ancho (iPhone SE y similares) las etiquetas se ocultan y queda solo icono, para que la barra no se desborde de su propio footer; verificado con el ancho real del dispositivo de pruebas (430 pt) y con 375 pt.
+- Bug real encontrado por una prueba antes de tocar nada más: el padding horizontal fijo de la barra (6+6 px) no se restaba del ancho mínimo forzado en las filas de botones, así que la barra pedía 12 px más de los disponibles y se desbordaba de su propio contenedor en pantallas estrechas.
+- `player_card`/`carry_card`/`toast` (antes posicionados relativos al borde inferior + safe-area) ahora se posicionan relativos al borde superior de la nueva barra a ancho completo, para no quedar tapados debajo de ella.
+
+Cubierto por `tests/ui/test_market_hud_nav.gd` (7 pruebas: flush al footer, safe-area, ancho real del dispositivo, modo compacto, alcance de los 7 paneles, resaltado del panel activo, que las tarjetas flotantes no queden tapadas). 445 pruebas en verde. **Pendiente de subir build**: el usuario pidió agrupar más arreglos antes de lanzar el siguiente build de iOS.
+
 ## Pantalla de carga: precalentar el caché de animación antes de construir el mundo — 22-09-2026
 
 Con el caché de `compose_carry_animation_library` ya arreglado (entrada anterior), los tirones en partida quedaron resueltos, pero la pantalla "Preparando la tienda…" seguía congelándose 1.4-2.3 s: son las 8 combinaciones de cuerpo nunca vistas (6 clientes + empleado hombre/mujer × con/sin sombrero) que `sync_state()` crea todas de golpe la primera vez, cada una pagando el costo real de "primera vez" (~90 ms) porque el caché arranca vacío.
