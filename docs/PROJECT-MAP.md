@@ -1,5 +1,13 @@
 # Mini Market — mapa vivo
 
+## Pantalla de carga: precalentar el caché de animación antes de construir el mundo — 22-09-2026
+
+Con el caché de `compose_carry_animation_library` ya arreglado (entrada anterior), los tirones en partida quedaron resueltos, pero la pantalla "Preparando la tienda…" seguía congelándose 1.4-2.3 s: son las 8 combinaciones de cuerpo nunca vistas (6 clientes + empleado hombre/mujer × con/sin sombrero) que `sync_state()` crea todas de golpe la primera vez, cada una pagando el costo real de "primera vez" (~90 ms) porque el caché arranca vacío.
+
+`AnimationCacheWarmup` (`godot/game/render/animation_cache_warmup.gd`) precalienta esas 8 combinaciones **antes** de crear el `MarketWorld`, una por frame bajo el telón de carga (mismo patrón que `MarketCastWarmup`), así que cuando `sync_state()` corre de verdad, todo pega en caché (~16-17 ms) en vez de pagar el costo de primera vez. Enganchado en `application.gd::_load_game()`, entre mostrar el telón y `World.new()`.
+
+Bug real durante la implementación: las rutas del precalentamiento no coincidían con las que usa `_load_rig()` porque no aplicaban `character_model_path_for_tier()` — en el entorno real el nivel de detalle casi nunca es 0 (depende de las capacidades del dispositivo), así que las claves de caché nunca coincidían. Detectado con una prueba antes de enviar nada al dispositivo. Cubierto por `tests/render/test_animation_cache_warmup.gd`. 438 pruebas en verde.
+
 ## Causa raíz real del tirón encontrada y arreglada: caché de animación nunca funcionaba — 22-09-2026
 
 Con el registro de sesión completa dividiendo `animationLibrarySwap` en `compose` vs `removeAdd`, la línea de tiempo cruda de un iPhone real lo dejó inequívoco: `compose_carry_animation_library()` costaba **90-95 ms en cada aparición, incluso en identidades repetidas** (`owner_man` ocho veces seguidas, siempre ~90-95 ms); `remove_animation_library`/`add_animation_library` (las llamadas reales del motor) costaban 0-1 ms. El caché de esa función nunca acertaba.

@@ -157,6 +157,16 @@ func _load_game() -> void:
 		curtain = MarketLoadingCurtain.new()
 		canvas.add_child(curtain)
 	if is_instance_valid(curtain): await get_tree().process_frame
+	if store.game.tutorialStep > 0:
+		# World.new() below triggers sync_state()'s first, synchronous call,
+		# which used to pay ~90ms per never-before-seen identity in one
+		# frame (6 customers + 2 employee genders x hat/bald = up to 8
+		# unique GLBs) — the loading-curtain freeze. Warm that cache here,
+		# one identity per frame under the curtain, so sync_state() hits it
+		# instead of paying for it.
+		var warmup_start := Time.get_ticks_msec()
+		await AnimationCacheWarmup.warm(get_tree())
+		PerformanceLog.record("animation_cache_warmup", Time.get_ticks_msec() - warmup_start)
 	var world_start := Time.get_ticks_msec()
 	world = World.new()
 	world.store = store
