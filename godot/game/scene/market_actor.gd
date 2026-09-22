@@ -194,11 +194,23 @@ func _load_rig(path: String, factor: float) -> void:
 	_record_phase("skeletonScan", Time.get_ticks_msec() - phase_start)
 	phase_start = Time.get_ticks_msec()
 	player = model.find_children("*", "AnimationPlayer", true, false)[0]
+	var compose_ms := 0
+	var swap_ms := 0
 	for library_name in player.get_animation_library_list():
+		var compose_start := Time.get_ticks_msec()
 		var library := CarrySocket.compose_carry_animation_library(player.get_animation_library(library_name))
+		compose_ms += Time.get_ticks_msec() - compose_start
+		var swap_start := Time.get_ticks_msec()
 		player.remove_animation_library(library_name)
 		player.add_animation_library(library_name, library)
+		swap_ms += Time.get_ticks_msec() - swap_start
 	_record_phase("animationLibrarySwap", Time.get_ticks_msec() - phase_start)
+	# compose_carry_animation_library() is cached per source library instance
+	# (a repeat identity should hit it near-instantly); remove/add_animation_library
+	# are Godot's own AnimationPlayer calls and pay their own cost regardless of
+	# caching. Split out directly in the session log (not just the one-minute
+	# aggregate) since the aggregate keeps missing the startup burst.
+	if compose_ms + swap_ms >= PerformanceLog.THRESHOLD_MS: PerformanceLog.record("animation_library_swap", compose_ms + swap_ms, {"compose": compose_ms, "removeAdd": swap_ms, "identity": identity})
 	phase_start = Time.get_ticks_msec()
 	clips.clear()
 	actions.clear()
@@ -209,7 +221,9 @@ func _load_rig(path: String, factor: float) -> void:
 		actions[short_name] = action
 	active_clip = ""
 	locomotion = LocomotionController.new()
-	_record_phase("clipsActionsBuild", Time.get_ticks_msec() - phase_start)
+	var clips_ms := Time.get_ticks_msec() - phase_start
+	_record_phase("clipsActionsBuild", clips_ms)
+	if clips_ms >= PerformanceLog.THRESHOLD_MS: PerformanceLog.record("clips_actions_build", clips_ms, {"identity": identity, "count": actions.size()})
 	PerformanceLog.record("load_rig", Time.get_ticks_msec() - call_start, {"identity": identity, "path": path.get_file()})
 
 func _process(delta: float) -> void:
