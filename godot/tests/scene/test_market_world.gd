@@ -137,6 +137,25 @@ func test_management_panels_use_the_live_store_without_parse_errors() -> void:
 		assert_true(world.driveable)
 	shell.free()
 
+## A management panel used to cover the whole nav bar (its overlay is a
+## sibling added after `hud`, so by tree order it drew on top of it), so the
+## player lost sight of where they were and any way to jump straight to
+## another panel — the nav must stay visible, on top, and its own space
+## untouched by the panel card.
+func test_open_panel_keeps_the_nav_bar_visible_above_and_clear_of_the_card() -> void:
+	var shell := Shell.new()
+	shell.store = store
+	shell.world = world
+	Engine.get_main_loop().root.add_child(shell)
+	shell.open_panel("stock")
+	assert_gt(shell.hud.menu.z_index, 0, "the dock must draw above the panel overlay")
+	var card: PanelContainer = shell.overlay.get_node("ManagementPanel")
+	assert_lte(card.position.y + card.size.y, shell.hud.menu.position.y + 0.5, "the panel card must stop above the dock, not overlap it")
+	assert_eq(shell.hud.active_panel_id, "stock")
+	shell.close_panel()
+	assert_eq(shell.hud.active_panel_id, "")
+	shell.free()
+
 func test_harvest_and_stock_update_real_carry_canopy_and_display_meshes() -> void:
 	var plot: Dictionary = world.crops.plots["crop-tomato-1"]
 	assert_eq(plot.key, "crop:tomato:0")

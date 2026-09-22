@@ -156,6 +156,14 @@ func _nav_bar() -> PanelContainer:
 	style.content_margin_right = 6
 	style.content_margin_top = 10
 	bar.add_theme_stylebox_override("panel", style)
+	# A management panel's overlay is a sibling added after `hud`, so by tree
+	# order alone it draws (and receives input) above the whole HUD, nav bar
+	# included — the player could open a panel and lose all sight of where
+	# they were or any way to jump straight to another panel. A higher
+	# z_index keeps the dock drawn, and tappable, above that overlay; the
+	# overlay/card in game_shell.gd stop short of the bar's own top edge
+	# (see its `reflow` closure) so the two never visually fight either.
+	bar.z_index = 20
 	add_child(bar)
 	return bar
 

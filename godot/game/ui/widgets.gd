@@ -88,6 +88,17 @@ static func grid(parent: Control, desktop: int, tablet: int, phone: int) -> Grid
 static func card(parent: Control) -> VBoxContainer:
 	var panel := PanelContainer.new()
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	# Same fix as button() above: PanelContainer defaults to MOUSE_FILTER_STOP,
+	# so a touch-drag or wheel scroll starting anywhere on a card's own
+	# background (not precisely on a Label, which already passes it through)
+	# never reached the panel's ScrollContainer ancestor — scrolling looked
+	# "locked" on every card-heavy panel (stock/team/map/finance).
+	var ancestor: Node = parent
+	while ancestor != null:
+		if ancestor is ScrollContainer:
+			panel.mouse_filter = Control.MOUSE_FILTER_PASS
+			break
+		ancestor = ancestor.get_parent()
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color("fffdf8")
 	style.border_color = Color("ded8ca")

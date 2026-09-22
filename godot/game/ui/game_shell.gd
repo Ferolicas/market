@@ -141,10 +141,16 @@ func open_panel(id: String) -> void:
 		var safe := MarketSafeArea.insets(get_viewport())
 		var phone := size.x <= 820
 		title.add_theme_font_size_override("font_size", 19 if phone else 25)
-		var available := size - Vector2(safe.x + safe.z, safe.y + safe.w)
+		# The nav bar is now a full-width dock flush to the footer, drawn
+		# above this overlay (see MarketHud._nav_bar()'s z_index); stopping
+		# short of its top edge, instead of just the raw safe-area inset, is
+		# what makes the panel read as living inside the menu instead of a
+		# separate modal that buries it.
+		var footer_clear: float = size.y - hud.menu.position.y
+		var available := size - Vector2(safe.x + safe.z, safe.y + footer_clear)
 		if is_instance_valid(company): company.visible = not phone
 		card.size = Vector2(minf(1040, available.x * (1.0 if phone else 0.95)), minf(760, available.y * (0.95 if panel == "setup" else (0.93 if phone else 0.91))))
-		card.position = Vector2(safe.x + (available.x - card.size.x) / 2, size.y - safe.w - card.size.y)
+		card.position = Vector2(safe.x + (available.x - card.size.x) / 2, size.y - footer_clear - card.size.y)
 	reflow.call()
 	resized.connect(reflow)
 	card.tree_exiting.connect(func():

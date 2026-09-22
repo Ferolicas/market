@@ -1,5 +1,15 @@
 # Mini Market — mapa vivo
 
+## Los paneles ya no tapan el menú; scroll desbloqueado en todos los paneles — 22-09-2026
+
+Dos arreglos pedidos tras el rediseño del menú:
+
+1. **El panel tapaba el menú entero**: al abrir un panel (stock/equipo/mapa/etc.), su `overlay` es un hermano de `hud` añadido *después*, así que por orden del árbol se dibujaba (y recibía el toque) encima de todo el HUD, incluido el nuevo dock a pantalla completa — el jugador perdía de vista en qué panel estaba y no podía saltar a otro directamente. `MarketHud._nav_bar()` ahora fija `bar.z_index = 20` para que el dock se dibuje y reciba toques por encima del overlay del panel; `game_shell.gd`'s `reflow` (dentro de `open_panel`) calcula el área disponible de la tarjeta usando `hud.menu.position.y` como límite inferior en vez del inset crudo del safe-area, así la tarjeta se detiene justo arriba del dock en vez de superponerse — se siente como que el modal es parte del menú, no algo aparte.
+
+2. **Scroll bloqueado en varios paneles**: `Widgets.card()` (`game/ui/widgets.gd`) construye cada tarjeta como `PanelContainer`, que por defecto tiene `mouse_filter = STOP` — cualquier arrastre táctil o rueda que empezara sobre el fondo de una tarjeta (no exactamente sobre una `Label`) se consumía ahí mismo y nunca llegaba al `ScrollContainer` ancestro. `Widgets.button()` ya tenía este arreglo exacto para botones (comentario: "ScrollContainer implements touch panning through emulated mouse input"); se aplicó el mismo patrón de recorrido de ancestros a `card()`, pasando a `MOUSE_FILTER_PASS` cuando hay un `ScrollContainer` en la cadena de padres. Afecta a stock/equipo/mapa/finanzas, donde casi todo el contenido usa `Widgets.card()`.
+
+Cubierto por `tests/scene/test_market_world.gd::test_open_panel_keeps_the_nav_bar_visible_above_and_clear_of_the_card` y `tests/ui/test_widgets_scroll.gd` (2 pruebas). 448 pruebas en verde. Sigue sin subirse build — agrupando más arreglos primero, según pidió el usuario.
+
 ## Menú inferior rediseñado: dock premium pegado al footer — 22-09-2026
 
 Rediseño de la barra de navegación inferior (`godot/game/ui/market_hud.gd`), antes un pill flotante centrado con iconos monocromos planos ("horribles ultra básicos" según el usuario):
