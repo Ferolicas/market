@@ -198,7 +198,7 @@ func _load_rig(path: String, factor: float) -> void:
 	var swap_ms := 0
 	for library_name in player.get_animation_library_list():
 		var compose_start := Time.get_ticks_msec()
-		var library := CarrySocket.compose_carry_animation_library(player.get_animation_library(library_name))
+		var library := CarrySocket.compose_carry_animation_library(player.get_animation_library(library_name), "%s:%s" % [path, library_name])
 		compose_ms += Time.get_ticks_msec() - compose_start
 		var swap_start := Time.get_ticks_msec()
 		player.remove_animation_library(library_name)

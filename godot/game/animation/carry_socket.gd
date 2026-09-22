@@ -340,8 +340,20 @@ static var _composed_libraries := {}
 
 ## Cached per loaded GLB: every body sharing the same source library reuses one
 ## composed set instead of rebuilding fifty clips on each spawn.
-static func compose_carry_animation_library(library: AnimationLibrary) -> AnimationLibrary:
-	var key := library.get_instance_id()
+##
+## cache_key should be stable across repeat spawns of the same identity (e.g.
+## "<glb path>:<library name>"), NOT the AnimationLibrary's own instance id:
+## the glTF importer marks animation libraries resource_local_to_scene, so
+## PackedScene.instantiate() hands out a fresh instance id on every single
+## call even for the same source GLB, unlike most other sub-resources
+## (materials keep a stable id across instantiate() calls). Keying on
+## instance id therefore never hit — every spawn recomposed all clips from
+## scratch (~90ms, the actual cost behind _load_rig()'s hitch; the
+## AnimationPlayer remove/add_animation_library calls this feeds were never
+## the expensive part). Falls back to the instance id when no cache_key is
+## given, so a caller that truly needs per-instance composition still works.
+static func compose_carry_animation_library(library: AnimationLibrary, cache_key: Variant = null) -> AnimationLibrary:
+	var key: Variant = cache_key if cache_key != null else library.get_instance_id()
 	if _composed_libraries.has(key): return _composed_libraries[key]
 	var clips := []
 	for animation_name in library.get_animation_list():

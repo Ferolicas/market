@@ -208,3 +208,32 @@ func test_round_trips_a_godot_animation_through_the_clip_model() -> void:
 	assert_eq(back.length, 2.0)
 	assert_eq(String(back.track_get_path(0)), "Skeleton3D:Hand_L")
 	assert_eq(back.track_get_key_count(0), 2)
+
+func _fixture_library() -> AnimationLibrary:
+	var animation := Animation.new()
+	animation.length = 1.0
+	var library := AnimationLibrary.new()
+	library.add_animation(&"Idle", animation)
+	return library
+
+## The glTF importer marks AnimationLibrary resource_local_to_scene, so a
+## repeat spawn of the same customer/employee identity gets a *different*
+## AnimationLibrary instance every single _load_rig() call even though it
+## came from the same source .glb — get_instance_id() never matched between
+## spawns, so the old cache silently missed every time and recomposed ~90ms
+## of clips on every single actor creation (the real cause behind the
+## in-game/startup hitches, per real device telemetry: compose ~90-95ms,
+## the AnimationPlayer remove/add_animation_library calls it feeds ~0-1ms).
+func test_caches_by_the_given_key_not_by_the_librarys_own_instance_id() -> void:
+	var first_instance := _fixture_library()
+	var second_instance := _fixture_library() # a different Resource, same source path in practice
+	var first := CarrySocket.compose_carry_animation_library(first_instance, "owner_man.glb:default")
+	var second := CarrySocket.compose_carry_animation_library(second_instance, "owner_man.glb:default")
+	assert_true(is_same(first, second), "Same cache key must reuse the composed result even across different AnimationLibrary instances")
+
+func test_still_separates_by_instance_id_when_no_cache_key_is_given() -> void:
+	var first_instance := _fixture_library()
+	var second_instance := _fixture_library()
+	var first := CarrySocket.compose_carry_animation_library(first_instance)
+	var second := CarrySocket.compose_carry_animation_library(second_instance)
+	assert_false(is_same(first, second))

@@ -1,5 +1,15 @@
 # Mini Market — mapa vivo
 
+## Causa raíz real del tirón encontrada y arreglada: caché de animación nunca funcionaba — 22-09-2026
+
+Con el registro de sesión completa dividiendo `animationLibrarySwap` en `compose` vs `removeAdd`, la línea de tiempo cruda de un iPhone real lo dejó inequívoco: `compose_carry_animation_library()` costaba **90-95 ms en cada aparición, incluso en identidades repetidas** (`owner_man` ocho veces seguidas, siempre ~90-95 ms); `remove_animation_library`/`add_animation_library` (las llamadas reales del motor) costaban 0-1 ms. El caché de esa función nunca acertaba.
+
+Causa: el caché estaba indexado por `AnimationLibrary.get_instance_id()`, asumiendo que Godot comparte los sub-recursos del GLB entre llamadas a `instantiate()` — cierto para los materiales (por eso el caché de materiales sí ayudó algo), **falso para las librerías de animación**: el importador glTF las marca `resource_local_to_scene`, así que cada `instantiate()` entrega una instancia nueva aunque venga del mismo `.glb`. El caché por instance_id nunca coincidía entre apariciones de la misma identidad.
+
+Arreglado en `carry_socket.gd`: `compose_carry_animation_library()` acepta ahora una `cache_key` explícita (string estable, `"<ruta.glb>:<nombre_librería>"`), no el instance_id. `market_actor.gd::_load_rig()` pasa esa clave. Cubierto por `tests/animation/test_carry_socket.gd` (mismo resultado cacheado con instancias de `AnimationLibrary` distintas pero la misma clave; sigue separando por instance_id cuando no se pasa clave).
+
+437 pruebas en verde. Esta es la causa real detrás de los ~2.7 s de `sync_state` en el arranque (22 personajes × ~90-115 ms) y de los tirones en partida (cada cliente nuevo). Pendiente: una muestra más para confirmar la mejora real con el caché arreglado.
+
 ## Registro de rendimiento de toda la sesión (abrir → cerrar) — 22-09-2026
 
 El usuario pidió no seguir instrumentando un sospechoso a la vez ("no te cierres solo en la creación del personaje... coloca logs desde que se abre la app hasta que se cierra"). Nuevo `PerformanceLog` (`godot/game/telemetry/performance_log.gd`): línea de tiempo de toda la sesión, no solo los puntos elegidos a mano.
