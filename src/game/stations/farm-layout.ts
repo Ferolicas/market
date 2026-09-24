@@ -1,3 +1,4 @@
+import { distance2d } from "../core/DeterministicMath";
 import { CONTACT_MAGNET_REACH } from "../interaction/InteractionZone";
 import { wallGroundShadowDepth } from "../render/overview-camera";
 import type { CropState } from "../types";
@@ -254,7 +255,7 @@ export const FARM_INTERIOR_WAYPOINTS = {
 type FarmPoint = readonly [number, number];
 
 function sameFarmPoint(a: FarmPoint, b: FarmPoint) {
-  return Math.hypot(a[0] - b[0], a[1] - b[1]) <= 0.08;
+  return distance2d(a[0] - b[0], a[1] - b[1]) <= 0.08;
 }
 
 function compactFarmRoute(start: FarmPoint, route: readonly FarmPoint[]) {
@@ -361,7 +362,7 @@ export function farmInteriorRouteBetween(start: FarmPoint, destination: FarmPoin
     nodes.forEach((candidate, index) => {
       if (visited[index] || index === current || !farmSegmentIsObstacleFree(nodes[current], candidate)) return;
       const distance = distances[current]
-        + Math.hypot(nodes[current][0] - candidate[0], nodes[current][1] - candidate[1]);
+        + distance2d(nodes[current][0] - candidate[0], nodes[current][1] - candidate[1]);
       if (distance + 1e-8 < distances[index]) {
         distances[index] = distance;
         previous[index] = current;

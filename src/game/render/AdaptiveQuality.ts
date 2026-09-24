@@ -229,3 +229,84 @@ export function presentationDivisor(refreshIntervalMs: number, targetFps: number
   const refreshHz = 1_000 / Math.max(1, refreshIntervalMs);
   return Math.max(1, Math.round(refreshHz / Math.max(1, targetFps)));
 }
+
+/**
+ * Stable pacing beats a high average: a phone that renders a moving scene in
+ * 18–20 ms on a 120 Hz panel presenting every second tick alternates 16 and
+ * 33 ms frames, which reads as stutter. When presented frames keep missing
+ * their slot, the motion cadence steps down one divisor (60 → 40 → 30 fps at
+ * 120 Hz, 60 → 30 at 60 Hz) and climbs back once frames fit again.
+ */
+export interface MotionCadenceConfig {
+  /** A presentation counts as missed past this multiple of its slot. */
+  missTolerance: number;
+  /** Presentations judged before stepping down. */
+  stepDownSamples: number;
+  stepDownMissRatio: number;
+  /** Presentations judged, and quiet time required, before stepping up. */
+  stepUpSamples: number;
+  stepUpMissRatio: number;
+  stepUpAfterMs: number;
+  /** Slowest cadence the controller may choose. */
+  minimumFps: number;
+}
+
+export const MOTION_CADENCE: MotionCadenceConfig = {
+  missTolerance: 1.25,
+  stepDownSamples: 30,
+  stepDownMissRatio: 0.2,
+  stepUpSamples: 90,
+  stepUpMissRatio: 0.05,
+  stepUpAfterMs: 8_000,
+  minimumFps: 30,
+};
+
+export class MotionCadenceController {
+  level = 0;
+  private presentations = 0;
+  private missed = 0;
+  private changedAt = 0;
+
+  constructor(private readonly config: MotionCadenceConfig = MOTION_CADENCE) {}
+
+  /** Ticks between motion presentations for the current level. */
+  divisor(refreshIntervalMs: number, motionFps: number) {
+    const base = presentationDivisor(refreshIntervalMs, motionFps);
+    const slowest = presentationDivisor(refreshIntervalMs, this.config.minimumFps);
+    return Math.min(slowest, base + this.level);
+  }
+
+  /** Presented frames per second at the current level. */
+  fps(refreshIntervalMs: number, motionFps: number) {
+    return Math.round(1_000 / refreshIntervalMs / this.divisor(refreshIntervalMs, motionFps));
+  }
+
+  /** Feeds the animation-frame delta observed right after a presentation
+   * against the slot that presentation had; returns true when the level
+   * changed. */
+  observe(deltaMs: number, slotMs: number, nowMs: number, refreshIntervalMs: number, motionFps: number) {
+    this.presentations += 1;
+    if (deltaMs > slotMs * this.config.missTolerance) this.missed += 1;
+    const ratio = this.missed / this.presentations;
+    const slowest = presentationDivisor(refreshIntervalMs, this.config.minimumFps);
+    const canStepDown = this.divisor(refreshIntervalMs, motionFps) < slowest;
+    if (this.presentations >= this.config.stepDownSamples && ratio >= this.config.stepDownMissRatio && canStepDown) {
+      this.level += 1;
+      this.reset(nowMs);
+      return true;
+    }
+    if (this.level > 0 && this.presentations >= this.config.stepUpSamples && ratio <= this.config.stepUpMissRatio && nowMs - this.changedAt >= this.config.stepUpAfterMs) {
+      this.level -= 1;
+      this.reset(nowMs);
+      return true;
+    }
+    if (this.presentations >= this.config.stepUpSamples) this.reset(this.changedAt);
+    return false;
+  }
+
+  private reset(changedAt: number) {
+    this.presentations = 0;
+    this.missed = 0;
+    this.changedAt = changedAt;
+  }
+}

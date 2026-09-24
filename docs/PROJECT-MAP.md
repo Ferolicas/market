@@ -1,5 +1,12 @@
 # Mini Market — mapa vivo
 
+## Telemetría real del iPhone, cadencia de movimiento estable y motor idéntico entre motores JS — 24-09-2026 (noche)
+
+Primera lectura de campo tras el despliegue: iPhone del propietario, 430×742 a DPR 3, nivel 30 con 12–15 clientes y 16 empleados: media 17,9–19,8 ms por cuadro, p95 22–24 ms, 61–76 cuadros de más de 25 ms por minuto, 0 tareas largas. El teléfono no sostiene los 60 fps en movimiento que pide el perfil móvil en un panel de 120 Hz (presenta cada 2 ticks): un cuadro de 18–20 ms salta al siguiente vsync y el juego alterna 16 y 33 ms, que se percibe como tirones aunque la media parezca buena.
+
+- **Cadencia de movimiento adaptativa** (`MotionCadenceController` en `AdaptiveQuality.ts`, `CappedFrameScheduler` en `MarketScene.tsx`): el tick posterior a cada presentación dice si el cuadro cupo en su hueco (tolerancia ×1,25); con ≥ 20 % de fallos en 30 presentaciones baja un divisor (120 Hz: 60 → 40 → 30 fps; 60 Hz: 60 → 30), nunca por debajo de 30, y sube de nuevo tras 90 presentaciones con ≤ 5 % de fallos y 8 s de calma. Ritmo estable antes que media alta. Solo afecta al móvil en movimiento; quieto sigue a 30. La ventana de telemetría de un minuto incluye ahora `motionFps`, `motionLevel` y `refreshHz`. Pruebas en `MotionCadence.test.ts`. **Pendiente de confirmar con la telemetría del teléfono** (`framesOver25` debería caer).
+- **El replay en sombra encontró su primer hallazgo real**: cuatro `replay/mismatch` seguidos en la partida del propietario, el primero en `customers.16.x` por una diferencia en el último dígito (1,2745974230698929 ≠ …924) y luego en cascada (plantedAt, available, bagged). Causa: `Math.hypot` y `**` no están correctamente redondeados y difieren entre JavaScriptCore (Safari) y V8 (Node). `src/game/core/DeterministicMath.ts` (`distance2d` = sqrt de la suma de cuadrados, `powInt` por multiplicación repetida) sustituye los 14 `hypot` del motor, los de `checkout-layout`/`farm-layout` que el motor usa y el `**` de `campaignPriceMultiplier`. `seededRandom` (LCG entero) ya era determinista. Sin Bun/JSC en local no se pudo verificar cruzado: la confirmación es que dejen de aparecer `mismatch` en `ClientTelemetry`; hasta entonces el modo sigue en `shadow`.
+
 ## Móvil medido a nivel 30, LODs de gorros y pelo, y QA de entrada hostil — 24-09-2026
 
 Fases D y E del plan técnico del cliente Three.js. Todo medido en la build de producción con QA (`NEXT_PUBLIC_MARKET_QA_ENABLED=1`), Chrome+Vulkan, 390×844, DPR 2, CPU ×4.

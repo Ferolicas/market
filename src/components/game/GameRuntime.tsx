@@ -56,6 +56,11 @@ export function GameRuntime() {
     const sampler = new FieldPerformanceSampler();
     let frameRequest = 0;
     let previousFrame = 0;
+    // The moving cadence the scheduler settled on, so a field window says at
+    // what rate the phone was actually presenting while it stuttered or not.
+    let motionCadence: { level: number; fps: number; refreshHz: number } | null = null;
+    const cadenceListener = (event: Event) => { motionCadence = (event as CustomEvent<{ level: number; fps: number; refreshHz: number }>).detail; };
+    window.addEventListener("market-motion-cadence", cadenceListener);
     const frame = (now: number) => {
       if (previousFrame > 0) sampler.addFrame(now - previousFrame);
       previousFrame = now;
@@ -84,10 +89,14 @@ export function GameRuntime() {
           viewportWidth: window.innerWidth,
           viewportHeight: window.innerHeight,
           devicePixelRatio: window.devicePixelRatio,
+          motionFps: motionCadence?.fps ?? null,
+          motionLevel: motionCadence?.level ?? null,
+          refreshHz: motionCadence?.refreshHz ?? null,
         },
       });
     }, 60_000);
     return () => {
+      window.removeEventListener("market-motion-cadence", cadenceListener);
       window.cancelAnimationFrame(frameRequest);
       window.clearInterval(report);
       observer?.disconnect();

@@ -49,7 +49,7 @@ import {
 import { STORE_SERVICE_FIXTURE_IDS, STORE_SERVICE_FIXTURES } from "@/game/stations/store-service-layout";
 import { WAREHOUSE_ORDERS_TERMINAL, WAREHOUSE_RETURN_STATION } from "@/game/stations/warehouse-layout";
 import { isProductionWorkstationId, productionMachineMagnet, PRODUCTION_WORKSTATION_IDS } from "@/game/stations/production-layout";
-import { ADAPTIVE_QUALITY_GRACE_MS, advanceAdaptiveQuality, DisplayCadenceEstimator, INITIAL_ADAPTIVE_QUALITY_STATE, legacyMobileRenderProfile, marketRenderProfileForCapabilities, MOBILE_ADAPTIVE_QUALITY, MOBILE_MOTION_ADAPTIVE_QUALITY, presentationDivisor, recoveredDpr, regressedDpr, type MarketRenderProfile } from "@/game/render/AdaptiveQuality";
+import { ADAPTIVE_QUALITY_GRACE_MS, advanceAdaptiveQuality, DisplayCadenceEstimator, MotionCadenceController, INITIAL_ADAPTIVE_QUALITY_STATE, legacyMobileRenderProfile, marketRenderProfileForCapabilities, MOBILE_ADAPTIVE_QUALITY, MOBILE_MOTION_ADAPTIVE_QUALITY, presentationDivisor, recoveredDpr, regressedDpr, type MarketRenderProfile } from "@/game/render/AdaptiveQuality";
 import { createStaticMeshBatch } from "@/game/render/StaticMeshBatch";
 import { customerPresentationKey, employeePresentationKey, liveActors, publishLiveActors } from "@/game/render/LiveActors";
 import { daylightPresentation } from "@/game/time/BusinessDay";
@@ -469,14 +469,26 @@ function CappedFrameScheduler({ profile, playerMotionActiveRef, publishDiagnosti
     if (!profile.mobile || profile.targetFps >= 60) return;
     let frameRequest = 0;
     let ticksSincePresent = 0;
+    let lastPresentAt = 0;
+    let lastSlotMs = 0;
+    let lastTickAt = 0;
     const cadence = new DisplayCadenceEstimator();
+    const motionCadence = new MotionCadenceController();
+    const announce = (refreshIntervalMs: number) => window.dispatchEvent(new CustomEvent("market-motion-cadence", { detail: { level: motionCadence.level, fps: motionCadence.fps(refreshIntervalMs, profile.motionFps), refreshHz: Math.round(1_000 / refreshIntervalMs) } }));
     const schedule = (now: number) => {
       if (document.visibilityState !== "visible") return;
       const refreshIntervalMs = cadence.observe(now);
-      const targetFps = playerMotionActiveRef.current || visibleActorMotionActive() ? profile.motionFps : profile.targetFps;
+      // The tick right after a presentation says whether that frame fit its
+      // slot; a run of misses steps the moving cadence down to a steady one.
+      if (lastPresentAt > 0 && lastTickAt === lastPresentAt && motionCadence.observe(now - lastPresentAt, lastSlotMs, now, refreshIntervalMs, profile.motionFps)) announce(refreshIntervalMs);
+      lastTickAt = now;
+      const moving = playerMotionActiveRef.current || visibleActorMotionActive();
+      const divisor = moving ? motionCadence.divisor(refreshIntervalMs, profile.motionFps) : presentationDivisor(refreshIntervalMs, profile.targetFps);
       ticksSincePresent += 1;
-      if (ticksSincePresent >= presentationDivisor(refreshIntervalMs, targetFps)) {
+      if (ticksSincePresent >= divisor) {
         ticksSincePresent = 0;
+        lastPresentAt = now;
+        lastSlotMs = refreshIntervalMs * divisor;
         // R3F's manual frameloop receives seconds (its clock's elapsedTime
         // unit), while requestAnimationFrame supplies milliseconds.
         advance(now / 1_000, true);
@@ -488,6 +500,8 @@ function CappedFrameScheduler({ profile, playerMotionActiveRef, publishDiagnosti
       if (document.visibilityState === "visible") {
         cadence.reset();
         ticksSincePresent = 0;
+        lastPresentAt = 0;
+        lastTickAt = 0;
         frameRequest = window.requestAnimationFrame(schedule);
       }
     };

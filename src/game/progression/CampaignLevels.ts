@@ -1,5 +1,6 @@
 import type { FranchiseState, GameState, EmployeeRole } from "../types";
 import { OPENING_PURCHASES } from "./MartCampaign";
+import { powInt } from "../core/DeterministicMath";
 import { CAMPAIGN_TASK_IDS, campaignTaskStatus } from "./CampaignTasks";
 import { campaignContracts } from "./CampaignContracts";
 
@@ -19,7 +20,9 @@ export const CAMPAIGN_PRICE_GROWTH_PER_LEVEL = 0.03;
 
 export function campaignPriceMultiplier(level: number) {
   const step = Math.max(0, Math.min(30, Number.isFinite(level) ? Math.floor(level) : 1) - 1);
-  return (1 + CAMPAIGN_PRICE_GROWTH_PER_LEVEL) ** step;
+  // Repeated multiplication, not `**`: the multiplier reaches prices and the
+  // save authority on both the client and the replaying server.
+  return powInt(1 + CAMPAIGN_PRICE_GROWTH_PER_LEVEL, step);
 }
 
 export function campaignGlobalLevel(state: GameState) {

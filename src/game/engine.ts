@@ -13,6 +13,7 @@ import { campaignAvailableProducts, OPENING_PURCHASES, type OpeningPurchaseId } 
 import { rosterBaseTier, rosterEntries, rosterPlayerBase, type RosterEntry } from "./progression/RosterUpgrades";
 import { PRODUCT_CONFIG } from "./economy/products";
 import { deterministicUuid } from "./core/DeterministicId";
+import { distance2d } from "./core/DeterministicMath";
 import { createEmptyInventory } from "./economy/ProductRegistry";
 import { createCustomerMind, MAX_SHOPPING_LINES, MAX_SHOPPING_LINE_UNITS } from "./ai/CustomerBrain";
 import { campaignNeedsCustomer, customerWalkSpeed } from "./ai/CustomerTraffic";
@@ -1137,7 +1138,7 @@ function normalizePersistedFarmEmployee(franchise: FranchiseState, employee: Emp
   if (!employee.runtime || employee.role === "cashier") return;
   const runtime = employee.runtime;
   runtime.path = Array.isArray(runtime.path) ? runtime.path : [];
-  const atRetiredHome = Math.hypot(runtime.x + 5.3, runtime.z - 3.6) < 0.35;
+  const atRetiredHome = distance2d(runtime.x + 5.3, runtime.z - 3.6) < 0.35;
   const assignedCrop = runtime.assignedStationId ? CROP_POINTS[runtime.assignedStationId] : undefined;
   const assignedMachine = runtime.assignedStationId
     ? franchise.productionMachines.find((machine) => machine.id === runtime.assignedStationId)
@@ -1175,7 +1176,7 @@ function normalizePersistedFarmEmployee(franchise: FranchiseState, employee: Emp
   // Move that exact persisted resting pose into the aisle before calculating a
   // rear-door fallback, otherwise its first segment can graze the fixture.
   const relocatedLegacyOperatorHome = employee.role === "operator"
-    && Math.hypot(runtime.x - LEGACY_OPERATOR_HOME[0], runtime.z - LEGACY_OPERATOR_HOME[1]) < 0.12;
+    && distance2d(runtime.x - LEGACY_OPERATOR_HOME[0], runtime.z - LEGACY_OPERATOR_HOME[1]) < 0.12;
   if (relocatedLegacyOperatorHome) relocate(EMPLOYEE_HOME.operator);
 
   if (runtime.state === "IDLE" && !carryTotal(runtime.carry)) {
@@ -1226,17 +1227,17 @@ function normalizePersistedFarmEmployee(franchise: FranchiseState, employee: Emp
     relocate(relocatedSource);
   }
   const endpoint = runtime.path.at(-1);
-  const endpointMatches = Boolean(endpoint && Math.hypot(endpoint[0] - expectedTarget[0], endpoint[1] - expectedTarget[1]) < 0.6);
+  const endpointMatches = Boolean(endpoint && distance2d(endpoint[0] - expectedTarget[0], endpoint[1] - expectedTarget[1]) < 0.6);
   const transitionNeedsFarmAccess = isRearFarmPoint([runtime.x, runtime.z]) !== isRearFarmPoint(expectedTarget)
     || isLegacyFarmServiceLanePoint([runtime.x, runtime.z]);
   const pathUsesRearDoor = runtime.path.some((point) => (
-    Math.hypot(point[0] - STORE_REAR_DOOR.x, point[1] - STORE_REAR_DOOR.z) <= 2
+    distance2d(point[0] - STORE_REAR_DOOR.x, point[1] - STORE_REAR_DOOR.z) <= 2
   ));
   // A farmer's harvest stays on the farm (the barn); only an operator's
   // animal delivery still crosses the rear door into the store.
   const farmDeliveryNeedsFarmAccess = delivering && employee.role === "operator" && Boolean(assignedFarmMachinePoint);
   const actionAtWrongPlace = (runtime.state === "PICKUP" || runtime.state === "DROPOFF")
-    && Math.hypot(runtime.x - expectedTarget[0], runtime.z - expectedTarget[1]) >= 0.6;
+    && distance2d(runtime.x - expectedTarget[0], runtime.z - expectedTarget[1]) >= 0.6;
   if (!retiredRoute && !relocatedLegacyOperatorHome && !relocatedLegacyServiceLane && endpointMatches && (!(transitionNeedsFarmAccess || farmDeliveryNeedsFarmAccess) || pathUsesRearDoor) && !actionAtWrongPlace) return;
 
   runtime.state = collecting ? "NAVIGATE_PICKUP" : "NAVIGATE_DROPOFF";
@@ -1346,7 +1347,7 @@ function updateCashierEmployee(state: GameState, franchise: FranchiseState, empl
 
   // Saved cashiers may still be standing at the retired rear-side work point.
   // Do not let them scan remotely: route them to the current lane geometry.
-  if (Math.hypot(runtime.x - workPoint[0], runtime.z - workPoint[1]) > 0.16) {
+  if (distance2d(runtime.x - workPoint[0], runtime.z - workPoint[1]) > 0.16) {
     runtime.state = "NAVIGATE_CHECKOUT";
     runtime.assignedStationId = assignedStationId;
     runtime.stateSince = state.simulationTimeMs;
@@ -1942,11 +1943,11 @@ function updateCustomerQueue(franchise: FranchiseState, pathfinder?: WorldPathfi
     customer.queueSlot = nextSlot;
     const destination = queuePosition(nextSlot, lane);
     const finalTarget = customer.path.at(-1) ?? [customer.targetX, customer.targetZ];
-    const targetChanged = Math.hypot(finalTarget[0] - destination[0], finalTarget[1] - destination[1]) > 0.08;
+    const targetChanged = distance2d(finalTarget[0] - destination[0], finalTarget[1] - destination[1]) > 0.08;
     if ((changed || targetChanged) && (customer.state === "NAVIGATE_TO_QUEUE" || customer.state === "QUEUE_WAIT" || customer.state === "MOVE_QUEUE")) {
       customer.state = "MOVE_QUEUE";
       setCustomerPath(customer, queueArrivalPath(pathfinder, [customer.x, customer.z], nextSlot, lane));
-    } else if (["UNLOAD", "WAIT_CHECKOUT", "PAY"].includes(customer.state) && Math.hypot(customer.x - destination[0], customer.z - destination[1]) > 0.08) {
+    } else if (["UNLOAD", "WAIT_CHECKOUT", "PAY"].includes(customer.state) && distance2d(customer.x - destination[0], customer.z - destination[1]) > 0.08) {
       customer.x = destination[0]; customer.z = destination[1];
       customer.targetX = destination[0]; customer.targetZ = destination[1];
       customer.path = []; customer.pathIndex = 0; customer.currentSpeed = 0;
@@ -2137,7 +2138,7 @@ export function applyCustomerAvoidance(customers: CustomerRuntimeState[]) {
     for (let offsetX = -1; offsetX <= 1; offsetX += 1) for (let offsetZ = -1; offsetZ <= 1; offsetZ += 1) {
       for (const secondIndex of cells.get(`${cellX + offsetX}:${cellZ + offsetZ}`) ?? []) {
         const second = customers[secondIndex];
-      const dx = second.x - first.x; const dz = second.z - first.z; const distance = Math.hypot(dx, dz);
+      const dx = second.x - first.x; const dz = second.z - first.z; const distance = distance2d(dx, dz);
       if (distance >= 0.6) continue;
       const nx = distance > 0.001 ? dx / distance : first.id < second.id ? 1 : -1;
       const nz = distance > 0.001 ? dz / distance : 0;
@@ -2196,7 +2197,7 @@ function walkPathActor(actor: PathActor, deltaMs: number) {
   let pathX = actor.x; let pathZ = actor.z;
   for (let index = actor.pathIndex; index < actor.path.length; index += 1) {
     const [nextX, nextZ] = actor.path[index];
-    remainingPathDistance += Math.hypot(nextX - pathX, nextZ - pathZ);
+    remainingPathDistance += distance2d(nextX - pathX, nextZ - pathZ);
     pathX = nextX; pathZ = nextZ;
   }
   const brakingSpeed = Math.sqrt(Math.max(0, 2 * 6.2 * remainingPathDistance));
@@ -2209,7 +2210,7 @@ function walkPathActor(actor: PathActor, deltaMs: number) {
     guard -= 1;
     const [targetX, targetZ] = actor.path[actor.pathIndex];
     actor.targetX = targetX; actor.targetZ = targetZ;
-    const dx = targetX - actor.x; const dz = targetZ - actor.z; const distance = Math.hypot(dx, dz);
+    const dx = targetX - actor.x; const dz = targetZ - actor.z; const distance = distance2d(dx, dz);
     if (distance > remainingStep + 1e-9 && distance >= 0.025) {
       actor.x += dx / distance * remainingStep; actor.z += dz / distance * remainingStep;
       remainingStep = -1;
@@ -2253,7 +2254,7 @@ function customerPath(start: [number, number], target: [number, number]): [numbe
     const [aisleApproach, frontApproach] = STORE_SERVICE_FIXTURES.returns.approach.map((point) => [...point] as [number, number]);
     return compactPath(start, [aisleApproach, frontApproach, [...RETURNS_POINT]]);
   }
-  if (sameStorePoint(target, CART_RETURN_POINT) && Math.hypot(start[0] - RETURNS_POINT[0], start[1] - RETURNS_POINT[1]) < 1.5) {
+  if (sameStorePoint(target, CART_RETURN_POINT) && distance2d(start[0] - RETURNS_POINT[0], start[1] - RETURNS_POINT[1]) < 1.5) {
     return compactPath(start, RETURNS_TO_CART_FALLBACK.map((point) => [...point] as [number, number]));
   }
   const startsOutside = start[1] > DOOR_OUTSIDE_WAIT_Z;
@@ -2278,7 +2279,7 @@ function customerPath(start: [number, number], target: [number, number]): [numbe
 }
 
 function sameStorePoint(left: readonly [number, number], right: readonly [number, number]) {
-  return Math.hypot(left[0] - right[0], left[1] - right[1]) < 0.01;
+  return distance2d(left[0] - right[0], left[1] - right[1]) < 0.01;
 }
 
 function navigatePath(pathfinder: WorldPathfinder | undefined, start: [number, number], target: [number, number]) {
@@ -2385,7 +2386,7 @@ function queueArrivalPath(pathfinder: WorldPathfinder | undefined, start: [numbe
 function compactPath(start: [number, number], path: [number, number][]) {
   let previous = start;
   return path.filter((point) => {
-    const keep = Math.hypot(point[0] - previous[0], point[1] - previous[1]) > 0.05;
+    const keep = distance2d(point[0] - previous[0], point[1] - previous[1]) > 0.05;
     if (keep) previous = point;
     return keep;
   });

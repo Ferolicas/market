@@ -1,3 +1,4 @@
+import { distance2d } from "../core/DeterministicMath";
 import type { CheckoutTransaction, CustomerRuntimeState } from "../types";
 
 export type CheckoutLane = 0 | 1 | 2;
@@ -77,7 +78,7 @@ export function checkoutParkedCart(customer: Pick<CustomerRuntimeState, "state" 
   const front = CHECKOUT_LANES[checkoutLaneOf(customer.queueLane)].customerFront;
   const serving = ["UNLOAD", "WAIT_CHECKOUT", "PAY"].includes(customer.state);
   const approaching = customer.queueSlot === 0 && ["NAVIGATE_TO_QUEUE", "MOVE_QUEUE"].includes(customer.state)
-    && Math.hypot(customer.x - front[0], customer.z - front[1]) < 1.2;
+    && distance2d(customer.x - front[0], customer.z - front[1]) < 1.2;
   return serving || approaching ? [front[0] + 1, front[1] - 0.45] : null;
 }
 
