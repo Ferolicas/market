@@ -126,10 +126,14 @@ describe("manual loop presentation cadence", () => {
   }
 
   it("estimates the panel refresh from the shortest recent frame delta", () => {
-    expect(feed(new DisplayCadenceEstimator(), [16.6, 16.8, 16.7, 33.4, 16.7, 50])).toBeCloseTo(16.6);
-    expect(feed(new DisplayCadenceEstimator(), [8.3, 8.4, 16.7, 8.3])).toBeCloseTo(8.3);
-    expect(feed(new DisplayCadenceEstimator(), [11.1, 11.2, 22.2, 11.1])).toBeCloseTo(11.1);
+    expect(feed(new DisplayCadenceEstimator(), [16.6, 16.8, 16.7, 33.4, 16.7, 50])).toBeCloseTo(1_000 / 60);
+    expect(feed(new DisplayCadenceEstimator(), [8.3, 8.4, 16.7, 8.3])).toBeCloseTo(1_000 / 120);
+    expect(feed(new DisplayCadenceEstimator(), [11.1, 11.2, 22.2, 11.1])).toBeCloseTo(1_000 / 90);
     expect(new DisplayCadenceEstimator().refreshIntervalMs()).toBeCloseTo(16.667);
+    // One back-to-back callback must not turn a 120 Hz panel into a 250 Hz one.
+    expect(feed(new DisplayCadenceEstimator(), [8.3, 0.2, 8.4, 8.3, 8.3, 16.7, 8.3, 8.4])).toBeCloseTo(1_000 / 120);
+    // A phone that never fits its frames still reads as its real panel.
+    expect(feed(new DisplayCadenceEstimator(), Array.from({ length: 40 }, (_, i) => (i % 3 ? 25 : 16.7)))).toBeCloseTo(1_000 / 60);
   });
 
   it("presents on an even sub-multiple of the refresh rate", () => {
@@ -148,6 +152,6 @@ describe("manual loop presentation cadence", () => {
     const estimator = new DisplayCadenceEstimator(8);
     feed(estimator, [8.3, 8.3, 8.3]);
     estimator.reset();
-    expect(feed(estimator, [16.7, 16.7])).toBeCloseTo(16.7);
+    expect(feed(estimator, [16.7, 16.7])).toBeCloseTo(1_000 / 60);
   });
 });

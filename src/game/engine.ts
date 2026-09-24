@@ -13,7 +13,7 @@ import { campaignAvailableProducts, OPENING_PURCHASES, type OpeningPurchaseId } 
 import { rosterBaseTier, rosterEntries, rosterPlayerBase, type RosterEntry } from "./progression/RosterUpgrades";
 import { PRODUCT_CONFIG } from "./economy/products";
 import { deterministicUuid } from "./core/DeterministicId";
-import { distance2d } from "./core/DeterministicMath";
+import { distance2d, powTier } from "./core/DeterministicMath";
 import { createEmptyInventory } from "./economy/ProductRegistry";
 import { createCustomerMind, MAX_SHOPPING_LINES, MAX_SHOPPING_LINE_UNITS } from "./ai/CustomerBrain";
 import { campaignNeedsCustomer, customerWalkSpeed } from "./ai/CustomerTraffic";
@@ -775,7 +775,7 @@ function applyGameActionInternal(input: GameState, action: GameAction, cloneInpu
       const levels = { shelves: franchise.shelvesLevel, checkout: franchise.checkoutLevel, expansion: franchise.expansionLevel, mill: franchise.machines.flourMillLevel, bakery: franchise.machines.bakeryLevel };
       const current = levels[action.upgrade];
       const hasBuilder = franchise.employees.some((employee) => employee.role === "builder");
-      const cost = Math.round(55000 * countryMoneyScale(state.countryCode) * current ** 1.65 * (hasBuilder ? 0.82 : 1));
+      const cost = Math.round(55000 * countryMoneyScale(state.countryCode) * powTier(current, 1.65) * (hasBuilder ? 0.82 : 1));
       if (state.balanceMinor < cost) return fail("Caja insuficiente para constructores y mobiliario.");
       state.balanceMinor -= cost;
       franchise.expensesTodayMinor += cost;
@@ -2517,7 +2517,7 @@ function stationUpgradeLabel(franchise: FranchiseState, stationId: string) {
 
 function upgradeCostMinor(state: GameState, tier: number, upgrade: "station" | "player-speed" | "player-capacity" | "employee") {
   const base = { station: 5_000, "player-speed": 7_500, "player-capacity": 6_500, employee: 8_000 }[upgrade];
-  return Math.round(base * Math.max(1, tier) ** 1.55 * countryMoneyScale(state.countryCode));
+  return Math.round(base * powTier(Math.max(1, tier), 1.55) * countryMoneyScale(state.countryCode));
 }
 
 export function upgradeQuote(state: GameState, upgrade: "station" | "player-speed" | "player-capacity" | "employee") {

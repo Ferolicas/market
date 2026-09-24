@@ -34,6 +34,9 @@ export interface SaveAttempt {
   /** `null` when the log could not cover the whole stretch since the base
    * revision; the server then validates the snapshot alone and records it. */
   commands?: GameCommand[] | null;
+  /** True when the log starts from the stored snapshot as loaded (normalised);
+   * false when it starts from the raw snapshot the server acknowledged. */
+  baseNormalized?: boolean;
 }
 
 let queuedSnapshot: RecoverySnapshot | null = null;

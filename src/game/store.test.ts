@@ -235,6 +235,9 @@ describe("market store command log", () => {
     // A fresh store has no history: the first save starts the log itself.
     await useMarketStore.getState().saveGame();
     expect(bodies[0].commands).toEqual([]);
+    // The log's base depends on what happened before in this store instance;
+    // what matters is that every save declares it.
+    expect(typeof bodies[0].baseNormalized).toBe("boolean");
 
     useMarketStore.getState().tickWorld(200);
     useMarketStore.getState().dispatch({ type: "ORDER", supplierId: "campo", productId: "wheat", quantity: 1 });
@@ -252,5 +255,9 @@ describe("market store command log", () => {
     useMarketStore.getState().tickWorld(200);
     await useMarketStore.getState().saveGame();
     expect((bodies[2].commands as unknown[]).length).toBe(1);
+    // After an acknowledged save the client keeps playing on the very object
+    // it sent, so the server must not normalise that base again.
+    expect(bodies[1].baseNormalized).toBe(false);
+    expect(bodies[2].baseNormalized).toBe(false);
   });
 });

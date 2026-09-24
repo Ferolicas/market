@@ -1,3 +1,4 @@
+import { powInt } from "../core/DeterministicMath";
 import { PRODUCTS } from "../catalog";
 import { PRODUCT_CONFIG } from "../economy/products";
 import type { Employee, FranchiseState, ProductId } from "../types";
@@ -32,7 +33,7 @@ export interface RosterEntry {
 
 export function rosterStepCost(kind: RosterEntryKind, step: number) {
   const base = kind === "machine" ? MACHINE_BASE_COST_MINOR : ROSTER_BASE_COST_MINOR;
-  return base * 2 ** Math.max(0, Math.floor(step));
+  return base * powInt(2, Math.max(0, Math.floor(step)));
 }
 
 /** Campaign purchases count toward the same four upgrades shown in the roster. */

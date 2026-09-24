@@ -184,6 +184,9 @@ export function recoveredDpr(currentDpr: number, profile: MarketRenderProfile) {
  * instead: 60 Hz → every tick, 120 Hz → every second tick, 90 Hz → every
  * second tick (45 FPS, even) rather than 60 FPS with a 22/11 ms stutter.
  */
+/** Panel rates a phone or desktop actually ships with. */
+export const PANEL_INTERVALS_MS = [1_000 / 60, 1_000 / 90, 1_000 / 120, 1_000 / 144] as const;
+
 export class DisplayCadenceEstimator {
   private readonly deltas: number[];
   private index = 0;
@@ -201,7 +204,7 @@ export class DisplayCadenceEstimator {
     if (this.lastTickMs !== null) {
       const delta = tickMs - this.lastTickMs;
       if (delta > 0) {
-        this.deltas[this.index] = Math.min(50, Math.max(4, delta));
+        this.deltas[this.index] = Math.min(50, delta);
         this.index = (this.index + 1) % this.deltas.length;
         this.filled = Math.min(this.deltas.length, this.filled + 1);
       }
@@ -210,11 +213,18 @@ export class DisplayCadenceEstimator {
     return this.refreshIntervalMs();
   }
 
+  /** The shortest delta poisoned a whole window: one back-to-back callback
+   * (Safari delivers them) read as a 250 Hz panel and every cadence derived
+   * from it was wrong. A low percentile of the plausible deltas, snapped to a
+   * real panel rate, survives both glitches and a slow main thread. */
   refreshIntervalMs() {
     if (this.filled === 0) return 1_000 / 60;
-    let minimum = Number.POSITIVE_INFINITY;
-    for (let i = 0; i < this.filled; i += 1) minimum = Math.min(minimum, this.deltas[i]);
-    return minimum;
+    const plausible: number[] = [];
+    for (let i = 0; i < this.filled; i += 1) if (this.deltas[i] >= 6) plausible.push(this.deltas[i]);
+    if (!plausible.length) return 1_000 / 60;
+    plausible.sort((a, b) => a - b);
+    const estimate = plausible[Math.min(plausible.length - 1, Math.floor(plausible.length * 0.25))];
+    return PANEL_INTERVALS_MS.reduce((best, interval) => Math.abs(interval - estimate) < Math.abs(best - estimate) ? interval : best);
   }
 
   reset() {

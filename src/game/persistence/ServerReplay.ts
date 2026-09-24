@@ -29,14 +29,16 @@ export function replayChecksum(state: GameState) {
 
 /**
  * Folds the client's commands over the stored revision with the same engine
- * and compares the result with the snapshot the client sent. The base is the
- * stored JSON normalised exactly as the client normalised it when it loaded.
+ * and compares the result with the snapshot the client sent.
  */
-export async function verifyReplay(base: GameState, submitted: GameState, commands: GameCommand[] | null | undefined): Promise<ReplayVerdict> {
+export async function verifyReplay(base: GameState, submitted: GameState, commands: GameCommand[] | null | undefined, baseNormalized = true): Promise<ReplayVerdict> {
   const started = performance.now();
   if (!commands) return { status: "absent", applied: 0, durationMs: 0 };
   try {
-    const replayed = await replayCommandsAsync(normalizeGameState(base), commands, serverPathfinderFor);
+    // After a load the client plays on the normalised snapshot; after an
+    // acknowledged save it plays on the very object it sent, which
+    // normalisation would alter (employee runtimes are rebuilt on load).
+    const replayed = await replayCommandsAsync(baseNormalized ? normalizeGameState(base) : base, commands, serverPathfinderFor);
     const durationMs = Math.round(performance.now() - started);
     if (replayChecksum(replayed.state) === replayChecksum(submitted)) return { status: "match", applied: replayed.applied, durationMs };
     const difference = firstDifference(JSON.parse(canonicalJson({ ...replayed.state, lastSavedAt: "" })), JSON.parse(canonicalJson({ ...submitted, lastSavedAt: "" }))) ?? "unknown";

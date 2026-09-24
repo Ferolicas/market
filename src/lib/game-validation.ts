@@ -135,6 +135,7 @@ export const savePayloadSchema = z.object({
     eventId: z.string().uuid(), sequence: z.number().int().positive(), occurredAt: z.string().datetime(), type: z.string().min(1).max(80), payload: z.record(z.string(), z.unknown()), idempotencyKey: z.string().min(1).max(120),
   })).max(200).default([]),
   commands: z.array(gameCommandSchema).max(COMMAND_LOG_LIMIT).nullable().optional(),
+  baseNormalized: z.boolean().optional(),
 });
 
 export type ValidSavePayload = Omit<z.infer<typeof savePayloadSchema>, "state" | "events" | "commands"> & { state: GameState; events: GameEvent[]; commands?: GameCommand[] | null };

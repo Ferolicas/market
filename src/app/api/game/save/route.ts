@@ -10,6 +10,7 @@ import { consumeApiRateLimit, rateLimitExceeded } from "@/lib/api-rate-limit";
 import { replayMode, verifyReplay, type ReplayVerdict } from "@/game/persistence/ServerReplay";
 
 import { CAMPAIGN_RELEASE, CAMPAIGN_SAVE_SLOT } from "@/game/persistence/CampaignRelease";
+import type { GameState } from "@/game/types";
 
 export const runtime = "nodejs";
 
@@ -96,7 +97,7 @@ export async function PUT(request: Request) {
   if (mode !== "off" && !adoptedState) {
     const base = await db.gameSave.findUnique({ where: { userId_slot: { userId: session.user.id, slot: CAMPAIGN_SAVE_SLOT } } });
     if (base && base.revision === payload.expectedRevision) {
-      replay = await verifyReplay(normalizeGameState(base.state), payload.state, payload.commands);
+      replay = await verifyReplay(base.state as unknown as GameState, payload.state, payload.commands, payload.baseNormalized ?? true);
       if (mode === "strict" && replay.status === "mismatch") return Response.json({ error: "REPLAY_MISMATCH", difference: replay.difference }, { status: 422 });
     }
   }

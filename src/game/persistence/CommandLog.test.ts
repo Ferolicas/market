@@ -26,6 +26,11 @@ describe("command log replay", () => {
     const base = normalizeGameState(JSON.parse(JSON.stringify(createCampaignGame("ES"))));
     const verdict = await verifyReplay(base, JSON.parse(JSON.stringify(run.state)), run.commands);
     expect(verdict).toMatchObject({ status: "match", applied: run.commands.length });
+    // A stretch played on after an acknowledged save starts from the raw
+    // snapshot: employees keep their paths, which normalisation would drop.
+    const acked = JSON.parse(JSON.stringify(run.state));
+    const next = runCampaignBot(run.state, { targetLevel: 6, maxTicks: 600 });
+    expect(await verifyReplay(acked, JSON.parse(JSON.stringify(next.state)), next.commands, false)).toMatchObject({ status: "match" });
     expect(replayChecksum(run.state)).toBe(replayChecksum({ ...run.state, lastSavedAt: new Date().toISOString() }));
   });
 

@@ -55,13 +55,19 @@ export const useMarketStore = create<MarketStore>((set, get) => {
   let commandLog: GameCommand[] = [];
   let commandLogComplete = true;
   let commandLogGeneration = 0;
-  const resetCommandLog = (complete: boolean, commands: GameCommand[] = []) => {
+  // What the log's first command applies to: the server's stored snapshot as
+  // this client normalised it on load, or the raw snapshot the server just
+  // acknowledged (the very object this client keeps playing on). A recovered
+  // local copy sits between the two, so its log cannot be replayed exactly.
+  let commandLogBase: "load" | "acked" | "recovery" = "load";
+  const resetCommandLog = (base: "load" | "acked" | "recovery", commands: GameCommand[] = []) => {
     commandLog = commands;
-    commandLogComplete = complete;
+    commandLogBase = base;
+    commandLogComplete = base !== "recovery";
     commandLogGeneration += 1;
   };
   const recordCommand = (command: GameCommand) => {
-    if (commandLog.length >= COMMAND_LOG_LIMIT) { resetCommandLog(false); return; }
+    if (commandLog.length >= COMMAND_LOG_LIMIT) { resetCommandLog("recovery"); return; }
     commandLog.push(command);
   };
   const messageOccurrence = (message: string) => ({ message, messageRevision: get().messageRevision + 1 });
@@ -81,7 +87,7 @@ export const useMarketStore = create<MarketStore>((set, get) => {
     if (current.game || current.saveStatus === "loading") return;
     pendingPlayerDistanceMeters = 0;
     pendingInteractions = [];
-    resetCommandLog(true);
+    resetCommandLog("load");
     set({ game: null, saveRevision: 0, saveStatus: "loading", message: "", pendingEvents: [] });
     try {
       const response = await fetch("/api/game/save", { cache: "no-store" });
@@ -105,9 +111,7 @@ export const useMarketStore = create<MarketStore>((set, get) => {
           const hasNewerLocalState = localState.revision > pendingSaveAttempt.state.revision;
           // The applied attempt covered the head of the stored log; what
           // follows it is the stream from the acknowledged state onwards.
-          const covered = pendingSaveAttempt.commands?.length;
-          if (hasNewerLocalState && covered !== undefined && recovery.commandsComplete) resetCommandLog(true, (recovery.commands ?? []).slice(covered));
-          else resetCommandLog(!hasNewerLocalState);
+          resetCommandLog(hasNewerLocalState ? "recovery" : "load");
           pendingSaveAttempt = null;
           const selectedState = hasNewerLocalState ? localState : serverState;
           queueRecoverySnapshot(recoverySnapshot(selectedState, payload.saveRevision, remainingEvents));
@@ -116,13 +120,13 @@ export const useMarketStore = create<MarketStore>((set, get) => {
         }
         if (payload.saveRevision === pendingSaveAttempt.expectedRevision) {
           const localState = normalizeGameState(recovery.state);
-          resetCommandLog(recovery.commandsComplete ?? false, recovery.commands ?? []);
+          resetCommandLog("recovery", recovery.commands ?? []);
           queueRecoverySnapshot(recoverySnapshot(localState, recovery.saveRevision, recovery.pendingEvents ?? []));
           set({ game: localState, saveRevision: recovery.saveRevision, saveStatus: "dirty", pendingEvents: recovery.pendingEvents ?? [], ...messageOccurrence("Recuperé un guardado local pendiente") });
           return;
         }
         const localState = normalizeGameState(recovery.state);
-        resetCommandLog(false);
+        resetCommandLog("recovery");
         queueRecoverySnapshot(recoverySnapshot(localState, recovery.saveRevision, recovery.pendingEvents ?? []));
         set({ game: localState, saveRevision: recovery.saveRevision, saveStatus: "conflict", pendingEvents: recovery.pendingEvents ?? [], ...messageOccurrence("Detecté progreso distinto en otro dispositivo; conservé esta copia sin sobrescribirla") });
         return;
@@ -134,14 +138,14 @@ export const useMarketStore = create<MarketStore>((set, get) => {
           { state: localState, saveRevision: recovery.saveRevision, pendingEvents: recovery.pendingEvents ?? [] },
         );
         if (selected.source === "local") {
-          resetCommandLog(recovery.commandsComplete ?? false, recovery.commands ?? []);
+          resetCommandLog("recovery", recovery.commands ?? []);
           queueRecoverySnapshot(recoverySnapshot(selected.envelope.state, payload.saveRevision, selected.envelope.pendingEvents));
           set({ game: selected.envelope.state, saveRevision: payload.saveRevision, saveStatus: "dirty", pendingEvents: selected.envelope.pendingEvents, lastSaveConfirmedAt: Date.now(), ...messageOccurrence("Recuperé cambios locales pendientes") });
           return;
         }
       }
       pendingSaveAttempt = null;
-      resetCommandLog(true);
+      resetCommandLog("load");
       queueRecoverySnapshot(recoverySnapshot(serverState, payload.saveRevision, []));
       set({ game: serverState, saveRevision: payload.saveRevision, saveStatus: "saved", lastSaveConfirmedAt: Date.now(), ...messageOccurrence("Progreso sincronizado") });
     } catch {
@@ -151,7 +155,7 @@ export const useMarketStore = create<MarketStore>((set, get) => {
         recovery.pendingEvents = restorePendingEventOrigins(recovery.pendingEvents, recovery.state.currentFranchiseId);
       }
       if (recovery) {
-        resetCommandLog(recovery.commandsComplete ?? false, recovery.commands ?? []);
+        resetCommandLog("recovery", recovery.commands ?? []);
         set({ game: normalizeGameState(recovery.state), saveRevision: recovery.saveRevision, saveStatus: "offline", pendingEvents: recovery.pendingEvents ?? [], ...messageOccurrence("Modo sin conexión: progreso protegido localmente") });
       } else {
         set({ saveStatus: "error", ...messageOccurrence("No se pudo cargar la partida") });
@@ -238,6 +242,7 @@ export const useMarketStore = create<MarketStore>((set, get) => {
         state,
         events: pendingEvents,
         commands: commandLogComplete ? commandLog.slice() : null,
+        baseNormalized: commandLogBase === "load",
       };
       const attemptLogLength = commandLog.length;
       const attemptLogGeneration = commandLogGeneration;
@@ -288,9 +293,9 @@ export const useMarketStore = create<MarketStore>((set, get) => {
       // The acknowledged state is the new base: what the log holds past the
       // attempt is exactly what happened since, unless the log was reset
       // mid-flight and the split point is gone.
-      if (!hasNewerState) resetCommandLog(true);
-      else if (attemptLogGeneration === commandLogGeneration) resetCommandLog(true, commandLog.slice(attemptLogLength));
-      else resetCommandLog(false, commandLog);
+      if (!hasNewerState) resetCommandLog("acked");
+      else if (attemptLogGeneration === commandLogGeneration) resetCommandLog("acked", commandLog.slice(attemptLogLength));
+      else resetCommandLog("recovery", commandLog);
       await persistRecoverySnapshot(recoverySnapshot(latestState, payload.saveRevision, remainingEvents));
       set({ game: latestState, saveRevision: payload.saveRevision, saveStatus: hasNewerState || remainingEvents.length ? "dirty" : "saved", pendingEvents: remainingEvents, lastSaveConfirmedAt: Date.now(), ...messageOccurrence(hasNewerState || remainingEvents.length ? "Guardado parcial; sincronizando cambios nuevos" : "Partida guardada") });
     } catch {
@@ -334,7 +339,7 @@ export const useMarketStore = create<MarketStore>((set, get) => {
         return;
       }
       pendingSaveAttempt = null;
-      resetCommandLog(true);
+      resetCommandLog("acked");
       await persistRecoverySnapshot(recoverySnapshot(state, payload.saveRevision, []));
       set({ game: state, saveRevision: payload.saveRevision, saveStatus: "saved", pendingEvents: [], lastSaveConfirmedAt: Date.now(), ...messageOccurrence("Esta copia es ahora la partida oficial") });
     } catch {
@@ -355,7 +360,7 @@ export const useMarketStore = create<MarketStore>((set, get) => {
       const serverState = normalizeGameState(payload.state);
       pendingSaveAttempt = null;
       pendingInteractions = [];
-      resetCommandLog(true);
+      resetCommandLog("load");
       await persistRecoverySnapshot(recoverySnapshot(serverState, payload.saveRevision, []));
       set({ game: serverState, saveRevision: payload.saveRevision, saveStatus: "saved", pendingEvents: [], lastSaveConfirmedAt: Date.now(), ...messageOccurrence("Partida del servidor restaurada") });
     } catch {
