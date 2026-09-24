@@ -31,7 +31,7 @@ const fakeDb = {
   playerProfile: { upsert: vi.fn(async () => ({})), update: vi.fn(async () => ({})) },
   ledgerEntry: { create: vi.fn(async ({ data }: { data: Record<string, unknown> }) => { rows.ledger.push(data); }), createMany: vi.fn(async ({ data }: { data: Record<string, unknown>[] }) => { rows.ledger.push(...data); return { count: data.length }; }) },
   clientTelemetry: { create: vi.fn(async ({ data }: { data: Record<string, unknown> }) => { rows.telemetry.push(data); return data; }) },
-  saveCommandBatch: { create: vi.fn(async ({ data }: { data: Record<string, unknown> }) => { rows.batches.push(data); return data; }), deleteMany: vi.fn(async () => ({ count: 0 })) },
+  saveCommandBatch: { create: vi.fn(async ({ data }: { data: Record<string, unknown> }) => { rows.batches.push(data); return data; }), deleteMany: vi.fn(async () => ({ count: 0 })), count: vi.fn(async () => rows.batches.filter((batch) => batch.baseState).length) },
   $transaction: vi.fn(async (work: (tx: unknown) => Promise<unknown>) => work(fakeDb)),
   $queryRaw: vi.fn(async () => [{ count: BigInt(6) }]),
 };
@@ -73,6 +73,7 @@ describe("save route replay", () => {
     expect(rows.telemetry).toEqual([]);
     expect(rows.batches).toHaveLength(1);
     expect(rows.batches[0]).toMatchObject({ userId: "user-1", slot: CAMPAIGN_SAVE_SLOT, fromRevision: 1, toRevision: 2, verdict: "match", commandCount: stretch.commands.length });
+    expect(rows.batches[0].baseState).toBeUndefined();
     expect(rows.save!.revision).toBe(2);
   });
 
@@ -87,7 +88,10 @@ describe("save route replay", () => {
     expect(rows.telemetry).toHaveLength(1);
     expect(rows.telemetry[0]).toMatchObject({ kind: "replay", name: "mismatch", severity: "warning", deviceId: ids.deviceId });
     expect(String(rows.telemetry[0].message)).toMatch(/^\$\.franchises\.0\.warehouse\.tomatoes: /);
-    expect(rows.batches[0]).toMatchObject({ verdict: "mismatch" });
+    expect(rows.batches[0]).toMatchObject({ verdict: "mismatch", baseNormalized: true });
+    // Both ends of a mismatching stretch are kept so it can be replayed offline.
+    expect((rows.batches[0].baseState as { revision: number }).revision).toBe(base.revision);
+    expect((rows.batches[0].submittedState as { balanceMinor: number }).balanceMinor).toBe(forged.balanceMinor);
 
     vi.stubEnv("MARKET_REPLAY_MODE", "strict");
     const strict = await put({ ...ids, operationId: "44444444-4444-4444-8444-444444444444", expectedRevision: 2, ...stretch, state: { ...forged, revision: forged.revision + 1 }, events: [], commands: [{ k: "t", d: 200, n: 0 }] as GameCommand[] });

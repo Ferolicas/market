@@ -59,6 +59,11 @@ export function GameRuntime() {
     // The moving cadence the scheduler settled on, so a field window says at
     // what rate the phone was actually presenting while it stuttered or not.
     let motionCadence: { level: number; fps: number; refreshHz: number } | null = null;
+    // How long each authoritative tick held the main thread: a 5 Hz hitch
+    // is what a phone feels as stutter even when the average frame fits.
+    const tickCosts: number[] = [];
+    const tickListener = (event: Event) => { tickCosts.push((event as CustomEvent<number>).detail); };
+    window.addEventListener("market-world-tick-cost", tickListener);
     const cadenceListener = (event: Event) => { motionCadence = (event as CustomEvent<{ level: number; fps: number; refreshHz: number }>).detail; };
     window.addEventListener("market-motion-cadence", cadenceListener);
     const frame = (now: number) => {
@@ -74,6 +79,7 @@ export function GameRuntime() {
     const report = window.setInterval(() => {
       if (document.visibilityState !== "visible") return;
       const summary = sampler.take();
+      const ticks = tickCosts.splice(0, tickCosts.length);
       if (summary.frameCount < 30) return;
       const state = useMarketStore.getState().game;
       const franchise = state?.franchises.find((candidate) => candidate.id === state.currentFranchiseId);
@@ -89,6 +95,9 @@ export function GameRuntime() {
           viewportWidth: window.innerWidth,
           viewportHeight: window.innerHeight,
           devicePixelRatio: window.devicePixelRatio,
+          tickCount: ticks.length,
+          tickP95Ms: ticks.length ? Math.round([...ticks].sort((a, b) => a - b)[Math.min(ticks.length - 1, Math.floor(ticks.length * 0.95))] * 10) / 10 : null,
+          tickMaxMs: ticks.length ? Math.round(Math.max(...ticks) * 10) / 10 : null,
           motionFps: motionCadence?.fps ?? null,
           motionLevel: motionCadence?.level ?? null,
           refreshHz: motionCadence?.refreshHz ?? null,
@@ -97,6 +106,7 @@ export function GameRuntime() {
     }, 60_000);
     return () => {
       window.removeEventListener("market-motion-cadence", cadenceListener);
+      window.removeEventListener("market-world-tick-cost", tickListener);
       window.cancelAnimationFrame(frameRequest);
       window.clearInterval(report);
       observer?.disconnect();
@@ -140,6 +150,7 @@ export function GameRuntime() {
         const elapsedMs = Math.min(1_000, Math.max(0, now - lastWorldTickAt));
         lastWorldTickAt = now;
         tickWorld(elapsedMs);
+        window.dispatchEvent(new CustomEvent("market-world-tick-cost", { detail: performance.now() - now }));
       }, WORLD_TICK_INTERVAL_MS);
       saveTimer = window.setInterval(scheduleBackgroundSave, REMOTE_SYNC_INTERVAL_MS);
     };

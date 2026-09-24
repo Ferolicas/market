@@ -138,6 +138,12 @@ model SaveCommandBatch {
   commandCount Int
   verdict      String
   commands     Json
+  /// Kept only for a bounded number of mismatches: the exact base the replay
+  /// started from and the snapshot the client sent, so the divergence can be
+  /// reproduced offline with the same engine.
+  baseNormalized Boolean?
+  baseState      Json?
+  submittedState Json?
   createdAt    DateTime @default(now())
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 

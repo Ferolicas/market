@@ -94,9 +94,11 @@ export async function PUT(request: Request) {
   // here is the one the client played from, or the save conflicts anyway.
   const mode = replayMode();
   let replay: ReplayVerdict | null = null;
+  let replayBase: unknown = null;
   if (mode !== "off" && !adoptedState) {
     const base = await db.gameSave.findUnique({ where: { userId_slot: { userId: session.user.id, slot: CAMPAIGN_SAVE_SLOT } } });
     if (base && base.revision === payload.expectedRevision) {
+      replayBase = base.state;
       replay = await verifyReplay(base.state as unknown as GameState, payload.state, payload.commands, payload.baseNormalized ?? true);
       if (mode === "strict" && replay.status === "mismatch") return Response.json({ error: "REPLAY_MISMATCH", difference: replay.difference }, { status: 422 });
     }
@@ -204,7 +206,7 @@ export async function PUT(request: Request) {
   if (result.invalid) return Response.json({ error: result.invalid }, { status: 422 });
 
   if (replay && result.appliedRevision !== null && !result.replay) {
-    await recordReplay(session.user.id, payload, replay, result.appliedRevision, mode).catch(() => undefined);
+    await recordReplay(session.user.id, payload, replay, result.appliedRevision, mode, replayBase).catch(() => undefined);
   }
 
   if (result.replay) {
@@ -233,7 +235,9 @@ export async function PUT(request: Request) {
 /** Shadow mode learns from production: a mismatch, an absent log or a replay
  * error becomes a telemetry line (never the snapshot), and the stream itself
  * is kept two weeks for offline reproduction. */
-async function recordReplay(userId: string, payload: ValidSavePayload, replay: ReplayVerdict, appliedRevision: number, mode: string) {
+const REPRO_BATCHES_PER_DAY = 10;
+
+async function recordReplay(userId: string, payload: ValidSavePayload, replay: ReplayVerdict, appliedRevision: number, mode: string, replayBase: unknown) {
   if (replay.status !== "match") {
     await db.clientTelemetry.create({
       data: {
@@ -244,8 +248,17 @@ async function recordReplay(userId: string, payload: ValidSavePayload, replay: R
     });
   }
   if (payload.commands?.length) {
+    // A mismatch is only useful if it can be reproduced: keep both ends of
+    // the stretch for a handful of them a day, never for every save.
+    const keepRepro = replay.status === "mismatch" && replayBase !== null
+      && (await db.saveCommandBatch.count({ where: { userId, baseState: { not: Prisma.DbNull }, createdAt: { gt: new Date(Date.now() - 24 * 60 * 60 * 1_000) } } })) < REPRO_BATCHES_PER_DAY;
     await db.saveCommandBatch.create({
-      data: { userId, slot: CAMPAIGN_SAVE_SLOT, fromRevision: payload.expectedRevision, toRevision: appliedRevision, commandCount: payload.commands.length, verdict: replay.status, commands: JSON.parse(JSON.stringify(payload.commands)) },
+      data: {
+        userId, slot: CAMPAIGN_SAVE_SLOT, fromRevision: payload.expectedRevision, toRevision: appliedRevision, commandCount: payload.commands.length, verdict: replay.status,
+        commands: JSON.parse(JSON.stringify(payload.commands)),
+        baseNormalized: payload.baseNormalized ?? true,
+        ...(keepRepro ? { baseState: JSON.parse(JSON.stringify(replayBase)), submittedState: JSON.parse(JSON.stringify(payload.state)) } : {}),
+      },
     });
   }
   if (appliedRevision % 120 === 0) {
