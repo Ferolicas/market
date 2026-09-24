@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { COMMAND_LOG_LIMIT, type GameCommand } from "../game/persistence/CommandLog";
 import type { GameEvent, GameState } from "@/game/types";
 import { CROP_PRODUCT_IDS, MACHINE_PRODUCT_IDS, PRODUCT_IDS } from "../game/economy/ProductRegistry";
 import { OPENING_PURCHASES } from "../game/progression/MartCampaign";
@@ -97,6 +98,15 @@ const franchiseSchema = z.object({
   revenueTodayMinor: z.number().int().min(0), expensesTodayMinor: z.number().int().min(0), customersToday: z.number().int().min(0), rating: z.number().finite().min(1).max(5),
 });
 
+const commandActionSchema = z.looseObject({ type: z.string().min(1).max(40) });
+/** Replayable command stream (see `CommandLog.ts`); the engine validates the
+ * actions themselves, this only bounds the shape and the volume. */
+export const gameCommandSchema = z.discriminatedUnion("k", [
+  z.object({ k: z.literal("a"), a: commandActionSchema }),
+  z.object({ k: z.literal("t"), d: z.number().finite().min(0).max(1_000), n: z.union([z.literal(0), z.literal(1)]), i: z.array(commandActionSchema).max(64).optional(), m: z.number().finite().min(0).max(100).optional() }),
+  z.object({ k: z.literal("s"), m: z.number().int().min(1).max(24 * 60) }),
+]);
+
 export const savePayloadSchema = z.object({
   expectedRevision: z.number().int().min(0), operationId: z.string().uuid(), deviceId: z.string().uuid(), sessionId: z.string().uuid(),
   /** Conflict resolution chosen by the owner: adopt this snapshot as the next
@@ -124,6 +134,7 @@ export const savePayloadSchema = z.object({
     franchiseId: z.string().min(1).max(80), category: z.string().min(1).max(40), description: z.string().min(1).max(160), amountMinor: z.number().int().finite(),
     eventId: z.string().uuid(), sequence: z.number().int().positive(), occurredAt: z.string().datetime(), type: z.string().min(1).max(80), payload: z.record(z.string(), z.unknown()), idempotencyKey: z.string().min(1).max(120),
   })).max(200).default([]),
+  commands: z.array(gameCommandSchema).max(COMMAND_LOG_LIMIT).nullable().optional(),
 });
 
-export type ValidSavePayload = Omit<z.infer<typeof savePayloadSchema>, "state" | "events"> & { state: GameState; events: GameEvent[] };
+export type ValidSavePayload = Omit<z.infer<typeof savePayloadSchema>, "state" | "events" | "commands"> & { state: GameState; events: GameEvent[]; commands?: GameCommand[] | null };

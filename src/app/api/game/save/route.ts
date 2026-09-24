@@ -7,6 +7,7 @@ import { validateSaveTransition } from "@/game/persistence/SaveAuthority";
 import { isPreRegisterSnapshot, preRegisterChecksumState } from "@/game/persistence/RegisterCompatibility";
 import { Prisma } from "@/generated/prisma/client";
 import { consumeApiRateLimit, rateLimitExceeded } from "@/lib/api-rate-limit";
+import { replayMode, verifyReplay, type ReplayVerdict } from "@/game/persistence/ServerReplay";
 
 import { CAMPAIGN_RELEASE, CAMPAIGN_SAVE_SLOT } from "@/game/persistence/CampaignRelease";
 
@@ -86,6 +87,19 @@ export async function PUT(request: Request) {
   const stateJson = JSON.parse(JSON.stringify(adoptedState ?? payload.state));
   const nextRevision = payload.expectedRevision + 1;
   const extendedLedger = await hasExtendedLedger();
+
+  // Replay the client's command stream over the stored revision with the same
+  // engine. The revision lock inside the transaction guarantees the base read
+  // here is the one the client played from, or the save conflicts anyway.
+  const mode = replayMode();
+  let replay: ReplayVerdict | null = null;
+  if (mode !== "off" && !adoptedState) {
+    const base = await db.gameSave.findUnique({ where: { userId_slot: { userId: session.user.id, slot: CAMPAIGN_SAVE_SLOT } } });
+    if (base && base.revision === payload.expectedRevision) {
+      replay = await verifyReplay(normalizeGameState(base.state), payload.state, payload.commands);
+      if (mode === "strict" && replay.status === "mismatch") return Response.json({ error: "REPLAY_MISMATCH", difference: replay.difference }, { status: 422 });
+    }
+  }
 
   const result = await db.$transaction(async (tx) => {
     const existingOperation = await tx.saveOperation.findUnique({ where: { operationId: payload.operationId } });
@@ -188,6 +202,10 @@ export async function PUT(request: Request) {
 
   if (result.invalid) return Response.json({ error: result.invalid }, { status: 422 });
 
+  if (replay && result.appliedRevision !== null && !result.replay) {
+    await recordReplay(session.user.id, payload, replay, result.appliedRevision, mode).catch(() => undefined);
+  }
+
   if (result.replay) {
     return Response.json({ ok: true, replay: true, saveRevision: result.appliedRevision, savedAt: result.savedAt });
   }
@@ -209,6 +227,29 @@ export async function PUT(request: Request) {
     }, { status: 409 });
   }
   return Response.json({ ok: true, saveRevision: result.appliedRevision, savedAt: result.savedAt });
+}
+
+/** Shadow mode learns from production: a mismatch, an absent log or a replay
+ * error becomes a telemetry line (never the snapshot), and the stream itself
+ * is kept two weeks for offline reproduction. */
+async function recordReplay(userId: string, payload: ValidSavePayload, replay: ReplayVerdict, appliedRevision: number, mode: string) {
+  if (replay.status !== "match") {
+    await db.clientTelemetry.create({
+      data: {
+        userId, kind: "replay", name: replay.status, severity: replay.status === "mismatch" ? "warning" : "info",
+        message: replay.difference?.slice(0, 1_000) ?? null, deviceId: payload.deviceId, sessionId: payload.sessionId,
+        payload: { mode, applied: replay.applied, commands: payload.commands?.length ?? null, fromRevision: payload.expectedRevision, toRevision: appliedRevision, durationMs: replay.durationMs },
+      },
+    });
+  }
+  if (payload.commands?.length) {
+    await db.saveCommandBatch.create({
+      data: { userId, slot: CAMPAIGN_SAVE_SLOT, fromRevision: payload.expectedRevision, toRevision: appliedRevision, commandCount: payload.commands.length, verdict: replay.status, commands: JSON.parse(JSON.stringify(payload.commands)) },
+    });
+  }
+  if (appliedRevision % 120 === 0) {
+    await db.saveCommandBatch.deleteMany({ where: { createdAt: { lt: new Date(Date.now() - 14 * 24 * 60 * 60 * 1_000) } } });
+  }
 }
 
 function checksum(state: unknown) {

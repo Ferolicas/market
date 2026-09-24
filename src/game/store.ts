@@ -3,7 +3,8 @@
 import { create } from "zustand";
 import { advanceSimulation, advanceWorld, applyGameAction, normalizeGameState } from "./engine";
 import type { ActionResult, GameAction, GameEvent, GameState, WorldInteractionAction } from "./types";
-import { ensureStoreNavigation, storePathfinder } from "./navigation/NavMeshService";
+import { ensureStoreNavigation, isStoreNavigationReady, storePathfinder } from "./navigation/NavMeshService";
+import { COMMAND_LOG_LIMIT, tickCommand, type GameCommand } from "./persistence/CommandLog";
 import { chooseRecovery, restorePendingEventOrigins } from "./persistence/Snapshot";
 import { persistRecoverySnapshot, queueRecoverySnapshot, readRecoverySnapshot, setRecoveryScope, type SaveAttempt } from "./persistence/RecoveryStorage";
 import { marketQaFreezeEnabled } from "./debug/QaAccess";
@@ -47,8 +48,24 @@ export const useMarketStore = create<MarketStore>((set, get) => {
   let pendingInteractions: WorldInteractionAction[] = [];
   let saveInFlight = false;
   let pendingSaveAttempt: SaveAttempt | null = null;
+  // Every command since the last acknowledged save, in order. The PUT carries
+  // it so the server can replay the stretch with the same engine; a gap
+  // (overflow, a reload that lost the tail) marks the log incomplete until
+  // the next fully acknowledged save starts a fresh one.
+  let commandLog: GameCommand[] = [];
+  let commandLogComplete = true;
+  let commandLogGeneration = 0;
+  const resetCommandLog = (complete: boolean, commands: GameCommand[] = []) => {
+    commandLog = commands;
+    commandLogComplete = complete;
+    commandLogGeneration += 1;
+  };
+  const recordCommand = (command: GameCommand) => {
+    if (commandLog.length >= COMMAND_LOG_LIMIT) { resetCommandLog(false); return; }
+    commandLog.push(command);
+  };
   const messageOccurrence = (message: string) => ({ message, messageRevision: get().messageRevision + 1 });
-  const recoverySnapshot = (state: GameState, saveRevision: number, pendingEvents: GameEvent[]) => ({ state, saveRevision, pendingEvents, pendingSave: pendingSaveAttempt });
+  const recoverySnapshot = (state: GameState, saveRevision: number, pendingEvents: GameEvent[]) => ({ state, saveRevision, pendingEvents, pendingSave: pendingSaveAttempt, commands: commandLog, commandsComplete: commandLogComplete });
 
   return {
   game: null,
@@ -64,6 +81,7 @@ export const useMarketStore = create<MarketStore>((set, get) => {
     if (current.game || current.saveStatus === "loading") return;
     pendingPlayerDistanceMeters = 0;
     pendingInteractions = [];
+    resetCommandLog(true);
     set({ game: null, saveRevision: 0, saveStatus: "loading", message: "", pendingEvents: [] });
     try {
       const response = await fetch("/api/game/save", { cache: "no-store" });
@@ -85,6 +103,11 @@ export const useMarketStore = create<MarketStore>((set, get) => {
           const localState = normalizeGameState(recovery.state);
           const remainingEvents = (recovery.pendingEvents ?? []).filter((event) => !attemptedIds.has(event.eventId));
           const hasNewerLocalState = localState.revision > pendingSaveAttempt.state.revision;
+          // The applied attempt covered the head of the stored log; what
+          // follows it is the stream from the acknowledged state onwards.
+          const covered = pendingSaveAttempt.commands?.length;
+          if (hasNewerLocalState && covered !== undefined && recovery.commandsComplete) resetCommandLog(true, (recovery.commands ?? []).slice(covered));
+          else resetCommandLog(!hasNewerLocalState);
           pendingSaveAttempt = null;
           const selectedState = hasNewerLocalState ? localState : serverState;
           queueRecoverySnapshot(recoverySnapshot(selectedState, payload.saveRevision, remainingEvents));
@@ -93,11 +116,13 @@ export const useMarketStore = create<MarketStore>((set, get) => {
         }
         if (payload.saveRevision === pendingSaveAttempt.expectedRevision) {
           const localState = normalizeGameState(recovery.state);
+          resetCommandLog(recovery.commandsComplete ?? false, recovery.commands ?? []);
           queueRecoverySnapshot(recoverySnapshot(localState, recovery.saveRevision, recovery.pendingEvents ?? []));
           set({ game: localState, saveRevision: recovery.saveRevision, saveStatus: "dirty", pendingEvents: recovery.pendingEvents ?? [], ...messageOccurrence("Recuperé un guardado local pendiente") });
           return;
         }
         const localState = normalizeGameState(recovery.state);
+        resetCommandLog(false);
         queueRecoverySnapshot(recoverySnapshot(localState, recovery.saveRevision, recovery.pendingEvents ?? []));
         set({ game: localState, saveRevision: recovery.saveRevision, saveStatus: "conflict", pendingEvents: recovery.pendingEvents ?? [], ...messageOccurrence("Detecté progreso distinto en otro dispositivo; conservé esta copia sin sobrescribirla") });
         return;
@@ -109,12 +134,14 @@ export const useMarketStore = create<MarketStore>((set, get) => {
           { state: localState, saveRevision: recovery.saveRevision, pendingEvents: recovery.pendingEvents ?? [] },
         );
         if (selected.source === "local") {
+          resetCommandLog(recovery.commandsComplete ?? false, recovery.commands ?? []);
           queueRecoverySnapshot(recoverySnapshot(selected.envelope.state, payload.saveRevision, selected.envelope.pendingEvents));
           set({ game: selected.envelope.state, saveRevision: payload.saveRevision, saveStatus: "dirty", pendingEvents: selected.envelope.pendingEvents, lastSaveConfirmedAt: Date.now(), ...messageOccurrence("Recuperé cambios locales pendientes") });
           return;
         }
       }
       pendingSaveAttempt = null;
+      resetCommandLog(true);
       queueRecoverySnapshot(recoverySnapshot(serverState, payload.saveRevision, []));
       set({ game: serverState, saveRevision: payload.saveRevision, saveStatus: "saved", lastSaveConfirmedAt: Date.now(), ...messageOccurrence("Progreso sincronizado") });
     } catch {
@@ -124,6 +151,7 @@ export const useMarketStore = create<MarketStore>((set, get) => {
         recovery.pendingEvents = restorePendingEventOrigins(recovery.pendingEvents, recovery.state.currentFranchiseId);
       }
       if (recovery) {
+        resetCommandLog(recovery.commandsComplete ?? false, recovery.commands ?? []);
         set({ game: normalizeGameState(recovery.state), saveRevision: recovery.saveRevision, saveStatus: "offline", pendingEvents: recovery.pendingEvents ?? [], ...messageOccurrence("Modo sin conexión: progreso protegido localmente") });
       } else {
         set({ saveStatus: "error", ...messageOccurrence("No se pudo cargar la partida") });
@@ -139,6 +167,7 @@ export const useMarketStore = create<MarketStore>((set, get) => {
       set(messageOccurrence(result.message));
       return result;
     }
+    recordCommand({ k: "a", a: action });
     const pendingEvents = [...get().pendingEvents, ...result.events];
     queueRecoverySnapshot(recoverySnapshot(result.state, get().saveRevision, pendingEvents));
     set({ game: result.state, saveStatus: saveInFlight ? "saving" : "dirty", pendingEvents, ...messageOccurrence(result.message) });
@@ -164,6 +193,7 @@ export const useMarketStore = create<MarketStore>((set, get) => {
     const game = get().game;
     if (!game) return;
     const result = advanceSimulation(game, minutes);
+    recordCommand({ k: "s", m: minutes });
     const pendingEvents = [...get().pendingEvents, ...result.events];
     queueRecoverySnapshot(recoverySnapshot(result.state, get().saveRevision, pendingEvents));
     set({ game: result.state, saveStatus: saveInFlight ? "saving" : "dirty", pendingEvents });
@@ -177,7 +207,9 @@ export const useMarketStore = create<MarketStore>((set, get) => {
     void ensureStoreNavigation(franchise.structureRevision, franchise.unlockedAreas);
     const playerDistanceMeters = pendingPlayerDistanceMeters;
     const interactions = pendingInteractions;
+    const navigationReady = isStoreNavigationReady();
     const result = advanceWorld(game, deltaMs, storePathfinder, { playerDistanceMeters, interactions });
+    recordCommand(tickCommand(deltaMs, interactions, playerDistanceMeters, navigationReady));
     pendingPlayerDistanceMeters = Math.max(0, pendingPlayerDistanceMeters - playerDistanceMeters);
     pendingInteractions = pendingInteractions.slice(interactions.length);
     const pendingEvents = [...get().pendingEvents, ...result.events];
@@ -205,7 +237,10 @@ export const useMarketStore = create<MarketStore>((set, get) => {
         sessionId: gameSessionId(),
         state,
         events: pendingEvents,
+        commands: commandLogComplete ? commandLog.slice() : null,
       };
+      const attemptLogLength = commandLog.length;
+      const attemptLogGeneration = commandLogGeneration;
       pendingSaveAttempt = attempt;
       queueRecoverySnapshot(recoverySnapshot(game, saveRevision, get().pendingEvents));
       const requestBody = JSON.stringify(attempt);
@@ -250,6 +285,12 @@ export const useMarketStore = create<MarketStore>((set, get) => {
       const hasNewerState = Boolean(latest.game && latest.game.revision > attempt.state.revision);
       const latestState = hasNewerState ? latest.game! : attempt.state;
       pendingSaveAttempt = null;
+      // The acknowledged state is the new base: what the log holds past the
+      // attempt is exactly what happened since, unless the log was reset
+      // mid-flight and the split point is gone.
+      if (!hasNewerState) resetCommandLog(true);
+      else if (attemptLogGeneration === commandLogGeneration) resetCommandLog(true, commandLog.slice(attemptLogLength));
+      else resetCommandLog(false, commandLog);
       await persistRecoverySnapshot(recoverySnapshot(latestState, payload.saveRevision, remainingEvents));
       set({ game: latestState, saveRevision: payload.saveRevision, saveStatus: hasNewerState || remainingEvents.length ? "dirty" : "saved", pendingEvents: remainingEvents, lastSaveConfirmedAt: Date.now(), ...messageOccurrence(hasNewerState || remainingEvents.length ? "Guardado parcial; sincronizando cambios nuevos" : "Partida guardada") });
     } catch {
@@ -293,6 +334,7 @@ export const useMarketStore = create<MarketStore>((set, get) => {
         return;
       }
       pendingSaveAttempt = null;
+      resetCommandLog(true);
       await persistRecoverySnapshot(recoverySnapshot(state, payload.saveRevision, []));
       set({ game: state, saveRevision: payload.saveRevision, saveStatus: "saved", pendingEvents: [], lastSaveConfirmedAt: Date.now(), ...messageOccurrence("Esta copia es ahora la partida oficial") });
     } catch {
@@ -313,6 +355,7 @@ export const useMarketStore = create<MarketStore>((set, get) => {
       const serverState = normalizeGameState(payload.state);
       pendingSaveAttempt = null;
       pendingInteractions = [];
+      resetCommandLog(true);
       await persistRecoverySnapshot(recoverySnapshot(serverState, payload.saveRevision, []));
       set({ game: serverState, saveRevision: payload.saveRevision, saveStatus: "saved", pendingEvents: [], lastSaveConfirmedAt: Date.now(), ...messageOccurrence("Partida del servidor restaurada") });
     } catch {

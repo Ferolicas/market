@@ -22,6 +22,7 @@ model User {
   profile         PlayerProfile?
   saves           GameSave[]
   saveOperations  SaveOperation[]
+  commandBatches  SaveCommandBatch[]
   clientTelemetry ClientTelemetry[]
   transactions    LedgerEntry[]
 
@@ -122,6 +123,26 @@ model SaveOperation {
 
   @@index([userId, createdAt])
   @@index([userId, slot, appliedRevision])
+}
+
+/// The command stream a save carried (see `CommandLog.ts`): what the client
+/// applied between two revisions, kept briefly so a replay mismatch can be
+/// reproduced offline. Bounded by the client log limit and pruned with the
+/// save receipts.
+model SaveCommandBatch {
+  id           String   @id @default(cuid())
+  userId       String
+  slot         Int      @default(1)
+  fromRevision Int
+  toRevision   Int
+  commandCount Int
+  verdict      String
+  commands     Json
+  createdAt    DateTime @default(now())
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, slot, toRevision])
+  @@index([createdAt])
 }
 
 /// Sanitised field diagnostics from authenticated game clients. Payloads are

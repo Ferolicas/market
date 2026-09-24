@@ -1,4 +1,5 @@
 import type { GameEvent, GameState } from "../types";
+import type { GameCommand } from "./CommandLog";
 import { CAMPAIGN_RELEASE } from "./CampaignRelease";
 
 export const LEGACY_RECOVERY_KEY = `mini-market-recovery-${CAMPAIGN_RELEASE}`;
@@ -17,6 +18,10 @@ export interface RecoverySnapshot {
   pendingEvents?: GameEvent[];
   pendingSave?: SaveAttempt | null;
   scopeId?: string;
+  /** Commands applied since the last acknowledged save, so a reload can keep
+   * the replayable stream intact. */
+  commands?: GameCommand[];
+  commandsComplete?: boolean;
 }
 
 export interface SaveAttempt {
@@ -26,6 +31,9 @@ export interface SaveAttempt {
   sessionId: string;
   state: GameState;
   events: GameEvent[];
+  /** `null` when the log could not cover the whole stretch since the base
+   * revision; the server then validates the snapshot alone and records it. */
+  commands?: GameCommand[] | null;
 }
 
 let queuedSnapshot: RecoverySnapshot | null = null;

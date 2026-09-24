@@ -95,6 +95,12 @@ function ensureNavigationGeneration(structureRevision: number, areas: readonly s
   return pendingBuild;
 }
 
+/** Whether `storePathfinder` would answer with real paths right now. The
+ * command log records it per tick so a replay uses the same navigation. */
+export function isStoreNavigationReady() {
+  return storeNavigationReady;
+}
+
 export function storePathfinder(start: [number, number], end: [number, number]): [number, number][] {
   if (!storeNavigationReady) return [];
   const path = storeNavigation.findPath({ x: start[0], y: 0, z: start[1] }, { x: end[0], y: 0, z: end[1] });

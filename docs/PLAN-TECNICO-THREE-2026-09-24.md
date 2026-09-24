@@ -1,6 +1,6 @@
 # Plan técnico — cliente Three.js (niveles, progresión, persistencia, multijugador, móvil, QA)
 
-Fecha: 24-09-2026. Estado: **propuesta, pendiente de aprobación. No se ha tocado código.**
+Fecha: 24-09-2026. Estado: **aprobado el 24-09-2026 salvo la fase C (multijugador, salas y sincronización), que el usuario descartó.** Avance: A y B hechas (ver `PROJECT-MAP.md`); B2 (NavMesh horneado) descartado con medición; D y E en curso.
 
 Alcance: solo el cliente Three.js/Next.js (`src/`, `scripts/`, `prisma/`, `deploy/`). `godot/` queda fuera y no se toca. Los GLB, PNG y audio existentes son la fuente de verdad: no se generan assets nuevos ni se usan créditos de Higgsfield. Toda la infraestructura es propia (VPS, PM2, Caddy, PostgreSQL 17); nada de Cloudflare Workers, Durable Objects ni `higgsfield website`.
 
@@ -78,7 +78,7 @@ Entregable: motor determinista, navmesh horneado, replay sombra, migración. Rie
 
 ---
 
-## 4. Fase C — Multijugador, salas y sincronización (infra propia)
+## 4. Fase C — Multijugador, salas y sincronización (infra propia) — DESCARTADA por el usuario el 24-09-2026; se conserva como referencia
 
 ### C1. Proceso de tiempo real
 

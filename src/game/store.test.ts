@@ -212,3 +212,45 @@ describe("market store conflict resolution", () => {
     expect(useMarketStore.getState()).toMatchObject({ saveRevision: 5, saveStatus: "saved" });
   });
 });
+
+describe("market store command log", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+    useMarketStore.setState({ game: null, saveRevision: 0, saveStatus: "idle", message: "", messageRevision: 0, pendingEvents: [] });
+  });
+
+  it("sends every tick and action since the last acknowledged save, then starts a fresh log", async () => {
+    vi.stubGlobal("localStorage", memoryStorage());
+    vi.stubGlobal("sessionStorage", memoryStorage());
+    const bodies: Record<string, unknown>[] = [];
+    vi.stubGlobal("fetch", vi.fn((_url: string, init?: RequestInit) => {
+      bodies.push(JSON.parse(String(init?.body)));
+      return Promise.resolve(new Response(JSON.stringify({ ok: true, saveRevision: bodies.length + 1 }), { status: 200, headers: { "Content-Type": "application/json" } }));
+    }));
+    const game = createInitialGame();
+    game.tutorialStep = 1;
+    game.balanceMinor = 5_000;
+    useMarketStore.setState({ game, saveRevision: 1, saveStatus: "dirty", message: "", pendingEvents: [] });
+    // A fresh store has no history: the first save starts the log itself.
+    await useMarketStore.getState().saveGame();
+    expect(bodies[0].commands).toEqual([]);
+
+    useMarketStore.getState().tickWorld(200);
+    useMarketStore.getState().dispatch({ type: "ORDER", supplierId: "campo", productId: "wheat", quantity: 1 });
+    useMarketStore.getState().dispatch({ type: "ORDER", supplierId: "campo", productId: "wheat", quantity: 999_999 });
+    useMarketStore.getState().queueInteraction({ type: "RETURN_TO_WAREHOUSE" });
+    useMarketStore.getState().tickWorld(200);
+    await useMarketStore.getState().saveGame();
+    const commands = bodies[1].commands as { k: string; a?: { type: string }; i?: unknown[]; n?: number }[];
+    // The refused second order never entered the state and is not logged.
+    expect(commands.map((command) => command.k)).toEqual(["t", "a", "t"]);
+    expect(commands[1].a).toMatchObject({ type: "ORDER", quantity: 1 });
+    expect(commands[2].i).toEqual([{ type: "RETURN_TO_WAREHOUSE" }]);
+    expect(commands[2].n).toBe(0);
+
+    useMarketStore.getState().tickWorld(200);
+    await useMarketStore.getState().saveGame();
+    expect((bodies[2].commands as unknown[]).length).toBe(1);
+  });
+});

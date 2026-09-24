@@ -11,6 +11,7 @@ import { campaignNextStep, taskProduct } from "../progression/LevelCatalog";
 import { CAMPAIGN_TASK_IDS, campaignTaskStatus } from "../progression/CampaignTasks";
 import { CHECKOUT_LANE_IDS } from "../stations/checkout-layout";
 import { FRANCHISE_TEMPLATES } from "../catalog";
+import { tickCommand, type GameCommand } from "../persistence/CommandLog";
 
 /**
  * Headless owner: plays the campaign through the same `advanceWorld`
@@ -42,8 +43,8 @@ export interface CampaignBotRun {
   finishedStores: string[];
   /** Tick and day at which each level of each store was first reached. */
   reached: Record<string, Record<number, { tick: number; day: number }>>;
-  /** Interactions issued, in order: the command stream of the run. */
-  commands: { tick: number; actions: WorldInteractionAction[] }[];
+  /** Everything the bot applied, in order, as the store would log it. */
+  commands: GameCommand[];
 }
 
 function currentFranchise(state: GameState): FranchiseState {
@@ -157,26 +158,27 @@ export function runCampaignBot(initial: GameState, options: CampaignBotOptions =
       if (!next) break;
       if (!next.owned) {
         const bought = applyGameAction(state, { type: "BUY_FRANCHISE", franchiseId: next.id });
-        if (bought.ok) state = bought.state;
+        if (bought.ok) { state = bought.state; commands.push({ k: "a", a: { type: "BUY_FRANCHISE", franchiseId: next.id } }); }
       }
       if (next.owned || state.franchises.find((item) => item.id === next.id)?.owned) {
         const travelled = applyGameAction(state, { type: "TRAVEL", franchiseId: next.id });
-        if (travelled.ok) { state = travelled.state; note(tick); }
+        if (travelled.ok) { state = travelled.state; commands.push({ k: "a", a: { type: "TRAVEL", franchiseId: next.id } }); note(tick); }
       }
     }
     const franchise = currentFranchise(state);
     if (!franchise.open && !businessDayIsClosing(state.minuteOfDay)) {
       const opened = applyGameAction(state, { type: "TOGGLE_STORE" });
-      if (opened.ok) state = opened.state;
+      if (opened.ok) { state = opened.state; commands.push({ k: "a", a: { type: "TOGGLE_STORE" } }); }
     }
     for (const contract of campaignContracts(currentFranchise(state))) {
       if (!contract.ready) continue;
       const delivered = applyGameAction(state, { type: "DELIVER_CONTRACT", contractId: contract.id });
-      if (delivered.ok) state = delivered.state;
+      if (delivered.ok) { state = delivered.state; commands.push({ k: "a", a: { type: "DELIVER_CONTRACT", contractId: contract.id } }); }
     }
     const interactions = planBotInteractions(state, options.maxActionsPerTick ?? 4);
-    if (interactions.length) commands.push({ tick, actions: interactions });
-    state = advanceWorld(state, tickMs, options.pathfinder, { interactions, playerDistanceMeters: interactions.length ? 2 : 0 }).state;
+    const playerDistanceMeters = interactions.length ? 2 : 0;
+    commands.push(tickCommand(tickMs, interactions, playerDistanceMeters, Boolean(options.pathfinder)));
+    state = advanceWorld(state, tickMs, options.pathfinder, { interactions, playerDistanceMeters }).state;
     note(tick + 1);
     options.onTick?.(state, tick + 1);
   }

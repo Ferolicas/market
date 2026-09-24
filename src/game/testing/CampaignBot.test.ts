@@ -33,7 +33,7 @@ describe("campaign reachability", () => {
     const run = runCampaignBot(state, { targetLevel: 4, maxTicks: 2_000 });
     expect(run.level).toBeGreaterThanOrEqual(4);
     expect(run.commands.length).toBeGreaterThan(0);
-    expect(run.commands.every((batch) => batch.actions.length <= 4)).toBe(true);
+    expect(run.commands.every((command) => command.k !== "t" || (command.i?.length ?? 0) <= 4)).toBe(true);
     // Every tick's outcome must be a transition the server authority accepts.
     let previous = createCampaignGame("ES");
     previous.franchises[0].open = true;

@@ -12,6 +12,7 @@ import { addCampaignTaskProgress, CAMPAIGN_TASK_IDS, campaignTaskStatus, type Ca
 import { campaignAvailableProducts, OPENING_PURCHASES, type OpeningPurchaseId } from "./progression/MartCampaign";
 import { rosterBaseTier, rosterEntries, rosterPlayerBase, type RosterEntry } from "./progression/RosterUpgrades";
 import { PRODUCT_CONFIG } from "./economy/products";
+import { deterministicUuid } from "./core/DeterministicId";
 import { createEmptyInventory } from "./economy/ProductRegistry";
 import { createCustomerMind, MAX_SHOPPING_LINES, MAX_SHOPPING_LINE_UNITS } from "./ai/CustomerBrain";
 import { campaignNeedsCustomer, customerWalkSpeed } from "./ai/CustomerTraffic";
@@ -744,7 +745,7 @@ function applyGameActionInternal(input: GameState, action: GameAction, cloneInpu
       state.balanceMinor -= total;
       franchise.expensesTodayMinor += total;
       state.finances.costOfGoodsMinor += total;
-      state.pendingOrders.push({ id: crypto.randomUUID(), franchiseId: franchise.id, supplierId: supplier.id, productId: action.productId, quantity, totalMinor: total, arrivesAtMinute: state.minuteOfDay + supplier.leadMinutes });
+      state.pendingOrders.push({ id: `order:${franchise.id}:${(state.progression.counters.orders ?? 0) + 1}`, franchiseId: franchise.id, supplierId: supplier.id, productId: action.productId, quantity, totalMinor: total, arrivesAtMinute: state.minuteOfDay + supplier.leadMinutes });
       recordDomain(state, "orders", 1);
       recordDomain(state, `order:${action.productId}`, 1);
       events.push({ franchiseId: franchise.id, category: "inventory", description: `Pedido de ${product.name}`, amountMinor: -total });
@@ -757,7 +758,7 @@ function applyGameActionInternal(input: GameState, action: GameAction, cloneInpu
       if (state.balanceMinor < signingCost) return fail("Falta caja para contratación y alta.");
       state.balanceMinor -= signingCost;
       franchise.expensesTodayMinor += signingCost;
-      const employee: Employee = { id: crypto.randomUUID(), name: EMPLOYEE_NAMES[franchise.employees.length % EMPLOYEE_NAMES.length], role: action.role, level: 1, salaryMinor: scaledSalary, energy: 100, hat: HATS[(franchise.employees.length + 1) % HATS.length].id, runtime: createEmployeeRuntime(action.role, franchise.employees.length, state.simulationTimeMs) };
+      const employee: Employee = { id: employeeId(franchise, action.role), name: EMPLOYEE_NAMES[franchise.employees.length % EMPLOYEE_NAMES.length], role: action.role, level: 1, salaryMinor: scaledSalary, energy: 100, hat: HATS[(franchise.employees.length + 1) % HATS.length].id, runtime: createEmployeeRuntime(action.role, franchise.employees.length, state.simulationTimeMs) };
       franchise.employees.push(employee);
       ensureCheckoutsForCashiers(franchise);
       events.push({ franchiseId: franchise.id, category: "payroll", description: `Alta de ${employee.name} (${info.name})`, amountMinor: -signingCost });
@@ -1826,7 +1827,7 @@ function updateCustomer(state: GameState, franchise: FranchiseState, customer: C
           break;
         }
         const transaction: CheckoutTransaction = {
-          id: crypto.randomUUID(), customerId: customer.id, pendingItems,
+          id: `tx:${customer.id}:${now}`, customerId: customer.id, pendingItems,
           paymentMethod: (franchise.customersToday + customer.identity) % 2 ? "cash" : "card",
           state: "CUSTOMER_LOADING", nextUnitIndex: 0, paymentCommitted: false, updatedAt: now,
           lastLoadedAt: now, lastScannedAt: now, lastBaggedAt: now, checkoutLane: customer.queueLane ?? 0,
@@ -2593,7 +2594,7 @@ function applyUpgradeTarget(state: GameState, franchise: FranchiseState, target:
   const role = target.id as Employee["role"];
   const index = franchise.employees.length;
   const { salaryMinor } = employeeHiringQuote(role, state.countryCode);
-  franchise.employees.push({ id: crypto.randomUUID(), name: EMPLOYEE_NAMES[index % EMPLOYEE_NAMES.length], role, level: 1, salaryMinor, energy: 100, hat: HATS[index % HATS.length].id, runtime: createEmployeeRuntime(role, index, state.simulationTimeMs) });
+  franchise.employees.push({ id: employeeId(franchise, role), name: EMPLOYEE_NAMES[index % EMPLOYEE_NAMES.length], role, level: 1, salaryMinor, energy: 100, hat: HATS[index % HATS.length].id, runtime: createEmployeeRuntime(role, index, state.simulationTimeMs) });
 }
 
 function upgradeUnavailableMessage(upgrade: "station" | "player-speed" | "player-capacity" | "employee", campaign = false) {
@@ -2916,8 +2917,10 @@ function normalizeMachineClock(machine: FranchiseState["productionMachines"][num
 function stampEvents(state: GameState, events: GameEvent[]) {
   for (const event of events) {
     event.franchiseId ||= globalEventFranchiseId(state);
-    event.eventId ??= crypto.randomUUID();
     event.sequence ??= ++state.eventSequence;
+    // Ids come from the chain, not from a random source, so a replayed
+    // command stream reproduces the snapshot byte for byte.
+    event.eventId ??= deterministicUuid("event", event.franchiseId, event.sequence, event.category, event.amountMinor, state.revision, state.simulationTimeMs);
     event.occurredAt ??= new Date(state.lastServerTime).toISOString();
     event.type ??= event.category;
     event.payload ??= {};
@@ -2925,6 +2928,13 @@ function stampEvents(state: GameState, events: GameEvent[]) {
     state.processedEventIds.push(event.eventId);
   }
   state.processedEventIds = state.processedEventIds.slice(-1_000);
+}
+
+/** Staff are never removed, so the roster length is a stable, unique index. */
+function employeeId(franchise: FranchiseState, role: Employee["role"]) {
+  const index = franchise.employees.length + 1;
+  const base = `employee:${franchise.id}:${role}:${index}`;
+  return franchise.employees.some((employee) => employee.id === base) ? `${base}:${franchise.employees.length + 1}` : base;
 }
 
 function globalEventFranchiseId(state: Pick<GameState, "currentFranchiseId" | "franchises">) {
