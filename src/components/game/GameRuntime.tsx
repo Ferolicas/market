@@ -182,6 +182,42 @@ export function GameRuntime() {
   }, [saveGame, tickWorld]);
 
   useEffect(() => {
+    // An installed PWA that comes back from the background keeps the page it
+    // had; when the server reports another build, reload as soon as the game
+    // is saved so the phone runs the code that was actually deployed.
+    if (process.env.NODE_ENV !== "production") return;
+    const own = process.env.NEXT_PUBLIC_BUILD_ID;
+    if (!own || own === "dev") return;
+    let stale = false;
+    let unsubscribe: (() => void) | null = null;
+    const reloadWhenSaved = () => {
+      if (!stale) return;
+      const { saveStatus: status, pendingEvents } = useMarketStore.getState();
+      if (status === "saved" && pendingEvents.length === 0) window.location.reload();
+    };
+    const check = async () => {
+      if (document.visibilityState !== "visible" || stale) return;
+      try {
+        const response = await fetch("/api/health", { cache: "no-store" });
+        const health = await response.json() as { build?: string };
+        if (typeof health.build === "string" && health.build !== "dev" && health.build !== own) {
+          stale = true;
+          unsubscribe ??= useMarketStore.subscribe(reloadWhenSaved);
+          reloadWhenSaved();
+        }
+      } catch { /* offline: nothing to update to */ }
+    };
+    const visibility = () => { if (document.visibilityState === "visible") void check(); };
+    const initial = window.setTimeout(() => void check(), 15_000);
+    document.addEventListener("visibilitychange", visibility);
+    return () => {
+      window.clearTimeout(initial);
+      document.removeEventListener("visibilitychange", visibility);
+      unsubscribe?.();
+    };
+  }, []);
+
+  useEffect(() => {
     if (!("serviceWorker" in navigator)) return;
     if (process.env.NODE_ENV !== "production") {
       // A production service worker must never control the Next.js dev server:

@@ -1,5 +1,14 @@
 # Mini Market — mapa vivo
 
+## La PWA del iPhone corría una build antigua; ahora se actualiza sola — 25-09-2026
+
+La cuarta sesión del propietario volvió a reportar `refreshHz` 250/91 y no traía `tickP95Ms`: el teléfono seguía ejecutando la build anterior a las correcciones aunque "cerró y abrió" la app (iOS restaura la página instalada sin recargarla). Los lotes de replay guardados con base (`/tmp/market-repro`) lo confirman: reproducidos en local con el motor actual, el lote de 2 comandos coincide byte a byte desde la base cruda, y en los de ~150 comandos el Barrio y el Estación (24 y 22 clientes) coinciden exactamente en posiciones y estados; solo diverge el progreso de una caja de la Marina, compatible con el `Math.hypot` de la build vieja y no con un fallo vivo. Sin la build nueva en el teléfono no hay más que aprender.
+
+- `next.config.ts` inyecta `NEXT_PUBLIC_BUILD_ID` (7 caracteres de `GITHUB_SHA`, `MARKET_BUILD_ID` o `git rev-parse` en el momento del build; `deploy.sh` construye dentro del checkout, así que en producción es el commit desplegado). `/api/health` lo expone como `build`.
+- `GameRuntime`: 15 s tras cargar y cada vez que la pestaña vuelve a estar visible consulta `/api/health`; si el `build` del servidor no es el propio, espera a que el estado sea `saved` sin eventos pendientes y recarga. Sin conexión no hace nada. Solo en producción.
+- `sw.js` pasa a `mini-market-v12-lods` (los LODs de gorros y pelo son rutas nuevas, pero la cáscara cacheada también debe renovarse).
+- La build que ya está en el teléfono no tiene este mecanismo: hace falta una recarga real una vez (cerrar la app desde el selector de apps o abrir la URL en Safari).
+
 ## Tercera lectura del iPhone: bases reproducibles para el replay y coste del tick en la telemetría — 25-09-2026
 
 Con el estimador corregido el teléfono ya lee su panel (`refreshHz` 60 al no caber nunca en 8,3 ms) y presenta a 60 en movimiento (`motionLevel` 0), pero en el Estación con 19 empleados y 24 clientes en el Barrio de fondo siguen 222 cuadros de más de 25 ms por minuto (4,6 %), es decir, un tirón unas 3–4 veces por segundo: cadencia sospechosamente cercana al tick autoritativo de 5 Hz. La ventana de un minuto envía ahora `tickCount`, `tickP95Ms` y `tickMaxMs` (duración de `tickWorld` en el hilo principal, evento `market-world-tick-cost`) para confirmar o descartar que el tick sea el tirón antes de moverlo a un worker o bajar su frecuencia en móvil.
