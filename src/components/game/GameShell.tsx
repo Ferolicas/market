@@ -38,6 +38,7 @@ import { businessDayIsClosing } from "@/game/time/BusinessDay";
 import { isRegisterInteractionId, registerLane } from "@/game/stations/register-layout";
 import { campaignPersonalTasks, campaignPurchaseQuotes, canOrderProduct } from "@/game/engine";
 import { OPENING_PURCHASES, type OpeningPurchaseId } from "@/game/progression/MartCampaign";
+import { campaignNextStep } from "@/game/progression/LevelCatalog";
 import { purchaseContributionPulseMinor } from "@/game/progression/PurchaseState";
 import { cashBundleCount, cashBundleMinor } from "@/game/economy/cash-bundles";
 
@@ -59,6 +60,9 @@ export function GameShell({ playerName }: { playerName: string }) {
   const [panel, setPanel] = useState<Panel>(null);
   const [completedPurchase, setCompletedPurchase] = useState<{ id: string; label: string; franchiseId: string } | null>(null);
   const [levelHint, setLevelHint] = useState<{ level: number; purchase: OpeningPurchaseId; label: string } | null>(null);
+  // On return the first screen names the current goal and the next step, so
+  // the game remembers for the player; the card leaves on its own or by hand.
+  const [nextStepVisible, setNextStepVisible] = useState(true);
   const [lastInteraction, setLastInteraction] = useState<InteractionVisualEvent | null>(null);
   const [transferEvents, setTransferEvents] = useState<InteractionVisualEvent[]>([]);
   const [debug] = useState(() => typeof window !== "undefined" && marketQaQueryEnabled(window.location.search));
@@ -139,6 +143,11 @@ export function GameShell({ playerName }: { playerName: string }) {
     const timer = setTimeout(() => setLevelHint(null), 9_000);
     return () => clearTimeout(timer);
   }, [levelHint]);
+  useEffect(() => {
+    if (!sceneReady) return;
+    const timer = setTimeout(() => setNextStepVisible(false), 12_000);
+    return () => clearTimeout(timer);
+  }, [sceneReady]);
   useEffect(() => {
     if (tutorialStep === 0 || worldReady) return;
     let secondFrame = 0;
@@ -391,6 +400,7 @@ export function GameShell({ playerName }: { playerName: string }) {
   const carriedProducts = carriedProductIds(visualTransfer.carry);
   const carriedQuantity = carryTotal(visualTransfer.carry);
   const levelLabel = `Nivel ${franchise.purchases ? campaignLevel(franchise) : game.level}`;
+  const nextStep = campaignNextStep(game, franchise);
 
   return (<>
     <GameRuntime />
@@ -423,6 +433,15 @@ export function GameShell({ playerName }: { playerName: string }) {
         </div>
       </div>}
 
+
+      {sceneReady && nextStepVisible && status !== "conflict" && nextStep && game.tutorialStep > 0 && <div className="level-hint next-step glass-panel" data-game-ui-interactive="true" role="status" aria-live="polite" aria-label="Objetivo actual y siguiente paso">
+        <span className="level-hint-pin" aria-hidden="true"><GameIcon name="target" /></span>
+        <div>
+          <small>{nextStep.goal.toUpperCase()}</small>
+          <strong>{nextStep.step}</strong>
+        </div>
+        <button type="button" aria-label="Cerrar" onClick={() => setNextStepVisible(false)}>×</button>
+      </div>}
 
       {game.level === 1 && game.tutorialStep > 0 && <LevelOneGuide game={game} franchise={franchise} />}
 
@@ -552,6 +571,7 @@ function ManagementPanel({ panel, close }: { panel: Exclude<Panel, null>; close:
   const title = { stock: "Inventario y estanterías", orders: "Pedidos", team: "Equipo y mejoras", map: "Mapa de franquicias", finance: "Dirección financiera", avatar: "Vestuario del fundador", help: "Cómo jugar", settings: "Sonido y vibración" }[panel];
   const contracts = campaignContracts(franchise);
   const personalTasks = franchise.purchases ? campaignPersonalTasks(game) : levelObjectiveTasks(game.level, game);
+  const nextStep = campaignNextStep(game, franchise);
   const warehouseProducts = (Object.keys(PRODUCTS) as ProductId[]).filter((id) => franchise.warehouse[id] > 0);
   const freeCarry = Math.max(0, franchise.carry.capacity - carryTotal(franchise.carry));
   return <div className="management-wrap" onMouseDown={(event) => event.target === event.currentTarget && close()}><section className="management-panel"><header><div><span className="eyebrow">MINI MARKET OS</span><h2>{title}</h2></div><button className="close-button" onClick={close}>×</button></header>
@@ -569,6 +589,10 @@ function ManagementPanel({ panel, close }: { panel: Exclude<Panel, null>; close:
       </article>)}</div>}
 
       {panel === "orders" && <div className="orders-layout">
+        {nextStep && <section className="orders-block next-step-block">
+          <h3>Tu objetivo</h3>
+          <article><div><strong>{nextStep.goal}</strong><small>{nextStep.step}</small></div></article>
+        </section>}
         <section className="orders-block">
           <h3>Encargos de clientes</h3>
           {contracts.length === 0 && <p className="orders-empty">Todavía no hay encargos en este local.</p>}

@@ -1,5 +1,14 @@
 # Mini Market — mapa vivo
 
+## Catálogo de niveles, siguiente paso y bot de campaña — 24-09-2026
+
+Fase A del plan técnico del cliente Three.js (`docs/PLAN-TECNICO-THREE-2026-09-24.md`; el multijugador quedó descartado por el usuario). Sin cambios de economía, precios ni cupos.
+
+- `src/game/progression/LevelCatalog.ts`: `LEVEL_CATALOG`, 30 entradas derivadas de `OPENING_PURCHASES`, `CAMPAIGN_TASKS`, `CAMPAIGN_CONTRACTS` y `CASHIER_UNLOCK_LEVELS` (no es una segunda fuente de verdad): qué otorga cada nivel, qué patrón enseña (`teaches`), qué abre (productos, personal, cajeros, clientes, cesta) y qué examen lo cierra (compra + tareas que la bloquean, tareas restantes en el 28, encargos en el 29, siguiente local en el 30). `campaignNextStep(state)` devuelve objetivo y único siguiente paso del local visitado (tarea pendiente → pagar → recoger caja → surtir/vender → encargo → expansión). `LevelCatalog.test.ts` comprueba la espina de compras (todo prerrequisito en un nivel inferior), que cada producto se abre una sola vez, que ninguna tarea que bloquea una compra pide un producto que no exista aún entre sus prerrequisitos, los tres cajeros en 5/10/20 y la plantilla 8/3/5/3.
+- HUD (`GameShell.tsx`): al quedar lista la escena aparece 12 s una tarjeta `level-hint next-step` con objetivo y siguiente paso (cerrable); el panel Pedidos lleva el bloque "Tu objetivo" siempre. No cambia reglas.
+- `src/game/testing/CampaignBot.ts`: propietario sin navegador. `planBotInteractions(state)` decide por tick las mismas `WorldInteractionAction` que despacha la escena (recoger caja, pagar compra, cobrar sin cajero, vaciar cesta a estantes/máquinas/almacén, recoger máquinas, cosechar priorizando el trabajo personal y el estante más vacío, retirar del almacén); `runCampaignBot` abre la tienda cada mañana, entrega encargos listos, compra y viaja al siguiente local al cerrar el nivel objetivo, y devuelve el flujo de comandos de la partida. Medido el 24-09-2026: nivel 30 del Barrio en 16 327 ticks de 1 s (día 2), 0,41 ms por tick, 4 acciones por tick como máximo (jugador óptimo, no humano).
+- `CampaignBot.test.ts`: presupuesto fijado antes de correr: los 30 niveles del primer local en ≤ 5 jornadas (43 200 ticks) y en orden; el estado final pasa `savePayloadSchema` y `normalizeGameState`. Un cambio de precio o cupo que deje un nivel inalcanzable rompe esta prueba.
+
 ## Scroll de inventario/pedidos: la causa real era el refresco, no el mouse_filter — 22-09-2026
 
 El fix de `Widgets.card()` (entrada anterior) no bastó para Inventario/Pedidos según el usuario. Inspeccioné el árbol real de nodos de ambos paneles con una prueba (`mouse_filter` de cada nodo) y todo ya estaba en PASS/IGNORE correctamente — el bloqueo no era de `mouse_filter`.
