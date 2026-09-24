@@ -20,6 +20,8 @@
     "qa:production-surface": "node scripts/qa-production-surface.mjs",
     "qa:save-lost-ack": "node scripts/qa-save-lost-ack.mjs",
     "qa:webgl-recovery": "node scripts/qa-webgl-recovery.mjs",
+    "qa:campaign-reach": "tsx scripts/qa-campaign-reach.mts",
+    "qa:seed-state": "tsx scripts/qa-seed-state.mts",
     "load:test:game": "node scripts/load-test-game-api.mjs",
     "art:manifest": "tsx scripts/write-reference-manifest.ts",
     "art:lods": "node scripts/build-market-lods.mjs",

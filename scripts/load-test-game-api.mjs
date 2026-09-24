@@ -6,6 +6,8 @@ const concurrency=Number(process.env.LOAD_TEST_CONCURRENCY??4);
 const cookie=process.env.LOAD_TEST_COOKIE??"";
 const mode=process.env.LOAD_TEST_MODE??"health";
 const allowedModes=new Set(["health","config","save-read","save-write"]);
+// The save route refuses clients that do not name the live campaign release.
+const release=(await import("../src/game/persistence/CampaignRelease.ts").catch(()=>null))?.CAMPAIGN_RELEASE??process.env.LOAD_TEST_RELEASE??"";
 
 if(!Number.isFinite(durationSeconds)||durationSeconds<1||durationSeconds>300)throw new Error("LOAD_TEST_DURATION_SECONDS debe estar entre 1 y 300");
 if(!Number.isInteger(concurrency)||concurrency<1||concurrency>100)throw new Error("LOAD_TEST_CONCURRENCY debe estar entre 1 y 100");
@@ -21,6 +23,9 @@ const latencies=[];let requests=0;let errors=0;
 
 async function worker(index){
   const workerCookie=cookies[index%Math.max(1,cookies.length)];
+  // One device per worker, and a command stream the server can replay: an
+  // empty SET_AVATAR is exactly the revision bump this loop applies by hand.
+  const workerDevice=crypto.randomUUID();
   let save=null;let saveRevision=0;
   if(mode==="save-write"){
     const initial=await fetch(baseUrl+"/api/game/save",{headers:{cookie:workerCookie}});
@@ -34,7 +39,7 @@ async function worker(index){
       const options={headers:workerCookie?{cookie:workerCookie}:undefined};
       if(mode==="save-write"){
         save={...save,revision:Number(save.revision??0)+1,lastSavedAt:new Date().toISOString()};
-        Object.assign(options,{method:"PUT",headers:{cookie:workerCookie,"content-type":"application/json"},body:JSON.stringify({expectedRevision:saveRevision,sessionId:crypto.randomUUID(),state:save,events:[]})});
+        Object.assign(options,{method:"PUT",headers:{cookie:workerCookie,"content-type":"application/json","x-market-release":release},body:JSON.stringify({expectedRevision:saveRevision,operationId:crypto.randomUUID(),deviceId:workerDevice,sessionId:crypto.randomUUID(),state:save,events:[],commands:[{k:"a",a:{type:"SET_AVATAR"}}]})});
       }
       const response=await fetch(baseUrl+path,options);
       const responseBody=await response.arrayBuffer();

@@ -10,6 +10,12 @@ const keepStoreClosed = process.env.MARKET_PERF_STORE_CLOSED === "1";
 const captureCpuProfile = process.env.MARKET_PERF_CPU_PROFILE === "1";
 const baseline = process.env.MARKET_PERF_BASELINE === "1";
 const movePlayer = process.env.MARKET_PERF_MOVE === "1";
+// A deep store to measure (see scripts/qa-seed-state.ts): the snapshot is
+// planted as a local recovery the store adopts on its first load, because a
+// fresh account's server revision is always 1 and the planted copy is newer.
+const seedStatePath = process.env.MARKET_PERF_SEED_STATE ?? "";
+const seedState = seedStatePath ? JSON.parse(await fs.readFile(seedStatePath, "utf8")) : null;
+const seedRecoveryKey = seedState ? `mini-market-recovery-${(await import("../src/game/persistence/CampaignRelease.ts")).CAMPAIGN_RELEASE}` : "";
 const sampleWindows = Number.parseInt(process.env.MARKET_PERF_SAMPLE_WINDOWS ?? "24", 10);
 if (!Number.isSafeInteger(sampleWindows) || sampleWindows < 8 || sampleWindows > 120) throw new Error(`MARKET_PERF_SAMPLE_WINDOWS inválido: ${sampleWindows}`);
 const profiles = {
@@ -32,6 +38,9 @@ const browser = await chromium.launch({
 });
 const context = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
 const page = await context.newPage();
+if (seedState) await page.addInitScript(({ key, state }) => {
+  if (!localStorage.getItem(key)) localStorage.setItem(key, JSON.stringify({ state: { ...state, revision: state.revision + 10_000 }, saveRevision: 1, pendingEvents: [] }));
+}, { key: seedRecoveryKey, state: seedState });
 await page.addInitScript(() => {
   window.__MARKET_PERF__ = { samples: [], inventory: null, frameTimes: [], longTasks: [], qualityEvents: [], renderProfile: null, shadowMode: null, touchEvents: [] };
   let previousFrame = performance.now();
@@ -86,9 +95,11 @@ await page.getByLabel("Nombre de usuario").fill(`render_${suffix}`.slice(0, 24))
 await page.getByLabel("Correo electrónico").fill(`render.${suffix}@example.test`);
 await page.getByLabel("Contraseña").fill(`Render-${suffix}-Safe!`);
 await page.getByRole("button", { name: "Crear perfil y jugar" }).click();
-await page.getByRole("button", { name: "Abrir mi primer Mini Market" }).waitFor({ timeout: 60_000 });
-await page.getByRole("button", { name: "Abrir mi primer Mini Market" }).click();
-await page.locator("canvas").first().waitFor({ timeout: 30_000 });
+if (!seedState) {
+  await page.getByRole("button", { name: "Abrir mi primer Mini Market" }).waitFor({ timeout: 60_000 });
+  await page.getByRole("button", { name: "Abrir mi primer Mini Market" }).click();
+}
+await page.locator("canvas").first().waitFor({ timeout: 60_000 });
 if (!keepStoreClosed) await page.getByRole("button", { name: "Abrir el supermercado" }).click();
 await page.waitForFunction(() => window.__MARKET_PERF__?.samples.length >= 5 && window.__MARKET_PERF__?.inventory, null, { timeout: 45_000 });
 
@@ -116,6 +127,9 @@ const browserMetricsAfter = metricsByName(await cdp.send("Performance.getMetrics
 
 const samples = await page.evaluate((minimum) => structuredClone(window.__MARKET_PERF__.samples.slice(-minimum)), sampleWindows);
 const inventory = await page.evaluate(() => structuredClone(window.__MARKET_PERF__.inventory));
+// Draws of the last frame by owner, kind and name prefix, with submit time,
+// so a budget miss points at the group that pays for it.
+const draws = await page.evaluate(() => (typeof window.__MARKET_PERF_DRAWS__ === "function" ? structuredClone(window.__MARKET_PERF_DRAWS__()) : null));
 const frameTimes = await page.evaluate(() => structuredClone(window.__MARKET_PERF__.frameTimes));
 const longTasks = await page.evaluate(() => structuredClone(window.__MARKET_PERF__.longTasks));
 const qualityEvents = await page.evaluate(() => structuredClone(window.__MARKET_PERF__.qualityEvents));
@@ -136,8 +150,12 @@ const summary = summarize(samples, frameTimes, longTasks);
 await page.screenshot({ path: path.join(output, `${profileName}.png`), fullPage: true });
 const report = {
   generatedAt: new Date().toISOString(),
-  profile: { name: profileName, ...profile, baseline, movePlayer, freezeWorld, keepStoreClosed, sampleWindows, viewport: page.viewportSize(), deviceScaleFactor: 2 },
+  profile: { name: profileName, ...profile, baseline, movePlayer, freezeWorld, keepStoreClosed, sampleWindows, seedStatePath: seedStatePath || null, viewport: page.viewportSize(), deviceScaleFactor: 2 },
+  // `?perf` does not publish the QA state (that needs `?debug`, whose overlay
+  // fakes stutter), so the level comes from the HUD text.
+  game: await page.evaluate(() => ({ levelLabel: document.querySelector(".hud-stat.level strong")?.textContent ?? null, storeStatus: document.querySelector(".store-status")?.textContent ?? null })),
   enforceBudget,
+  draws,
   budget: budgetFor(profileName),
   summary,
   samples,
@@ -233,6 +251,10 @@ function summarizeBrowserMetrics(before, after) {
 }
 
 function budgetFor(name) {
+  // A seeded deep store (every level closed, 19 staff, 8 shoppers) is judged
+  // against its own floor, measured on 24-09-2026 with the accessory LODs:
+  // 35 fps, p95 50 ms, 274 draws and 479 k triangles at worst while walking.
+  if (seedState) return { minMedianFps: 30, maxP95FrameMs: 60, maxDrawCalls: 300, maxTriangles: 500_000, maxTextures: 110, maxPrograms: 100 };
   if (name === "hardware-4x") return { minMedianFps: 20, maxP95FrameMs: 90, maxDrawCalls: 420, maxTriangles: 390_000, maxTextures: 70, maxPrograms: 100 };
   if (name === "hardware-6x") return { minMedianFps: 24, maxP95FrameMs: 75, maxDrawCalls: 420, maxTriangles: 330_000, maxTextures: 70, maxPrograms: 100 };
   return { minMedianFps: 18, maxP95FrameMs: 110, maxDrawCalls: 420, maxTriangles: 330_000, maxTextures: 70, maxPrograms: 100 };

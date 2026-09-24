@@ -4,6 +4,7 @@ import { useGLTF } from "@react-three/drei";
 import { useEffect, useMemo } from "react";
 import * as THREE from "three";
 import type { AvatarHatId, CharacterId, HairId } from "@/game/types";
+import { accessoryModelPathForTier, useCharacterModelTier } from "@/game/animation/CharacterPresentation";
 
 const HAIR_FILES: Record<HairId, string> = {
   "side-part": "side-part", fade: "fade", waves: "waves", swept: "swept",
@@ -59,7 +60,8 @@ function disposeMaterials(model: THREE.Group) {
 }
 
 export function CharacterHair({ body, style, color }: { body: CharacterId; style: HairId; color: string }) {
-  const gltf = useGLTF(`/models/market/hair/${body}/${HAIR_FILES[style]}.glb`);
+  const tier = useCharacterModelTier();
+  const gltf = useGLTF(accessoryModelPathForTier(`/models/market/hair/${body}/${HAIR_FILES[style]}.glb`, tier));
   const model = useMemo(() => cloneStaticScene(gltf.scene), [gltf.scene]);
 
   useEffect(() => {
@@ -83,7 +85,8 @@ export function CharacterHair({ body, style, color }: { body: CharacterId; style
 }
 
 export function CharacterHat({ body, hat }: { body: CharacterId; hat: Exclude<AvatarHatId, "none"> }) {
-  const gltf = useGLTF(`/models/market/hats/${body}/${HAT_FILES[hat]}.glb`);
+  const tier = useCharacterModelTier();
+  const gltf = useGLTF(accessoryModelPathForTier(`/models/market/hats/${body}/${HAT_FILES[hat]}.glb`, tier));
   const model = useMemo(() => cloneStaticScene(gltf.scene), [gltf.scene]);
   useEffect(() => () => disposeMaterials(model), [model]);
   return <primitive object={model} dispose={null} />;

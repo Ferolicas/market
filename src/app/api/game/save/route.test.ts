@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createCampaignGame, normalizeGameState } from "@/game/engine";
+import { normalizeGameState } from "@/game/engine";
 import { replayCommands, type GameCommand } from "@/game/persistence/CommandLog";
 import { runCampaignBot } from "@/game/testing/CampaignBot";
 import { CAMPAIGN_RELEASE, CAMPAIGN_SAVE_SLOT } from "@/game/persistence/CampaignRelease";

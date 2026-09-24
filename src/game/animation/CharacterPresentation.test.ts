@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import * as THREE from "three";
-import { CHARACTER_SOLE_PROFILES, characterFaceUpdateInterval, characterIsInView, characterModelPathForTier, characterModelTierForCapabilities, createCharacterVisibilityScratch, disposeCharacterMaterials, prepareCharacterModel, priorityCustomerModelPathsForTier } from "./CharacterPresentation";
+import { CHARACTER_SOLE_PROFILES, accessoryModelPathForTier, characterFaceUpdateInterval, characterIsInView, characterModelPathForTier, characterModelTierForCapabilities, createCharacterVisibilityScratch, disposeCharacterMaterials, prepareCharacterModel, priorityCustomerModelPathsForTier } from "./CharacterPresentation";
 
 function characterFixture() {
   const root = new THREE.Group();
@@ -154,6 +154,9 @@ describe("character presentation", () => {
   it("maps both character families to one selected LOD without changing full paths", () => {
     expect(characterModelPathForTier("/models/market/characters/owner_man.glb", 0)).toBe("/models/market/characters/owner_man.glb");
     expect(characterModelPathForTier("/models/market/characters/owner_man.glb", 1)).toBe("/models/market/characters/lod1/owner_man.glb");
+    expect(accessoryModelPathForTier("/models/market/hats/adult-man/red-panda.glb", 0)).toBe("/models/market/hats/adult-man/red-panda.glb");
+    expect(accessoryModelPathForTier("/models/market/hats/adult-man/red-panda.glb", 1)).toBe("/models/market/hats/lod1/adult-man/red-panda.glb");
+    expect(accessoryModelPathForTier("/models/market/hair/girl/braid.glb", 2)).toBe("/models/market/hair/lod2/girl/braid.glb");
     expect(characterModelPathForTier("/models/market/customers/customer_01.glb", 2)).toBe("/models/market/customers/lod2/customer_01.glb");
   });
 

@@ -1,5 +1,5 @@
 import { mkdir, readdir } from "node:fs/promises";
-import { basename, join } from "node:path";
+import { join } from "node:path";
 import { NodeIO } from "@gltf-transform/core";
 import { ALL_EXTENSIONS } from "@gltf-transform/extensions";
 import { dequantize, inspect, prune, resample, simplify, textureCompress, weld } from "@gltf-transform/functions";
@@ -16,6 +16,21 @@ const familyConfig = {
   customers: {
     lod1: { ratio: 0.03, error: 0.02, maxRenderVertices: 20_000, textureSize: 768 },
     lod2: { ratio: 0.018, error: 0.035, maxRenderVertices: 12_000, textureSize: 512 },
+  },
+  // Accessories weigh two to four bodies each on a phone (a hat is 11–33 k
+  // triangles, hair 9–16 k, a LOD1 body 9 k). They sit under one body folder
+  // each, so the LOD lands beside them: hats/lod1/<body>/<hat>.glb.
+  // Sources range 11–33 k triangles, so a fixed target beats a fixed ratio:
+  // the ratio is derived per file as min(ratio, target / source).
+  hats: {
+    nested: true,
+    lod1: { ratio: 0.3, error: 0.02, targetRenderVertices: 10_000, maxRenderVertices: 13_000, textureSize: 512 },
+    lod2: { ratio: 0.15, error: 0.035, targetRenderVertices: 5_000, maxRenderVertices: 7_000, textureSize: 256 },
+  },
+  hair: {
+    nested: true,
+    lod1: { ratio: 0.3, error: 0.02, targetRenderVertices: 9_000, maxRenderVertices: 11_000, textureSize: 512 },
+    lod2: { ratio: 0.15, error: 0.035, targetRenderVertices: 4_500, maxRenderVertices: 6_000, textureSize: 256 },
   },
 };
 
@@ -46,11 +61,15 @@ const io = new NodeIO()
     "meshopt.encoder": MeshoptEncoder,
   });
 
+// `node scripts/build-market-lods.mjs hats hair` rebuilds only those families.
+const requested = new Set(process.argv.slice(2));
 const results = [];
-for (const [family, lods] of Object.entries(familyConfig)) {
+for (const [family, { nested, ...lods }] of Object.entries(familyConfig)) {
+  if (requested.size && !requested.has(family)) continue;
   const source = join(modelRoot, family);
-  const files = (await readdir(source)).filter((name) => name.endsWith(".glb")).sort();
-  for (const level of Object.keys(lods)) await mkdir(join(source, level), { recursive: true });
+  const folders = nested ? (await readdir(source, { withFileTypes: true })).filter((entry) => entry.isDirectory() && !entry.name.startsWith("lod")).map((entry) => entry.name).sort() : [""];
+  const files = (await Promise.all(folders.map(async (folder) => (await readdir(join(source, folder))).filter((name) => name.endsWith(".glb")).sort().map((name) => join(folder, name))))).flat();
+  for (const level of Object.keys(lods)) for (const folder of folders) await mkdir(join(source, level, folder), { recursive: true });
 
   for (const file of files) {
     const input = join(source, file);
@@ -60,11 +79,12 @@ for (const [family, lods] of Object.entries(familyConfig)) {
     for (const [level, config] of Object.entries(lods)) {
       const document = await io.read(input);
       removeGeneratedNormals(document);
+      const ratio = config.targetRenderVertices ? Math.min(config.ratio, config.targetRenderVertices / baseline) : config.ratio;
       await document.transform(
         dequantize(),
         resample(),
         weld({ overwrite: true }),
-        simplify({ simplifier: regularizedSimplifier, ratio: config.ratio, error: config.error }),
+        simplify({ simplifier: regularizedSimplifier, ratio, error: config.error }),
         textureCompress({
           encoder: sharp,
           targetFormat: "webp",
@@ -84,12 +104,12 @@ for (const [family, lods] of Object.entries(familyConfig)) {
       // A count budget alone can accidentally pass when a source model changes
       // to something much smaller. Keep a relative gate so every LOD proves it
       // still removes meaningful work from its own source.
-      const maximumRatio = config.ratio + 0.04;
+      const maximumRatio = ratio + 0.04;
       if (reduction > maximumRatio) {
         throw new Error(`${family}/${level}/${file}: ${(reduction * 100).toFixed(1)}% of source vertices exceeds ${(maximumRatio * 100).toFixed(1)}% reduction gate`);
       }
 
-      const output = join(source, level, basename(file));
+      const output = join(source, level, file);
       await io.write(output, document);
       results.push({
         asset: `${family}/${level}/${file}`,

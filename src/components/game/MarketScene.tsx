@@ -1021,6 +1021,8 @@ function DebugProbe({ inspectScene, publishInventory }: { inspectScene: boolean;
       let shadowReceivers = 0;
       let transparentObjects = 0;
       let doubleSidedMaterials = 0;
+      const transparentNames: string[] = [];
+      const doubleSidedNames: string[] = [];
       scene.traverse((object) => {
         objects += 1;
         if (object.visible) visibleObjects += 1;
@@ -1039,11 +1041,15 @@ function DebugProbe({ inspectScene, publishInventory }: { inspectScene: boolean;
         if (object.receiveShadow) shadowReceivers += 1;
         geometries.add(object.geometry.uuid);
         const objectMaterials = Array.isArray(object.material) ? object.material : [object.material];
-        if (objectMaterials.some((material) => material.transparent || material.opacity < 1)) transparentObjects += 1;
+        const label = object.name || object.parent?.name || object.type;
+        if (objectMaterials.some((material) => material.transparent || material.opacity < 1)) {
+          transparentObjects += 1;
+          transparentNames.push(`${label}:${objectMaterials.map((material) => `${material.type}${material.transparent ? " transparent" : ""} o=${material.opacity}${"transmission" in material ? ` t=${(material as THREE.MeshPhysicalMaterial).transmission}` : ""}${material.alphaMap ? " alphaMap" : ""}${material.depthWrite ? "" : " noDepthWrite"}`).join("|")}`);
+        }
         objectMaterials.forEach((material) => {
           materials.add(material);
           materialTypes[material.type] = (materialTypes[material.type] ?? 0) + 1;
-          if (material.side === THREE.DoubleSide) doubleSidedMaterials += 1;
+          if (material.side === THREE.DoubleSide) { doubleSidedMaterials += 1; doubleSidedNames.push(`${label}:${material.type}`); }
           for (const value of Object.values(material)) {
             if (value instanceof THREE.Texture) textures.add(value.uuid);
           }
@@ -1082,6 +1088,10 @@ function DebugProbe({ inspectScene, publishInventory }: { inspectScene: boolean;
         shadowReceivers,
         transparentObjects,
         doubleSidedMaterials,
+        // Names, so an audit can tell which assets pay for blending or for
+        // both faces without a second instrumented run.
+        transparentNames: transparentNames.slice(0, 120),
+        doubleSidedNames: doubleSidedNames.slice(0, 120),
         skeletons: skeletons.size,
         textures: textures.size,
         geometries: geometries.size,

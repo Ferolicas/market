@@ -80,6 +80,12 @@ export function useCharacterModelTier(): CharacterModelTier {
   return useSyncExternalStore(subscribeCharacterCapabilities, browserCharacterModelTier, serverCharacterModelTier);
 }
 
+/** Hats and hair have their own derived LODs beside each body folder. */
+export function accessoryModelPathForTier(path: string, tier: CharacterModelTier) {
+  if (tier === 0) return path;
+  return path.replace(/\/(hats|hair)\//, (_, family) => `/${family}/lod${tier}/`);
+}
+
 export function characterModelPathForTier(path: string, tier: CharacterModelTier) {
   if (tier === 0) return path;
   const family = path.includes("/customers/") ? "/customers/" : "/characters/";
