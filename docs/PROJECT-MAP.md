@@ -1,5 +1,9 @@
 # Mini Market — mapa vivo
 
+## Fase 7 aprobada: la diversidad de assets sí cuesta, pero poco y de forma uniforme — 26-09-2026
+
+Medición oficial del iPhone (build `9502440`, lectura limpia), guardada como `RUNTIME_PHASE7_BASELINE` en `src/runtime/contract.ts`: trabajo 2,9 / 3,3 / 5,2 ms (medio/p95/p99), máximo 16,5 ms, 0 trabajos > 16,7 ms; hueco 16,7 / 17 / 17 ms, máximo 25 ms, 0 huecos > 25 ms de 21 201; 170 draws, 376 700 triángulos, 1 103 ms hasta el primer cuadro, 1 238,2 ms hasta que la multitud está lista, 18,61 MB de descarga. Frente a `RUNTIME_PHASE6_BASELINE`: +0,4 ms de media/p95/p99 (subida uniforme, no una cola desproporcionada como en fase 5), +18 draws, +1 910 triángulos, sin regresión de ritmo ni calentamiento. No se optimiza nada.
+
 ## Fase 7 en medición: diversidad de gorros, los 12 tipos — 26-09-2026
 
 Sobre la fase 6 ya aprobada (un gorro constante), se aísla la variable de diversidad de assets: los 19 empleados dejan de compartir `hat: "red-panda"` y reciben uno de los 12 tipos de `HAT_FILES` por round-robin determinista (`hat: HAT_IDS[index % 12]` en `crowdFeed.ts`). `scene.ts::loadEmployeeHats()` deja de fijar un tipo único y pasa a reproducir exactamente el patrón genérico de `ClientRuntime.loadEmployeeHats()` de `/play2`: un `Set` de claves `${employeeBodyOf(index)}:${employee.hat}` a partir del roster real, cargando solo las combinaciones que existen de verdad.

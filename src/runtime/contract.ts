@@ -150,6 +150,35 @@ export const RUNTIME_PHASE6_BASELINE = {
 } as const;
 
 /**
+ * Official iPhone baseline of phase 7 (phase 6's crowd plus hat diversity —
+ * all 12 kinds round-robin, 12 unique body:hat combinations / GLBs instead
+ * of 1). Approved 2026-09-26, clean reading: +0.4 ms average/p95/p99 over
+ * RUNTIME_PHASE6_BASELINE, +18 draws, +1,910 triangles — a small, real,
+ * uniform cost (not a tail spike like phase 5's props), no pacing
+ * regression, no heating.
+ */
+export const RUNTIME_PHASE7_BASELINE = {
+  build: "9502440",
+  workAverageMs: 2.9,
+  workP95Ms: 3.3,
+  workP99Ms: 5.2,
+  workMaxMs: 16.5,
+  workOver16: 0,
+  gapAverageMs: 16.7,
+  gapP95Ms: 17,
+  gapP99Ms: 17,
+  gapMaxMs: 25,
+  gapsOver25Ms: 0,
+  renders: 21_201,
+  rafs: 21_201,
+  drawCalls: 170,
+  triangles: 376_700,
+  loadMs: 1_103,
+  crowdReadyMs: 1_238.2,
+  crowdBytes: 18_610_000,
+} as const;
+
+/**
  * Occasional Safari refresh gaps are normal even for trivial work (see
  * RUNTIME_IPHONE_BASELINE: 16 gaps over 25 ms across 25 600 renders on the
  * empty runtime). Demanding an absolute zero fails real sessions for a
