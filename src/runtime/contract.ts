@@ -42,6 +42,10 @@ export interface RuntimeFrameSummary {
   drawCalls: number;
   triangles: number;
   loadMs: number;
+  /** Calls into the WebGL render. Independent of the rAF interval. */
+  renderCount: number;
+  /** Animation callbacks that reached the loop, including those that did not record a sample. */
+  rafCount: number;
 }
 
 export interface RuntimeGate {
@@ -89,6 +93,8 @@ export function summarizeFrames(
     drawCalls: extras.drawCalls,
     triangles: extras.triangles,
     loadMs: extras.loadMs,
+    renderCount: samples.length,
+    rafCount: samples.length,
   };
 }
 

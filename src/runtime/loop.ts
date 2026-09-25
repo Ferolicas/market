@@ -1,16 +1,11 @@
-import { evaluateBaseGate, type RuntimeFrameSummary, type RuntimeGate } from "./contract";
 import { FrameMetrics } from "./metrics";
 import { PlaceholderScene } from "./scene";
 import { SnapshotSimulation } from "./snapshot";
 
-export interface RuntimePublish {
-  summary: RuntimeFrameSummary;
-  gate: RuntimeGate;
-}
-
 /**
  * The only animation frame in this runtime. Simulation steps at 5 Hz inside
  * that callback; the scene draws the interpolated pose on the same tick.
+ * The callback records counters and returns. The panel reads them later.
  */
 export class RuntimeLoop {
   private readonly simulation = new SnapshotSimulation();
@@ -20,7 +15,7 @@ export class RuntimeLoop {
   private lastMs = 0;
   private running = false;
 
-  constructor(canvas: HTMLCanvasElement, private readonly onPublish: (publish: RuntimePublish) => void) {
+  constructor(canvas: HTMLCanvasElement) {
     this.scene = new PlaceholderScene(canvas);
   }
 
@@ -53,20 +48,27 @@ export class RuntimeLoop {
     this.scene.resize();
   }
 
+  /** Read by the panel timer, never by the animation callback. */
+  snapshot() {
+    return this.metrics.publish();
+  }
+
+  resetStats() {
+    this.metrics.reset();
+  }
+
   private readonly tick = (now: number) => {
     if (!this.running) return;
+    this.metrics.markRaf();
     const delta = this.lastMs === 0 ? 0 : now - this.lastMs;
     this.lastMs = now;
     const workStarted = performance.now();
     const pose = this.simulation.sample(delta);
     const stats = this.scene.render(pose);
     const workMs = performance.now() - workStarted;
+    this.metrics.markRender();
     if (delta === 0) this.metrics.markLoad(now);
     else this.metrics.addFrame(workMs, delta, stats.drawCalls, stats.triangles);
-    if (this.metrics.frameCount > 0 && this.metrics.frameCount % 30 === 0) {
-      const summary = this.metrics.summary();
-      this.onPublish({ summary, gate: evaluateBaseGate(summary) });
-    }
     this.frame = window.requestAnimationFrame(this.tick);
   };
 }

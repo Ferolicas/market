@@ -72,3 +72,15 @@
 .rows strong {
   font-variant-numeric: tabular-nums;
 }
+
+.reset {
+  width: 100%;
+  min-height: 44px;
+  margin-top: 12px;
+  border: 0;
+  border-radius: 12px;
+  background: #173f35;
+  color: #fff;
+  font-weight: 800;
+  cursor: pointer;
+}
