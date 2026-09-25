@@ -89,6 +89,38 @@ export const RUNTIME_PHASE4_BASELINE = {
 } as const;
 
 /**
+ * Official iPhone baseline of phase 5 (phase 4's crowd plus a constant cart
+ * for every customer and a constant basket for every employee — the rigid
+ * transported props, no hats/bags/products yet). Approved 2026-09-26, clean
+ * reading: +0.2 ms average, +0.2 ms p95, but **+2.1 ms p99** over
+ * RUNTIME_PHASE4_BASELINE — the p99 grew noticeably more than the average.
+ * Still zero frames over 16.7 ms and no pacing regression, so this is not a
+ * failure, but the tail is worth watching as later layers (hats next, then
+ * the player) add their own instancers on top. Draws/triangles/bodies are
+ * not optimized: they pass with wide margin.
+ */
+export const RUNTIME_PHASE5_BASELINE = {
+  build: "23fcc9c",
+  workAverageMs: 2.6,
+  workP95Ms: 2.9,
+  workP99Ms: 5.2,
+  workMaxMs: 10.2,
+  workOver16: 0,
+  gapAverageMs: 16.7,
+  gapP95Ms: 17,
+  gapP99Ms: 17,
+  gapMaxMs: 27,
+  gapsOver25Ms: 1,
+  renders: 29_460,
+  rafs: 29_460,
+  drawCalls: 150,
+  triangles: 369_104,
+  loadMs: 771,
+  crowdReadyMs: 894.4,
+  crowdBytes: 18_430_000,
+} as const;
+
+/**
  * Occasional Safari refresh gaps are normal even for trivial work (see
  * RUNTIME_IPHONE_BASELINE: 16 gaps over 25 ms across 25 600 renders on the
  * empty runtime). Demanding an absolute zero fails real sessions for a
