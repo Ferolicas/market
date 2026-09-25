@@ -49,9 +49,20 @@ export class FrameMetrics {
   loadMs: number | null = null;
   drawCalls = 0;
   triangles = 0;
+  private crowdReadyMs: number | null = null;
+  private crowdBytes = 0;
 
   markLoad(loadMs: number) {
     if (this.loadMs === null) this.loadMs = loadMs;
+  }
+
+  /** Phase 4: when the crowd's bodies/animations finish loading, independent of the store's own first frame. */
+  markCrowdReady(crowdReadyMs: number) {
+    if (this.crowdReadyMs === null) this.crowdReadyMs = crowdReadyMs;
+  }
+
+  setCrowdBytes(bytes: number) {
+    this.crowdBytes = bytes;
   }
 
   markRaf() {
@@ -127,6 +138,8 @@ export class FrameMetrics {
       loadMs: this.loadMs ?? 0,
       renderCount: this.renders,
       rafCount: this.rafs,
+      crowdReadyMs: this.crowdReadyMs ?? 0,
+      crowdBytes: this.crowdBytes,
     };
   }
 

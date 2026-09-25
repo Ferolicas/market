@@ -28,6 +28,9 @@ export function interpolatePoses(from: Float32Array, to: Float32Array, alpha: nu
   return out;
 }
 
+/** Called once per committed 5 Hz tick, right after the new pose is written. */
+export type SnapshotStepListener = (pose: Float32Array, stepIndex: number, currentTimeMs: number) => void;
+
 /**
  * Fixed 5 Hz world clock. `advance` may run inside the only animation frame.
  * It keeps the last two poses and exposes how far the renderer is between them.
@@ -41,7 +44,7 @@ export class SnapshotSimulation {
   private accumulatorMs = 0;
   private stepIndex = 0;
 
-  constructor(actorCount = RUNTIME_CONTRACT.placeholderActors) {
+  constructor(actorCount = RUNTIME_CONTRACT.placeholderActors, private readonly onStep?: SnapshotStepListener) {
     if (actorCount !== RUNTIME_CONTRACT.placeholderActors) {
       throw new Error(`The base scene is fixed at ${RUNTIME_CONTRACT.placeholderActors} actors.`);
     }
@@ -61,6 +64,7 @@ export class SnapshotSimulation {
       this.stepIndex += 1;
       this.currentTimeMs = this.stepIndex * RUNTIME_CONTRACT.simulationStepMs;
       writePlaceholderPose(this.current, this.stepIndex);
+      this.onStep?.(this.current, this.stepIndex, this.currentTimeMs);
       steps += 1;
     }
     if (this.accumulatorMs > RUNTIME_CONTRACT.simulationStepMs * 3) this.accumulatorMs = 0;

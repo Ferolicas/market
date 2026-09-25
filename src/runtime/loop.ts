@@ -1,3 +1,4 @@
+import { createSyntheticCrowdPublisher, createSyntheticEmployeeRoster } from "./crowdFeed";
 import { FrameMetrics } from "./metrics";
 import { PlaceholderScene } from "./scene";
 import { SnapshotSimulation } from "./snapshot";
@@ -8,7 +9,10 @@ import { SnapshotSimulation } from "./snapshot";
  * The callback records counters and returns. The panel reads them later.
  */
 export class RuntimeLoop {
-  private readonly simulation = new SnapshotSimulation();
+  // Phase 4: `crowdFeed.ts` publishes synthetic customers/employees through
+  // `publishLiveActors` on every committed tick; the scene's crowd systems
+  // read them from there, not from the interpolated pose buffer below.
+  private readonly simulation = new SnapshotSimulation(undefined, createSyntheticCrowdPublisher(createSyntheticEmployeeRoster()));
   private readonly metrics = new FrameMetrics();
   private readonly scene: PlaceholderScene;
   private frame = 0;
@@ -20,10 +24,18 @@ export class RuntimeLoop {
     this.scene = new PlaceholderScene(canvas);
   }
 
-  /** The first animation frame waits until the baked store is in the scene. */
+  /**
+   * The first animation frame waits only on the baked store, never on the
+   * crowd: `crowdReady` is awaited separately so ~18.5 MB of bodies and
+   * baked animations cannot delay the store's own first frame.
+   */
   start() {
     if (this.running) return Promise.resolve();
     this.running = true;
+    void this.scene.crowdReady.then(() => {
+      this.metrics.markCrowdReady(this.scene.crowdReadyAtMs);
+      this.metrics.setCrowdBytes(this.scene.crowdBytes);
+    });
     return this.scene.ready.then(() => {
       if (!this.running || this.rafActive) return;
       this.rafActive = true;
@@ -72,7 +84,7 @@ export class RuntimeLoop {
     this.lastMs = now;
     const workStarted = performance.now();
     const pose = this.simulation.sample(delta);
-    const stats = this.scene.render(pose);
+    const stats = this.scene.render(pose, delta);
     const workMs = performance.now() - workStarted;
     this.metrics.markRender();
     if (delta === 0) this.metrics.markLoad(now);

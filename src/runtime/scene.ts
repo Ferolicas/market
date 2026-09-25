@@ -1,5 +1,15 @@
 import * as THREE from "three";
-import { loadGltf } from "@/client/WorldAssets";
+import { budgetPath, loadGltf } from "@/client/WorldAssets";
+import { loadCrowdAnimation } from "@/game/render/CrowdSkinning";
+import {
+  CrowdCustomersSystem,
+  CrowdEmployeesSystem,
+  CUSTOMER_BODY_KEYS,
+  EMPLOYEE_BODY_KEYS,
+  createCrowdBody,
+  firstSkinnedMesh,
+} from "@/game/render/CrowdSystems";
+import { createSyntheticEmployeeRoster } from "./crowdFeed";
 
 export interface SceneStats {
   drawCalls: number;
@@ -8,6 +18,19 @@ export interface SceneStats {
 
 const STORE_URL = "/models/market/budget/world/level30.glb";
 
+/** Every network fetch under `/models/market/` that isn't the store itself is
+ * a crowd asset (body GLB or baked animation texture) — phase 4 loads nothing
+ * else. Read once the crowd finishes loading, not per frame. */
+function measureCrowdBytes(): number {
+  if (typeof performance === "undefined" || !performance.getEntriesByType) return 0;
+  let total = 0;
+  for (const entry of performance.getEntriesByType("resource") as PerformanceResourceTiming[]) {
+    if (!entry.name.includes("/models/market/") || entry.name.includes("/models/market/budget/world/")) continue;
+    total += entry.transferSize || entry.encodedBodySize || 0;
+  }
+  return total;
+}
+
 /**
  * The measured runtime scene. Renderer settings match the empty baseline.
  * The only added content is the baked static store. Markers, characters,
@@ -15,10 +38,20 @@ const STORE_URL = "/models/market/budget/world/level30.glb";
  */
 export class PlaceholderScene {
   readonly renderer: THREE.WebGLRenderer;
+  /** Resolves once the baked store is in the scene. The crowd loads on its own timeline (`crowdReady`) and never blocks this. */
   readonly ready: Promise<void>;
+  /** Phase 4: resolves once the crowd's bodies/animations are loaded, independently of `ready`. */
+  readonly crowdReady: Promise<void>;
+  crowdReadyAtMs = 0;
+  crowdBytes = 0;
   private readonly scene = new THREE.Scene();
   private readonly camera = new THREE.PerspectiveCamera(40, 1, 0.1, 80);
   private readonly lookAt = new THREE.Vector3();
+  private readonly crowdRoot = new THREE.Group();
+  private readonly customers = new CrowdCustomersSystem();
+  private readonly employees = new CrowdEmployeesSystem();
+  private crowdBodiesReady = false;
+  private elapsedSeconds = 0;
   private disposed = false;
 
   constructor(canvas: HTMLCanvasElement) {
@@ -38,8 +71,44 @@ export class PlaceholderScene {
     const key = new THREE.DirectionalLight("#fff4e2", 1.8);
     key.position.set(6, 10, 4);
     this.scene.add(key);
+    this.scene.add(this.crowdRoot);
     this.resize();
     this.ready = this.loadStore();
+    this.crowdReady = this.loadCrowd();
+  }
+
+  /**
+   * Phase 4: 8 body variants (6 customer identities + owner_man/owner_woman,
+   * the only two the crowd system animates), each an InstancedMesh skinned
+   * from a baked bone texture — no cart/basket/hat/product instancers, so
+   * this measures bodies + skinning + the per-frame crowd update alone.
+   */
+  private async loadCrowd() {
+    const loaded = await Promise.all([
+      ...Object.values(CUSTOMER_BODY_KEYS).map(async (key) => {
+        const [gltf, animation] = await Promise.all([loadGltf(budgetPath("customers", key)), loadCrowdAnimation(key)]);
+        const skinned = firstSkinnedMesh(gltf.scene);
+        return skinned ? { key, target: "customer" as const, body: createCrowdBody(skinned, animation, key) } : null;
+      }),
+      ...Object.values(EMPLOYEE_BODY_KEYS).filter((key): key is string => Boolean(key)).map(async (key) => {
+        const [gltf, animation] = await Promise.all([loadGltf(budgetPath("characters", key)), loadCrowdAnimation(key)]);
+        const skinned = firstSkinnedMesh(gltf.scene);
+        return skinned ? { key, target: "employee" as const, body: createCrowdBody(skinned, animation, key) } : null;
+      }),
+    ]);
+    if (this.disposed) return;
+    for (const entry of loaded) {
+      if (!entry) continue;
+      this.crowdRoot.add(entry.body.mesh);
+      if (entry.target === "customer") this.customers.bodies.set(entry.key, entry.body);
+      else this.employees.bodies.set(entry.key, entry.body);
+    }
+    this.customers.attachTo(this.crowdRoot);
+    this.employees.attachTo(this.crowdRoot);
+    this.employees.setEmployees(createSyntheticEmployeeRoster());
+    this.crowdBodiesReady = true;
+    this.crowdReadyAtMs = performance.now();
+    this.crowdBytes = measureCrowdBytes();
   }
 
   private async loadStore() {
@@ -86,9 +155,19 @@ export class PlaceholderScene {
     this.camera.updateProjectionMatrix();
   }
 
-  /** Draws the bake. The pose buffer stays in the loop so that path is unchanged. */
-  render(pose: Float32Array) {
+  /**
+   * Draws the bake. The pose buffer stays in the loop so that path is
+   * unchanged; the crowd reads its own positions from `liveActors`, published
+   * once per 5 Hz tick by `crowdFeed.ts` — not from this buffer.
+   */
+  render(pose: Float32Array, deltaMs = 0) {
     void pose;
+    if (this.crowdBodiesReady) {
+      const deltaSeconds = Math.max(0, deltaMs) / 1_000;
+      this.elapsedSeconds += deltaSeconds;
+      this.customers.update(this.camera, deltaSeconds, this.elapsedSeconds);
+      this.employees.update(this.camera, deltaSeconds);
+    }
     this.renderer.render(this.scene, this.camera);
     const stats = {
       drawCalls: this.renderer.info.render.calls,
@@ -101,6 +180,12 @@ export class PlaceholderScene {
   dispose() {
     if (this.disposed) return;
     this.disposed = true;
+    // Body geometry/material are exclusive to `createCrowdBody` (cloned from
+    // the shared GLB cache), unlike the baked store: these must be freed.
+    for (const registry of [this.customers.bodies, this.employees.bodies]) {
+      for (const body of registry.values()) body.dispose();
+      registry.clear();
+    }
     this.renderer.dispose();
   }
 }

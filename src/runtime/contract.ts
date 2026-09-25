@@ -72,8 +72,20 @@ export const RUNTIME_CONTRACT = {
   presentationHz: 60,
   simulationHz: 5,
   simulationStepMs: 200,
-  /** Placeholder actors in the base scene. Not the store's crowd. */
-  placeholderActors: 24,
+  /**
+   * Phase 4: the level-30 store's own ceiling for one location, not an
+   * arbitrary round number. `SnapshotSimulation` drives this many synthetic
+   * markers; the first `crowdCustomerActors` are customers, the rest are
+   * employees (see `crowdFeed.ts`).
+   */
+  placeholderActors: 43,
+  /** Customers present at once in a level-30 store: up to 8 shopping/entering
+   * plus up to 16 more finishing (queue/checkout/exit), hard-capped at
+   * min(30, 8*3)=24 by `campaignNeedsCustomer`/`campaignCustomerLimit(30)`. */
+  crowdCustomerActors: 24,
+  /** Full level-30 staff: 8 farmer-stockers + 3 feeders + 5 operators + 3
+   * cashiers (`campaignEmployeeLimit`, all three cashier levels unlocked). */
+  crowdEmployeeActors: 19,
   maxFrameP99Ms: 12,
   /** Frames of shader compile and context setup stay out of the gate. */
   warmupFrames: 60,
@@ -108,6 +120,10 @@ export interface RuntimeFrameSummary {
   renderCount: number;
   /** Animation callbacks that reached the loop, including those that did not record a sample. */
   rafCount: number;
+  /** Phase 4: time until the crowd's bodies/animations finish loading, tracked apart from `loadMs` (the store's own first frame). 0 until known. */
+  crowdReadyMs: number;
+  /** Phase 4: bytes of crowd bodies/animations downloaded (Resource Timing), separate from the store. */
+  crowdBytes: number;
 }
 
 export interface RuntimeGate {
@@ -135,7 +151,7 @@ function average(samples: readonly number[]) {
 
 export function summarizeFrames(
   samples: readonly FrameSample[],
-  extras: { drawCalls: number; triangles: number; loadMs: number },
+  extras: { drawCalls: number; triangles: number; loadMs: number; crowdReadyMs?: number; crowdBytes?: number },
 ): RuntimeFrameSummary {
   const work = samples.map((sample) => sample.workMs);
   const gaps = samples.map((sample) => sample.gapMs);
@@ -157,6 +173,8 @@ export function summarizeFrames(
     loadMs: extras.loadMs,
     renderCount: samples.length,
     rafCount: samples.length,
+    crowdReadyMs: extras.crowdReadyMs ?? 0,
+    crowdBytes: extras.crowdBytes ?? 0,
   };
 }
 

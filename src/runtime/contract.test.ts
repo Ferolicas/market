@@ -2,6 +2,10 @@ import { describe, expect, it } from "vitest";
 import { evaluateBaseGate, percentile, RUNTIME_CONTRACT, summarizeFrames } from "./contract";
 
 describe("runtime contract", () => {
+  it("splits the crowd actor count into exactly the level-30 customers and staff", () => {
+    expect(RUNTIME_CONTRACT.crowdCustomerActors + RUNTIME_CONTRACT.crowdEmployeeActors).toBe(RUNTIME_CONTRACT.placeholderActors);
+  });
+
   it("reads the 99th percentile from the ordered sample", () => {
     const samples = Array.from({ length: 100 }, (_, index) => index + 1);
     expect(percentile(samples, 99)).toBe(99);

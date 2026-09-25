@@ -23,11 +23,15 @@ const PANEL_ROWS = [
   ["rafCount", "Callbacks rAF", "count"],
   ["loadMs", "Tiempo hasta el primer cuadro", "ms"],
   ["frameCount", "Cuadros medidos", "count"],
+  ["crowdReadyMs", "Multitud lista", "ms"],
+  ["crowdBytes", "Descarga de la multitud", "bytes"],
 ] as const;
 
-function formatValue(summary: RuntimeFrameSummary, key: (typeof PANEL_ROWS)[number][0], unit: "ms" | "count") {
+function formatValue(summary: RuntimeFrameSummary, key: (typeof PANEL_ROWS)[number][0], unit: "ms" | "count" | "bytes") {
   const value = summary[key];
-  return unit === "ms" ? `${value.toFixed(1)} ms` : String(value);
+  if (unit === "bytes") return value > 0 ? `${(value / (1024 * 1024)).toFixed(2)} MB` : "—";
+  if (unit === "ms") return key === "crowdReadyMs" && value === 0 ? "cargando…" : `${value.toFixed(1)} ms`;
+  return String(value);
 }
 
 function paint(panel: HTMLElement, summary: RuntimeFrameSummary, gate: RuntimeGate) {
