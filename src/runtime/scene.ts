@@ -5,8 +5,11 @@ import {
   CrowdCustomersSystem,
   CrowdEmployeesSystem,
   CUSTOMER_BODY_KEYS,
+  CUSTOMER_PROP_DEFINITIONS,
   EMPLOYEE_BODY_KEYS,
+  EMPLOYEE_PROP_DEFINITIONS,
   createCrowdBody,
+  createPropInstancers,
   firstSkinnedMesh,
 } from "@/game/render/CrowdSystems";
 import { createSyntheticEmployeeRoster } from "./crowdFeed";
@@ -52,6 +55,7 @@ export class PlaceholderScene {
   private readonly employees = new CrowdEmployeesSystem();
   private crowdBodiesReady = false;
   private elapsedSeconds = 0;
+  private disposeCrowdProps: (() => void) | null = null;
   private disposed = false;
 
   constructor(canvas: HTMLCanvasElement) {
@@ -80,8 +84,11 @@ export class PlaceholderScene {
   /**
    * Phase 4: 8 body variants (6 customer identities + owner_man/owner_woman,
    * the only two the crowd system animates), each an InstancedMesh skinned
-   * from a baked bone texture — no cart/basket/hat/product instancers, so
-   * this measures bodies + skinning + the per-frame crowd update alone.
+   * from a baked bone texture. Phase 5 adds exactly the rigid transported
+   * props (customer cart, employee basket) filtered out of
+   * `CUSTOMER_PROP_DEFINITIONS`/`EMPLOYEE_PROP_DEFINITIONS` — no shadow, bags,
+   * hats or product instancers, so this measures the rigid-prop system alone
+   * on top of the phase 4 crowd.
    */
   private async loadCrowd() {
     const loaded = await Promise.all([
@@ -106,6 +113,14 @@ export class PlaceholderScene {
     this.customers.attachTo(this.crowdRoot);
     this.employees.attachTo(this.crowdRoot);
     this.employees.setEmployees(createSyntheticEmployeeRoster());
+    const { cart, caster, wheel } = CUSTOMER_PROP_DEFINITIONS();
+    const { basket } = EMPLOYEE_PROP_DEFINITIONS();
+    const disposeCustomerProps = createPropInstancers(this.crowdRoot, { cart, caster, wheel }, this.customers.props);
+    const disposeEmployeeProps = createPropInstancers(this.crowdRoot, { basket }, this.employees.props);
+    this.disposeCrowdProps = () => {
+      disposeCustomerProps();
+      disposeEmployeeProps();
+    };
     this.crowdBodiesReady = true;
     this.crowdReadyAtMs = performance.now();
     this.crowdBytes = measureCrowdBytes();
@@ -186,6 +201,8 @@ export class PlaceholderScene {
       for (const body of registry.values()) body.dispose();
       registry.clear();
     }
+    this.disposeCrowdProps?.();
+    this.disposeCrowdProps = null;
     this.renderer.dispose();
   }
 }

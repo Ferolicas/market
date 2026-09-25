@@ -4,9 +4,10 @@ import { RUNTIME_CONTRACT } from "./contract";
 import { POSE_STRIDE, writePlaceholderPose, type SnapshotStepListener } from "./snapshot";
 
 /**
- * Phase 4 data adapter: turns one committed SnapshotSimulation tick into the
- * same CustomerRuntimeState/EmployeeRuntimeState shapes production already
- * feeds through `publishLiveActors`, so `CrowdCustomersSystem` and
+ * Data adapter (phase 4, extended in phase 5 with a constant cart/basket):
+ * turns one committed SnapshotSimulation tick into the same
+ * CustomerRuntimeState/EmployeeRuntimeState shapes production already feeds
+ * through `publishLiveActors`, so `CrowdCustomersSystem` and
  * `CrowdEmployeesSystem` render them with zero new logic of their own. The
  * positions are the same deterministic circular walk `writePlaceholderPose`
  * already used for the base-phase markers — not the real store layout.
@@ -77,7 +78,8 @@ function publishSyntheticCrowd(pose: Float32Array, stepIndex: number, currentTim
       waitingSince: null,
       queueSlot: null,
       transactionId: null,
-      hasCart: false,
+      // Phase 5: a cart is always in hand, constant — no get/return cart logic.
+      hasCart: true,
       hasBag: false,
       angry: false,
       x: pose[offset],
@@ -106,7 +108,10 @@ function publishSyntheticCrowd(pose: Float32Array, stepIndex: number, currentTim
         state: "NAVIGATE_PICKUP",
         assignedProduct: null,
         assignedStationId: null,
-        carry: { capacity: 0, items: {} },
+        // Phase 5: the minimum non-zero carry that makes CrowdEmployeesSystem
+        // draw the basket (`carryTotal > 0`) — one unit, constant, no real
+        // pickup/dropoff gameplay behind it.
+        carry: { capacity: 1, items: { wheat: 1 } },
         x: pose[offset],
         z: pose[offset + 1],
         targetX: nextTickPose[offset],

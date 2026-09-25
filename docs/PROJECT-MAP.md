@@ -1,5 +1,11 @@
 # Mini Market — mapa vivo
 
+## Fase 5 en medición: props rígidos transportados (carrito + cesta) — 25-09-2026
+
+Sobre la fase 4 ya aprobada (43 actores, solo cuerpo + skinning), se añade una sola variable: carrito constante en los 24 clientes y cesta constante en los 19 empleados. Cero sistema de render nuevo, otra vez: `src/runtime/scene.ts` filtra `CUSTOMER_PROP_DEFINITIONS()` a solo `{ cart, caster, wheel }` y `EMPLOYEE_PROP_DEFINITIONS()` a solo `{ basket }`, y los pasa a `createPropInstancers` — la misma función que usa `/play2`. Sin sombra, bolsas, sombreros ni productos: esos instanciadores ni se crean. `crowdFeed.ts` solo cambia el estado sintético mínimo para activar el prop sin gameplay: clientes con `hasCart: true` constante (sin ciclo de recoger/aparcar), empleados con `carry: { capacity: 1, items: { wheat: 1 } }` constante (el mínimo que hace `carryTotal > 0`, sin lógica real de recogida). Sin jugador, navmesh, input, cámara móvil, interacción, stock/productos ni bolsas — igual que fase 4.
+
+Probado en local (Chrome+Vulkan, build de producción): 0 errores de consola, draws 123→150 (+27, coherente con los materiales reales del carrito y la cesta, no una cifra arbitraria), triángulos 214 632→369 104 (+154 472). Pendiente la medición real del iPhone, comparada exclusivamente contra `RUNTIME_PHASE4_BASELINE`. No se optimiza nada de esto aunque suban draws/triángulos, mientras el contrato de tiempo real se cumpla.
+
 ## Fase 4 aprobada: la multitud real (24 clientes + 19 empleados) mide +1,0 ms de p99 — 25-09-2026
 
 Medición oficial del iPhone (build `a6ac3cb`, segunda lectura, teléfono quieto — la primera lectura tocando Safari en vivo, control de centro, capturas, cambio de app, infla `gapsOver25Ms` por sí solo; con el teléfono quieto casi desaparecen), guardada como `RUNTIME_PHASE4_BASELINE` en `src/runtime/contract.ts`: trabajo 2,4 / 2,7 / 3,1 ms (medio/p95/p99), máximo 16,7 ms, 0 trabajos > 16,7 ms; hueco 16,7 / 17 / 17 ms, máximo 26 ms, 1 hueco > 25 ms de 20 349; 123 draws, 214 632 triángulos, 1 347 ms hasta el primer cuadro, 1 480 ms hasta que la multitud está lista, 18,43 MB de descarga de multitud. Frente a `RUNTIME_PHASE3_BASELINE`, la multitud añade **~1,0 ms al p99** y no degrada el ritmo de presentación. Draw calls, triángulos y cuerpos cumplen con mucho margen — no se optimiza nada de eso solo por bajar un número.
