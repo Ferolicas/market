@@ -121,6 +121,35 @@ export const RUNTIME_PHASE5_BASELINE = {
 } as const;
 
 /**
+ * Official iPhone baseline of phase 6 (phase 5's rigid props plus one
+ * constant hat kind for every employee — no diversity across the 12 kinds
+ * yet). Approved 2026-09-26, clean reading: no measurable regression
+ * attributable to the hat; the average/p99 wobble versus
+ * RUNTIME_PHASE5_BASELINE is normal sample variance, not a real cost. No
+ * perceptible heating, no perceived stutter on the phone.
+ */
+export const RUNTIME_PHASE6_BASELINE = {
+  build: "098b142",
+  workAverageMs: 2.5,
+  workP95Ms: 2.9,
+  workP99Ms: 4.8,
+  workMaxMs: 14.6,
+  workOver16: 0,
+  gapAverageMs: 16.7,
+  gapP95Ms: 17,
+  gapP99Ms: 17,
+  gapMaxMs: 24,
+  gapsOver25Ms: 0,
+  renders: 20_086,
+  rafs: 20_086,
+  drawCalls: 152,
+  triangles: 374_790,
+  loadMs: 1_007,
+  crowdReadyMs: 1_268,
+  crowdBytes: 18_460_000,
+} as const;
+
+/**
  * Occasional Safari refresh gaps are normal even for trivial work (see
  * RUNTIME_IPHONE_BASELINE: 16 gaps over 25 ms across 25 600 renders on the
  * empty runtime). Demanding an absolute zero fails real sessions for a

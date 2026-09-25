@@ -1,5 +1,9 @@
 # Mini Market — mapa vivo
 
+## Fase 6 aprobada: un gorro no deja huella medible — 26-09-2026
+
+Medición oficial del iPhone (build `098b142`, lectura limpia), guardada como `RUNTIME_PHASE6_BASELINE` en `src/runtime/contract.ts`: trabajo 2,5 / 2,9 / 4,8 ms (medio/p95/p99), máximo 14,6 ms, 0 trabajos > 16,7 ms; hueco 16,7 / 17 / 17 ms, máximo 24 ms, 0 huecos > 25 ms de 20 086; 152 draws, 374 790 triángulos, 1 007 ms hasta el primer cuadro, 1 268 ms hasta que la multitud está lista, 18,46 MB de descarga. Frente a `RUNTIME_PHASE5_BASELINE` no hay regresión medible atribuible al gorro — las diferencias de media/p99 entran en variabilidad normal entre muestras del mismo teléfono. Sin calentamiento perceptible, sin tirones percibidos. No se optimiza nada.
+
 ## Fase 6 en medición: un solo gorro para los 19 empleados — 26-09-2026
 
 Sobre la fase 5 ya aprobada (carrito + cesta constantes), se añade una sola variable: un único tipo de gorro (`red-panda`) puesto de forma constante en los 19 empleados — sin diversidad de los 12 tipos todavía (esa es la variable siguiente). Cero sistema de render nuevo, cuarta vez: `src/runtime/scene.ts::loadEmployeeHats()` reproduce exactamente `ClientRuntime.loadEmployeeHats()` de `/play2` — carga solo los 2 GLB de gorro que hacen falta (uno por cada cuerpo de empleado realmente en uso, `owner_man`/`owner_woman`, vía `employeeBodyOf`), construye sus partes con `accessoryParts`, y las registra como `PartsInstancer` en `employees.hats` bajo la misma clave (`${body}:${hat}`) que `CrowdEmployeesSystem.update()` ya consulta — ese método no se tocó. `crowdFeed.ts` no cambió: el campo `hat: "red-panda"` del roster sintético ya existía desde la fase 4 sin efecto (no había instanciador cargado).
