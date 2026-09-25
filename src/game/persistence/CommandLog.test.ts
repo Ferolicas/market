@@ -56,3 +56,18 @@ describe("command log replay", () => {
     expect(tickCommand(200, [], 0, true)).toEqual({ k: "t", d: 200, n: 1 });
   }, 60_000);
 });
+
+describe("key order independence", () => {
+  it("advances a snapshot whose object keys were sorted by the database exactly like the live object", () => {
+    // PostgreSQL jsonb returns objects with sorted keys; the client keeps its
+    // insertion order. Both must simulate identically or a replay can never
+    // match, and a reload would change the store's behaviour.
+    const run = runCampaignBot(normalizeGameState(createCampaignGame("ES")), { targetLevel: 12, maxTicks: 6_000 });
+    const live = run.state;
+    const sorted = JSON.parse(canonicalJson(live));
+    expect(JSON.stringify(sorted)).not.toBe(JSON.stringify(live));
+    const next = runCampaignBot(live, { targetLevel: 30, maxTicks: 900 });
+    const fromSorted = replayCommands(sorted, next.commands);
+    expect(canonicalJson(fromSorted.state)).toBe(canonicalJson(next.state));
+  }, 60_000);
+});

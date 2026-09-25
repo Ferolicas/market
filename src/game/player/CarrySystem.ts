@@ -1,3 +1,4 @@
+import { PRODUCT_IDS } from "../economy/ProductRegistry";
 import type { CarryState, Inventory, ProductId } from "../types";
 import { retailShelfCapacityForTier } from "../stations/retail-layout";
 
@@ -24,10 +25,14 @@ export function carryQuantity(container: Pick<CarryState, "items">, productId: P
   return Math.max(0, Math.floor(container.items[productId] ?? 0));
 }
 
+/** In catalog order, never in key order: a snapshot that went through the
+ * database comes back with its keys sorted, and the engine must pick the same
+ * product first whether the basket was just filled or just reloaded. */
 export function carriedProductIds(container: Pick<CarryState, "items">) {
-  return (Object.entries(container.items) as [ProductId, number | undefined][])
-    .filter((entry): entry is [ProductId, number] => Number.isFinite(entry[1]) && entry[1]! > 0)
-    .map(([productId]) => productId);
+  return PRODUCT_IDS.filter((productId) => {
+    const quantity = container.items[productId];
+    return Number.isFinite(quantity) && quantity! > 0;
+  });
 }
 
 export function primaryCarryProduct(container: Pick<CarryState, "items">): ProductId | null {

@@ -14,7 +14,7 @@ import { rosterBaseTier, rosterEntries, rosterPlayerBase, type RosterEntry } fro
 import { PRODUCT_CONFIG } from "./economy/products";
 import { deterministicUuid } from "./core/DeterministicId";
 import { distance2d, powTier } from "./core/DeterministicMath";
-import { createEmptyInventory } from "./economy/ProductRegistry";
+import { createEmptyInventory, PRODUCT_IDS } from "./economy/ProductRegistry";
 import { createCustomerMind, MAX_SHOPPING_LINES, MAX_SHOPPING_LINE_UNITS } from "./ai/CustomerBrain";
 import { campaignNeedsCustomer, customerWalkSpeed } from "./ai/CustomerTraffic";
 import { CUSTOMER_PATIENCE_MS, customerShowingAnger } from "./ai/CustomerPatience";
@@ -1277,7 +1277,7 @@ function updateEmployee(state: GameState, franchise: FranchiseState, employee: E
       break;
     case "NAVIGATE_DROPOFF":
       if (employee.role === "stocker") {
-        const productId = primaryCarryProduct(runtime.carry);
+        const productId = employeeCarryProduct(runtime);
         if (productId && franchise.shelves[productId] >= shelfCapacity(franchise, productId)) {
           routeEmployeeToReturns(runtime, state.simulationTimeMs, pathfinder);
           break;
@@ -1583,9 +1583,17 @@ function employeePickup(state: GameState, franchise: FranchiseState, employee: E
   setEmployeePath(runtime, navigatePath(pathfinder, [runtime.x, runtime.z], target));
 }
 
+/** What a worker delivers first: the product of the task, then whatever else
+ * the basket holds in catalog order. Never the key order of the basket, which
+ * changes when a snapshot comes back from the database. */
+function employeeCarryProduct(runtime: EmployeeRuntimeState) {
+  if (runtime.assignedProduct && carryQuantity(runtime.carry, runtime.assignedProduct) > 0) return runtime.assignedProduct;
+  return primaryCarryProduct(runtime.carry);
+}
+
 function employeeDropoff(state: GameState, franchise: FranchiseState, employee: Employee, pathfinder?: WorldPathfinder) {
   const runtime = employee.runtime!;
-  const productId = primaryCarryProduct(runtime.carry);
+  const productId = employeeCarryProduct(runtime);
   if (!productId) return resetEmployee(employee, state.simulationTimeMs);
   let quantity = carryQuantity(runtime.carry, productId);
   if (runtime.assignedStationId?.startsWith("retail:") || (employee.role === "stocker" && runtime.assignedStationId === "stockroom")) {
@@ -1818,8 +1826,11 @@ function updateCustomer(state: GameState, franchise: FranchiseState, customer: C
       break;
     case "UNLOAD":
       if (now - customer.stateSince >= 300 && !customer.transactionId) {
-        const pendingItems = (Object.entries(customer.basket) as [ProductId, number][]).filter(([, quantity]) => quantity > 0).slice(0, MAX_SHOPPING_LINES)
-          .map(([productId, quantity]) => ({ productId, quantity: Math.min(MAX_SHOPPING_LINE_UNITS, quantity), loaded: 0, scanned: 0, bagged: 0 }));
+        // Catalog order, not key order: the database returns the basket with
+        // its keys sorted, and the belt must unload the same line first on
+        // the client and in a replay.
+        const pendingItems = PRODUCT_IDS.filter((productId) => (customer.basket[productId] ?? 0) > 0).slice(0, MAX_SHOPPING_LINES)
+          .map((productId) => ({ productId, quantity: Math.min(MAX_SHOPPING_LINE_UNITS, customer.basket[productId]!), loaded: 0, scanned: 0, bagged: 0 }));
         if (!pendingItems.length) {
           customer.queueJoinedAt = null;
           customer.queueSlot = null;

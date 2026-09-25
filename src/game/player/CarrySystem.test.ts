@@ -16,8 +16,10 @@ describe("CarrySystem", () => {
     expect(mixed.container.items).toEqual({ tomatoes: 2, wheat: 1 });
     expect(carryTotal(mixed.container)).toBe(3);
     expect(carryQuantity(mixed.container, "tomatoes")).toBe(2);
-    expect(carriedProductIds(mixed.container)).toEqual(["tomatoes", "wheat"]);
-    expect(primaryCarryProduct(mixed.container)).toBe("tomatoes");
+    // Catalog order, whatever was picked first: a basket that went through
+    // the database comes back with sorted keys and must read the same.
+    expect(carriedProductIds(mixed.container)).toEqual(["wheat", "tomatoes"]);
+    expect(primaryCarryProduct(mixed.container)).toBe("wheat");
     expect(removeFromCarry(mixed.container, "tomatoes", 2).container.items).toEqual({ wheat: 1 });
   });
 
@@ -35,7 +37,7 @@ describe("CarrySystem", () => {
     const carry = { items: { tomatoes: 2, bread: 2, apples: 1 } };
     const shelves = { tomatoes: 12, bread: 7, apples: 1 };
 
-    expect(primaryCarryProduct(carry)).toBe("tomatoes");
+    expect(primaryCarryProduct(carry)).toBe("bread");
     expect(preferredStockingProduct(carry, shelves)).toBe("apples");
     expect(preferredStockingProduct({ items: {} }, shelves)).toBeNull();
     // Tier 1 holds every physical front slot (30 tomatoes over two tables,
