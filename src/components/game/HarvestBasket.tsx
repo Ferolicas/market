@@ -17,7 +17,7 @@ const standard = (color: string, roughness = 1) => new THREE.MeshStandardMateria
  * first harvest cost a whole frame of main-thread time on a phone.
  */
 const rounded = (width: number, height: number, depth: number, radius: number, smoothness: number) => new RoundedBoxGeometry(width, height, depth, smoothness, radius);
-const basketGeometry = {
+export const basketGeometry = {
   base: rounded(0.62, 0.14, 0.36, 0.055, 3),
   bed: rounded(0.55, 0.08, 0.29, 0.045, 3),
   post: rounded(0.055, 0.25, 0.035, 0.014, 2),
@@ -27,7 +27,7 @@ const basketGeometry = {
   stay: new THREE.CylinderGeometry(0.022, 0.022, 1, 10),
   grip: new THREE.SphereGeometry(0.033, 12, 8),
 };
-const basketMaterial = {
+export const basketMaterial = {
   base: standard("#9b5d2d", 0.9),
   bed: standard("#d69a4e", 0.94),
   post: standard("#b97836", 0.92),
@@ -76,7 +76,7 @@ export const HarvestBasket = forwardRef<THREE.Group, { carry: CarryState }>(func
 // Shared geometry and material per product part. A magnet burst mounts up to
 // twenty units in one commit; sharing keeps that to a few mesh objects per
 // unit instead of new geometry buffers, GPU uploads and material programs.
-const productGeometry = {
+export const productGeometry = {
   orange: new THREE.IcosahedronGeometry(0.085, 1),
   fruit: new THREE.SphereGeometry(0.085, 12, 8),
   tomatoCrown: new THREE.ConeGeometry(0.045, 0.038, 5),
@@ -92,7 +92,7 @@ const productGeometry = {
   bread: rounded(0.17, 0.13, 0.12, 0.05, 3),
   pack: rounded(0.14, 0.18, 0.1, 0.018, 2),
 };
-const productMaterial = {
+export const productMaterial = {
   orange: standard("#D58236", 0.58),
   tomato: standard("#df4438", 0.76),
   apple: standard("#bd3432", 0.76),

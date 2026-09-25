@@ -1,6 +1,6 @@
 # Plan técnico — cliente Three.js (niveles, progresión, persistencia, multijugador, móvil, QA)
 
-Fecha: 24-09-2026. Estado: **aprobado el 24-09-2026 salvo la fase C (multijugador, salas y sincronización), que el usuario descartó.** Avance: A, B, D y E hechas (ver las entradas del 24-09-2026 en `PROJECT-MAP.md`). B2, D1, D3, D4 (KTX2) y D5 descartados con medición; D6 queda como puerta local (CI sin GPU).
+Fecha: 24-09-2026. Estado: **aprobado el 24-09-2026 salvo la fase C (multijugador, salas y sincronización), que el usuario descartó.** Avance: A, B, D y E hechas (ver las entradas del 24-09-2026 en `PROJECT-MAP.md`). B2, D1, D3, D4 (KTX2) y D5 descartados con medición; D6 queda como puerta local (CI sin GPU). Ampliación del 25-09-2026: la telemetría real del iPhone seguía sin ser fluida (254 cuadros lentos por minuto, tick de 3,4 ms), así que la fase D se cerró con un cambio de arquitectura de la multitud (skinning por textura horneada e instanciación de cuerpos y props, entrada "Multitud en GPU" del mapa): en el perfil móvil emulado los cuadros lentos pasan de 83 a 21 por minuto, igual que sin multitud.
 
 Alcance: solo el cliente Three.js/Next.js (`src/`, `scripts/`, `prisma/`, `deploy/`). `godot/` queda fuera y no se toca. Los GLB, PNG y audio existentes son la fuente de verdad: no se generan assets nuevos ni se usan créditos de Higgsfield. Toda la infraestructura es propia (VPS, PM2, Caddy, PostgreSQL 17); nada de Cloudflare Workers, Durable Objects ni `higgsfield website`.
 

@@ -12,7 +12,7 @@ import { feedbackBus, type FeedbackSource } from "@/game/feedback/FeedbackBus";
 import { FootGroundingController } from "@/game/animation/FootGroundingController";
 import { characterFaceUpdateInterval, characterIsInView, characterModelPathForTier, createCharacterVisibilityScratch, disposeCharacterMaterials, prepareCharacterModel, priorityCustomerModelPathsForTier, scheduleCharacterModelPreload, useCharacterModelTier } from "@/game/animation/CharacterPresentation";
 import { CHARACTER_PALM_OFFSETS, composeCarryAnimations, createCarrySocketScratch, handPalmPoint, HARVEST_BASKET_GRIP_HALF_WIDTH, HARVEST_BASKET_GRIP_HEIGHT, HARVEST_BASKET_GRIP_REACH, mountedHarvestBasketHandle, placeCarrySocket, updateHarvestBasketHandle } from "@/game/animation/CarrySocket";
-import { marketQaQueryEnabled } from "@/game/debug/QaAccess";
+import { MARKET_QA_BUILD_ENABLED, marketQaQueryEnabled } from "@/game/debug/QaAccess";
 import { maskedHairGeometry } from "@/game/animation/AvatarHairMask";
 
 interface AvatarProps {
@@ -161,6 +161,8 @@ function RiggedAvatar({
   }, [model]);
 
   useFrame(({ camera, clock }) => {
+    // QA ablation: the crowd rewrite is priced by switching this loop off.
+    if (MARKET_QA_BUILD_ENABLED && (window as Window & { __MARKET_PERF_NO_ANIM__?: boolean }).__MARKET_PERF_NO_ANIM__) return;
     // Body speed and the clip's floor speed share the units of `motion.speed`
     // (the parent group's space): the rig's measured stride × render scale.
     const rootScale = scale * BODY_SCALE[body];

@@ -10,6 +10,10 @@ const keepStoreClosed = process.env.MARKET_PERF_STORE_CLOSED === "1";
 const captureCpuProfile = process.env.MARKET_PERF_CPU_PROFILE === "1";
 const baseline = process.env.MARKET_PERF_BASELINE === "1";
 const movePlayer = process.env.MARKET_PERF_MOVE === "1";
+// Ablations that price the crowd: `hide-crowd` (not drawn), `freeze-crowd`
+// (not drawn, matrices not updated), `no-anim` (per-character frame loops
+// off, still drawn), `no-crowd` (all three).
+const experiment = process.env.MARKET_PERF_EXPERIMENT ?? "";
 // A deep store to measure (see scripts/qa-seed-state.ts): the snapshot is
 // planted as a local recovery the store adopts on its first load, because a
 // fresh account's server revision is always 1 and the planted copy is newer.
@@ -114,6 +118,15 @@ await page.evaluate(() => { window.__MARKET_PERF__.samples = []; });
 await page.waitForTimeout(4_000);
 const browserMetricsBefore = metricsByName(await cdp.send("Performance.getMetrics"));
 if (captureCpuProfile) await cdp.send("Profiler.start");
+await page.evaluate((mode) => {
+  const scene = window.__MARKET_PERF_SCENE__?.();
+  if (!scene || !mode) return;
+  const crowd = ["perf:customers", "perf:employees"].map((name) => scene.getObjectByName(name)).filter(Boolean);
+  if (mode === "hide-crowd" || mode === "freeze-crowd" || mode === "no-crowd") for (const group of crowd) group.visible = false;
+  if (mode === "freeze-crowd" || mode === "no-crowd") for (const group of crowd) group.matrixWorldAutoUpdate = false;
+  if (mode === "no-anim" || mode === "no-crowd") window.__MARKET_PERF_NO_ANIM__ = true;
+}, experiment);
+await page.waitForTimeout(1_500);
 await page.evaluate((move) => {
   window.__MARKET_PERF_RESET__();
   if (move) window.dispatchEvent(new KeyboardEvent("keydown", { code: "ArrowUp", key: "ArrowUp" }));
@@ -150,7 +163,7 @@ const summary = summarize(samples, frameTimes, longTasks);
 await page.screenshot({ path: path.join(output, `${profileName}.png`), fullPage: true });
 const report = {
   generatedAt: new Date().toISOString(),
-  profile: { name: profileName, ...profile, baseline, movePlayer, freezeWorld, keepStoreClosed, sampleWindows, seedStatePath: seedStatePath || null, viewport: page.viewportSize(), deviceScaleFactor: 2 },
+  profile: { name: profileName, ...profile, baseline, movePlayer, freezeWorld, keepStoreClosed, sampleWindows, seedStatePath: seedStatePath || null, experiment: experiment || null, viewport: page.viewportSize(), deviceScaleFactor: 2 },
   // `?perf` does not publish the QA state (that needs `?debug`, whose overlay
   // fakes stutter), so the level comes from the HUD text.
   game: await page.evaluate(() => ({ levelLabel: document.querySelector(".hud-stat.level strong")?.textContent ?? null, storeStatus: document.querySelector(".store-status")?.textContent ?? null })),

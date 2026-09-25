@@ -16,6 +16,14 @@ page.on("pageerror", (error) => pageErrors.push(error.stack ?? error.message));
 page.on("response", (response) => { if (response.status() >= 400) failedResponses.push({ url: response.url(), status: response.status() }); });
 
 const suffix = Date.now().toString(36);
+// MARKET_QA_SEED_STATE=<state.json>: play that saved state on the fresh
+// account (a level-30 store fills the frame with characters) instead of a
+// brand-new market.
+const seedPath = process.env.MARKET_QA_SEED_STATE;
+if (seedPath) {
+  const seed = JSON.parse(await fs.readFile(seedPath, "utf8"));
+  await page.addInitScript(({ key, state }) => { if (!localStorage.getItem(key)) localStorage.setItem(key, JSON.stringify({ state: { ...state, revision: state.revision + 10_000 }, saveRevision: 1, pendingEvents: [] })); }, { key: "mini-market-recovery-campaign-30-20260915", state: seed });
+}
 await page.goto("http://localhost:3000?debug=1", { waitUntil: "domcontentloaded", timeout: 60_000 });
 await page.getByRole("button", { name: "Crear perfil nuevo" }).click();
 await page.getByLabel("Tu nombre").fill("Customer Motion QA");
@@ -23,10 +31,16 @@ await page.getByLabel("Nombre de usuario").fill(`customer_${suffix}`.slice(0, 24
 await page.getByLabel("Correo electrónico").fill(`customer.${suffix}@example.test`);
 await page.getByLabel("Contraseña").fill(`Customer-${suffix}-Safe!`);
 await page.getByRole("button", { name: "Crear perfil y jugar" }).click();
-await page.getByRole("button", { name: "Abrir mi primer Mini Market" }).waitFor({ timeout: 60_000 });
-await page.getByRole("button", { name: "Abrir mi primer Mini Market" }).click();
-await page.getByText("Objetivos del día").waitFor({ timeout: 30_000 });
-await page.getByRole("button", { name: "Abrir el supermercado" }).click();
+if (seedPath) {
+  await page.locator("canvas").first().waitFor({ timeout: 120_000 });
+  try { await page.getByRole("button", { name: "Abrir el supermercado" }).click({ timeout: 20_000 }); } catch {}
+} else {
+  await page.getByRole("button", { name: "Abrir mi primer Mini Market" }).waitFor({ timeout: 60_000 });
+  await page.getByRole("button", { name: "Abrir mi primer Mini Market" }).click();
+  await page.locator("canvas").first().waitFor({ timeout: 120_000 });
+  await page.getByRole("button", { name: "Abrir el supermercado" }).waitFor({ timeout: 60_000 });
+  await page.getByRole("button", { name: "Abrir el supermercado" }).click();
+}
 await page.waitForFunction(() => Object.values(window.__MARKET_QA__?.customerVisuals ?? {}).some((customer) => customer.cartVisible), null, { timeout: 30_000 });
 
 const samples = await page.evaluate(() => new Promise((resolve) => {

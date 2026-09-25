@@ -13,7 +13,7 @@ import { characterFaceUpdateInterval, characterIsInView, characterModelPathForTi
 import { captureCustomerMotion, projectCustomerMotion } from "@/game/animation/CustomerVisualMotion";
 import { liveActors } from "@/game/render/LiveActors";
 import { customerShowingAnger } from "@/game/ai/CustomerPatience";
-import { marketQaQueryEnabled } from "@/game/debug/QaAccess";
+import { MARKET_QA_BUILD_ENABLED, marketQaQueryEnabled } from "@/game/debug/QaAccess";
 import { CUSTOMER_CART_WHEEL_RADIUS, CUSTOMER_CHECKOUT_ITEM_CYCLE_MS, CUSTOMER_PICKUP_DURATION_MS, assignCartGripTargets, cartSteeringAngle, checkoutCartInventory, checkoutLoadingPresentation, easedMotionProgress, motionProgress, productTransferPoint, shortestHeadingDelta, wheelRollDelta } from "@/game/animation/CustomerCartMotion";
 import { PRODUCT_RETAIL_DEPARTMENT, retailDisplayPosition } from "@/game/stations/retail-layout";
 import { CART_BAY_POINT } from "@/game/stations/store-service-layout";
@@ -40,7 +40,7 @@ const LOD2_PATHS = Object.fromEntries(Object.entries(MODEL_PATHS).map(([id, path
 // Preserve the proven in-store height after replacing the former cast with
 // the delivered two-metre FBX bodies. Identity 2 intentionally reuses the one
 // approved male customer body.
-const CUSTOMER_SCALE: Record<CustomerId, number> = {
+export const CUSTOMER_SCALE: Record<CustomerId, number> = {
   1: adultCustomerSceneScale(1.236),
   2: adultCustomerSceneScale(1.226),
   3: adultCustomerSceneScale(1.291),
@@ -48,14 +48,14 @@ const CUSTOMER_SCALE: Record<CustomerId, number> = {
   5: adultCustomerSceneScale(1.265),
   6: adultCustomerSceneScale(1.216),
 };
-const CART_SCALE = 0.92;
-const CART_HANDLE_Z = -0.43;
-const CART_HANDLE_Y = 0.82;
+export const CART_SCALE = 0.92;
+export const CART_HANDLE_Z = -0.43;
+export const CART_HANDLE_Y = 0.82;
 // Calibrated to the palm span of the delivered Mixamo customer cast.
-const CART_HANDLE_BASE_WIDTH = 0.44;
+export const CART_HANDLE_BASE_WIDTH = 0.44;
 const CART_MAX_FOLLOW_LAG = 0.075;
-const CART_BAY_POSITION = scaleStorePoint([...CART_BAY_POINT]);
-const PICKUP_HEIGHT: Record<ProductId, number> = { tomatoes: 0.86, apples: 0.86, oranges: 0.86, corn: 0.92, eggs: 0.92, milk: 1.02, cheese: 1.02, juice: 1.02, bread: 0.9, flour: 0.9, wheat: 0.9, coffee: 0.9, cannedCorn: 0.9 };
+export const CART_BAY_POSITION = scaleStorePoint([...CART_BAY_POINT]);
+export const PICKUP_HEIGHT: Record<ProductId, number> = { tomatoes: 0.86, apples: 0.86, oranges: 0.86, corn: 0.92, eggs: 0.92, milk: 1.02, cheese: 1.02, juice: 1.02, bread: 0.9, flour: 0.9, wheat: 0.9, coffee: 0.9, cannedCorn: 0.9 };
 
 /** One customer body. React re-renders it only when its presentation key
  * changes (state, cart, basket, transaction); each world tick's fresh
@@ -157,6 +157,7 @@ export const Customer = memo(function Customer({ customer, checkoutTransaction }
   useEffect(() => () => disposeCharacterMaterials(model), [model]);
 
   useFrame(({ camera, clock }, delta) => {
+    if (MARKET_QA_BUILD_ENABLED && (window as Window & { __MARKET_PERF_NO_ANIM__?: boolean }).__MARKET_PERF_NO_ANIM__) return;
     visualFrame.current += 1;
     const group = root.current;
     if (!group) return;
@@ -533,7 +534,7 @@ function collectMorphMeshes(model: THREE.Group) {
 /** CarryBasket is the delivered standing pose with a basket (its feet barely
  * move); BasketWalk is the matching walk cycle, so every state that travels
  * with the cart uses it and only the stationary states keep the pose. */
-function customerAnimation(customer: CustomerRuntimeState, elapsed = 0, checkoutLoading = false, runsFree = false): CustomerAnimation {
+export function customerAnimation(customer: CustomerRuntimeState, elapsed = 0, checkoutLoading = false, runsFree = false): CustomerAnimation {
   if (customerShowingAnger(customer, liveActors.simulationTimeMs)) return "Impatient";
   switch (customer.state) {
     case "ENTER_STORE": return runsFree ? "Run" : "Enter";
@@ -573,7 +574,7 @@ function setMorph(dictionary: Record<string, number>, influences: number[], name
   if (index !== undefined) influences[index] = value;
 }
 
-function productPickupLateralOffset(productId: ProductId) {
+export function productPickupLateralOffset(productId: ProductId) {
   if (productId === "tomatoes" || productId === "milk") return -0.42;
   if (productId === "corn" || productId === "cheese") return 0.42;
   return 0;
@@ -586,15 +587,15 @@ function GroundingShadow() {
   </mesh>;
 }
 
-const CART_BOX_GEOMETRY = new THREE.BoxGeometry(1, 1, 1);
+export const CART_BOX_GEOMETRY = new THREE.BoxGeometry(1, 1, 1);
 const CART_CYLINDER_GEOMETRY = new THREE.CylinderGeometry(1, 1, 1, 12);
 const CART_WHEEL_GEOMETRY = new THREE.CylinderGeometry(CUSTOMER_CART_WHEEL_RADIUS, CUSTOMER_CART_WHEEL_RADIUS, 0.055, 14);
 const CART_HUB_GEOMETRY = new THREE.CylinderGeometry(0.032, 0.032, 0.062, 12);
-const CART_METAL_MATERIAL = new THREE.MeshStandardMaterial({ color: "#a1aca8", metalness: 0.62, roughness: 0.3 });
-const CART_DARK_METAL_MATERIAL = new THREE.MeshStandardMaterial({ color: "#56635f", metalness: 0.48, roughness: 0.4 });
-const CART_GRIP_MATERIAL = new THREE.MeshStandardMaterial({ color: "#315f4d", roughness: 0.55, metalness: 0.04 });
-const CART_WHEEL_MATERIAL = new THREE.MeshStandardMaterial({ color: "#252b29", roughness: 0.82 });
-const CART_PANEL_MATERIAL = new THREE.MeshStandardMaterial({ color: "#426f5d", roughness: 0.62 });
+export const CART_METAL_MATERIAL = new THREE.MeshStandardMaterial({ color: "#a1aca8", metalness: 0.62, roughness: 0.3 });
+export const CART_DARK_METAL_MATERIAL = new THREE.MeshStandardMaterial({ color: "#56635f", metalness: 0.48, roughness: 0.4 });
+export const CART_GRIP_MATERIAL = new THREE.MeshStandardMaterial({ color: "#315f4d", roughness: 0.55, metalness: 0.04 });
+export const CART_WHEEL_MATERIAL = new THREE.MeshStandardMaterial({ color: "#252b29", roughness: 0.82 });
+export const CART_PANEL_MATERIAL = new THREE.MeshStandardMaterial({ color: "#426f5d", roughness: 0.62 });
 
 type CartTubeTransform = Readonly<{
   key: string;
@@ -653,33 +654,33 @@ const CART_TUBES: readonly CartTubeTransform[] = [
   cartTube("front-axle", [-0.34, 0.14, 0.27], [0.34, 0.14, 0.27], 0.016, true),
 ];
 
-const CART_FRAME_METAL_GEOMETRY = mergedGeometry(CART_TUBES
+export const CART_FRAME_METAL_GEOMETRY = mergedGeometry(CART_TUBES
   .filter((tube) => !tube.dark)
   .map((tube) => transformedGeometry(CART_CYLINDER_GEOMETRY, tube.position, tube.quaternion, tube.scale)));
-const CART_FRAME_DARK_GEOMETRY = mergedGeometry([
+export const CART_FRAME_DARK_GEOMETRY = mergedGeometry([
   ...CART_TUBES
     .filter((tube) => tube.dark)
     .map((tube) => transformedGeometry(CART_CYLINDER_GEOMETRY, tube.position, tube.quaternion, tube.scale)),
   transformedGeometry(CART_BOX_GEOMETRY, [0, 0.27, 0.04], undefined, [0.64, 0.032, 0.5]),
   transformedGeometry(CART_BOX_GEOMETRY, [0, 0.455, -0.205], undefined, [0.04, 0.15, 0.04]),
 ]);
-const CART_PANEL_GEOMETRY = mergedGeometry([
+export const CART_PANEL_GEOMETRY = mergedGeometry([
   transformedGeometry(CART_BOX_GEOMETRY, [0, 0.65, -0.265], new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.05, 0, 0)), [0.54, 0.21, 0.035]),
   transformedGeometry(CART_BOX_GEOMETRY, [0, 0.545, -0.13], new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.08, 0, 0)), [0.5, 0.035, 0.24]),
 ]);
-const CART_HANDLE_GRIP_GEOMETRY = transformedGeometry(
+export const CART_HANDLE_GRIP_GEOMETRY = transformedGeometry(
   CART_CYLINDER_GEOMETRY,
   [0, 0, 0],
   new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, Math.PI / 2)),
   [0.04, CART_HANDLE_BASE_WIDTH, 0.04],
 );
-const CART_HANDLE_END_GEOMETRY = mergedGeometry([-0.5, 0.5].map((side) => transformedGeometry(
+export const CART_HANDLE_END_GEOMETRY = mergedGeometry([-0.5, 0.5].map((side) => transformedGeometry(
   CART_CYLINDER_GEOMETRY,
   [side * CART_HANDLE_BASE_WIDTH, 0, 0],
   new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, Math.PI / 2)),
   [0.052, 0.07, 0.052],
 )));
-const CART_CASTER_GEOMETRY = mergedGeometry([
+export const CART_CASTER_GEOMETRY = mergedGeometry([
   transformedGeometry(CART_CYLINDER_GEOMETRY, [0, 0.07, 0], undefined, [0.022, 0.14, 0.022]),
   ...[-0.042, 0.042].map((x) => transformedGeometry(CART_BOX_GEOMETRY, [x, 0.025, 0], undefined, [0.012, 0.07, 0.026])),
 ]);
@@ -687,11 +688,11 @@ const CART_WHEEL_METAL_GEOMETRY = mergedGeometry([
   transformedGeometry(CART_HUB_GEOMETRY, [0, 0, 0], new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, Math.PI / 2))),
   transformedGeometry(CART_BOX_GEOMETRY, [0, 0.038, 0], undefined, [0.063, 0.01, 0.014]),
 ]);
-const CART_WHEEL_ASSEMBLY_GEOMETRY = mergedGeometry([
+export const CART_WHEEL_ASSEMBLY_GEOMETRY = mergedGeometry([
   transformedGeometry(CART_WHEEL_GEOMETRY, [0, 0, 0], new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, Math.PI / 2))),
   CART_WHEEL_METAL_GEOMETRY,
 ], true);
-const CART_CASTER_POSITIONS = [
+export const CART_CASTER_POSITIONS = [
   [-0.3, 0.09, 0.27],
   [0.3, 0.09, 0.27],
   [-0.3, 0.09, -0.22],

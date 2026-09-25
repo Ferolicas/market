@@ -11,6 +11,7 @@ import { Avatar, type CharacterAnimation } from "./Avatar";
 import { MarketRenderProfileContext, useGlassTransmission } from "./MarketRenderProfile";
 import { CityPerimeter } from "./CityPerimeter";
 import { Customer } from "./Customer";
+import { CrowdCustomers, CrowdEmployees, CrowdWarmup } from "./CrowdRenderer";
 import { disposeCharacterMaterials, prepareCharacterModel, priorityCustomerModelPathsForTier, useCharacterModelTier } from "@/game/animation/CharacterPresentation";
 import { KitFarm, KitFurniture } from "./MarketKit";
 import { BasketProduct, HarvestBasket } from "./HarvestBasket";
@@ -324,10 +325,10 @@ export const MarketScene = memo(function MarketScene({ avatar, carry, visualCarr
                   : null)}
           {debug && <DebugWorld customers={customers} crops={crops} unlockedAreas={unlockedAreas} />}
         </Suspense>
-        <group name="perf:employees"><Suspense fallback={null}><Employees employees={employees} /></Suspense></group>
+        <group name="perf:employees"><Suspense fallback={null}>{LEGACY_CROWD ? <Employees employees={employees} /> : <CrowdEmployees employees={employees} />}</Suspense></group>
         <group name="perf:customers">
-          {!castWarmed && <CustomerWarmup />}
-          <Customers customers={customers} checkoutTransactions={checkoutTransactions} />
+          {!castWarmed && (LEGACY_CROWD ? <CustomerWarmup /> : <Suspense fallback={null}><CrowdWarmup position={[PLAYER_START[0], 0.2, PLAYER_START[2]]} /></Suspense>)}
+          {LEGACY_CROWD ? <Customers customers={customers} checkoutTransactions={checkoutTransactions} /> : <Suspense fallback={null}><CrowdCustomers customers={customers} /></Suspense>}
         </group>
         <group name="perf:contact-shadows"><StaticContactShadows frames={1} position={[0, 0.015, 2 * STORE_LAYOUT_SCALE]} opacity={0.24} scale={34 * STORE_LAYOUT_SCALE} blur={2.6} far={8} /></group>
       </group>
@@ -1159,6 +1160,9 @@ function DebugProbe({ inspectScene, publishInventory }: { inspectScene: boolean;
     };
     const qaWindow = window as typeof window & { __MARKET_PERF_DRAWS__?: () => { frame: number; draws: Record<string, number>; submitMs: Record<string, number> } };
     qaWindow.__MARKET_PERF_DRAWS__ = () => ({ frame: frameId, draws: { ...published }, submitMs: { ...publishedSubmitMs } });
+    // Ablation hook for the render QA: hide or freeze whole groups to price
+    // what each one costs the frame.
+    (qaWindow as typeof qaWindow & { __MARKET_PERF_SCENE__?: () => THREE.Scene }).__MARKET_PERF_SCENE__ = () => get().scene;
     return () => {
       renderer.renderBufferDirect = original;
       delete qaWindow.__MARKET_PERF_DRAWS__;
@@ -2005,6 +2009,10 @@ function Employees({ employees }: { employees: Employee[] }) {
  * every world tick's fresh runtime snapshot is picked up inside the frame
  * callback from the live actor map, so five bodies no longer reconcile their
  * whole avatar tree at 5 Hz. */
+// One body kind per draw call, skinned on the GPU from baked clips. The old
+// per-character path stays behind a flag for A/B measurement only.
+const LEGACY_CROWD = process.env.NEXT_PUBLIC_MARKET_LEGACY_CROWD === "1";
+
 const Npc = memo(function Npc({ employee, position, color, body = "adult-man", hair = "side-part" }: { employee: Employee; presentationKey: string; position: [number, number, number]; color: string; body?: CharacterId; hair?: HairId }) {
   const ref = useRef<THREE.Group>(null);
   const visualFrame = useRef(0);

@@ -16,6 +16,14 @@ page.on("pageerror", (error) => pageErrors.push(error.stack ?? error.message));
 page.on("response", (response) => { if (response.status() >= 400) failedResponses.push({ url: response.url(), status: response.status() }); });
 
 const suffix = Date.now().toString(36);
+// MARKET_QA_SEED_STATE=<state.json>: play that saved state on the fresh
+// account (a level-30 store fills the frame with characters) instead of a
+// brand-new market.
+const seedPath = process.env.MARKET_QA_SEED_STATE;
+if (seedPath) {
+  const seed = JSON.parse(await fs.readFile(seedPath, "utf8"));
+  await page.addInitScript(({ key, state }) => { if (!localStorage.getItem(key)) localStorage.setItem(key, JSON.stringify({ state: { ...state, revision: state.revision + 10_000 }, saveRevision: 1, pendingEvents: [] })); }, { key: "mini-market-recovery-campaign-30-20260915", state: seed });
+}
 await page.goto("http://localhost:3000?debug=1", { waitUntil: "domcontentloaded", timeout: 60_000 });
 await page.getByRole("button", { name: "Crear perfil nuevo" }).click();
 await page.getByLabel("Tu nombre").fill("Worker Motion QA");
@@ -23,51 +31,57 @@ await page.getByLabel("Nombre de usuario").fill(`worker_${suffix}`.slice(0, 24))
 await page.getByLabel("Correo electrónico").fill(`worker.${suffix}@example.test`);
 await page.getByLabel("Contraseña").fill(`Worker-${suffix}-Safe!`);
 await page.getByRole("button", { name: "Crear perfil y jugar" }).click();
-await page.getByRole("button", { name: "Abrir mi primer Mini Market" }).waitFor({ timeout: 60_000 });
-await page.getByRole("button", { name: "Abrir mi primer Mini Market" }).click();
-await page.waitForFunction(() => Boolean(window.__MARKET_QA__?.player && window.__MARKET_QA__?.saveRevision), null, { timeout: 30_000 });
-await page.evaluate(() => sessionStorage.setItem("mini-market-qa-freeze", "1"));
-await page.locator(".player-chip button").click();
-await page.waitForFunction(() => window.__MARKET_QA__?.saveStatus === "saved", null, { timeout: 30_000 });
-await page.evaluate(() => {
-  const qa = structuredClone(window.__MARKET_QA__);
-  const state = qa.state;
-  const franchise = state.franchises.find((item) => item.id === state.currentFranchiseId);
-  state.level = 20;
-  state.revision += 10_000;
-  franchise.open = true;
-  franchise.employees = [
-    ["farmer", "red-panda", 1, -8, 12],
-    ["operator", "red-fox", 3, -8, 10],
-    ["stocker", "chicken", 5, -8, 8],
-    ["cashier", "owl", 2, 4.7, 2.2],
-  ].map(([role, hat, level, x, z], index) => ({
-    id: `qa-worker-${index + 1}`,
-    name: `QA ${role}`,
-    role,
-    level,
-    salaryMinor: 1_000,
-    energy: 100,
-    hat,
-    runtime: {
-      state: role === "cashier" ? "IDLE" : "NAVIGATE_PICKUP",
-      assignedProduct: role === "cashier" ? null : "tomatoes",
-      assignedStationId: role === "cashier" ? null : "stockroom",
-      carry: { capacity: 4, items: {} },
-      x, z, targetX: role === "cashier" ? x : 8, targetZ: z,
-      path: role === "cashier" ? [] : [[8, z]],
-      pathIndex: 0,
-      speed: 0.1,
-      currentSpeed: 0,
-      stateSince: state.simulationTimeMs,
-    },
-  }));
-  localStorage.setItem("mini-market-recovery-v1", JSON.stringify({ state, saveRevision: qa.saveRevision, pendingEvents: [] }));
-});
-await page.reload({ waitUntil: "domcontentloaded", timeout: 60_000 });
-await page.waitForFunction(() => Object.keys(window.__MARKET_QA__?.employeeVisuals ?? {}).length === 4, null, { timeout: 30_000 });
-await page.evaluate(() => sessionStorage.removeItem("mini-market-qa-freeze"));
-await page.reload({ waitUntil: "domcontentloaded", timeout: 60_000 });
+if (seedPath) {
+  await page.locator("canvas").first().waitFor({ timeout: 120_000 });
+  try { await page.getByRole("button", { name: "Abrir el supermercado" }).click({ timeout: 20_000 }); } catch {}
+  await page.waitForFunction(() => Object.keys(window.__MARKET_QA__?.employeeVisuals ?? {}).length >= 4, null, { timeout: 60_000 });
+} else {
+  await page.getByRole("button", { name: "Abrir mi primer Mini Market" }).waitFor({ timeout: 60_000 });
+  await page.getByRole("button", { name: "Abrir mi primer Mini Market" }).click();
+  await page.waitForFunction(() => Boolean(window.__MARKET_QA__?.player && window.__MARKET_QA__?.saveRevision), null, { timeout: 30_000 });
+  await page.evaluate(() => sessionStorage.setItem("mini-market-qa-freeze", "1"));
+  await page.locator(".player-chip button").click();
+  await page.waitForFunction(() => window.__MARKET_QA__?.saveStatus === "saved", null, { timeout: 30_000 });
+  await page.evaluate(() => {
+    const qa = structuredClone(window.__MARKET_QA__);
+    const state = qa.state;
+    const franchise = state.franchises.find((item) => item.id === state.currentFranchiseId);
+    state.level = 20;
+    state.revision += 10_000;
+    franchise.open = true;
+    franchise.employees = [
+      ["farmer", "red-panda", 1, -8, 12],
+      ["operator", "red-fox", 3, -8, 10],
+      ["stocker", "chicken", 5, -8, 8],
+      ["cashier", "owl", 2, 4.7, 2.2],
+    ].map(([role, hat, level, x, z], index) => ({
+      id: `qa-worker-${index + 1}`,
+      name: `QA ${role}`,
+      role,
+      level,
+      salaryMinor: 1_000,
+      energy: 100,
+      hat,
+      runtime: {
+        state: role === "cashier" ? "IDLE" : "NAVIGATE_PICKUP",
+        assignedProduct: role === "cashier" ? null : "tomatoes",
+        assignedStationId: role === "cashier" ? null : "stockroom",
+        carry: { capacity: 4, items: {} },
+        x, z, targetX: role === "cashier" ? x : 8, targetZ: z,
+        path: role === "cashier" ? [] : [[8, z]],
+        pathIndex: 0,
+        speed: 0.1,
+        currentSpeed: 0,
+        stateSince: state.simulationTimeMs,
+      },
+    }));
+    localStorage.setItem("mini-market-recovery-campaign-30-20260915", JSON.stringify({ state, saveRevision: qa.saveRevision, pendingEvents: [] }));
+  });
+  await page.reload({ waitUntil: "domcontentloaded", timeout: 60_000 });
+  await page.waitForFunction(() => Object.keys(window.__MARKET_QA__?.employeeVisuals ?? {}).length === 4, null, { timeout: 30_000 });
+  await page.evaluate(() => sessionStorage.removeItem("mini-market-qa-freeze"));
+  await page.reload({ waitUntil: "domcontentloaded", timeout: 60_000 });
+}
 await page.waitForFunction(() => Object.values(window.__MARKET_QA__?.employeeVisuals ?? {}).filter((worker) => worker.state.startsWith("NAVIGATE")).length >= 3, null, { timeout: 30_000 });
 
 const samples = await page.evaluate(() => new Promise((resolve) => {
@@ -116,7 +130,8 @@ console.log(JSON.stringify(report, null, 2));
 if (process.env.MARKET_QA_ALLOW_FAILURE !== "1") {
   if (report.workersObserved < 4 || report.movingFrames < 120) throw new Error(`No se observaron suficientes trabajadores: ${JSON.stringify(report)}`);
   if (report.pauseRatio > 0.02 || Math.abs(report.medianTravelRatio - 1) > 0.08) throw new Error(`Los trabajadores aún avanzan a pulsos: ${JSON.stringify(report)}`);
-  if (report.distinctLevelSpeeds < 3) throw new Error(`Se perdió la velocidad por nivel: ${JSON.stringify(report.speedByWorker)}`);
+  // A seeded save brings its own staff; only the synthetic roster guarantees three levels.
+  if (!seedPath && report.distinctLevelSpeeds < 3) throw new Error(`Se perdió la velocidad por nivel: ${JSON.stringify(report.speedByWorker)}`);
   if (consoleErrors.length || pageErrors.length || failedResponses.length) throw new Error(`Errores de navegador o red: ${JSON.stringify({ consoleErrors, pageErrors, failedResponses })}`);
 }
 
