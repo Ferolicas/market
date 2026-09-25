@@ -36,6 +36,8 @@ const BODIES: Record<string, string> = {
   // Employees wear the two adult owner bodies; the owner keeps the full rig.
   owner_man: "characters/lod1/owner_man.glb",
   owner_woman: "characters/lod1/owner_woman.glb",
+  owner_boy: "characters/lod1/owner_boy.glb",
+  owner_girl: "characters/lod1/owner_girl.glb",
 };
 
 function accessorValues(accessor: { getCount(): number; getElement(index: number, target: number[]): number[] }) {

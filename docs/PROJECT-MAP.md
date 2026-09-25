@@ -1,5 +1,29 @@
 # Mini Market — mapa vivo
 
+## Cliente sin React en la escena (`/play2`): demostración del presupuesto sobre el nivel 30 — 25-09-2026
+
+El propietario comparó el juego con Krunker, Venge, War Brokers, Super Star Car o My Perfect Hotel y fijó una lista de requisitos (presupuesto por cuadro, arte al presupuesto, un solo bucle a 60 Hz sin React en la escena, tick incremental, física simple, entrada unificada) y una prueba de aceptación: tres minutos en la tienda de nivel 30 con apariciones de clientes, paneles, guardado y movimiento. Se aplicó la lista completa como una demostración sobre el nivel 30, en una ruta aparte, sin tocar la producción actual.
+
+**Arte al presupuesto** (`scripts/build-budget-assets.mjs` → `public/models/market/budget/`): cuerpos de plantilla a 2 200 triángulos y clientes a 1 600 con un atlas cada uno, sin clips ni morfos (animan desde las texturas de huesos horneadas; `owner_boy`/`owner_girl` horneados también), gorros y pelo a ≈500 triángulos (soldadura a 2 mm + poda de componentes), unidades entregadas a 60–120, máquinas a 1,5–7 k, kit y cultivos decimados. 6,9 MB en total frente a 88 MB. La tienda estática se **hornea desde la escena viva** con `scripts/export-static-world.mjs` (Playwright sobre la build QA con el estado sembrado; ganchos `__MARKET_BAKE_NO_BATCH__`/`__MARKET_BAKE_LOWPOLY__` en `MarketKit` para leer el kit sin fundir y con biseles ligeros): todo lo que no se mueve (suelo, ciudad, edificio, mobiliario, cajas, bancales, lámparas) se funde por material y celda de 60 unidades, con paleta de colores planos, y sale como `budget/world/level30.glb` (122 k triángulos, 46 mallas, 2 MB) más `level30.anchors.json` con las matrices de todo lo dinámico (grupos de stock, pantallas de stock, máquinas Tripo, textos, cultivos, animales).
+
+**Runtime** (`src/client/`): `ClientRuntime` crea el renderer (ACES, sin sombras, sin MSAA en móvil, DPR ≤ 2), construye la escena una vez y corre un solo `requestAnimationFrame`: tick del mundo a 200 ms fijos desde el bucle (el `GameRuntime` cede el temporizador con `setExternalWorldTickDriver`), **en sitio** (`advanceWorld(..., { inPlace: true })`, sin `structuredClone` por tick; el estado se clona solo al guardar y los eventos al producirse), jugador, cámara (`CameraRig`, misma composición ortográfica), multitud (`CrowdSystems.ts`, las mismas clases que ahora usa también la escena React a través de `CrowdRenderer.tsx`), stock en estanterías instanciado (`RetailStockLayer` + `BudgetProductParts`, unidades de 20–60 triángulos), letreros y pantallas de stock en un atlas de lienzo con un solo draw (`SignLayer`, subida por celda con `copyTextureToTexture`), máquinas, cultivos por etapa y animales (`StationLayer`). `PlayerActor` es un cuerpo instanciado con skinning por textura, pelo/gorro/cesta como piezas instanciadas, movido como **cápsula cinemática sobre el navmesh** (`NavMeshService.moveAlongSurface`, sin Rapier) con las mismas zonas de interacción y puestos de trabajo puros; la entrada une teclado, mando (Gamepad API) y táctil en el `InputManager`. React solo monta el lienzo (`ClientCanvas`) y el HUD (`GameShell` con `plainClient` cuando la ruta empieza por `/play2`). Las piezas estáticas de carros, cestas y productos se funden por material (`mergeStaticParts`).
+
+**Prueba de aceptación** (`scripts/qa-acceptance-session.mjs`: viewport móvil, CPU ×4, estado de nivel 30 sembrado y adoptado en el servidor, tres minutos con recorrido por pasillos, cuatro paneles y dos guardados; `MARKET_QA_PATH=/play2`):
+
+| | Cliente React (`/`) | Cliente nuevo (`/play2`) | Presupuesto |
+| --- | --- | --- | --- |
+| Primer cuadro jugable | 12,6 s | 3,1 s | < 5 s |
+| Descarga hasta jugar | — | 1,6 MB | < 15 MB |
+| p95 del cuadro | 33,3 ms | 16,7 ms | ≤ 16,8 ms |
+| Cuadros > 25 ms por minuto | 248 | 2,6 | ≤ 5 |
+| Tareas largas en 3 min | 10 | 0 | 0 |
+| Draw calls (mediana / máx.) | — | 127 / 195 | < 100 |
+| Triángulos (mediana / máx.) | — | 181 k / 228 k | < 150 k |
+
+Fluidez, carga y guardado cumplen; draw calls y triángulos quedan por encima (multitud con carros y productos, stock en estanterías). Siguiente palanca medida: `BatchedMesh` para todas las unidades de producto (un draw) y cuerpos de cliente a 1 200.
+
+Huecos de paridad del cliente nuevo, pendientes: hojas de la puerta de entrada, vuelos de producto al reponer/cosechar, artículos en la cinta de caja, marcadores de compra y fajos en caja, textos vivos de estado de máquina, morfos faciales; luz horneada (AO) y bloom; KTX2 (sin codificador en la máquina). La tienda horneada corresponde a la distribución del estado sembrado (todo comprado): otra partida ve ese mobiliario aunque no lo haya comprado.
+
 ## Multitud en GPU: clientes y empleados instanciados con skinning por textura — 25-09-2026
 
 La telemetría real del iPhone (21 clientes, 19 empleados) daba 254 cuadros de más de 25 ms por minuto con cadencia de 30 fps y un tick de p95 3,4 ms: el tirón no era el motor sino la presentación. La ablación con el estado sembrado de nivel 30 en el perfil móvil (`MARKET_PERF_EXPERIMENT=hide-crowd|freeze-crowd|no-anim|no-crowd`) lo confirmó: la multitud (mezcladores por personaje, jerarquías de huesos, un `SkinnedMesh` y un draw por cuerpo, carros y cestas como árboles de mallas) era ≈75 % de los cuadros lentos. Se cambió la arquitectura de la multitud en vez de seguir afinándola:

@@ -50,6 +50,24 @@ export class NavMeshService {
     return result.success ? result.path : [];
   }
 
+  /** Slides a point from `start` towards `end` along the walkable surface,
+   * stopping at (and gliding along) the navmesh edges: the kinematic
+   * capsule the plain-three client moves the owner with. */
+  moveAlongSurface(start: Vector3, end: Vector3): Vector3 | null {
+    if (!this.query) return null;
+    const nearest = this.query.findNearestPoly(start, { halfExtents: { x: 1, y: 2, z: 1 } });
+    if (!nearest.success || !nearest.nearestRef) return null;
+    const moved = this.query.moveAlongSurface(nearest.nearestRef, nearest.nearestPoint, end);
+    return moved.success ? moved.resultPosition : null;
+  }
+
+  /** Nearest walkable point to `point`, or null off the mesh. */
+  closestPoint(point: Vector3): Vector3 | null {
+    if (!this.query) return null;
+    const result = this.query.findClosestPoint(point, { halfExtents: { x: 2, y: 2, z: 2 } });
+    return result.success ? result.point : null;
+  }
+
   dispose() {
     this.query?.destroy();
     this.navMesh?.destroy();
@@ -117,6 +135,17 @@ function createWalkableStoreMesh(areas: readonly string[]) {
  * visible wall and Rapier colliders, so navigation can never target a false
  * decorative opening.
  */
+/** Surface walk in layout units (same units as `storePathfinder`). */
+export function storeMoveAlongSurface(start: readonly [number, number], end: readonly [number, number]): [number, number] | null {
+  const moved = storeNavigation.moveAlongSurface({ x: start[0], y: 0, z: start[1] }, { x: end[0], y: 0, z: end[1] });
+  return moved ? [moved.x, moved.z] : null;
+}
+
+export function storeClosestNavigationPoint(point: readonly [number, number]): [number, number] | null {
+  const closest = storeNavigation.closestPoint({ x: point[0], y: 0, z: point[1] });
+  return closest ? [closest.x, closest.z] : null;
+}
+
 export function isStoreNavigationPoint(point: readonly [number, number], areas: readonly string[] = []) {
   const [x, z] = point;
   if (x < STORE_NAVIGATION_BOUNDS.minX || x > STORE_NAVIGATION_BOUNDS.maxX || z < STORE_NAVIGATION_BOUNDS.minZ || z > STORE_NAVIGATION_BOUNDS.maxZ) return false;

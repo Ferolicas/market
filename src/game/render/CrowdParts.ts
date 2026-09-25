@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 
 /**
  * A prop drawn many times per frame — a cart, a basket, a tomato — is a list
@@ -101,4 +102,38 @@ export class InstanceRegistry<T> {
   delete(key: string) { this.entries.delete(key); }
   clear() { this.entries.clear(); }
   values() { return this.entries.values(); }
+}
+
+/**
+ * Folds a static part list into one geometry with a material group per
+ * distinct material, so the prop costs one draw per material instead of one
+ * per part. Dynamic parts (wheels) and geometries with mismatched attribute
+ * sets are left as they are.
+ */
+export function mergeStaticParts(parts: readonly InstancedPart[]): InstancedPart[] {
+  const statics = parts.filter((part) => !part.dynamic && !Array.isArray(part.material));
+  const rest = parts.filter((part) => part.dynamic || Array.isArray(part.material));
+  if (statics.length < 2) return [...parts];
+  const materials: THREE.Material[] = [];
+  const geometries = statics.map((part) => {
+    const geometry = part.geometry.clone().applyMatrix4(part.local);
+    for (const key of Object.keys(geometry.attributes)) if (!["position", "normal", "uv"].includes(key)) geometry.deleteAttribute(key);
+    if (!geometry.attributes.normal) geometry.computeVertexNormals();
+    if (!geometry.attributes.uv) geometry.setAttribute("uv", new THREE.BufferAttribute(new Float32Array(geometry.attributes.position.count * 2), 2));
+    if (!geometry.index) geometry.setIndex(Array.from({ length: geometry.attributes.position.count }, (_, i) => i));
+    return geometry;
+  });
+  const merged = mergeGeometries(geometries, true);
+  for (const geometry of geometries) geometry.dispose();
+  if (!merged) return [...parts];
+  // Collapse identical materials into shared groups.
+  const groupMaterial = statics.map((part) => part.material as THREE.Material);
+  const uniqueIndex = new Map<THREE.Material, number>();
+  for (const group of merged.groups) {
+    const material = groupMaterial[group.materialIndex ?? 0];
+    if (!uniqueIndex.has(material)) { uniqueIndex.set(material, materials.length); materials.push(material); }
+    group.materialIndex = uniqueIndex.get(material)!;
+  }
+  merged.computeBoundingSphere();
+  return [{ geometry: merged, material: materials.length === 1 ? materials[0] : materials, local: new THREE.Matrix4() }, ...rest];
 }

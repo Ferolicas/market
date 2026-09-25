@@ -75,7 +75,7 @@ export interface InteractionVisualEvent {
   cropStart?: number;
   shelfStart?: number;
 }
-const PLAYER_START = scaleStorePosition([0, 0, 6.25]);
+export const PLAYER_START = scaleStorePosition([0, 0, 6.25]);
 // The approved child is the minimum character height. Camera framing follows
 // that stable baseline while adults render ten percent taller.
 const PLAYER_SCALE = CHILD_CHARACTER_SCENE_SCALE;
@@ -140,7 +140,7 @@ export interface PurchaseMarker {
   highlighted: boolean;
 }
 
-interface MarketSceneProps {
+export interface MarketSceneProps {
   avatar: AvatarConfig;
   carry: CarryState;
   visualCarry: CarryState;
@@ -1784,7 +1784,7 @@ const RegisterCashMarkers = memo(function RegisterCashMarkers({ amounts, bundleM
   </group>;
 }, (previous, next) => previous.bundleMinor === next.bundleMinor && previous.amounts.every((amount, lane) => amount === next.amounts[lane]));
 
-function interactionZoneConfigs(checkoutLevel = 1, unlockedAreas: readonly string[] = [], activeCropIds: readonly string[] = [], availablePurchaseIds: readonly string[] = []): InteractionZoneConfig[] {
+export function interactionZoneConfigs(checkoutLevel = 1, unlockedAreas: readonly string[] = [], activeCropIds: readonly string[] = [], availablePurchaseIds: readonly string[] = []): InteractionZoneConfig[] {
   const storeZones = ZONES.filter((zone) => (
     (!isPurchaseInteractionId(zone.id) || availablePurchaseIds.includes(purchaseIdFromInteraction(zone.id)))
     && (!retailDepartmentFromStockingInteraction(zone.id) || fixtureAvailable(`fixture:retail-${retailDepartmentFromStockingInteraction(zone.id)}-1`, unlockedAreas))

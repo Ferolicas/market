@@ -6,6 +6,7 @@ import { PerspectiveCamera, RenderTexture, RoundedBox, RoundedBoxGeometry, useGL
 import { useFrame } from "@react-three/fiber";
 import { Fragment, memo, useCallback, useEffect, useMemo, useRef, type ReactNode } from "react";
 import * as THREE from "three";
+import { MARKET_QA_BUILD_ENABLED } from "@/game/debug/QaAccess";
 import { scaleStorePosition, STORE_ELEMENT_SCALE, STORE_LAYOUT_SCALE } from "@/game/world-scale";
 import type { CheckoutTransaction, CropState, Inventory, ProductId, ProductionMachineState } from "@/game/types";
 import { chickenFeedStatus, cropHarvestYield, cropProgress, machineInputCapacity } from "@/game/stations/StationSystem";
@@ -86,10 +87,16 @@ function StaticInstances({ transforms, children, castShadow = false, receiveShad
   return <instancedMesh ref={ref} args={[undefined, undefined, Math.max(1, capacity)]} castShadow={castShadow} receiveShadow={receiveShadow}>{children}</instancedMesh>;
 }
 
+// Bake hooks (QA builds only): the static-world exporter reads the kit
+// unbatched, with flat materials and lighter bevels, and merges it itself.
+const bakeWindow = typeof window !== "undefined" ? (window as Window & { __MARKET_BAKE_NO_BATCH__?: boolean; __MARKET_BAKE_LOWPOLY__?: boolean }) : null;
+const BAKE_NO_BATCH = MARKET_QA_BUILD_ENABLED && Boolean(bakeWindow?.__MARKET_BAKE_NO_BATCH__);
+const BAKE_LOWPOLY = MARKET_QA_BUILD_ENABLED && Boolean(bakeWindow?.__MARKET_BAKE_LOWPOLY__);
+
 function StaticBatchOptimizer({ rootRef, structureRevision }: { rootRef: { current: THREE.Group | null }; structureRevision: string }) {
   useEffect(() => {
     const root = rootRef.current;
-    if (!root) return;
+    if (!root || BAKE_NO_BATCH) return;
     const batch = createStaticMeshBatch(root);
     root.userData.staticBatchStats = batch.stats;
     return () => {
@@ -105,7 +112,7 @@ const preparedSurfaceTextures = new WeakSet<THREE.Texture>();
 
 function Box({ args, position, color, children, rotation, radius = 0.035 }: { args: [number, number, number]; position?: Position; color: string; children?: ReactNode; rotation?: Position; radius?: number }) {
   const surface = surfaceForColor(color);
-  return <RoundedBox args={args} position={position} rotation={rotation} radius={radius} smoothness={2} receiveShadow>
+  return <RoundedBox args={args} position={position} rotation={rotation} radius={radius} smoothness={BAKE_LOWPOLY ? 1 : 2} receiveShadow>
     {surface ? <SurfaceMaterial surface={surface} /> : <meshStandardMaterial color={color} roughness={0.72} />}
     {children}
   </RoundedBox>;
@@ -490,7 +497,7 @@ const MemoFarmBarn = memo(FarmBarn, sameFixtureProps);
 const MemoAnimalPaddock = memo(AnimalPaddock, sameFixtureProps);
 const MemoAnimalStation = memo(AnimalStation, sameFixtureProps);
 
-const PRODUCTS_LABELS: Record<ProductId, string> = {
+export const PRODUCTS_LABELS: Record<ProductId, string> = {
   cannedCorn: "MAÍZ EN LATA",
   tomatoes: "TOMATES",
   apples: "MANZANAS",

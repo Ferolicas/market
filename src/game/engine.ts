@@ -917,10 +917,15 @@ export function advanceSimulation(input: GameState, minutes = 10): ActionResult 
 export interface WorldTickInput {
   playerDistanceMeters?: number;
   interactions?: readonly WorldInteractionAction[];
+  /** Advance the given state object itself instead of a structured clone. */
+  inPlace?: boolean;
 }
 
 export function advanceWorld(input: GameState, deltaMs = 250, pathfinder?: WorldPathfinder, worldInput: WorldTickInput = {}): ActionResult {
-  const state = structuredClone(input);
+  // The React client keeps the previous state immutable; the plain-three
+  // client owns its state object and advances it in place (no full clone
+  // per tick). Both paths run the same operations.
+  const state = worldInput.inPlace ? input : structuredClone(input);
   const events: GameEvent[] = [];
   let interactionMessage: string | null = null;
   for (const action of worldInput.interactions ?? []) {

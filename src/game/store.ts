@@ -43,6 +43,15 @@ function qaSimulationFrozen() {
   return marketQaFreezeEnabled(window.location.search, sessionStorage.getItem("mini-market-qa-freeze"));
 }
 
+/** The plain-three client advances the world without cloning it per tick
+ * (`advanceWorld` in place); the React scene keeps immutable snapshots. */
+let inPlaceWorldTicks = false;
+export function setInPlaceWorldTicks(enabled: boolean) { inPlaceWorldTicks = enabled; }
+/** Who calls `tickWorld`: the runtime timers (React scene) or the client loop. */
+let externalWorldTickDriver = false;
+export function setExternalWorldTickDriver(enabled: boolean) { externalWorldTickDriver = enabled; }
+export function hasExternalWorldTickDriver() { return externalWorldTickDriver; }
+
 export const useMarketStore = create<MarketStore>((set, get) => {
   let pendingPlayerDistanceMeters = 0;
   let pendingInteractions: WorldInteractionAction[] = [];
@@ -212,16 +221,20 @@ export const useMarketStore = create<MarketStore>((set, get) => {
     const playerDistanceMeters = pendingPlayerDistanceMeters;
     const interactions = pendingInteractions;
     const navigationReady = isStoreNavigationReady();
-    const result = advanceWorld(game, deltaMs, storePathfinder, { playerDistanceMeters, interactions });
+    const result = advanceWorld(game, deltaMs, storePathfinder, { playerDistanceMeters, interactions, inPlace: inPlaceWorldTicks });
     recordCommand(tickCommand(deltaMs, interactions, playerDistanceMeters, navigationReady));
     pendingPlayerDistanceMeters = Math.max(0, pendingPlayerDistanceMeters - playerDistanceMeters);
     pendingInteractions = pendingInteractions.slice(interactions.length);
-    const pendingEvents = [...get().pendingEvents, ...result.events];
+    // In-place ticks keep mutating the objects an event may reference; the
+    // save authority must see the event as it was when it happened.
+    const pendingEvents = [...get().pendingEvents, ...(inPlaceWorldTicks ? structuredClone(result.events) : result.events)];
     // Keep only the newest snapshot. RecoveryStorage persists it through an
     // asynchronous IndexedDB transaction during browser idle time, so the
     // 10 Hz world path never performs JSON.stringify/localStorage.
     queueRecoverySnapshot(recoverySnapshot(result.state, get().saveRevision, pendingEvents));
-    set({ game: result.state, saveStatus: saveInFlight ? "saving" : "dirty", pendingEvents, ...(interactions.length ? messageOccurrence(result.message) : {}) });
+    // In-place ticks keep the same state object; a shallow copy still tells
+    // React subscribers (the HUD) that a tick happened.
+    set({ game: inPlaceWorldTicks ? { ...result.state } : result.state, saveStatus: saveInFlight ? "saving" : "dirty", pendingEvents, ...(interactions.length ? messageOccurrence(result.message) : {}) });
   },
 
   saveGame: async (options) => {
@@ -230,7 +243,9 @@ export const useMarketStore = create<MarketStore>((set, get) => {
     saveInFlight = true;
     set({ saveStatus: "saving" });
     try {
-      const state = { ...game, lastSavedAt: new Date().toISOString() };
+      // The attempt's state outlives this call (retries, reload reconciliation),
+      // so with in-place ticks it must be a real snapshot, not the live object.
+      const state = { ...(inPlaceWorldTicks ? structuredClone(game) : game), lastSavedAt: new Date().toISOString() };
       const deviceId = gameDeviceId();
       const canReusePendingAttempt = pendingSaveAttempt?.deviceId === deviceId
         && pendingSaveAttempt.expectedRevision === saveRevision;

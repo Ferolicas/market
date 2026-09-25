@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { useMarketStore } from "@/game/store";
+import { useMarketStore, hasExternalWorldTickDriver } from "@/game/store";
 import { audioSettingsOf, useAudioSettings } from "@/game/feedback/AudioSettingsStore";
 import { sharedGameAudio } from "@/game/feedback/GameAudio";
 import { feedbackBus } from "@/game/feedback/FeedbackBus";
@@ -138,7 +138,7 @@ export function GameRuntime() {
       void saveGame();
     };
     const stopTimers = () => {
-      window.clearInterval(worldTimer);
+      if (worldTimer > 0) window.clearInterval(worldTimer);
       window.clearInterval(saveTimer);
       cancelBackgroundSave();
       worldTimer = saveTimer = 0;
@@ -146,6 +146,8 @@ export function GameRuntime() {
     const startTimers = () => {
       if (worldTimer || document.visibilityState !== "visible") return;
       lastWorldTickAt = performance.now();
+      // The plain-three client ticks the world from its own frame loop.
+      if (hasExternalWorldTickDriver()) { worldTimer = -1; saveTimer = window.setInterval(scheduleBackgroundSave, REMOTE_SYNC_INTERVAL_MS); return; }
       worldTimer = window.setInterval(() => {
         const now = performance.now();
         const elapsedMs = Math.min(1_000, Math.max(0, now - lastWorldTickAt));

@@ -12,7 +12,8 @@ import { campaignContracts } from "@/game/progression/CampaignContracts";
 
 import { useMarketStore } from "@/game/store";
 import type { AvatarConfig, CountryCode, FranchiseState, GameState, ProductId } from "@/game/types";
-import { MarketScene, type InteractionId, type InteractionVisualEvent, type PurchaseMarker } from "./MarketScene";
+import { MarketScene, type InteractionId, type InteractionVisualEvent, type MarketSceneProps, type PurchaseMarker } from "./MarketScene";
+import { ClientCanvas } from "@/client/ClientCanvas";
 import { GameRuntime } from "./GameRuntime";
 import { AvatarCustomizer } from "./AvatarCustomizer";
 import { GameInputSurface } from "./GameInputSurface";
@@ -69,6 +70,8 @@ export function GameShell({ playerName }: { playerName: string }) {
   const [metrics, setMetrics] = useState<RendererMetrics | null>(null);
   const [worldReady, setWorldReady] = useState(false);
   const [sceneReady, setSceneReady] = useState(false);
+  // /play2 mounts the plain-three client instead of the React scene.
+  const [plainClient] = useState(() => typeof window !== "undefined" && window.location.pathname.startsWith("/play2"));
   const tutorialStep = game?.tutorialStep ?? 0;
   const interactionSequence = useRef(0);
   const activeInteractionId = useRef<InteractionId | null>(null);
@@ -195,8 +198,10 @@ export function GameShell({ playerName }: { playerName: string }) {
     qaWindow.__MARKET_QA__.saveStatus = status;
     qaWindow.__MARKET_QA__.message = message;
     qaWindow.__MARKET_QA__.messageRevision = messageRevision;
+    // Debug pages drive saves and local adoption (seeded QA sessions).
+    (qaWindow as typeof qaWindow & { __MARKET_QA_ACTIONS__?: Record<string, unknown> }).__MARKET_QA_ACTIONS__ = { saveGame: () => saveGame(), adoptLocalCopy: () => adoptLocalCopy() };
     qaWindow.__MARKET_QA__.metrics = metrics;
-  }, [debug, game, message, messageRevision, metrics, saveRevision, status]);
+  }, [adoptLocalCopy, debug, game, message, messageRevision, metrics, saveGame, saveRevision, status]);
   const interact = useCallback((id: InteractionId) => {
     let performed = true;
     let visualEvents: Omit<InteractionVisualEvent, "sequence">[] = [{ id, kind: "work" }];
@@ -402,10 +407,11 @@ export function GameShell({ playerName }: { playerName: string }) {
   const levelLabel = `Nivel ${franchise.purchases ? campaignLevel(franchise) : game.level}`;
   const nextStep = campaignNextStep(game, franchise);
 
+  const sceneProps: MarketSceneProps = { purchaseMarkers, registerCashMinor: franchise.registerCashMinor, cashBundleMinor: cashBundleMinor(countryMoneyScale(game.countryCode)), avatar: game.avatar, carry: franchise.carry, visualCarry: visualTransfer.carry, checkoutLevel: franchise.checkoutLevel, playerSpeedTier: franchise.playerSpeedTier, customers: franchise.customers, checkoutTransactions: franchise.checkoutTransactions, returnsBin: franchise.returnsBin, returnedCartCount: franchise.returnedCartCount, crops: franchise.crops, visualCrops: visualTransfer.crops, productionMachines: franchise.productionMachines, shelves: franchise.shelves, visualShelves: visualTransfer.shelves, shelfTier: franchise.stationTiers["shelves-1"] ?? franchise.shelvesLevel, unlockedAreas: franchise.unlockedAreas, lightsOn: franchise.lightsOn, minuteOfDay: game.minuteOfDay, simulationTimeMs: game.simulationTimeMs, employees: franchise.employees, open: franchise.open, doorState: franchise.doorState, doorProgress: franchise.doorProgress, onInteract: interact, onDistance: recordDistance, onDoorPresence: setDoorPresence, onSceneReady: revealScene, lastInteraction, transferEvents, onTransferProgress: updateTransferProgress, debug };
   return (<>
     <GameRuntime />
     <main className="game-shell">
-      {worldReady && <div className={`world${sceneReady ? " scene-ready" : " scene-preparing"}`} aria-hidden={!sceneReady}><MarketScene purchaseMarkers={purchaseMarkers} registerCashMinor={franchise.registerCashMinor} cashBundleMinor={cashBundleMinor(countryMoneyScale(game.countryCode))} avatar={game.avatar} carry={franchise.carry} visualCarry={visualTransfer.carry} checkoutLevel={franchise.checkoutLevel} playerSpeedTier={franchise.playerSpeedTier} customers={franchise.customers} checkoutTransactions={franchise.checkoutTransactions} returnsBin={franchise.returnsBin} returnedCartCount={franchise.returnedCartCount} crops={franchise.crops} visualCrops={visualTransfer.crops} productionMachines={franchise.productionMachines} shelves={franchise.shelves} visualShelves={visualTransfer.shelves} shelfTier={franchise.stationTiers["shelves-1"] ?? franchise.shelvesLevel} unlockedAreas={franchise.unlockedAreas} lightsOn={franchise.lightsOn} minuteOfDay={game.minuteOfDay} simulationTimeMs={game.simulationTimeMs} employees={franchise.employees} open={franchise.open} doorState={franchise.doorState} doorProgress={franchise.doorProgress} onInteract={interact} onDistance={recordDistance} onDoorPresence={setDoorPresence} onSceneReady={revealScene} lastInteraction={lastInteraction} transferEvents={transferEvents} onTransferProgress={updateTransferProgress} debug={debug} />{sceneReady && <GameInputSurface />}</div>}
+      {worldReady && <div className={`world${sceneReady ? " scene-ready" : " scene-preparing"}`} aria-hidden={!sceneReady}>{plainClient ? <ClientCanvas {...sceneProps} /> : <MarketScene {...sceneProps} />}{sceneReady && <GameInputSurface />}</div>}
       {worldReady && !sceneReady && <LoadingCurtain title="Preparando la tienda…" detail="Cargando personajes y maquinaria sin interrupciones" />}
       <header className="hud-top glass-panel" data-game-ui-interactive="true" aria-label="Estado de la tienda">
         <div className="hud-brand"><span><GameIcon name="store" /></span><div><strong>{franchise.name}</strong><small>{franchise.city}</small></div></div>
