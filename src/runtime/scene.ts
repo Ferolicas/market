@@ -1,26 +1,24 @@
 import * as THREE from "three";
-import { RUNTIME_CONTRACT } from "./contract";
-import { POSE_STRIDE } from "./snapshot";
+import { loadGltf } from "@/client/WorldAssets";
 
 export interface SceneStats {
   drawCalls: number;
   triangles: number;
 }
 
+const STORE_URL = "/models/market/budget/world/level30.glb";
+
 /**
- * Placeholder scene for the base runtime. Primitives only: the store's models,
- * textures and effects stay out until this loop has been measured on the phone.
+ * The measured runtime scene. Renderer settings match the empty baseline.
+ * The only added content is the baked static store. Markers, characters,
+ * stock and physics stay out.
  */
 export class PlaceholderScene {
   readonly renderer: THREE.WebGLRenderer;
+  readonly ready: Promise<void>;
   private readonly scene = new THREE.Scene();
   private readonly camera = new THREE.PerspectiveCamera(40, 1, 0.1, 80);
-  private readonly player = new THREE.Mesh(
-    new THREE.ConeGeometry(0.28, 0.9, 12),
-    new THREE.MeshStandardMaterial({ color: "#ef6c4c", roughness: 0.45, metalness: 0.05 }),
-  );
-  private readonly crowd: THREE.InstancedMesh;
-  private readonly dummy = new THREE.Object3D();
+  private readonly lookAt = new THREE.Vector3();
   private disposed = false;
 
   constructor(canvas: HTMLCanvasElement) {
@@ -40,26 +38,41 @@ export class PlaceholderScene {
     const key = new THREE.DirectionalLight("#fff4e2", 1.8);
     key.position.set(6, 10, 4);
     this.scene.add(key);
-
-    const ground = new THREE.Mesh(
-      new THREE.CircleGeometry(14, 48),
-      new THREE.MeshStandardMaterial({ color: "#c5ddd2", roughness: 0.95 }),
-    );
-    ground.rotation.x = -Math.PI / 2;
-    this.scene.add(ground);
-
-    const actorCount = RUNTIME_CONTRACT.placeholderActors;
-    this.crowd = new THREE.InstancedMesh(
-      new THREE.BoxGeometry(0.42, 0.72, 0.42),
-      new THREE.MeshStandardMaterial({ color: "#2f6f5e", roughness: 0.62 }),
-      actorCount - 1,
-    );
-    this.scene.add(this.crowd);
-    this.player.position.y = 0.45;
-    this.scene.add(this.player);
-    this.camera.position.set(0, 11, 14);
-    this.camera.lookAt(0, 0, 0);
     this.resize();
+    this.ready = this.loadStore();
+  }
+
+  private async loadStore() {
+    const gltf = await loadGltf(STORE_URL);
+    if (this.disposed) return;
+    const root = gltf.scene;
+    root.matrixAutoUpdate = false;
+    root.updateMatrix();
+    root.traverse((object) => {
+      if (!(object instanceof THREE.Mesh)) return;
+      object.matrixAutoUpdate = false;
+      object.updateMatrix();
+      object.frustumCulled = true;
+      object.castShadow = false;
+      object.receiveShadow = false;
+      object.geometry.computeBoundingSphere();
+    });
+    this.scene.add(root);
+    this.frameStore(root);
+  }
+
+  /** One fixed view of the whole bake. The camera does not move per frame. */
+  private frameStore(root: THREE.Object3D) {
+    const bounds = new THREE.Box3().setFromObject(root);
+    const center = bounds.getCenter(this.lookAt);
+    const radius = Math.max(1, bounds.getSize(new THREE.Vector3()).length() * 0.5);
+    const distance = radius / Math.sin(THREE.MathUtils.degToRad(this.camera.fov) / 2);
+    const direction = new THREE.Vector3(16, 23, 25.75).normalize();
+    this.camera.position.copy(center).addScaledVector(direction, distance);
+    this.camera.near = Math.max(0.1, distance - radius * 2);
+    this.camera.far = distance + radius * 4;
+    this.camera.lookAt(center);
+    this.camera.updateProjectionMatrix();
   }
 
   resize() {
@@ -73,20 +86,9 @@ export class PlaceholderScene {
     this.camera.updateProjectionMatrix();
   }
 
-  /** Applies one interpolated pose buffer. Actor 0 is the marker; the rest are instances. */
+  /** Draws the bake. The pose buffer stays in the loop so that path is unchanged. */
   render(pose: Float32Array) {
-    this.player.position.x = pose[0];
-    this.player.position.z = pose[1];
-    this.player.rotation.y = pose[2];
-    const instances = this.crowd.count;
-    for (let index = 0; index < instances; index += 1) {
-      const offset = (index + 1) * POSE_STRIDE;
-      this.dummy.position.set(pose[offset], 0.36, pose[offset + 1]);
-      this.dummy.rotation.set(0, pose[offset + 2], 0);
-      this.dummy.updateMatrix();
-      this.crowd.setMatrixAt(index, this.dummy.matrix);
-    }
-    this.crowd.instanceMatrix.needsUpdate = true;
+    void pose;
     this.renderer.render(this.scene, this.camera);
     const stats = {
       drawCalls: this.renderer.info.render.calls,
@@ -99,14 +101,6 @@ export class PlaceholderScene {
   dispose() {
     if (this.disposed) return;
     this.disposed = true;
-    this.scene.traverse((object) => {
-      if (object instanceof THREE.Mesh) {
-        object.geometry.dispose();
-        const material = object.material;
-        if (Array.isArray(material)) material.forEach((entry) => entry.dispose());
-        else material.dispose();
-      }
-    });
     this.renderer.dispose();
   }
 }

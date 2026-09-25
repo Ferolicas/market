@@ -4,6 +4,32 @@
  * frame, a 5 Hz snapshot and a few placeholder meshes. Art budgets come later,
  * on the same numbers, and a miss stops the next phase.
  */
+/**
+ * Official iPhone baseline of the empty runtime, build 8257805, about five
+ * minutes, Safari. Sixteen gaps over 25 ms out of 25 600 renders (0.0625 %).
+ * A later phase is compared with this, not with a demand of zero hitches.
+ */
+export const RUNTIME_IPHONE_BASELINE = {
+  build: "8257805",
+  workAverageMs: 0.3,
+  workP95Ms: 0.4,
+  workP99Ms: 0.5,
+  workMaxMs: 4.6,
+  workOver16: 0,
+  gapAverageMs: 16.7,
+  gapP95Ms: 17,
+  gapP99Ms: 18,
+  gapMaxMs: 133,
+  gapsOver25Ms: 16,
+  renders: 25_600,
+  rafs: 25_600,
+  drawCalls: 3,
+  triangles: 348,
+  loadMs: 340,
+  gapsOver16Ms: 16_000,
+  measuredFrames: 27_000,
+} as const;
+
 export const RUNTIME_CONTRACT = {
   id: "runtime-base-2026-09-25",
   phase: "base",

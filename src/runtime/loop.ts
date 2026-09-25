@@ -14,21 +14,28 @@ export class RuntimeLoop {
   private frame = 0;
   private lastMs = 0;
   private running = false;
+  private rafActive = false;
 
   constructor(canvas: HTMLCanvasElement) {
     this.scene = new PlaceholderScene(canvas);
   }
 
+  /** The first animation frame waits until the baked store is in the scene. */
   start() {
-    if (this.running) return;
+    if (this.running) return Promise.resolve();
     this.running = true;
-    this.lastMs = 0;
-    this.frame = window.requestAnimationFrame(this.tick);
+    return this.scene.ready.then(() => {
+      if (!this.running || this.rafActive) return;
+      this.rafActive = true;
+      this.lastMs = 0;
+      this.frame = window.requestAnimationFrame(this.tick);
+    });
   }
 
   /** Drops the hidden-tab gap so it is not recorded as a stutter. */
   suspend() {
     this.running = false;
+    this.rafActive = false;
     window.cancelAnimationFrame(this.frame);
     this.lastMs = 0;
   }
@@ -40,6 +47,7 @@ export class RuntimeLoop {
 
   stop() {
     this.running = false;
+    this.rafActive = false;
     window.cancelAnimationFrame(this.frame);
     this.scene.dispose();
   }

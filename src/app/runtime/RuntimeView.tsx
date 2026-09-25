@@ -82,8 +82,17 @@ export function RuntimeView() {
       if (document.visibilityState === "hidden") loop.suspend();
       else loop.resume();
     };
-    loop.start();
-    publish();
+    void loop.start().then(() => {
+      if (loopRef.current === loop) publish();
+    }).catch((error: unknown) => {
+      const verdict = panel.querySelector("[data-verdict]");
+      if (verdict) {
+        verdict.textContent = "El local no cargó";
+        verdict.setAttribute("data-state", "fail");
+      }
+      const view = window as Window & { __RUNTIME_BASE__?: unknown };
+      view.__RUNTIME_BASE__ = { pass: false, failures: [error instanceof Error ? error.message : "store"] };
+    });
     const panelTimer = window.setInterval(publish, 500);
     window.addEventListener("resize", onResize);
     document.addEventListener("visibilitychange", onVisibility);
@@ -101,8 +110,8 @@ export function RuntimeView() {
       <canvas ref={canvasRef} className={styles.canvas} />
       <section ref={panelRef} className={styles.panel} aria-live="polite">
         <p className={styles.kicker}>Runtime base · /runtime</p>
-        <h1>Escena mínima</h1>
-        <p className={styles.note}>Un bucle, simulación a 5 Hz, interpolación a la frecuencia de la pantalla. Sin la tienda y sin tocar la partida de producción.</p>
+        <h1>Local horneado</h1>
+        <p className={styles.note}>El mismo bucle y la misma medición. Solo el local estático de nivel 30, sin personajes, stock ni físicas.</p>
         <p data-verdict data-state="wait">Preparando el lienzo…</p>
         <div className={styles.rows}>
           {PANEL_ROWS.map(([key, label]) => (
