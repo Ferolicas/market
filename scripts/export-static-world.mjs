@@ -44,6 +44,21 @@ const dump = await page.evaluate(() => {
   const groups = ["perf:ground", "perf:city", "perf:building", "perf:furniture", "perf:farm"];
   const meshes = []; const textures = new Map(); const anchors = [];
   const b64 = (array) => { let s = ""; const bytes = new Uint8Array(array.buffer, array.byteOffset, array.byteLength); for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000)); return btoa(s); };
+  // Some source GLBs (KHR_mesh_quantization, e.g. dairy.glb) store attributes
+  // as normalized Int16/Int8 arrays. Reading getX/Y/Z/W always returns the
+  // real decoded value regardless of the underlying typed array, so every
+  // attribute leaves the browser as plain real-unit Float32 data — the Node
+  // side no longer has to guess (or mis-guess) the source type.
+  const toFloatArray = (attr, size) => {
+    const out = new Float32Array(attr.count * size);
+    for (let i = 0; i < attr.count; i++) {
+      out[i * size] = attr.getX(i);
+      if (size > 1) out[i * size + 1] = attr.getY(i);
+      if (size > 2) out[i * size + 2] = attr.getZ(i);
+      if (size > 3) out[i * size + 3] = attr.getW(i);
+    }
+    return out;
+  };
   const imageData = (map) => {
     const image = map.image; if (!image) return null;
     const c = document.createElement("canvas"); c.width = image.width || image.videoWidth || 1; c.height = image.height || 1;
@@ -84,8 +99,8 @@ const dump = await page.evaluate(() => {
         meshes.push({
           group: groupName, name: o.name,
           matrix: matrixArray,
-          position: b64(g.attributes.position.array), normal: g.attributes.normal ? b64(g.attributes.normal.array) : null,
-          uv: g.attributes.uv ? b64(g.attributes.uv.array) : null, color: g.attributes.color ? { data: b64(g.attributes.color.array), size: g.attributes.color.itemSize } : null,
+          position: b64(toFloatArray(g.attributes.position, 3)), normal: g.attributes.normal ? b64(toFloatArray(g.attributes.normal, 3)) : null,
+          uv: g.attributes.uv ? b64(toFloatArray(g.attributes.uv, 2)) : null, color: g.attributes.color ? { data: b64(toFloatArray(g.attributes.color, g.attributes.color.itemSize)), size: g.attributes.color.itemSize } : null,
           index: g.index ? { data: b64(g.index.array), u32: g.index.array instanceof Uint32Array } : null,
           range: { start: range.start, count: range.count },
           material: { type: m.type, color: m.color?.getHex?.() ?? 0xffffff, roughness: m.roughness ?? 1, metalness: m.metalness ?? 0, transparent: Boolean(m.transparent), opacity: m.opacity ?? 1, side: m.side, emissive: m.emissive?.getHex?.() ?? 0, emissiveIntensity: m.emissiveIntensity ?? 1, map: mapKey, vertexColors: Boolean(m.vertexColors) },
@@ -106,7 +121,14 @@ const byMaterial = new Map();
 // World-space cell edge (the store is about 90 units across after WORLD_SCALE).
 const CELL_SIZE = Number(process.env.WORLD_CELL ?? 30);
 
+// A finite centre this far from the store's own footprint (~150 u across)
+// is corrupt data, not a legitimate fixture; drop it instead of baking it.
+const SANE_BOUND_UNITS = Number(process.env.WORLD_SANE_BOUND ?? 300);
+const dropCounts = { nan: 0, infinite: 0, "out-of-range": 0, "empty-position": 0 };
+let entered = 0;
+
 for (const m of dump.meshes) {
+  entered += 1;
   const geometry = new THREE.BufferGeometry();
   const position = decode(m.position, Float32Array);
   geometry.setAttribute("position", new THREE.BufferAttribute(position, 3));
@@ -131,14 +153,23 @@ for (const m of dump.meshes) {
   if (!usesVertexColor) part.deleteAttribute("color");
   part.computeBoundingBox();
   const centre = part.boundingBox.getCenter(new THREE.Vector3());
-  if (!Number.isFinite(centre.x) || !Number.isFinite(centre.z) || part.attributes.position.count === 0) continue;
+  const componentsFinite = Number.isFinite(centre.x) && Number.isFinite(centre.y) && Number.isFinite(centre.z);
+  const componentsNaN = Number.isNaN(centre.x) || Number.isNaN(centre.y) || Number.isNaN(centre.z);
+  const outOfRange = componentsFinite && (Math.abs(centre.x) > SANE_BOUND_UNITS || Math.abs(centre.y) > SANE_BOUND_UNITS || Math.abs(centre.z) > SANE_BOUND_UNITS);
+  const reason = part.attributes.position.count === 0 ? "empty-position" : componentsNaN ? "nan" : !componentsFinite ? "infinite" : outOfRange ? "out-of-range" : null;
+  if (reason) {
+    dropCounts[reason] += 1;
+    console.warn(`[bake] descartada malla group=${m.group} name=${m.name || "(sin nombre)"} razon=${reason} centre=[${centre.x},${centre.y},${centre.z}]`);
+    continue;
+  }
   const cell = `${Math.floor(centre.x / CELL_SIZE)}:${Math.floor(centre.z / CELL_SIZE)}`;
   const key = JSON.stringify({ ...mat, vc: usesVertexColor, cell });
   const bucket = byMaterial.get(key) ?? { material: mat, vc: usesVertexColor, cell, parts: [] };
   bucket.parts.push(part.index ? part : part);
   byMaterial.set(key, bucket);
 }
-console.log("material buckets", byMaterial.size);
+const totalDropped = Object.values(dropCounts).reduce((sum, n) => sum + n, 0);
+console.log(JSON.stringify({ primitivesEntered: entered, primitivesDropped: totalDropped, dropReasons: dropCounts, materialBuckets: byMaterial.size }));
 
 // ---- glTF document.
 const doc = new Document();
@@ -195,4 +226,8 @@ for (const mesh of doc.getRoot().listMeshes()) for (const p of mesh.listPrimitiv
 const out = path.join(outDir, `${name}.glb`);
 await io.write(out, doc);
 const size = (await fs.stat(out)).size;
-console.log(JSON.stringify({ out: path.relative(process.cwd(), out), triangles: after, primitives: prims, materials: doc.getRoot().listMaterials().length, textures: doc.getRoot().listTextures().length, kb: Math.round(size / 1024) }));
+console.log(JSON.stringify({
+  out: path.relative(process.cwd(), out), triangles: after, primitives: prims,
+  materials: doc.getRoot().listMaterials().length, textures: doc.getRoot().listTextures().length, kb: Math.round(size / 1024),
+  primitivesEntered: entered, primitivesDropped: totalDropped, dropReasons: dropCounts, materialBuckets: byMaterial.size,
+}));
