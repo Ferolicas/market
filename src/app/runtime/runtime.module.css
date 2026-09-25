@@ -1,0 +1,74 @@
+.stage {
+  position: fixed;
+  inset: 0;
+  background: #d7ebe3;
+  color: #173f35;
+}
+
+.canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+
+.panel {
+  position: absolute;
+  z-index: 2;
+  top: max(12px, env(safe-area-inset-top));
+  left: max(12px, env(safe-area-inset-left));
+  width: min(340px, calc(100% - 24px));
+  padding: 14px 16px 16px;
+  border: 1px solid #ffffffcc;
+  border-radius: 16px;
+  background: #ffffffeb;
+  box-shadow: 0 16px 40px #14382e2e;
+}
+
+.kicker {
+  margin: 0;
+  color: #ef6c4c;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.panel h1 {
+  margin: 4px 0 8px;
+  font-size: 22px;
+  letter-spacing: -0.03em;
+}
+
+.note {
+  margin: 0 0 12px;
+  color: #5d756e;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.panel [data-verdict] {
+  margin: 0 0 10px;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.panel [data-state="pass"] { color: #1f7a4d; }
+.panel [data-state="fail"] { color: #a34736; }
+.panel [data-state="wait"] { color: #8a6a22; }
+
+.rows {
+  display: grid;
+  gap: 4px;
+}
+
+.rows span {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+}
+
+.rows strong {
+  font-variant-numeric: tabular-nums;
+}

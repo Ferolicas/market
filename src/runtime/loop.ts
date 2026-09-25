@@ -1,0 +1,72 @@
+import { evaluateBaseGate, type RuntimeFrameSummary, type RuntimeGate } from "./contract";
+import { FrameMetrics } from "./metrics";
+import { PlaceholderScene } from "./scene";
+import { SnapshotSimulation } from "./snapshot";
+
+export interface RuntimePublish {
+  summary: RuntimeFrameSummary;
+  gate: RuntimeGate;
+}
+
+/**
+ * The only animation frame in this runtime. Simulation steps at 5 Hz inside
+ * that callback; the scene draws the interpolated pose on the same tick.
+ */
+export class RuntimeLoop {
+  private readonly simulation = new SnapshotSimulation();
+  private readonly metrics = new FrameMetrics();
+  private readonly scene: PlaceholderScene;
+  private frame = 0;
+  private lastMs = 0;
+  private running = false;
+
+  constructor(canvas: HTMLCanvasElement, private readonly onPublish: (publish: RuntimePublish) => void) {
+    this.scene = new PlaceholderScene(canvas);
+  }
+
+  start() {
+    if (this.running) return;
+    this.running = true;
+    this.lastMs = 0;
+    this.frame = window.requestAnimationFrame(this.tick);
+  }
+
+  /** Drops the hidden-tab gap so it is not recorded as a stutter. */
+  suspend() {
+    this.running = false;
+    window.cancelAnimationFrame(this.frame);
+    this.lastMs = 0;
+  }
+
+  resume() {
+    if (this.running) return;
+    this.start();
+  }
+
+  stop() {
+    this.running = false;
+    window.cancelAnimationFrame(this.frame);
+    this.scene.dispose();
+  }
+
+  resize() {
+    this.scene.resize();
+  }
+
+  private readonly tick = (now: number) => {
+    if (!this.running) return;
+    const delta = this.lastMs === 0 ? 0 : now - this.lastMs;
+    this.lastMs = now;
+    const workStarted = performance.now();
+    const pose = this.simulation.sample(delta);
+    const stats = this.scene.render(pose);
+    const workMs = performance.now() - workStarted;
+    if (delta === 0) this.metrics.markLoad(now);
+    else this.metrics.addFrame(workMs, delta, stats.drawCalls, stats.triangles);
+    if (this.metrics.frameCount > 0 && this.metrics.frameCount % 30 === 0) {
+      const summary = this.metrics.summary();
+      this.onPublish({ summary, gate: evaluateBaseGate(summary) });
+    }
+    this.frame = window.requestAnimationFrame(this.tick);
+  };
+}
