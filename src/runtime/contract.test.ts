@@ -40,4 +40,23 @@ describe("runtime contract", () => {
     const loaded = summarizeFrames(Array.from({ length: 60 }, () => steady(2)), { drawCalls: 3, triangles: 200, loadMs: 9_000 });
     expect(evaluateBaseGate(loaded).pass).toBe(true);
   });
+
+  it("tolerates the iPhone's own occasional Safari gaps on a long sample, but not on a short one", () => {
+    // Same ratio as the empty-runtime baseline (16 gaps / 25 600 renders):
+    // a long field session sees a few gaps and should still pass.
+    const longSession = summarizeFrames(
+      [...Array.from({ length: 26_691 - 4 }, () => steady(2)), ...Array.from({ length: 4 }, () => steady(2, 40))],
+      { drawCalls: 115, triangles: 134_456, loadMs: 407 },
+    );
+    expect(longSession.gapsOver25Ms).toBe(4);
+    expect(evaluateBaseGate(longSession).pass).toBe(true);
+
+    // The same 4 hitches over a short sample are not "occasional Safari
+    // noise" anymore relative to the sample size, so they still fail.
+    const shortSession = summarizeFrames(
+      [...Array.from({ length: 76 }, () => steady(2)), ...Array.from({ length: 4 }, () => steady(2, 40))],
+      { drawCalls: 115, triangles: 134_456, loadMs: 407 },
+    );
+    expect(evaluateBaseGate(shortSession).pass).toBe(false);
+  });
 });
