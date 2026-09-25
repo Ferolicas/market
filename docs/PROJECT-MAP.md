@@ -1,5 +1,9 @@
 # Mini Market — mapa vivo
 
+## La versión Godot se juega en `market.olcas.app/play3` — 25-09-2026
+
+La exportación Web del proyecto Godot (`godot/`, 4.7.2, hilos desactivados, sin cambios en el proyecto) se sirve bajo el mismo origen que la app, así que usa la misma API, las mismas cookies de Better Auth y los mismos guardados (`application.gd` toma `window.location.origin` como base de la API en Web). Los 380 MB de la exportación no van en git: `node scripts/export-godot.mjs Web --release` deja `.migration-validation/web/` y se sube con `rsync -az --delete .migration-validation/web/ vps:/var/www/market-godot/web/`; Caddy la sirve con `handle_path /play3/*` (y `redir /play3 /play3/`) delante del `reverse_proxy` de `market.olcas.app`, con las cabeceras del sitio (CSP con `wasm-unsafe-eval`, COOP/COEP). El service worker de la app (`public/sw.js`) ignora `/play3` para no cachear el pack ni sustituir la portada por esa página; la exportación trae su propio service worker con el pack en entradas de 8 MiB.
+
 ## Cliente sin React en la escena (`/play2`): demostración del presupuesto sobre el nivel 30 — 25-09-2026
 
 El propietario comparó el juego con Krunker, Venge, War Brokers, Super Star Car o My Perfect Hotel y fijó una lista de requisitos (presupuesto por cuadro, arte al presupuesto, un solo bucle a 60 Hz sin React en la escena, tick incremental, física simple, entrada unificada) y una prueba de aceptación: tres minutos en la tienda de nivel 30 con apariciones de clientes, paneles, guardado y movimiento. Se aplicó la lista completa como una demostración sobre el nivel 30, en una ruta aparte, sin tocar la producción actual.

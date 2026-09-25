@@ -30,7 +30,9 @@ self.addEventListener("fetch", (event) => {
     }).catch(() => caches.match(request).then((cached) => cached || Response.json(null, { status: 503 }))));
     return;
   }
-  if (request.method !== "GET" || url.pathname.startsWith("/api/")) return;
+  // The Godot web build under /play3/ has its own service worker and a
+  // 340 MB pack: never cache it here nor let its page replace the app shell.
+  if (request.method !== "GET" || url.pathname.startsWith("/api/") || url.pathname.startsWith("/play3")) return;
   if (request.mode === "navigate") {
     event.respondWith(fetch(request).then((response) => {
       if (response.ok) event.waitUntil(caches.open(CACHE).then((cache) => cache.put("/", response.clone())));
