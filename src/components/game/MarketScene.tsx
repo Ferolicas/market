@@ -3,21 +3,19 @@
 import { fixtureAvailable } from "@/game/stations/fixture-availability";
 
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { ContactShadows, Environment, Lightformer, Line, OrthographicCamera, useGLTF } from "@react-three/drei";
+import { ContactShadows, Environment, Lightformer, Line, OrthographicCamera } from "@react-three/drei";
 import { BallCollider, CapsuleCollider, CuboidCollider, CylinderCollider, Physics, RigidBody, useBeforePhysicsStep, useRapier, type RapierCollider, type RapierRigidBody } from "@react-three/rapier";
 import { Fragment, memo, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
 import * as THREE from "three";
 import { Avatar, type CharacterAnimation } from "./Avatar";
 import { MarketRenderProfileContext, useGlassTransmission } from "./MarketRenderProfile";
 import { CityPerimeter } from "./CityPerimeter";
-import { Customer } from "./Customer";
 import { CrowdCustomers, CrowdEmployees, CrowdWarmup } from "./CrowdRenderer";
-import { disposeCharacterMaterials, prepareCharacterModel, priorityCustomerModelPathsForTier, useCharacterModelTier } from "@/game/animation/CharacterPresentation";
 import { KitFarm, KitFurniture } from "./MarketKit";
 import { BasketProduct, HarvestBasket } from "./HarvestBasket";
 import { MarketText as Text } from "./MarketText";
-import { dampFactor, frameDelta, turnTowards } from "@/game/locomotion";
-import type { AvatarConfig, CarryState, CharacterId, CheckoutTransaction, CropState, CustomerRuntimeState, Employee, EmployeeRole, EmployeeRuntimeState, HairId, Inventory, ProductId, ProductionMachineState } from "@/game/types";
+import { dampFactor, frameDelta } from "@/game/locomotion";
+import type { AvatarConfig, CarryState, CheckoutTransaction, CropState, CustomerRuntimeState, Employee, Inventory, ProductId, ProductionMachineState } from "@/game/types";
 import { scaleStorePoint, scaleStorePosition, STORE_ELEMENT_SCALE, STORE_LAYOUT_SCALE, storeObstaclesForAreas, WORLD_SCALE } from "@/game/world-scale";
 import { inputManager } from "@/game/input/InputManager";
 import { InteractionDirector } from "@/game/interaction/InteractionDirector";
@@ -28,12 +26,11 @@ import { safeCanvasEvents } from "./safeCanvasEvents";
 import { PerformanceMonitor } from "@/game/debug/PerformanceMonitor";
 import { marketPerformanceBaselineEnabled, marketPerformanceProbeEnabled } from "@/game/debug/QaAccess";
 import { createWalkableStoreGeometry, storePathfinder } from "@/game/navigation/NavMeshService";
-import { captureEmployeeMotion, projectCustomerMotion, type CustomerMotionSnapshot } from "@/game/animation/CustomerVisualMotion";
-import { ADULT_CHARACTER_SCENE_SCALE, characterSceneScale, CHILD_CHARACTER_SCENE_SCALE } from "@/game/animation/CharacterScale";
+import { characterSceneScale, CHILD_CHARACTER_SCENE_SCALE } from "@/game/animation/CharacterScale";
 import { CHECKOUT_CAMERA_FRAME, CHECKOUT_CAMERA_POSITION as CHECKOUT_CAMERA_POSITION_COORDS, CHECKOUT_CAMERA_TARGET as CHECKOUT_CAMERA_TARGET_COORDS, CHECKOUT_LANE_IDS, checkoutAreaForLane, checkoutQueuePosition } from "@/game/stations/checkout-layout";
 import { isStockingInteractionId, PRODUCT_RETAIL_DEPARTMENT, retailDepartmentFromStockingInteraction, retailDisplayPosition, retailFixtureDisplayPositions, retailStockingMagnets, retailStockFixtureSlot, retailStockLandingLocalPosition, RETAIL_DEPARTMENT_IDS, RETAIL_DEPARTMENTS, stockingInteractionId, type StockingInteractionId } from "@/game/stations/retail-layout";
 import { isWorkstationId, isWorkstationUnlocked, WORKSTATIONS, WORKSTATION_IDS, type WorkstationId } from "@/game/stations/workstation-layout";
-import { farmAnimalMagnet, farmInteractionId, farmPlotById, FARM_ACCESS_WAYPOINTS, FARM_BARN, FARM_GATE, FARM_PLOTS, FARM_WORKER_HOME, scaledFarmHarvestSensor, type FarmInteractionId } from "@/game/stations/farm-layout";
+import { farmAnimalMagnet, farmInteractionId, farmPlotById, FARM_ACCESS_WAYPOINTS, FARM_BARN, FARM_GATE, FARM_PLOTS, scaledFarmHarvestSensor, type FarmInteractionId } from "@/game/stations/farm-layout";
 import { carryTotal, preferredStockingProduct } from "@/game/player/CarrySystem";
 import {
   advanceRearDoorMotion,
@@ -52,7 +49,7 @@ import { WAREHOUSE_ORDERS_TERMINAL, WAREHOUSE_RETURN_STATION } from "@/game/stat
 import { isProductionWorkstationId, productionMachineMagnet, PRODUCTION_WORKSTATION_IDS } from "@/game/stations/production-layout";
 import { ADAPTIVE_QUALITY_GRACE_MS, advanceAdaptiveQuality, DisplayCadenceEstimator, MotionCadenceController, INITIAL_ADAPTIVE_QUALITY_STATE, legacyMobileRenderProfile, marketRenderProfileForCapabilities, MOBILE_ADAPTIVE_QUALITY, MOBILE_MOTION_ADAPTIVE_QUALITY, presentationDivisor, recoveredDpr, regressedDpr, type MarketRenderProfile } from "@/game/render/AdaptiveQuality";
 import { createStaticMeshBatch } from "@/game/render/StaticMeshBatch";
-import { customerPresentationKey, employeePresentationKey, liveActors, publishLiveActors } from "@/game/render/LiveActors";
+import { liveActors, publishLiveActors } from "@/game/render/LiveActors";
 import { daylightPresentation } from "@/game/time/BusinessDay";
 import { flushRecoverySnapshot } from "@/game/persistence/RecoveryStorage";
 import { OVERVIEW_CAMERA_OFFSET } from "@/game/render/overview-camera";
@@ -325,10 +322,10 @@ export const MarketScene = memo(function MarketScene({ avatar, carry, visualCarr
                   : null)}
           {debug && <DebugWorld customers={customers} crops={crops} unlockedAreas={unlockedAreas} />}
         </Suspense>
-        <group name="perf:employees"><Suspense fallback={null}>{LEGACY_CROWD ? <Employees employees={employees} /> : <CrowdEmployees employees={employees} />}</Suspense></group>
+        <group name="perf:employees"><Suspense fallback={null}><CrowdEmployees employees={employees} /></Suspense></group>
         <group name="perf:customers">
-          {!castWarmed && (LEGACY_CROWD ? <CustomerWarmup /> : <Suspense fallback={null}><CrowdWarmup position={[PLAYER_START[0], 0.2, PLAYER_START[2]]} /></Suspense>)}
-          {LEGACY_CROWD ? <Customers customers={customers} checkoutTransactions={checkoutTransactions} /> : <Suspense fallback={null}><CrowdCustomers customers={customers} /></Suspense>}
+          {!castWarmed && <Suspense fallback={null}><CrowdWarmup position={[PLAYER_START[0], 0.2, PLAYER_START[2]]} /></Suspense>}
+          <Suspense fallback={null}><CrowdCustomers customers={customers} /></Suspense>
         </group>
         <group name="perf:contact-shadows"><StaticContactShadows frames={1} position={[0, 0.015, 2 * STORE_LAYOUT_SCALE]} opacity={0.24} scale={34 * STORE_LAYOUT_SCALE} blur={2.6} far={8} /></group>
       </group>
@@ -1663,28 +1660,6 @@ function activeCropIdsFromSignature(cropSignature: string) {
   return cropSignature.split("|").filter((entry) => entry.endsWith(":1")).map((entry) => entry.slice(0, -2));
 }
 
-/**
- * Decodes, uploads and compiles the first customer bodies while the loading
- * screen still covers the canvas. The Suspense cache, GPU textures and shader
- * programs outlive the unmount, so a spawn during play is a skeleton clone
- * plus a few material clones instead of a multi-frame stall.
- */
-function CustomerWarmup() {
-  const modelTier = useCharacterModelTier();
-  return <Suspense fallback={null}>
-    {priorityCustomerModelPathsForTier(modelTier).map((path) => <WarmCustomerBody key={path} path={path} reducedDetail={modelTier > 0} />)}
-  </Suspense>;
-}
-
-function WarmCustomerBody({ path, reducedDetail }: { path: string; reducedDetail: boolean }) {
-  const gltf = useGLTF(path);
-  const model = useMemo(() => prepareCharacterModel(gltf.scene, { crowd: true, reducedDetail }), [gltf.scene, reducedDetail]);
-  useEffect(() => () => disposeCharacterMaterials(model), [model]);
-  // Tiny but inside the opening frustum: the first real draw is what uploads
-  // the atlas and binds the skinned physical program.
-  return <primitive object={model} position={[PLAYER_START[0], 0.2, PLAYER_START[2]]} scale={0.002} dispose={null} />;
-}
-
 function InteractionSensorCollider({ zone }: { zone: InteractionZoneConfig }) {
   const centerY = 0.6 * WORLD_SCALE;
   const name = `interaction:${zone.id}`;
@@ -1990,110 +1965,3 @@ const MarketBuilding = memo(function MarketBuilding({ open, doorMotion }: { open
   </group>;
 });
 
-function Employees({ employees }: { employees: Employee[] }) {
-  const rolePositions: Record<EmployeeRole, [number, number, number]> = {
-    farmer: scaleStorePosition([FARM_WORKER_HOME[0], 0, FARM_WORKER_HOME[1]]),
-    feeder: scaleStorePosition([FARM_WORKER_HOME[0] + 1.4, 0, FARM_WORKER_HOME[1]]),
-    operator: scaleStorePosition([-4.8, 0, -0.9]),
-    stocker: scaleStorePosition([0, 0, -2.2]),
-    cashier: scaleStorePosition([4.7, 0, 2.2]),
-    builder: scaleStorePosition([2.9, 0, -4.5]),
-    manager: scaleStorePosition([5.4, 0, -3.6]),
-  };
-  const bodies: CharacterId[] = ["adult-woman", "adult-man", "adult-woman", "adult-man"];
-  const hair: HairId[] = ["ponytail", "fade", "bun", "waves"];
-  return <>{employees.map((employee, index) => <Npc key={employee.id} employee={employee} presentationKey={employeePresentationKey(employee)} position={rolePositions[employee.role]} color={["#e7a959", "#6b9fc8", "#b56fa6", "#70a85d"][index % 4]} body={bodies[index % bodies.length]} hair={hair[index % hair.length]} />)}</>;
-}
-
-/** One employee body. Re-renders only when its presentation key changes;
- * every world tick's fresh runtime snapshot is picked up inside the frame
- * callback from the live actor map, so five bodies no longer reconcile their
- * whole avatar tree at 5 Hz. */
-// One body kind per draw call, skinned on the GPU from baked clips. The old
-// per-character path stays behind a flag for A/B measurement only.
-const LEGACY_CROWD = process.env.NEXT_PUBLIC_MARKET_LEGACY_CROWD === "1";
-
-const Npc = memo(function Npc({ employee, position, color, body = "adult-man", hair = "side-part" }: { employee: Employee; presentationKey: string; position: [number, number, number]; color: string; body?: CharacterId; hair?: HairId }) {
-  const ref = useRef<THREE.Group>(null);
-  const visualFrame = useRef(0);
-  const motionSnapshot = useRef<CustomerMotionSnapshot | null>(employee.runtime ? captureEmployeeMotion(employee.runtime, runtimeNowMs()) : null);
-  const snapshotSource = useRef<EmployeeRuntimeState | undefined>(employee.runtime);
-  const motion = useRef({ speed: 0, locomotionSpeed: 0, yawDelta: 0 });
-  const roleAnimation: Record<EmployeeRole, CharacterAnimation> = { farmer: "Harvest", feeder: "PickupLow", operator: "LiftBox", stocker: "StockHigh", cashier: "ScanItem", builder: "CarryBox", manager: "Wave" };
-  const moving = employee.runtime?.state === "NAVIGATE_PICKUP" || employee.runtime?.state === "NAVIGATE_DROPOFF" || employee.runtime?.state === "NAVIGATE_RETURN" || employee.runtime?.state === "NAVIGATE_CHECKOUT";
-  useEffect(() => {
-    return () => {
-      const qaWindow = window as typeof window & { __MARKET_QA__?: Record<string, unknown> };
-      const visuals = qaWindow.__MARKET_QA__?.employeeVisuals as Record<string, unknown> | undefined;
-      if (visuals) delete visuals[employee.id];
-    };
-  }, [employee.id]);
-  useFrame((_, delta) => {
-    const runtime = liveActors.employees.get(employee.id) ?? employee.runtime;
-    if (runtime !== snapshotSource.current) {
-      snapshotSource.current = runtime;
-      motionSnapshot.current = runtime ? captureEmployeeMotion(runtime, runtimeNowMs()) : null;
-    }
-    if (!ref.current || !runtime || !motionSnapshot.current) return;
-    visualFrame.current += 1;
-    const projected = projectCustomerMotion(motionSnapshot.current, runtimeNowMs());
-    const [x, z] = scaleStorePoint([projected.x, projected.z]);
-    const previousX = ref.current.position.x; const previousZ = ref.current.position.z;
-    // The NavMesh projection is already continuous. A second lerp made workers
-    // trail each snapshot and visibly brake before the next one arrived.
-    ref.current.position.x = x;
-    ref.current.position.z = z;
-    const visualSpeed = Math.hypot(x - previousX, z - previousZ) / Math.max(0.001, frameDelta(delta));
-    motion.current.speed = visualSpeed;
-    motion.current.locomotionSpeed = visualSpeed / STORE_LAYOUT_SCALE;
-    if (moving && Math.hypot(projected.headingX, projected.headingZ) > 0.5) {
-      const heading = Math.atan2(projected.headingX, projected.headingZ);
-      motion.current.yawDelta = heading - ref.current.rotation.y;
-      ref.current.rotation.y = turnTowards(ref.current.rotation.y, heading, frameDelta(delta) * 3);
-    } else if (employee.role === "cashier" && (runtime.state === "OPERATE_CHECKOUT" || runtime.state === "WAIT_CHECKOUT_STATION")) {
-      ref.current.rotation.y = turnTowards(ref.current.rotation.y, Math.PI, frameDelta(delta) * 3.5);
-    }
-    const qaWindow = window as typeof window & { __MARKET_QA__?: Record<string, unknown> };
-    if (qaWindow.__MARKET_QA__) {
-      const visuals = (qaWindow.__MARKET_QA__.employeeVisuals ??= {}) as Record<string, unknown>;
-      visuals[employee.id] = {
-        visualFrame: visualFrame.current,
-        role: employee.role,
-        level: employee.level,
-        state: runtime.state,
-        x: ref.current.position.x,
-        z: ref.current.position.z,
-        speed: motionSnapshot.current.speed,
-        snapshotCapturedAtMs: motionSnapshot.current.capturedAtMs,
-        configuredSpeed: runtime.speed,
-      };
-    }
-  });
-  const interaction = employee.runtime?.state === "PICKUP" || employee.runtime?.state === "DROPOFF" || employee.runtime?.state === "RETURN_TO_WAREHOUSE" || employee.runtime?.state === "OPERATE_CHECKOUT";
-  const interactionAnimation = employee.runtime?.state === "RETURN_TO_WAREHOUSE" ? "StockLow" : roleAnimation[employee.role];
-  const carried = employee.runtime?.carry;
-  return <group ref={ref} position={position}><Avatar skin="#a96f50" shirt={color} hairColor="#3b2820" hat={employee.hat} body={body} hair={hair} scale={ADULT_CHARACTER_SCENE_SCALE} walking={moving} carrying={Boolean(carried && carryTotal(carried) > 0)} carryAccessory={carried && carryTotal(carried) > 0 ? <HarvestBasket carry={carried} /> : undefined} motion={motion} animation={interaction ? interactionAnimation : undefined} feedbackSource="npc" feedbackActorId={employee.id} /></group>;
-}, (previous, next) => previous.presentationKey === next.presentationKey
-  && previous.color === next.color
-  && previous.body === next.body
-  && previous.hair === next.hair
-  && previous.position[0] === next.position[0]
-  && previous.position[1] === next.position[1]
-  && previous.position[2] === next.position[2]);
-
-function Customers({ customers, checkoutTransactions }: { customers: CustomerRuntimeState[]; checkoutTransactions: CheckoutTransaction[] }) {
-  return <>{customers.map((customer) => {
-    const checkoutTransaction = customer.transactionId ? checkoutTransactions.find((transaction) => transaction.id === customer.transactionId) : undefined;
-    return <Suspense key={customer.id} fallback={null}>
-      <Customer
-        customer={customer}
-        checkoutTransaction={checkoutTransaction}
-        presentationKey={customerPresentationKey(customer, checkoutTransaction)}
-      />
-    </Suspense>;
-  })}</>;
-}
-
-function runtimeNowMs() {
-  return typeof performance === "undefined" ? Date.now() : performance.now();
-}

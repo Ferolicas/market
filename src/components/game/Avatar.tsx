@@ -10,7 +10,7 @@ import { CLIP_NATURAL_SPEED, gaitTimeScale, locomotionGroundingSupport, Locomoti
 import { FacialController, type FaceExpression } from "@/game/animation/FacialController";
 import { feedbackBus, type FeedbackSource } from "@/game/feedback/FeedbackBus";
 import { FootGroundingController } from "@/game/animation/FootGroundingController";
-import { characterFaceUpdateInterval, characterIsInView, characterModelPathForTier, createCharacterVisibilityScratch, disposeCharacterMaterials, prepareCharacterModel, priorityCustomerModelPathsForTier, scheduleCharacterModelPreload, useCharacterModelTier } from "@/game/animation/CharacterPresentation";
+import { characterFaceUpdateInterval, characterIsInView, characterModelPathForTier, createCharacterVisibilityScratch, disposeCharacterMaterials, prepareCharacterModel, useCharacterModelTier } from "@/game/animation/CharacterPresentation";
 import { CHARACTER_PALM_OFFSETS, composeCarryAnimations, createCarrySocketScratch, handPalmPoint, HARVEST_BASKET_GRIP_HALF_WIDTH, HARVEST_BASKET_GRIP_HEIGHT, HARVEST_BASKET_GRIP_REACH, mountedHarvestBasketHandle, placeCarrySocket, updateHarvestBasketHandle } from "@/game/animation/CarrySocket";
 import { MARKET_QA_BUILD_ENABLED, marketQaQueryEnabled } from "@/game/debug/QaAccess";
 import { maskedHairGeometry } from "@/game/animation/AvatarHairMask";
@@ -278,10 +278,6 @@ function RiggedAvatar({
   useEffect(() => {
     mixerRef.current = mixer;
   }, [mixer]);
-
-  useEffect(() => {
-    scheduleCharacterModelPreload(priorityCustomerModelPathsForTier(modelTier), (path) => useGLTF.preload(path));
-  }, [modelTier]);
 
   useEffect(() => {
     locomotion.current.transition(actions, fallbackClip, fallbackClip === "Idle" ? idleAnimationSpeed ?? animationSpeed ?? 1 : animationSpeed ?? 1);

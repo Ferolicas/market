@@ -21,10 +21,10 @@ import { dampFactor, frameDelta, turnTowards } from "@/game/locomotion";
 import { scaleStorePoint, STORE_ELEMENT_SCALE, STORE_LAYOUT_SCALE } from "@/game/world-scale";
 import { checkoutCustomerFacingYaw, checkoutParkedCart } from "@/game/stations/checkout-layout";
 import { PRODUCT_RETAIL_DEPARTMENT, retailDisplayPosition } from "@/game/stations/retail-layout";
-import { marketQaQueryEnabled } from "@/game/debug/QaAccess";
+import { MARKET_QA_BUILD_ENABLED, marketQaQueryEnabled } from "@/game/debug/QaAccess";
 import { carriedProductIds, carryQuantity, carryTotal, MAX_WAREHOUSE_PICKUP_BATCH } from "@/game/player/CarrySystem";
 import { deliveredModelPath, deliveredProductId } from "./DeliveredModel";
-import { CART_BAY_POSITION, CART_HANDLE_BASE_WIDTH, CART_HANDLE_Y, CART_HANDLE_Z, CART_SCALE, CUSTOMER_SCALE, PICKUP_HEIGHT, customerAnimation, productPickupLateralOffset } from "./Customer";
+import { CART_BAY_POSITION, CART_HANDLE_BASE_WIDTH, CART_HANDLE_Y, CART_HANDLE_Z, CART_SCALE, CUSTOMER_SCALE, PICKUP_HEIGHT, customerAnimation, productPickupLateralOffset } from "./CustomerPresentation";
 import { CART_BAG_PARTS, CART_BASKET_SOCKET, CART_CASTER_PART, CART_CASTER_POSITIONS, CART_CHASSIS_PARTS, CART_WHEEL_PART, GROUND_SHADOW_PARTS, HAND_BAG_PARTS, HARVEST_BASKET_PARTS, accessoryParts, basketProductParts, cartProductSlot, deliveredProductParts, harvestProductSlot } from "./CrowdProps";
 
 /**
@@ -115,6 +115,11 @@ const scratch = {
 
 /** `window.__MARKET_QA__.customerVisuals` / `employeeVisuals` when a debug
  * QA page reads them (the old components published the same records). */
+/** QA ablation (`MARKET_PERF_EXPERIMENT=no-anim`): poses stop advancing. */
+function animationFrozen() {
+  return MARKET_QA_BUILD_ENABLED && typeof window !== "undefined" && Boolean((window as Window & { __MARKET_PERF_NO_ANIM__?: boolean }).__MARKET_PERF_NO_ANIM__);
+}
+
 function qaVisualsMap(key: "customerVisuals" | "employeeVisuals"): Record<string, unknown> | null {
   if (typeof window === "undefined") return null;
   const qaWindow = window as typeof window & { __MARKET_QA__?: Record<string, unknown> };
@@ -318,6 +323,7 @@ export function CrowdCustomers({ customers }: { customers: readonly CustomerRunt
     const frameNow = nowMs();
     const dt = frameDelta(delta);
     const qaVisuals = qaVisualsMap("customerVisuals");
+    const frozen = animationFrozen();
     for (const body of bodies.values()) body.count = 0;
     for (const instancer of props.values()) instancer.begin();
     for (const instancer of delivered.values()) instancer.begin();
@@ -379,7 +385,7 @@ export function CrowdCustomers({ customers }: { customers: readonly CustomerRunt
       const runsFree = actor.snapshot.speed * STORE_LAYOUT_SCALE > 2.4 * CLIP_NATURAL_SPEED.Walk * scale;
       const clip = customerAnimation(customer, clock.elapsedTime, Boolean(checkoutLoading), runsFree) as CrowdClipName;
       const timeScale = LOCOMOTION_CLIPS.has(clip) ? crowdGaitTimeScale(clip, speed, CLIP_NATURAL_SPEED[clip], scale) : 1;
-      actor.pose = advanceCrowdPose(actor.pose, clip, dt, timeScale, body.animation.manifest);
+      if (!frozen) actor.pose = advanceCrowdPose(actor.pose, clip, dt, timeScale, body.animation.manifest);
       const rows = crowdPoseRows(actor.pose, body.animation.manifest);
 
       // Body: root at the floor, facing its heading, leaning into turns and
@@ -604,6 +610,7 @@ export function CrowdEmployees({ employees }: { employees: readonly Employee[] }
     const frameNow = nowMs();
     const dt = frameDelta(delta);
     const qaVisuals = qaVisualsMap("employeeVisuals");
+    const frozen = animationFrozen();
     for (const body of bodies.values()) body.count = 0;
     for (const instancer of props.values()) instancer.begin();
     for (const instancer of hats.values()) instancer.begin();
@@ -649,7 +656,7 @@ export function CrowdEmployees({ employees }: { employees: readonly Employee[] }
         ? (runtime.state === "RETURN_TO_WAREHOUSE" ? "StockLow" : ROLE_ANIMATION[employee.role])
         : actor.locomotion.select(speed, yawDelta, carrying, walkFloor) as CrowdClipName;
       const timeScale = LOCOMOTION_CLIPS.has(clip) ? crowdGaitTimeScale(clip, speed, CLIP_NATURAL_SPEED[clip], rootScale) : 1;
-      actor.pose = advanceCrowdPose(actor.pose, clip, dt, timeScale, body.animation.manifest);
+      if (!frozen) actor.pose = advanceCrowdPose(actor.pose, clip, dt, timeScale, body.animation.manifest);
       const rows = crowdPoseRows(actor.pose, body.animation.manifest);
 
       scratch.yaw.setFromAxisAngle(scratch.yAxis, actor.yaw);
