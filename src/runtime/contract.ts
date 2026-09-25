@@ -56,6 +56,39 @@ export const RUNTIME_PHASE3_BASELINE = {
 } as const;
 
 /**
+ * Official iPhone baseline of phase 4 (phase 3's store plus the real level-30
+ * crowd — 24 customers + 19 employees, bodies + skinning only, no props).
+ * Approved 2026-09-25 from the second, undisturbed reading: touching Safari
+ * chrome (rotation, control centre, screenshot, app switch) inflates
+ * `gapsOver25Ms` on its own; a stationary phone barely shows any. The crowd
+ * adds ~1.0 ms to p99 over RUNTIME_PHASE3_BASELINE and does not regress
+ * frame pacing. Open question, not yet answered: `loadMs` rose 407 -> 1347 ms
+ * even though `crowdReadyMs` (1480 ms) loads on its own promise — worth
+ * checking later whether the parallel 18.43 MB crowd download contends with
+ * the store's own network/decode time on the phone.
+ */
+export const RUNTIME_PHASE4_BASELINE = {
+  build: "a6ac3cb",
+  workAverageMs: 2.4,
+  workP95Ms: 2.7,
+  workP99Ms: 3.1,
+  workMaxMs: 16.7,
+  workOver16: 0,
+  gapAverageMs: 16.7,
+  gapP95Ms: 17,
+  gapP99Ms: 17,
+  gapMaxMs: 26,
+  gapsOver25Ms: 1,
+  renders: 20_349,
+  rafs: 20_349,
+  drawCalls: 123,
+  triangles: 214_632,
+  loadMs: 1_347,
+  crowdReadyMs: 1_480,
+  crowdBytes: 18_430_000,
+} as const;
+
+/**
  * Occasional Safari refresh gaps are normal even for trivial work (see
  * RUNTIME_IPHONE_BASELINE: 16 gaps over 25 ms across 25 600 renders on the
  * empty runtime). Demanding an absolute zero fails real sessions for a

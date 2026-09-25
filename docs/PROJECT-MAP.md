@@ -1,5 +1,11 @@
 # Mini Market — mapa vivo
 
+## Fase 4 aprobada: la multitud real (24 clientes + 19 empleados) mide +1,0 ms de p99 — 25-09-2026
+
+Medición oficial del iPhone (build `a6ac3cb`, segunda lectura, teléfono quieto — la primera lectura tocando Safari en vivo, control de centro, capturas, cambio de app, infla `gapsOver25Ms` por sí solo; con el teléfono quieto casi desaparecen), guardada como `RUNTIME_PHASE4_BASELINE` en `src/runtime/contract.ts`: trabajo 2,4 / 2,7 / 3,1 ms (medio/p95/p99), máximo 16,7 ms, 0 trabajos > 16,7 ms; hueco 16,7 / 17 / 17 ms, máximo 26 ms, 1 hueco > 25 ms de 20 349; 123 draws, 214 632 triángulos, 1 347 ms hasta el primer cuadro, 1 480 ms hasta que la multitud está lista, 18,43 MB de descarga de multitud. Frente a `RUNTIME_PHASE3_BASELINE`, la multitud añade **~1,0 ms al p99** y no degrada el ritmo de presentación. Draw calls, triángulos y cuerpos cumplen con mucho margen — no se optimiza nada de eso solo por bajar un número.
+
+**Pregunta abierta, no resuelta, para una fase de carga futura (no la siguiente fase de render):** `loadMs` (primer cuadro del local) subió de 407 ms a 1 347 ms pese a que `crowdReadyMs` es una promesa independiente que no bloquea el arranque del bucle. Falta comprobar si la descarga en paralelo de los 18,43 MB de la multitud compite por ancho de banda/decodificación con la descarga del local (2,2 MB) en el teléfono real, aunque a nivel de promesas estén desacopladas.
+
 ## Fase 4 en medición: la multitud sobre el local horneado, aislada del local — 25-09-2026
 
 Sobre la fase 3 ya aprobada (`level30.glb` corregido), se añadió únicamente la carga real de una tienda de nivel 30: **43 actores sintéticos** (24 clientes + 19 empleados), calculados a partir del código de producción, no de una cifra redonda:
