@@ -98,6 +98,7 @@ export function GameRuntime() {
           tickCount: ticks.length,
           tickP95Ms: ticks.length ? Math.round([...ticks].sort((a, b) => a - b)[Math.min(ticks.length - 1, Math.floor(ticks.length * 0.95))] * 10) / 10 : null,
           tickMaxMs: ticks.length ? Math.round(Math.max(...ticks) * 10) / 10 : null,
+          build: process.env.NEXT_PUBLIC_BUILD_ID ?? null,
           motionFps: motionCadence?.fps ?? null,
           motionLevel: motionCadence?.level ?? null,
           refreshHz: motionCadence?.refreshHz ?? null,
@@ -190,10 +191,16 @@ export function GameRuntime() {
     if (!own || own === "dev") return;
     let stale = false;
     let unsubscribe: (() => void) | null = null;
-    const reloadWhenSaved = () => {
-      if (!stale) return;
-      const { saveStatus: status, pendingEvents } = useMarketStore.getState();
-      if (status === "saved" && pendingEvents.length === 0) window.location.reload();
+    // While the store is open every tick dirties the state again before the
+    // save round trip returns, so "saved" never holds. A confirmed save is
+    // enough: the local recovery snapshot carries the few ticks after it and
+    // the next load reconciles them.
+    const reloadAfterSave = (confirmedAt: number) => async () => {
+      if (!stale || useMarketStore.getState().lastSaveConfirmedAt <= confirmedAt) return;
+      unsubscribe?.();
+      unsubscribe = null;
+      await flushRecoverySnapshot();
+      window.location.reload();
     };
     const check = async () => {
       if (document.visibilityState !== "visible" || stale) return;
@@ -202,8 +209,8 @@ export function GameRuntime() {
         const health = await response.json() as { build?: string };
         if (typeof health.build === "string" && health.build !== "dev" && health.build !== own) {
           stale = true;
-          unsubscribe ??= useMarketStore.subscribe(reloadWhenSaved);
-          reloadWhenSaved();
+          unsubscribe ??= useMarketStore.subscribe(reloadAfterSave(useMarketStore.getState().lastSaveConfirmedAt));
+          void useMarketStore.getState().saveGame();
         }
       } catch { /* offline: nothing to update to */ }
     };

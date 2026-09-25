@@ -1,5 +1,9 @@
 # Mini Market — mapa vivo
 
+## La actualización automática no llegaba a disparar en plena partida — 25-09-2026
+
+La sesión siguiente al despliegue de `7b343e0` seguía creando las líneas de caja en orden de recogida: el teléfono aún corría `73ba869`. Su mecanismo de recarga esperaba `saveStatus === "saved"` sin eventos pendientes, pero con la tienda abierta cada tick vuelve a marcar el estado como `dirty` antes de que responda el `PUT`, así que ese momento no llega nunca mientras se juega. Ahora, al detectar una build más nueva, `GameRuntime` pide un guardado y recarga en cuanto `lastSaveConfirmedAt` avanza (tras vaciar el snapshot de recuperación; los pocos ticks posteriores al guardado los reconcilia la carga siguiente). La ventana de telemetría incluye `build` para no volver a adivinar qué código ejecuta un teléfono. Sesión medida con `73ba869`: 22 clientes, 19 empleados, 132 cuadros lentos por minuto, tick p95 2,9 ms.
+
 ## Primera sesión con la build real: 46 cuadros lentos por minuto, el tick no es el tirón, y la última fuente de discrepancias era el orden de claves de jsonb — 25-09-2026
 
 Sesión del propietario abierta desde Safari con la build `73ba869` (25 clientes en el local visitado, 19 empleados, tres tiendas abiertas a la vez): media 17,7 ms, p95 20 ms, **46 cuadros de más de 25 ms por minuto** (antes 222–277), `refreshHz` 60 y `motionFps` 30 (`motionLevel` 1: la cadencia adaptativa bajó a un ritmo estable). El tick autoritativo cuesta **p95 3 ms, máximo 30 ms** con 245 ticks por minuto: no es el tirón principal; queda como pico ocasional.
