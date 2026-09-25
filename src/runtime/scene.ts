@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { budgetPath, loadGltf } from "@/client/WorldAssets";
 import { accessoryParts } from "@/components/game/CrowdProps";
-import type { CharacterId, HatId } from "@/game/types";
+import type { CharacterId, Employee, HatId } from "@/game/types";
 import { PartsInstancer } from "@/game/render/CrowdParts";
 import { loadCrowdAnimation } from "@/game/render/CrowdSkinning";
 import {
@@ -18,13 +18,7 @@ import {
   employeeBodyOf,
   firstSkinnedMesh,
 } from "@/game/render/CrowdSystems";
-import { RUNTIME_CONTRACT } from "./contract";
 import { createSyntheticEmployeeRoster } from "./crowdFeed";
-
-/** Phase 6: a single hat kind for every employee — diversity across the 12
- * kinds is its own later variable, not this one. Matches the roster's own
- * synthetic `hat` field in `crowdFeed.ts` (left untouched). */
-const RUNTIME_HAT: HatId = "red-panda";
 
 export interface SceneStats {
   drawCalls: number;
@@ -100,11 +94,14 @@ export class PlaceholderScene {
    * from a baked bone texture. Phase 5 adds exactly the rigid transported
    * props (customer cart, employee basket) filtered out of
    * `CUSTOMER_PROP_DEFINITIONS`/`EMPLOYEE_PROP_DEFINITIONS` — no shadow, bags,
-   * hats or product instancers. Phase 6 adds one hat kind for every employee
-   * (`loadEmployeeHats`, same pattern as `/play2`'s `ClientRuntime`) — still
-   * no diversity across the 12 kinds, that is its own later variable.
+   * hats or product instancers. Phase 6 added one hat kind for every employee;
+   * phase 7 makes the roster's own `hat` field diverse (12 kinds,
+   * round-robin, from `crowdFeed.ts`) and loads exactly the body:hat
+   * combinations that actually occur — same `loadEmployeeHats` pattern as
+   * `/play2`'s `ClientRuntime`, generic this time instead of one fixed kind.
    */
   private async loadCrowd() {
+    const roster = createSyntheticEmployeeRoster();
     const [loaded] = await Promise.all([
       Promise.all([
         ...Object.values(CUSTOMER_BODY_KEYS).map(async (key) => {
@@ -118,7 +115,7 @@ export class PlaceholderScene {
           return skinned ? { key, target: "employee" as const, body: createCrowdBody(skinned, animation, key) } : null;
         }),
       ]),
-      this.loadEmployeeHats(),
+      this.loadEmployeeHats(roster),
     ]);
     if (this.disposed) return;
     for (const entry of loaded) {
@@ -129,7 +126,7 @@ export class PlaceholderScene {
     }
     this.customers.attachTo(this.crowdRoot);
     this.employees.attachTo(this.crowdRoot);
-    this.employees.setEmployees(createSyntheticEmployeeRoster());
+    this.employees.setEmployees(roster);
     const { cart, caster, wheel } = CUSTOMER_PROP_DEFINITIONS();
     const { basket } = EMPLOYEE_PROP_DEFINITIONS();
     const disposeCustomerProps = createPropInstancers(this.crowdRoot, { cart, caster, wheel }, this.customers.props);
@@ -143,19 +140,22 @@ export class PlaceholderScene {
     this.crowdBytes = measureCrowdBytes();
   }
 
-  /** One hat kind, one GLB per employee body variant actually in use (2:
-   * owner_man/owner_woman) — exactly `ClientRuntime.loadEmployeeHats`'s
-   * pattern, registered into the same `employees.hats` map it already reads. */
-  private async loadEmployeeHats() {
-    const bodies = new Set<CharacterId>();
-    for (let index = 0; index < RUNTIME_CONTRACT.crowdEmployeeActors; index += 1) bodies.add(employeeBodyOf(index));
-    const file = HAT_FILES[RUNTIME_HAT];
-    await Promise.all([...bodies].map(async (body) => {
+  /**
+   * Exactly `ClientRuntime.loadEmployeeHats`'s pattern: one GLB per body:hat
+   * combination that actually appears in the roster, no more — with 19
+   * employees round-robin over 12 kinds and 2 body variants, that is at most
+   * min(19, 12*2) combinations, not a forced 12*2=24.
+   */
+  private async loadEmployeeHats(roster: readonly Employee[]) {
+    const wanted = new Set(roster.map((employee, index) => `${employeeBodyOf(index)}:${employee.hat}`));
+    await Promise.all([...wanted].map(async (key) => {
+      const [body, hat] = key.split(":") as [CharacterId, HatId];
+      const file = HAT_FILES[hat];
       const gltf = await loadGltf(budgetPath("hats", file, body)).catch(() => null);
       if (!gltf || this.disposed) return;
-      const instancer = new PartsInstancer(accessoryParts(gltf.scene), PROP_CAPACITY, `runtime-hat:${body}`);
+      const instancer = new PartsInstancer(accessoryParts(gltf.scene), PROP_CAPACITY, `runtime-hat:${key}`);
       instancer.attach(this.crowdRoot);
-      this.employees.hats.set(`${body}:${RUNTIME_HAT}`, instancer);
+      this.employees.hats.set(key, instancer);
       this.hatInstancers.push(instancer);
     }));
   }

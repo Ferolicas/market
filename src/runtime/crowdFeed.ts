@@ -1,7 +1,11 @@
-import type { CustomerRuntimeState, Employee, EmployeeRole, EmployeeRuntimeState } from "@/game/types";
+import type { CustomerRuntimeState, Employee, EmployeeRole, EmployeeRuntimeState, HatId } from "@/game/types";
 import { publishLiveActors } from "@/game/render/LiveActors";
+import { HAT_FILES } from "@/game/render/CrowdSystems";
 import { RUNTIME_CONTRACT } from "./contract";
 import { POSE_STRIDE, writePlaceholderPose, type SnapshotStepListener } from "./snapshot";
+
+/** All 12 hat kinds, in a fixed order — the diversity phase's round-robin source. */
+const HAT_IDS = Object.keys(HAT_FILES) as HatId[];
 
 /**
  * Data adapter (phase 4, extended in phase 5 with a constant cart/basket):
@@ -38,8 +42,8 @@ export function createSyntheticEmployeeRoster(): Employee[] {
     level: 1,
     salaryMinor: 0,
     energy: 1,
-    // Never rendered: phase 4 loads no hat instancers. Any valid id satisfies the type.
-    hat: "red-panda",
+    // Diversity phase: round-robin through all 12 kinds, deterministic by index.
+    hat: HAT_IDS[index % HAT_IDS.length],
   }));
 }
 

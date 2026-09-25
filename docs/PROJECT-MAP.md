@@ -1,5 +1,13 @@
 # Mini Market — mapa vivo
 
+## Fase 7 en medición: diversidad de gorros, los 12 tipos — 26-09-2026
+
+Sobre la fase 6 ya aprobada (un gorro constante), se aísla la variable de diversidad de assets: los 19 empleados dejan de compartir `hat: "red-panda"` y reciben uno de los 12 tipos de `HAT_FILES` por round-robin determinista (`hat: HAT_IDS[index % 12]` en `crowdFeed.ts`). `scene.ts::loadEmployeeHats()` deja de fijar un tipo único y pasa a reproducir exactamente el patrón genérico de `ClientRuntime.loadEmployeeHats()` de `/play2`: un `Set` de claves `${employeeBodyOf(index)}:${employee.hat}` a partir del roster real, cargando solo las combinaciones que existen de verdad.
+
+**Resultado exacto** (round-robin de 19 empleados sobre body%4 y hat%12): las combinaciones cuerpo:gorro se repiten con periodo 12 (mcm de 4 y 12), así que salen **12 combinaciones únicas** — cada uno de los 12 gorros aparece con un solo cuerpo (6 con `owner_woman`, 6 con `owner_man`), nunca los dos. Verificado interceptando las peticiones de red en local: exactamente **12 GLB** cargados, uno por combinación, sin duplicados y sin forzar las 24 combinaciones posibles (12×2).
+
+Probado en local (Chrome+Vulkan, build de producción): 0 errores de consola, draws 152→170 (+18), triángulos 374 790→376 700 (+1 910), descarga +159 KB (12 GLB de gorro pequeños). Pendiente la medición real del iPhone, comparada exclusivamente contra `RUNTIME_PHASE6_BASELINE`.
+
 ## Fase 6 aprobada: un gorro no deja huella medible — 26-09-2026
 
 Medición oficial del iPhone (build `098b142`, lectura limpia), guardada como `RUNTIME_PHASE6_BASELINE` en `src/runtime/contract.ts`: trabajo 2,5 / 2,9 / 4,8 ms (medio/p95/p99), máximo 14,6 ms, 0 trabajos > 16,7 ms; hueco 16,7 / 17 / 17 ms, máximo 24 ms, 0 huecos > 25 ms de 20 086; 152 draws, 374 790 triángulos, 1 007 ms hasta el primer cuadro, 1 268 ms hasta que la multitud está lista, 18,46 MB de descarga. Frente a `RUNTIME_PHASE5_BASELINE` no hay regresión medible atribuible al gorro — las diferencias de media/p99 entran en variabilidad normal entre muestras del mismo teléfono. Sin calentamiento perceptible, sin tirones percibidos. No se optimiza nada.
