@@ -37,6 +37,7 @@
     "godot:qa:web": "MARKET_QA_WEB=1 MARKET_QA_JOURNEY=1 MARKET_QA_PANELS=1 MARKET_QA_CONTEXT=1 MARKET_QA_TOUCH=1 MARKET_QA_LIFECYCLE=1 node scripts/qa-godot-live-api.mjs"
   },
   "dependencies": {
+    "@dimforge/rapier3d-compat": "0.19.2",
     "@prisma/adapter-pg": "7.10.0",
     "@prisma/client": "7.10.0",
     "@react-three/drei": "^10.7.8",
@@ -51,6 +52,8 @@
     "recast-navigation": "0.43.1",
     "resend": "^6.22.1",
     "three": "^0.185.1",
+    "three-stdlib": "^2.36.1",
+    "troika-three-text": "^0.52.5",
     "zod": "^4.4.3",
     "zustand": "^5.0.15"
   },

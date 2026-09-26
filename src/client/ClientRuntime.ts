@@ -11,7 +11,7 @@ import { setExternalWorldTickDriver, setInPlaceWorldTicks, useMarketStore } from
 import { WORLD_TICK_INTERVAL_MS } from "@/game/core/timing";
 import { marketRenderProfileForCapabilities } from "@/game/render/AdaptiveQuality";
 import { FieldPerformanceSampler } from "@/game/telemetry/FieldPerformance";
-import { WORLD_SCALE } from "@/game/world-scale";
+import { STORE_LAYOUT_SCALE, WORLD_SCALE } from "@/game/world-scale";
 import type { CharacterId, HatId } from "@/game/types";
 import { inputManager } from "@/game/input/InputManager";
 import { CameraRig } from "./CameraRig";
@@ -20,6 +20,12 @@ import { RetailStockLayer } from "./RetailStockLayer";
 import { SignLayer } from "./SignLayer";
 import { StationLayer } from "./StationLayer";
 import { budgetPath, loadBakedWorld, loadGltf, type BakedWorld } from "./WorldAssets";
+import { buildFurniture, buildFarm, type FurnitureBuildProps, type FarmBuildProps } from "./WorldKit";
+import { buildStorefrontDoor, type StorefrontDoorHandle } from "./WorldKit/storefrontDoor";
+import { buildRearFarmDoor, type RearFarmDoorHandle } from "./WorldKit/rearFarmDoor";
+import { buildPurchaseMarkers } from "./WorldKit/purchaseMarkers";
+import { buildRegisterCashMarkers } from "./WorldKit/registerCashMarkers";
+import { buildTransferEffects, type TransferEffectsHandle } from "./WorldKit/transferEffects";
 
 /**
  * The plain-three client: one renderer, one scene built once from the baked
@@ -43,6 +49,18 @@ export interface ClientRuntimeOptions {
    * one extra `performance.now()` pair when unset.
    */
   onFrameSample?: (workMs: number, gapMs: number, drawCalls: number, triangles: number) => void;
+  /**
+   * `/runtime` only — never set by `/` or `/play2`, so their behaviour is
+   * byte-for-byte unchanged. Builds the store's furniture and farm LIVE from
+   * the same source-of-truth layout modules `/` uses (`src/client/WorldKit/`)
+   * instead of reading them from the frozen `level30.glb` bake — the fix for
+   * the root cause found on 26-09-2026 (a baked snapshot shows whatever was
+   * purchased when it was baked, not what the real save has unlocked). The
+   * bake (`levelName`) must then point at a shell-only asset (ground/city/
+   * building — confirmed unconditional, never gated by `unlockedAreas`) or
+   * the baked furniture/farm would double up with WorldKit's live ones.
+   */
+  worldKit?: boolean;
 }
 
 const MAX_FRAME_DELTA = 0.1;
@@ -60,6 +78,14 @@ export class ClientRuntime {
   private stock: RetailStockLayer | null = null;
   private signs: SignLayer | null = null;
   private stations: StationLayer | null = null;
+  private readonly worldKit: boolean;
+  private furniture: Awaited<ReturnType<typeof buildFurniture>> | null = null;
+  private farm: ReturnType<typeof buildFarm> | null = null;
+  private storefrontDoor: StorefrontDoorHandle | null = null;
+  private rearFarmDoor: RearFarmDoorHandle | null = null;
+  private purchaseMarkers: ReturnType<typeof buildPurchaseMarkers> | null = null;
+  private registerCashMarkers: ReturnType<typeof buildRegisterCashMarkers> | null = null;
+  private transferEffects: TransferEffectsHandle | null = null;
   private props: MarketSceneProps | null = null;
   private frame = 0;
   private running = false;
@@ -95,6 +121,7 @@ export class ClientRuntime {
     this.debug = Boolean(options.debug);
     this.onReady = options.onReady;
     this.onFrameSample = options.onFrameSample;
+    this.worldKit = Boolean(options.worldKit);
     this.player = new PlayerActor({
       onInteract: (id) => this.props?.onInteract(id as InteractionId),
       onDistance: (meters) => this.props?.onDistance(meters),
@@ -110,6 +137,37 @@ export class ClientRuntime {
   }
 
   private checkoutFocused = false;
+
+  /** `MarketSceneProps` -> `WorldKit`'s `FurnitureBuildProps`/`FarmBuildProps`
+   * — field-name mapping only, no data transform (same fields `KitFurniture`/
+   * `KitFarm` read in `MarketScene.tsx`'s own JSX call). `dynamicCeilingLights`
+   * has no equivalent prop on `MarketSceneProps` (the source computes it
+   * inline from `renderProfile`); `!this.mobile` reproduces its primary
+   * condition — the QA-only `renderProfile.baseline` override isn't visible
+   * here and isn't exercised by `/runtime`'s integral test. */
+  private furnitureProps(props: MarketSceneProps): FurnitureBuildProps {
+    return {
+      shelves: props.visualShelves,
+      shelfTier: props.shelfTier,
+      machines: props.productionMachines,
+      customers: props.customers,
+      checkoutTransactions: props.checkoutTransactions,
+      returnsBin: props.returnsBin,
+      returnedCartCount: props.returnedCartCount,
+      lightsOn: props.lightsOn,
+      dynamicCeilingLights: !this.mobile,
+      unlockedAreas: props.unlockedAreas,
+    };
+  }
+
+  private farmProps(props: MarketSceneProps): FarmBuildProps {
+    return {
+      crops: props.visualCrops,
+      machines: props.productionMachines,
+      nowMs: props.simulationTimeMs,
+      unlockedAreas: props.unlockedAreas,
+    };
+  }
 
   private setupLights() {
     // One key light, no shadow map, hemisphere fill: occlusion is baked.
@@ -132,18 +190,43 @@ export class ClientRuntime {
     this.scene.add(world.root);
     this.signs = new SignLayer();
     this.scene.add(this.signs.mesh);
-    this.stock = new RetailStockLayer(world.anchors);
-    this.stations = new StationLayer(world.anchors, this.signs);
-    await Promise.all([
-      this.stock.load(),
-      this.stations.load(),
-      this.player.load(initial.avatar, PLAYER_START[0], PLAYER_START[2]),
-      this.loadCrowdBodies(),
-    ]);
-    // Baked anchors are world-space matrices: stock and machines hang from
-    // the scene; crops use layout positions and hang from the scaled root.
-    this.scene.add(this.stock.group, this.stations.worldGroup);
-    this.layoutRoot.add(this.stations.group);
+    if (this.worldKit) {
+      const [furniture] = await Promise.all([
+        buildFurniture(this.renderer, this.furnitureProps(initial)),
+        this.player.load(initial.avatar, PLAYER_START[0], PLAYER_START[2]),
+        this.loadCrowdBodies(),
+      ]);
+      this.furniture = furniture;
+      this.layoutRoot.add(furniture.group);
+      this.farm = buildFarm(this.farmProps(initial));
+      this.layoutRoot.add(this.farm.group);
+      this.storefrontDoor = buildStorefrontDoor();
+      this.layoutRoot.add(this.storefrontDoor.group);
+      this.rearFarmDoor = buildRearFarmDoor();
+      this.layoutRoot.add(this.rearFarmDoor.group);
+      this.purchaseMarkers = buildPurchaseMarkers();
+      this.purchaseMarkers.update(initial.purchaseMarkers);
+      this.layoutRoot.add(this.purchaseMarkers.group);
+      this.registerCashMarkers = buildRegisterCashMarkers();
+      this.registerCashMarkers.update(initial.registerCashMinor, initial.cashBundleMinor);
+      this.layoutRoot.add(this.registerCashMarkers.group);
+      this.transferEffects = buildTransferEffects();
+      this.transferEffects.sync(initial.transferEvents, initial.unlockedAreas, initial.onTransferProgress);
+      this.layoutRoot.add(this.transferEffects.group);
+    } else {
+      this.stock = new RetailStockLayer(world.anchors);
+      this.stations = new StationLayer(world.anchors, this.signs);
+      await Promise.all([
+        this.stock.load(),
+        this.stations.load(),
+        this.player.load(initial.avatar, PLAYER_START[0], PLAYER_START[2]),
+        this.loadCrowdBodies(),
+      ]);
+      // Baked anchors are world-space matrices: stock and machines hang from
+      // the scene; crops use layout positions and hang from the scaled root.
+      this.scene.add(this.stock.group, this.stations.worldGroup);
+      this.layoutRoot.add(this.stations.group);
+    }
     createPropInstancers(this.layoutRoot, CUSTOMER_PROP_DEFINITIONS(), this.customers.props);
     createPropInstancers(this.layoutRoot, EMPLOYEE_PROP_DEFINITIONS(), this.employees.props);
     await this.loadDeliveredProducts();
@@ -234,17 +317,29 @@ export class ClientRuntime {
     const zoneSignature = `${props.checkoutLevel}|${props.unlockedAreas.join(",")}|${props.crops.filter((crop) => crop.status !== "LOCKED").map((crop) => crop.id).join(",")}|${props.purchaseMarkers.map((marker) => marker.id).join(",")}`;
     if (zoneSignature !== this.zoneSignature) {
       this.zoneSignature = zoneSignature;
-      this.player.setZones(interactionZoneConfigs(props.checkoutLevel, props.unlockedAreas, props.crops.filter((crop) => crop.status !== "LOCKED").map((crop) => crop.id), props.purchaseMarkers.map((marker) => marker.id)));
+      this.player.setZones(interactionZoneConfigs(props.checkoutLevel, props.unlockedAreas, props.crops.filter((crop) => crop.status !== "LOCKED").map((crop) => crop.id), props.purchaseMarkers.map((marker) => marker.id)), props.unlockedAreas);
     }
-    const shelvesRevision = JSON.stringify(props.visualShelves);
-    if (shelvesRevision !== this.lastShelvesRevision) {
-      this.lastShelvesRevision = shelvesRevision;
-      this.stock?.sync(props.visualShelves);
-      this.stations?.syncStock(props.visualShelves, props.shelfTier, props.unlockedAreas);
-    }
-    if (props.simulationTimeMs !== this.lastSimulationTimeMs) {
-      this.lastSimulationTimeMs = props.simulationTimeMs;
-      this.stations?.syncWorld(props);
+    if (this.worldKit) {
+      // WorldKit's own update() calls are already cheap (instance/text
+      // mutation, never a geometry rebuild except on a real unlockedAreas
+      // change) — no need to replicate `shelvesRevision`/`simulationTimeMs`
+      // dirty-checking on top of it.
+      this.furniture?.update(this.furnitureProps(props));
+      this.farm?.update(this.farmProps(props));
+      this.purchaseMarkers?.update(props.purchaseMarkers);
+      this.registerCashMarkers?.update(props.registerCashMinor, props.cashBundleMinor);
+      this.transferEffects?.sync(props.transferEvents, props.unlockedAreas, props.onTransferProgress);
+    } else {
+      const shelvesRevision = JSON.stringify(props.visualShelves);
+      if (shelvesRevision !== this.lastShelvesRevision) {
+        this.lastShelvesRevision = shelvesRevision;
+        this.stock?.sync(props.visualShelves);
+        this.stations?.syncStock(props.visualShelves, props.shelfTier, props.unlockedAreas);
+      }
+      if (props.simulationTimeMs !== this.lastSimulationTimeMs) {
+        this.lastSimulationTimeMs = props.simulationTimeMs;
+        this.stations?.syncWorld(props);
+      }
     }
   }
 
@@ -295,12 +390,18 @@ export class ClientRuntime {
   }
 
   private present(delta: number, now: number) {
+    this.player.setDoorProgress(this.storefrontDoor?.progress ?? 0, this.rearFarmDoor?.progress ?? 0);
     this.player.step(delta, now);
     this.player.present(delta);
     this.rig.update(this.player.position.x, this.player.position.z, this.checkoutFocused, delta, delta === 0);
     this.customers.update(this.rig.camera, delta, this.elapsed);
     this.employees.update(this.rig.camera, delta);
     this.stations?.update(delta);
+    this.furniture?.animate(delta);
+    this.purchaseMarkers?.animate(delta);
+    if (this.props) this.storefrontDoor?.update(this.props.doorState, this.props.doorProgress, this.props.open, delta);
+    this.rearFarmDoor?.update(this.player.position.x / STORE_LAYOUT_SCALE, this.player.position.z / STORE_LAYOUT_SCALE, delta);
+    this.transferEffects?.animate(delta, this.player.basketWorld);
     this.signs?.flush(this.renderer);
   }
 
@@ -363,6 +464,13 @@ export class ClientRuntime {
     this.stock?.dispose();
     this.signs?.dispose();
     this.stations?.dispose();
+    for (const group of [this.furniture?.group, this.farm?.group, this.storefrontDoor?.group, this.rearFarmDoor?.group, this.purchaseMarkers?.group, this.registerCashMarkers?.group, this.transferEffects?.group]) {
+      group?.traverse((object) => {
+        if (!(object instanceof THREE.Mesh) && !(object instanceof THREE.InstancedMesh)) return;
+        object.geometry.dispose();
+        for (const material of Array.isArray(object.material) ? object.material : [object.material]) material.dispose();
+      });
+    }
     for (const registry of [this.customers.props, this.customers.delivered, this.employees.props, this.employees.delivered, this.employees.hats]) {
       for (const instancer of registry.values()) { instancer.detach(); instancer.dispose(); }
       registry.clear();

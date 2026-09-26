@@ -16,8 +16,9 @@ import type { InteractionZoneConfig } from "@/game/interaction/InteractionZone";
 import { WorkstationController } from "@/game/interaction/WorkstationController";
 import { isWorkstationId, WORKSTATION_IDS, WORKSTATIONS, type WorkstationId } from "@/game/stations/workstation-layout";
 import { isProductionWorkstationId } from "@/game/stations/production-layout";
-import { storeClosestNavigationPoint, storeMoveAlongSurface } from "@/game/navigation/NavMeshService";
+import { storeClosestNavigationPoint } from "@/game/navigation/NavMeshService";
 import { STORE_LAYOUT_SCALE } from "@/game/world-scale";
+import { buildPlayerPhysics, ensureRapierReady, type PlayerPhysicsHandle } from "./PlayerPhysics";
 import { GROUND_SHADOW_PARTS, HARVEST_BASKET_PARTS, accessoryParts, deliveredProductParts, harvestProductSlot } from "@/components/game/CrowdProps";
 import { CameraRig } from "./CameraRig";
 import { budgetPath, loadGltf } from "./WorldAssets";
@@ -63,6 +64,8 @@ export class PlayerActor {
   private hair: PartsInstancer | null = null;
   private motion: PlayerMotionConfig = playerMotionForTier(0, true);
   private director = new InteractionDirector([]);
+  private physics: PlayerPhysicsHandle | null = null;
+  private doorProgress = { storefront: 0, rear: 0 };
   private readonly workstation = new WorkstationController();
   private unreportedDistance = 0;
   private accumulator = 0;
@@ -86,7 +89,11 @@ export class PlayerActor {
     this.avatar = avatar;
     this.position.set(startX, 0, startZ);
     const key = OWNER_BODY_KEY[avatar.body];
-    const [gltf, animation] = await Promise.all([loadGltf(budgetPath("characters", key)), loadCrowdAnimation(key)]);
+    // `unlockedAreas` isn't known yet here — built empty and immediately
+    // rebuilt by the first real `setZones()` call `ClientRuntime.load()`
+    // makes right after this resolves, before anything is ever rendered.
+    const [gltf, animation] = await Promise.all([loadGltf(budgetPath("characters", key)), loadCrowdAnimation(key), ensureRapierReady()]);
+    this.physics = buildPlayerPhysics([], startX, startZ);
     const skinned = firstSkinnedMesh(gltf.scene);
     if (!skinned) throw new Error(`player body ${key} has no skinned mesh`);
     this.animation = animation;
@@ -127,8 +134,15 @@ export class PlayerActor {
     }
   }
 
-  setZones(configs: readonly InteractionZoneConfig[]) {
+  setZones(configs: readonly InteractionZoneConfig[], unlockedAreas: readonly string[]) {
     this.director = new InteractionDirector(configs);
+    this.physics?.setUnlockedAreas(unlockedAreas);
+  }
+
+  /** Call once per rendered frame, before `step()`, with each door's current visual progress. */
+  setDoorProgress(storefront: number, rear: number) {
+    this.doorProgress.storefront = storefront;
+    this.doorProgress.rear = rear;
   }
 
   setSpeedTier(tier: number, campaign: boolean) {
@@ -159,24 +173,47 @@ export class PlayerActor {
     this.velocity.set(next.x, next.y);
     const dx = this.velocity.x * step;
     const dz = this.velocity.y * step;
-    if (dx !== 0 || dz !== 0) {
-      // Navmesh in design units; the capsule radius keeps the body off walls.
-      const fromX = this.position.x / STORE_LAYOUT_SCALE;
-      const fromZ = this.position.z / STORE_LAYOUT_SCALE;
-      const toX = (this.position.x + dx) / STORE_LAYOUT_SCALE;
-      const toZ = (this.position.z + dz) / STORE_LAYOUT_SCALE;
-      const moved = storeMoveAlongSurface([fromX, fromZ], [toX, toZ]);
-      const [x, z] = moved ?? [toX, toZ];
-      const travelled = Math.hypot(x - fromX, z - fromZ);
-      this.position.set(x * STORE_LAYOUT_SCALE, 0, z * STORE_LAYOUT_SCALE);
+    if (this.physics) {
+      // Real Rapier collision (`PlayerPhysics.ts`), not the navmesh: a
+      // pre-baked navmesh cannot reproduce production's sub-half-unit contact
+      // reach for the tightest magnets (see that file's doc comment for the
+      // full diagnosis). `resolveMovement` already operates in the same
+      // "layout units × STORE_LAYOUT_SCALE" space `this.position` is in, so
+      // its returned movement needs no conversion in either direction —
+      // unlike the old navmesh call, which had to drop to raw design units
+      // and convert back.
+      this.physics.updateDoors(this.doorProgress.storefront, this.doorProgress.rear);
+      const movement = this.physics.resolveMovement(dx, dz);
+      this.position.x += movement.x;
+      this.position.z += movement.z;
+      const travelled = Math.hypot(movement.x, movement.z);
+      // Matches production's own calibration (`unreportedDistance.current +=
+      // hypot(movement) / WORLD_SCALE`, i.e. layout-scale units, not raw
+      // design meters) — `playerDistanceMeters` is a real `advanceWorld()`
+      // input, not just telemetry, so this has to agree with `/`, not with
+      // the navmesh-era code's own (uncalibrated) raw-design-unit count.
       this.unreportedDistance += travelled;
       if (this.unreportedDistance >= 1) { const meters = this.unreportedDistance; this.unreportedDistance = 0; this.hooks.onDistance(meters); }
-      this.presentedSpeed = travelled * STORE_LAYOUT_SCALE / step;
+      this.presentedSpeed = travelled / step;
     } else {
       this.presentedSpeed = 0;
     }
 
-    const events = this.director.update("player", this.position.x / STORE_LAYOUT_SCALE, this.position.z / STORE_LAYOUT_SCALE, nowMs);
+    // `interactionZoneConfigs()` bakes STORE_LAYOUT_SCALE into every zone's
+    // x/z (via `scaleStorePosition`/explicit `* STORE_LAYOUT_SCALE` magnet
+    // math in `MarketScene.tsx`) — the same "layout units × STORE_LAYOUT_SCALE"
+    // space `this.position` is already in (see the field doc above). The
+    // production scene's own director call confirms this: it only divides by
+    // WORLD_SCALE (`logicalPosition.x / WORLD_SCALE`), never by
+    // STORE_LAYOUT_SCALE. Dividing by STORE_LAYOUT_SCALE here a second time —
+    // as this line previously did, mirroring the navmesh conversion just
+    // above (which correctly needs raw design units for a different reason)
+    // — fed the director design-unit coordinates against layout-scale zone
+    // positions, silently placing every non-origin sensor's real trigger
+    // point outside the reachable store (confirmed empirically: farm crops
+    // and purchase markers require a navmesh point outside the walkable
+    // area; only fixtures near the origin happened to still register).
+    const events = this.director.update("player", this.position.x, this.position.z, nowMs);
     const selected = this.director.selectedZoneIds();
     const activeWorkstation = WORKSTATION_IDS.find((id) => id !== "shelf" && !isProductionWorkstationId(id) && selected.includes(id)) ?? null;
     this.workstation.sync(activeWorkstation, input.magnitude);
@@ -271,13 +308,21 @@ export class PlayerActor {
     for (const instancer of this.delivered.values()) { instancer.detach(); instancer.dispose(); }
     this.hat?.dispose();
     this.hair?.dispose();
+    this.physics?.dispose();
     this.group.removeFromParent();
   }
 
-  /** Puts the owner back on the walkable surface (after a load). */
+  /** Puts the owner back on the walkable surface (after a load). Only a
+   * one-time initial-placement safety net — the navmesh here is a coarse
+   * "is this roughly clear" check, not the movement/collision system (that's
+   * `PlayerPhysics.ts` now); keeping the physics capsule's own position in
+   * sync avoids a stale first `resolveMovement()` call. */
   snapToNavmesh() {
     const closest = storeClosestNavigationPoint([this.position.x / STORE_LAYOUT_SCALE, this.position.z / STORE_LAYOUT_SCALE]);
-    if (closest) this.position.set(closest[0] * STORE_LAYOUT_SCALE, 0, closest[1] * STORE_LAYOUT_SCALE);
+    if (closest) {
+      this.position.set(closest[0] * STORE_LAYOUT_SCALE, 0, closest[1] * STORE_LAYOUT_SCALE);
+      this.physics?.setPosition(this.position.x, this.position.z);
+    }
   }
 }
 

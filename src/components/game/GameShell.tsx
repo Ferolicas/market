@@ -46,7 +46,7 @@ import { cashBundleCount, cashBundleMinor } from "@/game/economy/cash-bundles";
 
 type Panel = "stock" | "orders" | "team" | "map" | "finance" | "avatar" | "help" | "settings" | null;
 
-export function GameShell({ playerName, onFrameSample }: { playerName: string; onFrameSample?: ClientRuntimeOptions["onFrameSample"] }) {
+export function GameShell({ playerName, onFrameSample, levelName, worldKit }: { playerName: string; onFrameSample?: ClientRuntimeOptions["onFrameSample"]; levelName?: string; worldKit?: boolean }) {
   const game = useMarketStore((state) => state.game);
   const status = useMarketStore((state) => state.saveStatus);
   const saveRevision = useMarketStore((state) => state.saveRevision);
@@ -413,7 +413,7 @@ export function GameShell({ playerName, onFrameSample }: { playerName: string; o
   return (<>
     <GameRuntime />
     <main className="game-shell">
-      {worldReady && <div className={`world${sceneReady ? " scene-ready" : " scene-preparing"}`} aria-hidden={!sceneReady}>{plainClient ? <ClientCanvas {...sceneProps} onFrameSample={onFrameSample} /> : <MarketScene {...sceneProps} />}{sceneReady && <GameInputSurface />}</div>}
+      {worldReady && <div className={`world${sceneReady ? " scene-ready" : " scene-preparing"}`} aria-hidden={!sceneReady}>{plainClient ? <ClientCanvas {...sceneProps} onFrameSample={onFrameSample} levelName={levelName} worldKit={worldKit} /> : <MarketScene {...sceneProps} />}{sceneReady && <GameInputSurface />}</div>}
       {worldReady && !sceneReady && <LoadingCurtain title="Preparando la tienda…" detail="Cargando personajes y maquinaria sin interrupciones" />}
       <header className="hud-top glass-panel" data-game-ui-interactive="true" aria-label="Estado de la tienda">
         <div className="hud-brand"><span><GameIcon name="store" /></span><div><strong>{franchise.name}</strong><small>{franchise.city}</small></div></div>

@@ -57,6 +57,8 @@ export function IntegralClient() {
       <GameRuntime />
       <GameShell
         playerName="Prueba integral"
+        levelName="level30-shell"
+        worldKit
         onFrameSample={(workMs, gapMs, drawCalls, triangles) => {
           const elapsedMs = performance.now() - startedAt;
           if (metrics.loadMs === null) {

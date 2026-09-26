@@ -9,7 +9,7 @@ import { ClientRuntime, type ClientRuntimeOptions } from "./ClientRuntime";
  * state slices to it. The runtime owns the loop; React never touches the
  * scene graph.
  */
-export function ClientCanvas(props: MarketSceneProps & { onFrameSample?: ClientRuntimeOptions["onFrameSample"] }) {
+export function ClientCanvas(props: MarketSceneProps & { onFrameSample?: ClientRuntimeOptions["onFrameSample"]; levelName?: string; worldKit?: boolean }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const runtimeRef = useRef<ClientRuntime | null>(null);
   const [initialProps] = useState(() => props);
@@ -19,7 +19,7 @@ export function ClientCanvas(props: MarketSceneProps & { onFrameSample?: ClientR
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const runtime = new ClientRuntime({ canvas, levelName: "level30", debug, onReady: onSceneReady, onFrameSample: initialProps.onFrameSample });
+    const runtime = new ClientRuntime({ canvas, levelName: initialProps.levelName ?? "level30", worldKit: initialProps.worldKit, debug, onReady: onSceneReady, onFrameSample: initialProps.onFrameSample });
     runtimeRef.current = runtime;
     let disposed = false;
     const resize = () => runtime.resize();
