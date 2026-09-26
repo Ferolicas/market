@@ -21,10 +21,15 @@ import { buildPlayerPhysics, ensureRapierReady, type PlayerPhysicsHandle } from 
 import { fixtureAvailable } from "@/game/stations/fixture-availability";
 import { RETAIL_DEPARTMENTS, RETAIL_DEPARTMENT_IDS, retailFixtureDisplayPositions, type RetailDepartmentId } from "@/game/stations/retail-layout";
 import { CHECKOUT_LANE_IDS, CHECKOUT_LANES, checkoutAreaForLane, type CheckoutLane } from "@/game/stations/checkout-layout";
-import { STORE_PRODUCTION_FIXTURES, PRODUCTION_FIXTURE_IDS, type ProductionFixtureId } from "@/game/stations/production-layout";
+import { STORE_PRODUCTION_FIXTURES, PRODUCTION_FIXTURE_IDS, isProductionWorkstationId, type ProductionFixtureId } from "@/game/stations/production-layout";
 import { STORE_SERVICE_FIXTURES } from "@/game/stations/store-service-layout";
 import { WAREHOUSE_RETURN_STATION } from "@/game/stations/warehouse-layout";
 import { FARM_PLOTS, FARM_BARN, FARM_ANIMAL_STATIONS, FARM_FIELD, FARM_ANIMAL_FOOTPRINTS, type FarmPlotLayout } from "@/game/stations/farm-layout";
+import { isWorkstationId, WORKSTATION_IDS } from "@/game/stations/workstation-layout";
+import { InteractionDirector } from "@/game/interaction/InteractionDirector";
+import type { InteractionZoneConfig } from "@/game/interaction/InteractionZone";
+import { WorkstationController } from "@/game/interaction/WorkstationController";
+import { interactionZoneConfigs } from "@/game/interaction/interactionZoneConfigsPure";
 import { setExternalWorldTickDriver, useMarketStore } from "@/game/store";
 import { WORLD_TICK_INTERVAL_MS } from "@/game/core/timing";
 import type { AvatarHatId, CharacterId, HairId } from "@/game/types";
@@ -115,6 +120,21 @@ export interface PlayCanvasSceneProps {
   doorProgress: number;
   open: boolean;
   playerSpeedTier: number;
+  /** Real `franchise.checkoutLevel` — rebuilds the checkout lane's real
+   * interaction dwell/repeat timing, exactly like `InteractionSensors`'s own
+   * `checkoutLevel` dependency in `MarketScene.tsx`. */
+  checkoutLevel: number;
+  /** Real available-purchase ids (`purchaseMarkers.map((m) => m.id)`,
+   * already filtered to `available: true` by `GameShell.tsx`) — only these
+   * purchase-marker interaction zones exist, matching production's own
+   * `availablePurchaseIds` gate in `interactionZoneConfigs()`. */
+  availablePurchaseIds: string[];
+  /** Real interaction dispatch — see `InteractionDirector`'s doc comment and
+   * `PlayerActor.ts`'s `fixedStep()` for the exact call contract this phase
+   * reproduces. */
+  onInteract: (id: string) => void;
+  onDistance: (meters: number) => void;
+  onDoorPresence: (active: boolean) => void;
   /** Real crop status from `franchise.crops` — only `id`/`status` are needed
    * to reproduce `KitFarm`'s exact per-plot gating (`kitFarm.ts`'s
    * `gated = unlockedAreas.includes("purchase-campaign") && (!crop || crop.status === "LOCKED")`). */
@@ -128,7 +148,7 @@ export interface PlayCanvasSceneProps {
   employees: Array<{ id: string; x: number; z: number; role: string }>;
 }
 
-const DEFAULT_PROPS: PlayCanvasSceneProps = { avatarBody: "adult-man", avatarHair: "fade", avatarHairColor: "#3a2a1e", avatarHat: "none", unlockedAreas: [], doorState: "CLOSED", doorProgress: 0, open: false, playerSpeedTier: 0, crops: [], customers: [], employees: [] };
+const DEFAULT_PROPS: PlayCanvasSceneProps = { avatarBody: "adult-man", avatarHair: "fade", avatarHairColor: "#3a2a1e", avatarHat: "none", unlockedAreas: [], doorState: "CLOSED", doorProgress: 0, open: false, playerSpeedTier: 0, checkoutLevel: 1, availablePurchaseIds: [], crops: [], customers: [], employees: [], onInteract: () => {}, onDistance: () => {}, onDoorPresence: () => {} };
 
 // Mirrors `PlayerActor.ts`'s `OWNER_BODY_KEY` — the real owner GLB filenames.
 const OWNER_BODY_KEY: Record<CharacterId, string> = { "adult-man": "owner_man", "adult-woman": "owner_woman", boy: "owner_boy", girl: "owner_girl" };
@@ -208,6 +228,19 @@ export class PlayCanvasRuntime {
   private motion: PlayerMotionConfig = playerMotionForTier(0, false);
   private physicsAccumulator = 0;
   private readonly keysDown = new Set<string>();
+
+  // ---- interaction zones (phase 6) ----
+  // Rebuilt (`rebuildInteractionZones()`) only when the real zone-determining
+  // state changes — checkoutLevel/unlockedAreas/active crop ids/available
+  // purchase ids — exactly like `ClientRuntime.syncStatic()`'s own
+  // `zoneSignature` dirty-check, so a fresh `InteractionDirector` (which
+  // starts every zone's dwell/cooldown timers from zero) is never created on
+  // an unrelated prop update (crowd movement, door progress, ...).
+  private director = new InteractionDirector([]);
+  private readonly workstation = new WorkstationController();
+  private zoneSignature = "";
+  private unreportedDistance = 0;
+  private currentZoneConfigs: InteractionZoneConfig[] = [];
   private keydownHandler = (event: KeyboardEvent) => this.onKey(event, true);
   private keyupHandler = (event: KeyboardEvent) => this.onKey(event, false);
 
@@ -314,6 +347,7 @@ export class PlayCanvasRuntime {
     // like production's own RigidBody (`worldStart = PLAYER_START * WORLD_SCALE`).
     this.buildPlayerVisual();
     void this.initPlayerPhysics();
+    this.rebuildInteractionZones(this.props);
 
     this.crowdRoot = new pc.Entity("perf:crowd");
     this.app.root.addChild(this.crowdRoot);
@@ -343,12 +377,29 @@ export class PlayCanvasRuntime {
     this.props = nextProps;
     if (speedChanged) this.motion = playerMotionForTier(nextProps.playerSpeedTier, nextProps.unlockedAreas.includes("purchase-campaign"));
     if (unlockedChanged) this.physics?.setUnlockedAreas(nextProps.unlockedAreas);
+    this.rebuildInteractionZones(nextProps);
     const worldRoot = this.app.root.findByName("world-scale-root") as pc.Entity | null;
     // buildFurniture() itself dirty-checks the combined unlockedAreas+crops
     // signature and no-ops when nothing relevant changed, so it is safe to
     // call on every prop update (crops advance every world tick).
     if (worldRoot) this.buildFurniture(worldRoot, nextProps.unlockedAreas, nextProps.crops);
     this.syncCrowd(nextProps.customers, nextProps.employees);
+  }
+
+  /** Rebuilds the real `InteractionDirector` (`interactionZoneConfigsPure`'s
+   * engine-agnostic re-derivation of `interactionZoneConfigs()`) whenever
+   * checkoutLevel/unlockedAreas/active crop ids/available purchase ids
+   * actually change — the same signature-dirty-check
+   * `ClientRuntime.syncStatic()`'s `zoneSignature` uses, so a brand-new
+   * director (which resets every zone's dwell/cooldown state) is never
+   * constructed on an unrelated prop tick. */
+  private rebuildInteractionZones(props: PlayCanvasSceneProps) {
+    const activeCropIds = props.crops.filter((crop) => crop.status !== "LOCKED").map((crop) => crop.id);
+    const signature = `${props.checkoutLevel}|${props.unlockedAreas.join(",")}|${activeCropIds.join(",")}|${props.availablePurchaseIds.join(",")}`;
+    if (signature === this.zoneSignature) return;
+    this.zoneSignature = signature;
+    this.currentZoneConfigs = interactionZoneConfigs(props.checkoutLevel, props.unlockedAreas, activeCropIds, props.availablePurchaseIds);
+    this.director = new InteractionDirector(this.currentZoneConfigs);
   }
 
   /** Real customer/employee count and position from `franchise.customers`/
@@ -593,7 +644,7 @@ export class PlayCanvasRuntime {
   /** Single render loop tick. */
   private onUpdate(dt: number) {
     this.stepWorldTick();
-    this.stepPlayer(dt);
+    this.stepPlayer(dt, performance.now());
     this.stepDoors(dt);
     this.updateCamera();
   }
@@ -617,12 +668,12 @@ export class PlayCanvasRuntime {
     if (this.tickAccumulatorMs > WORLD_TICK_INTERVAL_MS * 3) this.tickAccumulatorMs = 0;
   }
 
-  private stepPlayer(dt: number) {
+  private stepPlayer(dt: number, nowMs: number) {
     if (!this.physics || !this.playerEntity) return;
     this.physicsAccumulator = Math.min(0.25, this.physicsAccumulator + dt);
     while (this.physicsAccumulator >= PHYSICS_STEP_SECONDS) {
       this.physicsAccumulator -= PHYSICS_STEP_SECONDS;
-      this.fixedStepPlayer(PHYSICS_STEP_SECONDS);
+      this.fixedStepPlayer(PHYSICS_STEP_SECONDS, nowMs);
     }
     // Heading turns with real frame delta (presentation only), same as production.
     const speed = Math.hypot(this.velocity.x, this.velocity.y);
@@ -640,13 +691,19 @@ export class PlayCanvasRuntime {
     this.updatePlayerAnimation(speed);
   }
 
-  private fixedStepPlayer(step: number) {
+  private fixedStepPlayer(step: number, nowMs: number) {
     if (!this.physics) return;
     const gamepad = typeof navigator !== "undefined" ? navigator.getGamepads?.()[0] : null;
     if (gamepad) inputManager.setGamepad(gamepad.axes[0] ?? 0, gamepad.axes[1] ?? 0);
     const input = inputManager.sample();
-    const intention = cameraRelativeMovement(input, { x: -OVERVIEW_CAMERA_OFFSET.x, y: -OVERVIEW_CAMERA_OFFSET.z });
-    const next = moveVelocity(this.velocity, intention, step, this.motion);
+    // Same "entering a workstation consumes the movement that brought you
+    // there" rule `PlayerActor.ts`'s `fixedStep()` applies: while locked onto
+    // a movement-locking workstation (checkout — not shelf/production/farm,
+    // see `WorkstationController`'s doc comment), input is zeroed for
+    // locomotion until the player releases and re-presses a deliberate move.
+    const workLocked = this.workstation.updateInput(input.magnitude);
+    const intention = workLocked ? { x: 0, y: 0 } : cameraRelativeMovement(input, { x: -OVERVIEW_CAMERA_OFFSET.x, y: -OVERVIEW_CAMERA_OFFSET.z });
+    const next = workLocked ? { x: 0, y: 0 } : moveVelocity(this.velocity, intention, step, this.motion);
     this.velocity.x = next.x;
     this.velocity.y = next.y;
     const dx = this.velocity.x * step;
@@ -655,6 +712,35 @@ export class PlayCanvasRuntime {
     const movement = this.physics.resolveMovement(dx, dz);
     this.playerPosition.x += movement.x;
     this.playerPosition.z += movement.z;
+
+    // Real distance reporting — `PlayerActor.ts`'s own calibration: layout-
+    // scale units (`hypot(movement)`), never divided by STORE_LAYOUT_SCALE
+    // (this.playerPosition is already in "layout units × STORE_LAYOUT_SCALE"
+    // space, the same space `interactionZoneConfigs()` bakes into every
+    // zone's x/z).
+    const travelled = Math.hypot(movement.x, movement.z);
+    this.unreportedDistance += travelled;
+    if (this.unreportedDistance >= 1) {
+      const meters = this.unreportedDistance;
+      this.unreportedDistance = 0;
+      this.props.onDistance(meters);
+    }
+
+    // Real interaction-zone detection: same coordinate space, same director,
+    // same dispatch rules as `PlayerActor.ts`'s `fixedStep()` (door presence,
+    // the orders counter's "only while stopped" rule, and movement-locking
+    // workstations only firing once `WorkstationController` confirms the
+    // player has actually settled onto that zone).
+    const events = this.director.update("player", this.playerPosition.x, this.playerPosition.z, nowMs);
+    const selected = this.director.selectedZoneIds();
+    const activeWorkstation = WORKSTATION_IDS.find((id) => id !== "shelf" && !isProductionWorkstationId(id) && selected.includes(id)) ?? null;
+    this.workstation.sync(activeWorkstation, input.magnitude);
+    for (const event of events) {
+      if (event.zone.id === "door" && (event.signal === "enter" || event.signal === "exit")) this.props.onDoorPresence(event.signal === "enter");
+      if (event.zone.id === "orders" && input.magnitude > 0.05) continue;
+      const locksMovement = isWorkstationId(event.zone.id) && event.zone.id !== "shelf" && !isProductionWorkstationId(event.zone.id);
+      if (event.signal === "tick" && (!locksMovement || this.workstation.canPerform(event.zone.id))) this.props.onInteract(event.zone.id);
+    }
   }
 
   private stepDoors(dt: number) {
@@ -705,6 +791,23 @@ export class PlayCanvasRuntime {
 
   start() {
     this.app.start();
+  }
+
+  /** QA/debug-only accessor: the player's real position in the same "layout
+   * units × STORE_LAYOUT_SCALE" space `interactionZoneConfigs()` uses — lets
+   * headless verification confirm real keyboard-driven movement (not
+   * teleporting) reaches a real interaction zone. Exposed on
+   * `window.__MARKET_PC_RUNTIME__` by `PlayCanvasCanvas.tsx`. */
+  getPlayerPosition() {
+    return { x: this.playerPosition.x, z: this.playerPosition.z };
+  }
+
+  /** QA/debug-only accessor: every currently-active real interaction zone's
+   * id/position/radius (the same list `InteractionDirector` was constructed
+   * from), so headless verification can steer the player to a real zone's
+   * exact coordinates instead of guessing. */
+  getInteractionZones() {
+    return this.currentZoneConfigs.map((zone) => ({ id: zone.id, x: zone.x, z: zone.z, enterRadius: zone.enterRadius }));
   }
 
   resize() {

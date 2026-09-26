@@ -48,7 +48,7 @@ import { cashBundleCount, cashBundleMinor } from "@/game/economy/cash-bundles";
 
 type Panel = "stock" | "orders" | "team" | "map" | "finance" | "avatar" | "help" | "settings" | null;
 
-export function GameShell({ playerName, onFrameSample, levelName, worldKit }: { playerName: string; onFrameSample?: ClientRuntimeOptions["onFrameSample"]; levelName?: string; worldKit?: boolean }) {
+export function GameShell({ playerName, onFrameSample, onInteractiveVerified, levelName, worldKit }: { playerName: string; onFrameSample?: ClientRuntimeOptions["onFrameSample"]; onInteractiveVerified?: ClientRuntimeOptions["onInteractiveVerified"]; levelName?: string; worldKit?: boolean }) {
   const game = useMarketStore((state) => state.game);
   const status = useMarketStore((state) => state.saveStatus);
   const saveRevision = useMarketStore((state) => state.saveRevision);
@@ -426,16 +426,20 @@ export function GameShell({ playerName, onFrameSample, levelName, worldKit }: { 
   const nextStep = campaignNextStep(game, franchise);
 
   const sceneProps: MarketSceneProps = { purchaseMarkers, registerCashMinor: franchise.registerCashMinor, cashBundleMinor: cashBundleMinor(countryMoneyScale(game.countryCode)), avatar: game.avatar, carry: franchise.carry, visualCarry: visualTransfer.carry, checkoutLevel: franchise.checkoutLevel, playerSpeedTier: franchise.playerSpeedTier, customers: franchise.customers, checkoutTransactions: franchise.checkoutTransactions, returnsBin: franchise.returnsBin, returnedCartCount: franchise.returnedCartCount, crops: franchise.crops, visualCrops: visualTransfer.crops, productionMachines: franchise.productionMachines, shelves: franchise.shelves, visualShelves: visualTransfer.shelves, shelfTier: franchise.stationTiers["shelves-1"] ?? franchise.shelvesLevel, unlockedAreas: franchise.unlockedAreas, lightsOn: franchise.lightsOn, minuteOfDay: game.minuteOfDay, simulationTimeMs: game.simulationTimeMs, employees: franchise.employees, open: franchise.open, doorState: franchise.doorState, doorProgress: franchise.doorProgress, onInteract: interact, onDistance: recordDistance, onDoorPresence: setDoorPresence, onSceneReady: revealScene, lastInteraction, transferEvents, onTransferProgress: updateTransferProgress, debug };
-  // The PlayCanvas engine's `PlayCanvasRuntime` only reads this reduced real
-  // slice so far (see `PlayCanvasSceneProps`'s own doc comment) — it has no
-  // interaction-zone detection yet (no `onInteract`/`onDistance`/door-presence
-  // callback seam), so those stay wired to the panel/HUD state only for this
-  // engine until that phase lands.
-  const playCanvasSceneProps: PlayCanvasSceneProps = { avatarBody: game.avatar.body, avatarHair: game.avatar.hair, avatarHairColor: game.avatar.hairColor, avatarHat: game.avatar.hat, unlockedAreas: franchise.unlockedAreas, doorState: franchise.doorState, doorProgress: franchise.doorProgress, open: franchise.open, playerSpeedTier: franchise.playerSpeedTier, crops: franchise.crops.map((crop) => ({ id: crop.id, status: crop.status })), customers: franchise.customers.map((customer) => ({ id: customer.id, x: customer.x, z: customer.z, state: customer.state })), employees: franchise.employees.filter((employee) => employee.runtime).map((employee) => ({ id: employee.id, x: employee.runtime!.x, z: employee.runtime!.z, role: employee.role })) };
+  // Phase 6: `PlayCanvasRuntime` now has real interaction-zone detection
+  // (`InteractionDirector` + the pure `interactionZoneConfigsPure` re-
+  // derivation), so it gets the same real `onInteract`/`onDistance`/
+  // `onDoorPresence` dispatch `sceneProps` wires for `/`/`/runtime` — `interact`
+  // is cast through `id as InteractionId` at the boundary since
+  // `PlayCanvasSceneProps.onInteract` intentionally types its id as a plain
+  // `string` (this file is the only caller, and keeping `InteractionId` out
+  // of `PlayCanvasRuntime.ts`'s own signature avoids importing anything from
+  // `MarketScene.tsx`, which pulls in Three.js at module scope).
+  const playCanvasSceneProps: PlayCanvasSceneProps = { avatarBody: game.avatar.body, avatarHair: game.avatar.hair, avatarHairColor: game.avatar.hairColor, avatarHat: game.avatar.hat, unlockedAreas: franchise.unlockedAreas, doorState: franchise.doorState, doorProgress: franchise.doorProgress, open: franchise.open, playerSpeedTier: franchise.playerSpeedTier, checkoutLevel: franchise.checkoutLevel, availablePurchaseIds: purchaseMarkers.map((marker) => marker.id), crops: franchise.crops.map((crop) => ({ id: crop.id, status: crop.status })), customers: franchise.customers.map((customer) => ({ id: customer.id, x: customer.x, z: customer.z, state: customer.state })), employees: franchise.employees.filter((employee) => employee.runtime).map((employee) => ({ id: employee.id, x: employee.runtime!.x, z: employee.runtime!.z, role: employee.role })), onInteract: (id) => interact(id as InteractionId), onDistance: recordDistance, onDoorPresence: setDoorPresence };
   return (<>
     <GameRuntime />
     <main className="game-shell">
-      {worldReady && <div className={`world${sceneReady ? " scene-ready" : " scene-preparing"}`} aria-hidden={!sceneReady}>{playCanvasClient ? <PlayCanvasCanvas initialProps={playCanvasSceneProps} /> : plainClient ? <ClientCanvas {...sceneProps} onFrameSample={onFrameSample} levelName={levelName} worldKit={worldKit} /> : <MarketScene {...sceneProps} />}{sceneReady && !playCanvasClient && <GameInputSurface />}</div>}
+      {worldReady && <div className={`world${sceneReady ? " scene-ready" : " scene-preparing"}`} aria-hidden={!sceneReady}>{playCanvasClient ? <PlayCanvasCanvas initialProps={playCanvasSceneProps} /> : plainClient ? <ClientCanvas {...sceneProps} onFrameSample={onFrameSample} onInteractiveVerified={onInteractiveVerified} levelName={levelName} worldKit={worldKit} /> : <MarketScene {...sceneProps} />}{sceneReady && !playCanvasClient && <GameInputSurface />}</div>}
       {worldReady && !sceneReady && <LoadingCurtain title="Preparando la tienda…" detail="Cargando personajes y maquinaria sin interrupciones" />}
       <header className="hud-top glass-panel" data-game-ui-interactive="true" aria-label="Estado de la tienda">
         <div className="hud-brand"><span><GameIcon name="store" /></span><div><strong>{franchise.name}</strong><small>{franchise.city}</small></div></div>
