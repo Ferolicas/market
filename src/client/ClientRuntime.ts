@@ -104,6 +104,7 @@ export class ClientRuntime {
   private readonly onFrameSample?: ClientRuntimeOptions["onFrameSample"];
   private readonly debug: boolean;
   private mobile: boolean;
+  private glassTransmission: boolean;
 
   constructor(private readonly options: ClientRuntimeOptions) {
     // Diagnostic-only, opt-in ablation flags for the iPhone frame-pacing
@@ -112,8 +113,21 @@ export class ClientRuntime {
     configureAblation(window.location.search);
     const profile = marketRenderProfileForCapabilities({ width: window.innerWidth, coarsePointer: window.matchMedia("(any-pointer: coarse)").matches, devicePixelRatio: window.devicePixelRatio });
     this.mobile = profile.mobile;
+    this.glassTransmission = profile.glassTransmission;
     this.renderer = new THREE.WebGLRenderer({ canvas: options.canvas, antialias: !profile.mobile, powerPreference: profile.powerPreference, alpha: false, stencil: false, depth: true });
     this.renderer.setPixelRatio(Math.min(profile.mobile ? 2 : 2, window.devicePixelRatio));
+    // `configureRendererPolicy()`'s real-source equivalent — mobile halves the
+    // resolution of Three.js's internal transmission scene pass. Root-caused
+    // 2026-09-26 (docs/RUNTIME-IPHONE-FRAME-PACING-AUDIT.md): the WorldKit
+    // door port hardcoded desktop transmission values and never read
+    // `profile.glassTransmission`/`transmissionResolutionScale` at all, so a
+    // mobile iPhone was unconditionally paying for Three.js's transmission
+    // feature — which renders the whole opaque scene a second time, every
+    // frame, into an internal render target — something production has never
+    // done on mobile. Measured: this alone accounted for roughly half of
+    // /runtime's GPU frame cost (real EXT_disjoint_timer_query_webgl2
+    // timings, not draw-call/triangle counts alone).
+    this.renderer.transmissionResolutionScale = profile.transmissionResolutionScale;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.05;
@@ -205,9 +219,9 @@ export class ClientRuntime {
       this.layoutRoot.add(furniture.group);
       this.farm = buildFarm(this.farmProps(initial));
       this.layoutRoot.add(this.farm.group);
-      this.storefrontDoor = buildStorefrontDoor();
+      this.storefrontDoor = buildStorefrontDoor(this.glassTransmission);
       this.layoutRoot.add(this.storefrontDoor.group);
-      this.rearFarmDoor = buildRearFarmDoor();
+      this.rearFarmDoor = buildRearFarmDoor(this.glassTransmission);
       this.layoutRoot.add(this.rearFarmDoor.group);
       this.purchaseMarkers = buildPurchaseMarkers();
       this.purchaseMarkers.update(initial.purchaseMarkers);
@@ -445,7 +459,10 @@ export class ClientRuntime {
   }
 
   private publishDebug() {
-    const qaWindow = window as typeof window & { __MARKET_QA__?: Record<string, unknown>; __MARKET_PERF_SCENE__?: () => THREE.Scene };
+    // TEMP (2026-09-26 GPU causal audit, removed once root-caused): exposes
+    // the real renderer so an external profiling harness can hook
+    // EXT_disjoint_timer_query_webgl2 around `renderer.render()`.
+    const qaWindow = window as typeof window & { __MARKET_QA__?: Record<string, unknown>; __MARKET_PERF_SCENE__?: () => THREE.Scene; __MARKET_QA_RENDERER__?: THREE.WebGLRenderer };
     qaWindow.__MARKET_QA__ ??= {};
     if (performance.now() - this.debugBreakdownAt > 1000) { this.debugBreakdownAt = performance.now(); qaWindow.__MARKET_QA__.drawBreakdown = this.drawBreakdown(); }
     qaWindow.__MARKET_QA__.player = { x: this.player.position.x, z: this.player.position.z, presentedX: this.player.position.x, presentedZ: this.player.position.z, speed: 0, visible: true };
@@ -454,6 +471,7 @@ export class ClientRuntime {
     if (!hooks.__MARKET_SET_PLAYER_INPUT__) hooks.__MARKET_SET_PLAYER_INPUT__ = (x, y) => inputManager.setKeyboard(x, y);
     qaWindow.__MARKET_QA__.render = { frame: this.renderer.info.render.frame, elapsed: this.elapsed, calls: this.renderer.info.render.calls, triangles: this.renderer.info.render.triangles };
     qaWindow.__MARKET_PERF_SCENE__ = () => this.scene;
+    qaWindow.__MARKET_QA_RENDERER__ = this.renderer;
   }
 
   /** Field telemetry window (same shape the React runtime reports). */

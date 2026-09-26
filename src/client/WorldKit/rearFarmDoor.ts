@@ -28,10 +28,10 @@ const leafEdgeMaterial = new THREE.MeshStandardMaterial({ color: "#294a41", meta
 const leafHandleMaterial = new THREE.MeshStandardMaterial({ color: "#e4b95f", metalness: 0.7, roughness: 0.22 });
 const indicatorHousingMaterial = new THREE.MeshStandardMaterial({ color: "#203a33", metalness: 0.5, roughness: 0.3 });
 
-export function buildRearFarmDoor(): RearFarmDoorHandle {
-  // `?ablate=glass` diagnostic (see `ablation.ts`) — see `storefrontDoor.ts`'s
-  // matching comment for why this is set here, not at module scope.
-  leafGlassMaterial.transmission = ablation.skipGlassTransmission ? 0 : 0.32;
+/** `glassTransmissionEnabled` — see `storefrontDoor.ts`'s matching doc comment;
+ * mirrors production's `useGlassTransmission(0.32)` for this leaf. */
+export function buildRearFarmDoor(glassTransmissionEnabled: boolean): RearFarmDoorHandle {
+  leafGlassMaterial.transmission = glassTransmissionEnabled && !ablation.skipGlassTransmission ? 0.32 : 0;
   const door = STORE_REAR_DOOR.door;
   const doorHalfHeight = door.leafHeight / 2;
 

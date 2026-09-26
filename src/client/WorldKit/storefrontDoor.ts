@@ -34,13 +34,17 @@ export interface StorefrontDoorHandle {
   readonly progress: number;
 }
 
-export function buildStorefrontDoor(): StorefrontDoorHandle {
-  // `?ablate=glass` diagnostic (see `ablation.ts`): forces transmission to 0
-  // on the shared module-level material, skipping Three.js's extra
-  // background render pass for it. Set here (not at module scope, which
-  // evaluates before `ClientRuntime`'s constructor calls `configureAblation`)
-  // so the flag is actually read after it's configured.
-  glassMaterial.transmission = ablation.skipGlassTransmission ? 0 : 0.5;
+/**
+ * `glassTransmissionEnabled` mirrors production's own `useGlassTransmission()`
+ * (`MarketRenderProfile.tsx`): "physical glass keeps its tint, opacity,
+ * clearcoat and environment response everywhere. The separate transmission
+ * scene pass, which redraws every opaque object and re-resolves every
+ * program twice per frame, only runs where the profile allows it" —
+ * `profile.glassTransmission`, false on every mobile `MarketRenderProfile`.
+ * `?ablate=glass` can still force it off for diagnostics on desktop.
+ */
+export function buildStorefrontDoor(glassTransmissionEnabled: boolean): StorefrontDoorHandle {
+  glassMaterial.transmission = glassTransmissionEnabled && !ablation.skipGlassTransmission ? 0.5 : 0;
   const door = STOREFRONT_LAYOUT.door;
   // The source nests `dynamic:storefront-door` (unscaled design-unit
   // position/geometry) inside `perf:building`'s own
