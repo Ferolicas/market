@@ -100,6 +100,10 @@ export class ClientRuntime {
   private readonly hatKinds = new Set<string>();
   private zoneSignature = "";
   private ready = false;
+  /** Guards `load()`'s async continuations against touching a torn-down
+   * scene/renderer, or building state nothing will ever dispose again, if
+   * `dispose()` runs while `load()` is still mid-await — see `dispose()`. */
+  private disposed = false;
   private readonly onReady?: () => void;
   private readonly onFrameSample?: ClientRuntimeOptions["onFrameSample"];
   private readonly debug: boolean;
@@ -205,6 +209,12 @@ export class ClientRuntime {
     setInPlaceWorldTicks(!new URLSearchParams(window.location.search).has("inplace") || new URLSearchParams(window.location.search).get("inplace") !== "0");
     setExternalWorldTickDriver(true);
     const world = await loadBakedWorld(this.options.levelName);
+    // A `dispose()` mid-await must not let this continuation touch a scene/
+    // renderer that's already torn down, or build (and leak) world content
+    // nothing will ever dispose again — confirmed as a real bug by
+    // adversarial review 2026-09-26 (see the matching guard in
+    // `PlayerActor.load()`, the same class of issue for its own Rapier build).
+    if (this.disposed) return;
     this.world = world;
     this.scene.add(world.root);
     this.signs = new SignLayer();
@@ -232,6 +242,7 @@ export class ClientRuntime {
         buildFurniture(this.renderer, this.furnitureProps(initial)),
         this.player.load(initial.avatar, PLAYER_START[0], PLAYER_START[2]),
       ]);
+      if (this.disposed) return;
       this.furniture = furniture;
       this.layoutRoot.add(furniture.group);
       this.farm = buildFarm(this.farmProps(initial));
@@ -264,6 +275,7 @@ export class ClientRuntime {
       this.player.load(initial.avatar, PLAYER_START[0], PLAYER_START[2]),
       this.loadCrowdBodies(),
     ]);
+    if (this.disposed) return;
     // Baked anchors are world-space matrices: stock and machines hang from
     // the scene; crops use layout positions and hang from the scaled root.
     this.scene.add(this.stock.group, this.stations.worldGroup);
@@ -309,7 +321,9 @@ export class ClientRuntime {
    * moment its own registry gains an entry. */
   private async loadDeferredWorldKitAssets(initial: MarketSceneProps) {
     await Promise.all([this.loadCrowdBodies(), this.loadDeliveredProducts(), this.loadEmployeeHats(initial)]);
+    if (this.disposed) return;
     await ensureStoreNavigation(initial.unlockedAreas);
+    if (this.disposed) return;
     this.player.snapToNavmesh();
   }
 
@@ -530,6 +544,7 @@ export class ClientRuntime {
   }
 
   dispose() {
+    this.disposed = true;
     this.stop();
     setInPlaceWorldTicks(false);
     setExternalWorldTickDriver(false);
@@ -537,7 +552,7 @@ export class ClientRuntime {
     this.stock?.dispose();
     this.signs?.dispose();
     this.stations?.dispose();
-    for (const group of [this.furniture?.group, this.farm?.group, this.storefrontDoor?.group, this.rearFarmDoor?.group, this.purchaseMarkers?.group, this.registerCashMarkers?.group, this.transferEffects?.group]) {
+    for (const group of [this.world?.root, this.furniture?.group, this.farm?.group, this.storefrontDoor?.group, this.rearFarmDoor?.group, this.purchaseMarkers?.group, this.registerCashMarkers?.group, this.transferEffects?.group]) {
       group?.traverse((object) => {
         if (!(object instanceof THREE.Mesh) && !(object instanceof THREE.InstancedMesh)) return;
         object.geometry.dispose();

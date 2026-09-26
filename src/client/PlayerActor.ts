@@ -65,6 +65,9 @@ export class PlayerActor {
   private motion: PlayerMotionConfig = playerMotionForTier(0, true);
   private director = new InteractionDirector([]);
   private physics: PlayerPhysicsHandle | null = null;
+  /** Guards `load()`'s async continuations against building (and leaking)
+   * state after `dispose()` has already run once — see `dispose()`. */
+  private disposed = false;
   private doorProgress = { storefront: 0, rear: 0 };
   private readonly workstation = new WorkstationController();
   private unreportedDistance = 0;
@@ -93,6 +96,11 @@ export class PlayerActor {
     // rebuilt by the first real `setZones()` call `ClientRuntime.load()`
     // makes right after this resolves, before anything is ever rendered.
     const [gltf, animation] = await Promise.all([loadGltf(budgetPath("characters", key)), loadCrowdAnimation(key), ensureRapierReady()]);
+    // A `dispose()` mid-await must not let this continuation build (and leak)
+    // a Rapier world/GPU resources after the owner has already torn down —
+    // confirmed as a real bug by adversarial review 2026-09-26: nothing else
+    // ever re-disposes state constructed after `dispose()` already ran once.
+    if (this.disposed) return;
     this.physics = buildPlayerPhysics([], startX, startZ);
     const skinned = firstSkinnedMesh(gltf.scene);
     if (!skinned) throw new Error(`player body ${key} has no skinned mesh`);
@@ -112,6 +120,7 @@ export class PlayerActor {
       avatar.hat !== "none" ? loadGltf(budgetPath("hats", HAT_FILES[avatar.hat as keyof typeof HAT_FILES] ?? avatar.hat, avatar.body)).catch(() => null) : Promise.resolve(null),
       loadGltf(budgetPath("hair", avatar.hair, avatar.body)).catch(() => null),
     ]);
+    if (this.disposed) return;
     if (accessories[0]) { this.hat = new PartsInstancer(accessoryParts(accessories[0].scene), 1, "player-hat"); this.hat.attach(this.group); }
     // Hair shows only without a hat, tinted with the avatar's colour.
     if (accessories[1] && avatar.hat === "none") {
@@ -127,6 +136,7 @@ export class PlayerActor {
     this.hairFit.compose(new THREE.Vector3(...fit.position), new THREE.Quaternion(), new THREE.Vector3(...fit.scale));
     for (const id of ["milk", "cheese", "egg"] as const) {
       const delivered = await loadGltf(budgetPath("delivered", id)).catch(() => null);
+      if (this.disposed) return;
       if (!delivered) continue;
       const instancer = new PartsInstancer(deliveredProductParts(delivered.scene), PROP_CAPACITY, `player-delivered:${id}`);
       instancer.attach(this.group);
@@ -306,6 +316,7 @@ export class PlayerActor {
   }
 
   dispose() {
+    this.disposed = true;
     this.body?.dispose();
     for (const instancer of this.props.values()) { instancer.detach(); instancer.dispose(); }
     for (const instancer of this.delivered.values()) { instancer.detach(); instancer.dispose(); }
