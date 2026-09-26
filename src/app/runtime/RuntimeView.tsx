@@ -5,34 +5,39 @@ import { RUNTIME_CONTRACT, type RuntimeFrameSummary, type RuntimeGate } from "@/
 import { RuntimeLoop } from "@/runtime/loop";
 import styles from "./runtime.module.css";
 
+/**
+ * Labels here are display-only shorthand for the same `RuntimeFrameSummary`
+ * keys/values — kept short so all rows fit one iPhone screen in a two-column
+ * grid (see `runtime.module.css`). No telemetry, key or value changed.
+ */
 const PANEL_ROWS = [
-  ["averageMs", "Trabajo medio", "ms"],
-  ["p95Ms", "Trabajo p95", "ms"],
-  ["p99Ms", "Trabajo p99", "ms"],
-  ["framesOver16Ms", "Trabajo > 16,7 ms", "count"],
-  ["maxMs", "Trabajo máximo", "ms"],
+  ["averageMs", "Trab. medio", "ms"],
+  ["p95Ms", "Trab. p95", "ms"],
+  ["p99Ms", "Trab. p99", "ms"],
+  ["framesOver16Ms", "Trab. >16,7ms", "count"],
+  ["maxMs", "Trab. máx", "ms"],
   ["gapAverageMs", "Hueco medio", "ms"],
   ["gapP95Ms", "Hueco p95", "ms"],
   ["gapP99Ms", "Hueco p99", "ms"],
-  ["gapMaxMs", "Hueco máximo", "ms"],
-  ["gapsOver16Ms", "Huecos > 16,7 ms", "count"],
-  ["gapsOver25Ms", "Huecos > 25 ms", "count"],
+  ["gapMaxMs", "Hueco máx", "ms"],
+  ["gapsOver16Ms", "Huecos >16,7ms", "count"],
+  ["gapsOver25Ms", "Huecos >25ms", "count"],
   ["drawCalls", "Draw calls", "count"],
   ["triangles", "Triángulos", "count"],
-  ["renderCount", "Renders reales", "count"],
-  ["rafCount", "Callbacks rAF", "count"],
-  ["loadMs", "Tiempo hasta el primer cuadro", "ms"],
-  ["frameCount", "Cuadros medidos", "count"],
+  ["renderCount", "Renders", "count"],
+  ["rafCount", "rAF", "count"],
+  ["loadMs", "1er cuadro", "ms"],
+  ["frameCount", "Cuadros", "count"],
   ["crowdReadyMs", "Multitud lista", "ms"],
-  ["crowdBytes", "Descarga de la multitud", "bytes"],
+  ["crowdBytes", "Descarga multitud", "bytes"],
   ["navReadyMs", "Navmesh listo", "ms"],
-  ["navMaxStallMs", "Bloqueo de arranque del navmesh (init WASM)", "ms"],
-  ["navBytes", "Descarga del navmesh (WASM)", "bytes"],
-  ["playerMoveAverageMs", "Jugador: consulta navmesh media", "ms"],
-  ["playerMoveP95Ms", "Jugador: consulta navmesh p95", "ms"],
-  ["playerMoveP99Ms", "Jugador: consulta navmesh p99", "ms"],
-  ["playerMoveMaxMs", "Jugador: consulta navmesh máxima", "ms"],
-  ["playerMoveCallsPerSecond", "Jugador: consultas al navmesh por segundo", "rate"],
+  ["navMaxStallMs", "Bloqueo init navmesh", "ms"],
+  ["navBytes", "Descarga navmesh", "bytes"],
+  ["playerMoveAverageMs", "Jugador media", "ms"],
+  ["playerMoveP95Ms", "Jugador p95", "ms"],
+  ["playerMoveP99Ms", "Jugador p99", "ms"],
+  ["playerMoveMaxMs", "Jugador máx", "ms"],
+  ["playerMoveCallsPerSecond", "Jugador llam/s", "rate"],
 ] as const;
 
 const LOADING_MS_KEYS = new Set(["crowdReadyMs", "navReadyMs"]);
@@ -126,7 +131,6 @@ export function RuntimeView() {
       <section ref={panelRef} className={styles.panel} aria-live="polite">
         <p className={styles.kicker}>Runtime base · /runtime</p>
         <h1>Local horneado</h1>
-        <p className={styles.note}>El mismo bucle y la misma medición. Solo el local estático de nivel 30, sin personajes, stock ni físicas.</p>
         <p data-verdict data-state="wait">Preparando el lienzo…</p>
         <div className={styles.rows}>
           {PANEL_ROWS.map(([key, label]) => (
