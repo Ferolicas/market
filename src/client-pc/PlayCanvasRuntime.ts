@@ -27,6 +27,8 @@ import { WAREHOUSE_RETURN_STATION } from "@/game/stations/warehouse-layout";
 import { FARM_PLOTS, FARM_BARN, FARM_ANIMAL_STATIONS, FARM_FIELD, FARM_ANIMAL_FOOTPRINTS, type FarmPlotLayout } from "@/game/stations/farm-layout";
 import { setExternalWorldTickDriver, useMarketStore } from "@/game/store";
 import { WORLD_TICK_INTERVAL_MS } from "@/game/core/timing";
+import type { CharacterId } from "@/game/types";
+import { characterSceneScale } from "@/game/animation/CharacterScale";
 
 /**
  * Phase 2 of the PlayCanvas port: a controllable player capsule with real
@@ -96,6 +98,9 @@ export type DoorState = "CLOSED" | "OPENING" | "OPEN" | "CLOSING" | "BLOCKED";
  * `useMarketStore` and calls `update()` on change — the same "props" seam
  * `/runtime`'s `ClientRuntime.update()` uses. */
 export interface PlayCanvasSceneProps {
+  /** Real `GameState.avatar.body` — selects which owner GLB to load for the
+   * real player character (phase 4). Hair/hat/skin fidelity is deferred. */
+  avatarBody: CharacterId;
   unlockedAreas: string[];
   doorState: DoorState;
   doorProgress: number;
@@ -114,7 +119,37 @@ export interface PlayCanvasSceneProps {
   employees: Array<{ id: string; x: number; z: number; role: string }>;
 }
 
-const DEFAULT_PROPS: PlayCanvasSceneProps = { unlockedAreas: [], doorState: "CLOSED", doorProgress: 0, open: false, playerSpeedTier: 0, crops: [], customers: [], employees: [] };
+const DEFAULT_PROPS: PlayCanvasSceneProps = { avatarBody: "adult-man", unlockedAreas: [], doorState: "CLOSED", doorProgress: 0, open: false, playerSpeedTier: 0, crops: [], customers: [], employees: [] };
+
+// Mirrors `PlayerActor.ts`'s `OWNER_BODY_KEY` — the real owner GLB filenames.
+const OWNER_BODY_KEY: Record<CharacterId, string> = { "adult-man": "owner_man", "adult-woman": "owner_woman", boy: "owner_boy", girl: "owner_girl" };
+// Mirrors `CrowdSystems.ts`'s `BODY_SCALE` (per-body calibration on top of
+// `characterSceneScale()`). Copied verbatim rather than importing that module
+// (it pulls in Three.js, which this PlayCanvas-only file must not depend on).
+const OWNER_BODY_SCALE: Record<CharacterId, number> = { "adult-man": 1.264, "adult-woman": 1.302, boy: 1.322, girl: 1.264 };
+// The "lod1" tier (not the crowd `budgetPath` tier, which strips embedded
+// AnimationClips for the GPU-baked-texture crowd pipeline — see
+// `CrowdSkinning.ts`) is the smallest real owner GLB that still carries every
+// named clip (`Idle`, `Walk`, ...) glTF-embedded, which is what PlayCanvas's
+// own `anim` component needs (no equivalent to the baked-texture pipeline is
+// built for this phase — see the phase 4 report). Every real owner GLB in
+// this repo (budget/lod1/lod2/full) is authored with `EXT_meshopt_compression`
+// (`extensionsRequired`), which the PlayCanvas engine build here does not
+// implement (confirmed empirically: `instantiateRenderEntity()` throws
+// `RangeError: Invalid typed array length` trying to read the fallback
+// buffer) — so `characters/playcanvas-lod1/*.glb` is a one-time, byte-lossless
+// (geometry/animation-preserving) `gltf-transform copy` of the real lod1
+// asset with meshopt decoded back to plain accessors (still
+// `EXT_texture_webp`, which PlayCanvas's own GLB parser does support
+// natively). Regenerate with:
+//   npx gltf-transform copy characters/lod1/<file>.glb characters/playcanvas-lod1/<file>.glb
+// if the source lod1 asset changes. This does not touch any file `/`,
+// `/play2` or `/runtime` reads.
+const OWNER_MODEL_ROOT = "/models/market/characters/playcanvas-lod1";
+// The clips this phase actually switches between (idle/walk by speed). Any
+// other named clip in the GLB (Run, checkout, farm work, ...) is not wired
+// up yet — see the report.
+const WALK_TRANSITION_SECONDS = 0.15;
 
 export class PlayCanvasRuntime {
   readonly app: pc.Application;
@@ -127,6 +162,11 @@ export class PlayCanvasRuntime {
   // ---- player ----
   private props: PlayCanvasSceneProps = DEFAULT_PROPS;
   private playerEntity: pc.Entity | null = null;
+  private playerCharacterAsset: pc.Asset | null = null;
+  private playerCharacterEntity: pc.Entity | null = null;
+  private playerAnimEntity: pc.Entity | null = null;
+  private playerCapsule: pc.Entity | null = null;
+  private playerAnimTarget: "Idle" | "Walk" = "Idle";
   private physics: PlayerPhysicsHandle | null = null;
   private readonly playerPosition = { x: PLAYER_START[0], z: PLAYER_START[2] };
   private readonly velocity = { x: 0, y: 0 };
@@ -344,20 +384,105 @@ export class PlayCanvasRuntime {
   }
 
   private buildPlayerVisual() {
-    const entity = new pc.Entity("player");
-    // Simple capsule placeholder standing in for the real character mesh
-    // (a later phase — see the report). Real capsule collider dimensions
-    // (halfHeight 0.45, radius 0.24 — `CapsuleCollider` args in `Player`'s
-    // JSX / `PlayerPhysics.ts`'s `ColliderDesc.capsule(0.45, 0.24)`), scaled
-    // to PlayCanvas's default capsule primitive (height 2, radius 0.5).
-    entity.addComponent("render", { type: "capsule", material: this.material("#3f6f9a") });
-    entity.setLocalScale(0.48, 0.69, 0.48);
-    entity.setLocalPosition(0, 0.69 * WORLD_SCALE, 0);
+    // Capsule placeholder, shown until the real GLB (`loadPlayerCharacter`)
+    // finishes loading — matches real capsule collider dimensions
+    // (halfHeight 0.45, radius 0.24 — `PlayerPhysics.ts`'s
+    // `ColliderDesc.capsule(0.45, 0.24)`), scaled to PlayCanvas's default
+    // capsule primitive (height 2, radius 0.5).
+    const capsule = new pc.Entity("player-capsule");
+    capsule.addComponent("render", { type: "capsule", material: this.material("#3f6f9a") });
+    capsule.setLocalScale(0.48, 0.69, 0.48);
+    capsule.setLocalPosition(0, 0.69 * WORLD_SCALE, 0);
+    this.playerCapsule = capsule;
     const root = new pc.Entity("perf:player");
-    root.addChild(entity);
+    root.addChild(capsule);
     root.setLocalPosition(PLAYER_START[0] * WORLD_SCALE, 0, PLAYER_START[2] * WORLD_SCALE);
     this.app.root.addChild(root);
     this.playerEntity = root;
+    void this.loadPlayerCharacter(this.props.avatarBody);
+  }
+
+  /**
+   * Loads the real rigged/animated owner GLB (see `OWNER_MODEL_ROOT`'s doc
+   * comment for why this is a different tier than `budgetPath`'s crowd
+   * assets), instantiates it as a real render+anim entity under the player
+   * root, and removes the capsule placeholder. Ported from `PlayerActor.ts`'s
+   * `load()` METHOD (load the body GLB, size it with
+   * `characterSceneScale() * BODY_SCALE[body]`) — not its GPU-instanced
+   * baked-texture skinning (that pipeline is built for hundreds of crowd
+   * actors sharing one draw call; a single player entity uses PlayCanvas's
+   * own native `anim` component directly on the glTF-embedded clips instead,
+   * which is the natural equivalent for a non-instanced entity in this
+   * engine). Idle/Walk clip switching by presented speed is wired in
+   * `updatePlayerAnimation()`; every other named clip (Run, checkout/farm
+   * work poses, ...) is deferred — see the phase 4 report.
+   */
+  private async loadPlayerCharacter(body: CharacterId) {
+    const key = OWNER_BODY_KEY[body];
+    const url = `${OWNER_MODEL_ROOT}/${key}.glb`;
+    const asset = new pc.Asset(`player-character:${key}`, "container", { url, filename: `${key}.glb` });
+    this.app.assets.add(asset);
+    const loaded = await new Promise<boolean>((resolve) => {
+      asset.once("load", () => resolve(true));
+      asset.once("error", (message: string) => {
+        console.error(`[playcanvas] failed to load player character ${url}: ${message}`);
+        resolve(false);
+      });
+      this.app.assets.load(asset);
+    });
+    if (this.disposed || !loaded || !this.playerEntity) return;
+    this.playerCharacterAsset = asset;
+    // `ContainerResource`'s public .d.ts omits `.animations` (the real GLB
+    // parser — `GlbContainerResource` — does expose it, as an `Asset[]`
+    // wrapping each embedded `AnimTrack`; see
+    // `node_modules/playcanvas/build/playcanvas.dbg.mjs`'s
+    // `glb-container-resource.js`).
+    const resource = asset.resource as pc.ContainerResource & { animations: pc.Asset[] };
+    const characterEntity = resource.instantiateRenderEntity();
+    characterEntity.addComponent("anim", { activate: true, speed: 1 });
+    // Same "layout units × STORE_LAYOUT_SCALE" root as every other body in
+    // this file — this entity sits directly under `playerEntity`, which
+    // already carries `PLAYER_START * WORLD_SCALE` as an explicit literal
+    // (not a parent scale), so WORLD_SCALE has to be baked into this child's
+    // own scale too, exactly like the capsule placeholder's dimensions were.
+    const rootScale = characterSceneScale(body) * OWNER_BODY_SCALE[body] * WORLD_SCALE;
+    characterEntity.setLocalScale(rootScale, rootScale, rootScale);
+    this.playerEntity.addChild(characterEntity);
+    this.playerAnimEntity = characterEntity;
+
+    const animAssets = resource.animations;
+    const findClip = (name: string) => animAssets.find((clipAsset) => (clipAsset.resource as pc.AnimTrack | undefined)?.name === name)?.resource as pc.AnimTrack | undefined;
+    const idle = findClip("Idle");
+    const walk = findClip("Walk");
+    const anim = characterEntity.anim;
+    if (anim && idle) {
+      anim.loadStateGraph({
+        layers: [{ name: "locomotion", states: [{ name: "START" }, { name: "Idle", speed: 1, loop: true }, { name: "Walk", speed: 1, loop: true }], transitions: [{ from: "START", to: "Idle" }] }],
+        parameters: {},
+      });
+      anim.assignAnimation("Idle", idle, "locomotion");
+      if (walk) anim.assignAnimation("Walk", walk, "locomotion");
+    }
+
+    if (this.playerCapsule) {
+      this.playerCapsule.destroy();
+      this.playerCapsule = null;
+    }
+  }
+
+  /** Switches the real character's Idle/Walk state by presented speed (the
+   * same floor `LocomotionController.select()` uses in production — see
+   * that file's doc comment — collapsed to a plain threshold since this
+   * phase only wires two clips). No-ops until the GLB/anim graph is ready. */
+  private updatePlayerAnimation(presentedSpeed: number) {
+    const anim = this.playerAnimEntity?.anim;
+    const layer = anim?.baseLayer;
+    if (!anim || !layer) return;
+    const target: "Idle" | "Walk" = presentedSpeed > 0.12 ? "Walk" : "Idle";
+    if (target !== this.playerAnimTarget) {
+      this.playerAnimTarget = target;
+      layer.transition(target, WALK_TRANSITION_SECONDS);
+    }
   }
 
   /** Single render loop tick. */
@@ -407,6 +532,7 @@ export class PlayCanvasRuntime {
     this.playerEntity.setEulerAngles(0, (this.yaw * 180) / Math.PI, 0);
     this.focus.x = this.playerPosition.x;
     this.focus.z = this.playerPosition.z;
+    this.updatePlayerAnimation(speed);
   }
 
   private fixedStepPlayer(step: number) {

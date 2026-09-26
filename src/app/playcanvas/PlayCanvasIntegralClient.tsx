@@ -103,8 +103,14 @@ export function PlayCanvasIntegralClient() {
       .join("|");
   });
 
+  // Real avatar body (`GameState.avatar`, not per-franchise) — only `body`
+  // drives which owner GLB PlayCanvasRuntime loads for phase 4's real
+  // character; hair/hat/skin fidelity is deferred (see the phase 4 report).
+  const avatarBody = useMarketStore((state) => state.game?.avatar.body);
+
   const unlockedAreasSignature = unlockedAreas?.join("|") ?? "";
   const sceneProps: PlayCanvasSceneProps = useMemo(() => ({
+    avatarBody: avatarBody ?? "adult-man",
     unlockedAreas: unlockedAreasSignature ? unlockedAreasSignature.split("|") : [],
     doorState: doorState ?? "CLOSED",
     doorProgress: doorProgress ?? 0,
@@ -122,7 +128,7 @@ export function PlayCanvasIntegralClient() {
       const [id, x, z, role] = entry.split(":");
       return { id, x: Number(x), z: Number(z), role };
     }) : [],
-  }), [unlockedAreasSignature, doorState, doorProgress, open, playerSpeedTier, cropsSignature, customersSignature, employeesSignature]);
+  }), [avatarBody, unlockedAreasSignature, doorState, doorProgress, open, playerSpeedTier, cropsSignature, customersSignature, employeesSignature]);
 
   if (!ready) return <LoadingCurtain title="Cargando nivel 30 (PlayCanvas, fase 2)" detail="Sembrando la partida y preparando el motor PlayCanvas" />;
 
