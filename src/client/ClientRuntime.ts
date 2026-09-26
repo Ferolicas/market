@@ -51,6 +51,19 @@ export interface ClientRuntimeOptions {
    */
   onFrameSample?: (workMs: number, gapMs: number, drawCalls: number, triangles: number) => void;
   /**
+   * `/runtime`'s integral test only — never set by `/` or `/play2`. Fires
+   * exactly once, the first time a REAL input sample (`player.input`,
+   * `InputManager`-sourced — same value `?debug=1`'s `__MARKET_QA__.input`
+   * already exposes) with non-trivial magnitude is followed, in the same
+   * tick, by the player's world position actually having moved. This is
+   * deliberately not "the first frame rendered" (`onReady`/`onFrameSample`'s
+   * first call): the owner's requirement is that time-to-interactive means
+   * the player can really move, not that a canvas appeared. The check runs
+   * every tick only until it fires once (`interactiveVerified` short-circuits
+   * it after), so steady-state cost is nil.
+   */
+  onInteractiveVerified?: () => void;
+  /**
    * `/runtime` only — never set by `/` or `/play2`, so their behaviour is
    * byte-for-byte unchanged. Builds the store's furniture and farm LIVE from
    * the same source-of-truth layout modules `/` uses (`src/client/WorldKit/`)
@@ -106,6 +119,8 @@ export class ClientRuntime {
   private disposed = false;
   private readonly onReady?: () => void;
   private readonly onFrameSample?: ClientRuntimeOptions["onFrameSample"];
+  private readonly onInteractiveVerified?: ClientRuntimeOptions["onInteractiveVerified"];
+  private interactiveVerified = false;
   private readonly debug: boolean;
   private mobile: boolean;
   private glassTransmission: boolean;
@@ -144,6 +159,7 @@ export class ClientRuntime {
     this.debug = Boolean(options.debug);
     this.onReady = options.onReady;
     this.onFrameSample = options.onFrameSample;
+    this.onInteractiveVerified = options.onInteractiveVerified;
     this.worldKit = Boolean(options.worldKit);
     this.player = new PlayerActor({
       onInteract: (id) => this.props?.onInteract(id as InteractionId),
@@ -460,8 +476,17 @@ export class ClientRuntime {
       if (this.tickAccumulatorMs > WORLD_TICK_INTERVAL_MS * 3) this.tickAccumulatorMs = 0;
     }
     if (!this.ready) return;
+    const prevX = this.onInteractiveVerified && !this.interactiveVerified ? this.player.position.x : 0;
+    const prevZ = this.onInteractiveVerified && !this.interactiveVerified ? this.player.position.z : 0;
     this.present(delta, now);
     this.renderer.render(this.scene, this.rig.camera);
+    if (this.onInteractiveVerified && !this.interactiveVerified) {
+      const moved = Math.hypot(this.player.position.x - prevX, this.player.position.z - prevZ) > 0.0005;
+      if (moved && this.player.input.magnitude > 0.05) {
+        this.interactiveVerified = true;
+        this.onInteractiveVerified();
+      }
+    }
     if (this.debug) this.publishDebug();
     this.onFrameSample?.(performance.now() - tickStart, rawGapMs, this.renderer.info.render.calls, this.renderer.info.render.triangles);
   }

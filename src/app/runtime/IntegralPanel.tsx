@@ -41,21 +41,22 @@ export function IntegralPanel({ metrics }: { metrics: IntegralMetrics }) {
             <span>Hueco p99<strong>{summary.gapP99Ms.toFixed(1)} ms</strong></span>
             <span>Hueco máx<strong>{summary.gapMaxMs.toFixed(1)} ms</strong></span>
             <span>Huecos &gt;25ms<strong>{summary.gapsOver25Ms}</strong></span>
-            <span>Cadencia<strong>{summary.gapAverageMs > 0 ? (1000 / summary.gapAverageMs).toFixed(0) : "—"} fps</strong></span>
+            <span>Cadencia<strong>{summary.fpsAverage > 0 ? summary.fpsAverage.toFixed(0) : "—"} fps</strong></span>
             <span>Draw calls<strong>{summary.drawCalls}</strong></span>
             <span>Triángulos<strong>{summary.triangles}</strong></span>
             <span>1er cuadro<strong>{summary.loadMs.toFixed(0)} ms</strong></span>
-            <span>Interactivo*<strong>{summary.interactiveMs.toFixed(0)} ms</strong></span>
+            <span>Interactivo*<strong>{summary.interactiveMs === null ? "esperando entrada" : `${summary.interactiveMs.toFixed(0)} ms`}</strong></span>
             <span>Descarga fría<strong>{(summary.coldBytes / (1024 * 1024)).toFixed(2)} MB</strong></span>
             <span>Rebuilds navmesh<strong>{summary.navRebuilds}</strong></span>
             <span>Heap JS<strong>{summary.usedJsHeapMb === null ? "n/d (Safari)" : `${summary.usedJsHeapMb.toFixed(0)} MB`}</strong></span>
+            <span>Stalls main thread<strong>{summary.longTaskCount === null ? "n/d" : `${summary.longTaskCount} (${summary.longTaskTotalMs?.toFixed(0)} ms)`}</strong></span>
             <span>Minutos<strong>{summary.elapsedMinutes.toFixed(1)}</strong></span>
           </div>
           {summary.minutes.length > 0 && (
             <div className={styles.minutes}>
               <table>
                 <thead>
-                  <tr><th>Min</th><th>p99</th><th>máx</th><th>hueco máx</th><th>&gt;25ms</th><th>navmesh</th></tr>
+                  <tr><th>Min</th><th>p99</th><th>máx</th><th>hueco</th><th>&gt;25</th><th>fps</th><th>navm.</th><th>stall</th></tr>
                 </thead>
                 <tbody>
                   {summary.minutes.map((minute) => (
@@ -65,14 +66,16 @@ export function IntegralPanel({ metrics }: { metrics: IntegralMetrics }) {
                       <td>{minute.workMaxMs.toFixed(1)}</td>
                       <td>{minute.gapMaxMs.toFixed(1)}</td>
                       <td>{minute.gapsOver25Ms}</td>
+                      <td>{minute.fpsAverage.toFixed(0)}</td>
                       <td>{minute.navRebuilds}</td>
+                      <td>{minute.longTaskCount === null ? "n/d" : minute.longTaskCount}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
           )}
-          <p style={{ margin: "4px 0 0", fontSize: 8, color: "#5d756e" }}>*Interactivo = mismo instante que 1er cuadro aquí: no se calcula un TTI tipo Lighthouse por separado.</p>
+          <p style={{ margin: "4px 0 0", fontSize: 8, color: "#5d756e" }}>*Interactivo = primer input real que movió al jugador (no el instante del 1er cuadro).</p>
         </section>
       )}
     </>

@@ -56,6 +56,8 @@ export function IntegralClient() {
     return () => { cancelled = true; clearRuntimeIntegral(); };
   }, [metrics]);
 
+  useEffect(() => () => metrics.dispose(), [metrics]);
+
   if (!ready) return <LoadingCurtain title="Cargando nivel 30 (prueba integral)" detail="Sembrando la partida y preparando el motor 3D" />;
 
   return (
@@ -67,12 +69,10 @@ export function IntegralClient() {
         worldKit={worldKitEnabled}
         onFrameSample={(workMs, gapMs, drawCalls, triangles) => {
           const elapsedMs = performance.now() - startedAt;
-          if (metrics.loadMs === null) {
-            metrics.markLoad(elapsedMs);
-            metrics.markInteractive(elapsedMs);
-          }
+          if (metrics.loadMs === null) metrics.markLoad(elapsedMs);
           metrics.addFrame(workMs, gapMs, drawCalls, triangles, getNavRebuildCount(), readUsedJsHeapMb);
         }}
+        onInteractiveVerified={() => metrics.markInteractive(performance.now() - startedAt)}
       />
       <IntegralPanel metrics={metrics} />
     </>

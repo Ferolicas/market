@@ -43,10 +43,12 @@ export interface MinuteSnapshot {
   gapP99Ms: number;
   gapMaxMs: number;
   gapsOver25Ms: number;
+  fpsAverage: number;
   drawCalls: number;
   triangles: number;
   navRebuilds: number;
   usedJsHeapMb: number | null;
+  longTaskCount: number | null;
 }
 
 export interface IntegralSummary {
@@ -61,13 +63,29 @@ export interface IntegralSummary {
   gapP99Ms: number;
   gapMaxMs: number;
   gapsOver25Ms: number;
+  /** True average cadence: total presented frames / total elapsed wall time
+   * (the sum of every real inter-frame gap this session has measured), not a
+   * naive `1000 / gapAverageMs` sampled from a possibly-skewed subset — the
+   * two are algebraically identical here (`gapAverageMs === gapSum /
+   * frameCount`), so this is the same number, just computed once, in one
+   * place, and exposed as a real field instead of only a UI-side derivation. */
+  fpsAverage: number;
   drawCalls: number;
   triangles: number;
   loadMs: number;
-  interactiveMs: number;
+  /** Null until a REAL input sample has been observed to actually move the
+   * player in the same tick (see `ClientRuntimeOptions.onInteractiveVerified`)
+   * — never inferred from `loadMs`/first-frame-rendered alone. */
+  interactiveMs: number | null;
   coldBytes: number;
   navRebuilds: number;
   usedJsHeapMb: number | null;
+  /** Long-task count via `PerformanceObserver({entryTypes: ['longtask']})` —
+   * null when the API isn't available (Safari/iOS support varies), never
+   * guessed. Catches a genuine main-thread stall (big sync GC pause, a
+   * blocking call) that falls outside the render loop's own gap measurement. */
+  longTaskCount: number | null;
+  longTaskTotalMs: number | null;
   elapsedMinutes: number;
   minutes: MinuteSnapshot[];
 }
@@ -101,6 +119,39 @@ export class IntegralMetrics {
   loadMs: number | null = null;
   interactiveMs: number | null = null;
   coldBytes = 0;
+  /** `PerformanceObserver({entryTypes: ['longtask']})` — feature-detected,
+   * never polyfilled/inferred. The callback only accumulates counters; all
+   * real work (histograms, percentiles) stays in `addFrame`'s render-loop
+   * path, so this can never itself become the jank it measures. */
+  private readonly longTaskSupported: boolean;
+  private longTaskObserver: PerformanceObserver | null = null;
+  private longTaskCount = 0;
+  private longTaskTotalMs = 0;
+  private minuteLongTaskCount = 0;
+
+  constructor() {
+    this.longTaskSupported = typeof PerformanceObserver !== "undefined" && (PerformanceObserver.supportedEntryTypes?.includes("longtask") ?? false);
+    if (!this.longTaskSupported) return;
+    try {
+      this.longTaskObserver = new PerformanceObserver((list) => {
+        for (const entry of list.getEntries()) {
+          this.longTaskCount += 1;
+          this.longTaskTotalMs += entry.duration;
+          this.minuteLongTaskCount += 1;
+        }
+      });
+      this.longTaskObserver.observe({ type: "longtask", buffered: true });
+    } catch {
+      this.longTaskObserver = null;
+    }
+  }
+
+  /** Stops the long-task observer. Call on teardown (route unmount) so a
+   * `/runtime` session doesn't leave an observer registered past its page. */
+  dispose() {
+    this.longTaskObserver?.disconnect();
+    this.longTaskObserver = null;
+  }
 
   addFrame(workMs: number, gapMs: number, drawCalls: number, triangles: number, navRebuilds: number, getUsedJsHeapMb: () => number | null) {
     if (!Number.isFinite(workMs) || !Number.isFinite(gapMs) || gapMs <= 0) return;
@@ -137,10 +188,12 @@ export class IntegralMetrics {
         gapP99Ms: percentile(this.minuteGapHist, this.minuteFrameCount, 99),
         gapMaxMs: this.minuteGapMax,
         gapsOver25Ms: this.minuteGapsOver25,
+        fpsAverage: this.minuteFrameCount ? this.minuteFrameCount / ((now - this.minuteStartAt) / 1000) : 0,
         drawCalls,
         triangles,
         navRebuilds: navRebuilds - this.navRebuildsAtMinuteStart,
         usedJsHeapMb: getUsedJsHeapMb(),
+        longTaskCount: this.longTaskSupported ? this.minuteLongTaskCount : null,
       });
       this.navRebuildsAtMinuteStart = navRebuilds;
       this.minuteWorkHist.fill(0);
@@ -151,6 +204,7 @@ export class IntegralMetrics {
       this.minuteFramesOver16 = 0;
       this.minuteGapMax = 0;
       this.minuteGapsOver25 = 0;
+      this.minuteLongTaskCount = 0;
       this.minuteStartAt = now;
     }
   }
@@ -159,6 +213,9 @@ export class IntegralMetrics {
     if (this.loadMs === null) this.loadMs = ms;
   }
 
+  /** Fired only from `ClientRuntimeOptions.onInteractiveVerified` — a real
+   * input sample confirmed, in the same tick, to have moved the player. Never
+   * called from `markLoad`'s call site; the two are semantically distinct. */
   markInteractive(ms: number) {
     if (this.interactiveMs === null) this.interactiveMs = ms;
   }
@@ -180,13 +237,16 @@ export class IntegralMetrics {
       gapP99Ms: percentile(this.gapHist, this.frameCount, 99),
       gapMaxMs: this.gapMax,
       gapsOver25Ms: this.gapsOver25,
+      fpsAverage: this.gapSum > 0 ? this.frameCount / (this.gapSum / 1000) : 0,
       drawCalls: this.drawCalls,
       triangles: this.triangles,
       loadMs: this.loadMs ?? 0,
-      interactiveMs: this.interactiveMs ?? 0,
+      interactiveMs: this.interactiveMs,
       coldBytes: this.coldBytes,
       navRebuilds,
       usedJsHeapMb,
+      longTaskCount: this.longTaskSupported ? this.longTaskCount : null,
+      longTaskTotalMs: this.longTaskSupported ? this.longTaskTotalMs : null,
       elapsedMinutes: this.minuteIndex + this.minuteFrameCount / Math.max(1, this.frameCount || 1),
       minutes: this.minutes,
     };
