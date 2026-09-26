@@ -27,7 +27,7 @@ import { WAREHOUSE_RETURN_STATION } from "@/game/stations/warehouse-layout";
 import { FARM_PLOTS, FARM_BARN, FARM_ANIMAL_STATIONS, FARM_FIELD, FARM_ANIMAL_FOOTPRINTS, type FarmPlotLayout } from "@/game/stations/farm-layout";
 import { setExternalWorldTickDriver, useMarketStore } from "@/game/store";
 import { WORLD_TICK_INTERVAL_MS } from "@/game/core/timing";
-import type { CharacterId } from "@/game/types";
+import type { AvatarHatId, CharacterId, HairId } from "@/game/types";
 import { characterSceneScale } from "@/game/animation/CharacterScale";
 
 /**
@@ -99,8 +99,17 @@ export type DoorState = "CLOSED" | "OPENING" | "OPEN" | "CLOSING" | "BLOCKED";
  * `/runtime`'s `ClientRuntime.update()` uses. */
 export interface PlayCanvasSceneProps {
   /** Real `GameState.avatar.body` — selects which owner GLB to load for the
-   * real player character (phase 4). Hair/hat/skin fidelity is deferred. */
+   * real player character (phase 4). */
   avatarBody: CharacterId;
+  /** Real `GameState.avatar.hair`/`hairColor`/`hat` (phase 5). `skin`/`shirt`
+   * are intentionally not read here: production's own `PlayerActor.ts` never
+   * applies them either (see `AvatarCustomizer.tsx`'s doc comment — the
+   * delivered owner bodies carry one baked texture atlas with no separate
+   * skin/shirt material), so leaving them unused matches the real reference,
+   * not a PlayCanvas-specific gap. */
+  avatarHair: HairId;
+  avatarHairColor: string;
+  avatarHat: AvatarHatId;
   unlockedAreas: string[];
   doorState: DoorState;
   doorProgress: number;
@@ -119,7 +128,7 @@ export interface PlayCanvasSceneProps {
   employees: Array<{ id: string; x: number; z: number; role: string }>;
 }
 
-const DEFAULT_PROPS: PlayCanvasSceneProps = { avatarBody: "adult-man", unlockedAreas: [], doorState: "CLOSED", doorProgress: 0, open: false, playerSpeedTier: 0, crops: [], customers: [], employees: [] };
+const DEFAULT_PROPS: PlayCanvasSceneProps = { avatarBody: "adult-man", avatarHair: "fade", avatarHairColor: "#3a2a1e", avatarHat: "none", unlockedAreas: [], doorState: "CLOSED", doorProgress: 0, open: false, playerSpeedTier: 0, crops: [], customers: [], employees: [] };
 
 // Mirrors `PlayerActor.ts`'s `OWNER_BODY_KEY` — the real owner GLB filenames.
 const OWNER_BODY_KEY: Record<CharacterId, string> = { "adult-man": "owner_man", "adult-woman": "owner_woman", boy: "owner_boy", girl: "owner_girl" };
@@ -151,6 +160,28 @@ const OWNER_MODEL_ROOT = "/models/market/characters/playcanvas-lod1";
 // up yet — see the report.
 const WALK_TRANSITION_SECONDS = 0.15;
 
+// Same "meshopt is EXT_meshopt_compression, PlayCanvas's own GLB parser
+// doesn't implement it" problem as `OWNER_MODEL_ROOT`'s doc comment
+// describes, for the budget hat/hair GLBs (`budgetPath("hats"|"hair", ...)`
+// in `/runtime`'s `PlayerActor.ts`) — every one is decoded byte-losslessly
+// (geometry-preserving; these are static, unskinned meshes, so there is no
+// animation data to lose) the same way:
+//   npx gltf-transform copy public/models/market/budget/hats/<body>/<file>.glb public/models/market/playcanvas-accessories/hats/<body>/<file>.glb
+//   npx gltf-transform copy public/models/market/budget/hair/<body>/<file>.glb public/models/market/playcanvas-accessories/hair/<body>/<file>.glb
+// Regenerate the same way if the source budget assets change. This does not
+// touch any file `/`, `/play2` or `/runtime` reads.
+const ACCESSORY_ROOT = "/models/market/playcanvas-accessories";
+// Mirrors `CrowdSystems.ts`'s `HAT_FIT_SCALE` (copied verbatim — that module
+// pulls in Three.js).
+const HAT_FIT_SCALE: Record<CharacterId, number> = { "adult-man": 0.49, "adult-woman": 0.49, boy: 0.64, girl: 0.68 };
+// Mirrors `PlayerActor.ts`'s `HAIR_FIT` (copied verbatim, same reason).
+const HAIR_FIT: Record<CharacterId, { scale: [number, number, number]; position: [number, number, number] }> = {
+  "adult-man": { scale: [0.38, 0.43, 0.39], position: [0, 0, 0.028] },
+  "adult-woman": { scale: [0.38, 0.43, 0.39], position: [0, 0, 0.028] },
+  boy: { scale: [0.5, 0.53, 0.5], position: [0, 0, 0.028] },
+  girl: { scale: [0.5, 0.53, 0.5], position: [0, 0, 0.028] },
+};
+
 export class PlayCanvasRuntime {
   readonly app: pc.Application;
   private readonly canvas: HTMLCanvasElement;
@@ -166,6 +197,8 @@ export class PlayCanvasRuntime {
   private playerCharacterEntity: pc.Entity | null = null;
   private playerAnimEntity: pc.Entity | null = null;
   private playerCapsule: pc.Entity | null = null;
+  private playerHatEntity: pc.Entity | null = null;
+  private playerHairEntity: pc.Entity | null = null;
   private playerAnimTarget: "Idle" | "Walk" = "Idle";
   private physics: PlayerPhysicsHandle | null = null;
   private readonly playerPosition = { x: PLAYER_START[0], z: PLAYER_START[2] };
@@ -467,6 +500,78 @@ export class PlayCanvasRuntime {
     if (this.playerCapsule) {
       this.playerCapsule.destroy();
       this.playerCapsule = null;
+    }
+
+    void this.loadPlayerAccessories(characterEntity, body, this.props.avatarHair, this.props.avatarHairColor, this.props.avatarHat);
+  }
+
+  /**
+   * Real hair (GLB + `hairColor` tint) and hat (GLB) accessories, ported from
+   * `PlayerActor.ts`'s `load()` — same real assets (converted for PlayCanvas,
+   * see `ACCESSORY_ROOT`'s doc comment), same "hair shows only without a
+   * hat" rule, same per-body fit constants. Parented directly to the real
+   * `Head` bone entity in the glTF-embedded skeleton (confirmed present in
+   * every owner GLB) instead of Three's per-frame socket-matrix push — an
+   * entity reparented under a skinned bone follows its animated transform
+   * automatically in PlayCanvas, so this needs no per-frame code at all.
+   * Loaded once from the initial avatar (like the body itself — `update()`
+   * does not yet hot-swap the body/accessories if the avatar changes
+   * mid-session; see the report).
+   */
+  private async loadPlayerAccessories(characterEntity: pc.Entity, body: CharacterId, hair: HairId, hairColor: string, hat: AvatarHatId) {
+    const headBone = characterEntity.findByName("Head") as pc.Entity | null;
+    if (!headBone) return;
+    if (hat !== "none") {
+      const hatEntity = await this.loadAccessoryEntity(`${ACCESSORY_ROOT}/hats/${body}/${hat}.glb`, `player-hat:${hat}`);
+      if (this.disposed || !hatEntity) return;
+      const scale = HAT_FIT_SCALE[body];
+      hatEntity.setLocalScale(scale, scale, scale);
+      hatEntity.setLocalPosition(0, 0, 0);
+      headBone.addChild(hatEntity);
+      this.playerHatEntity = hatEntity;
+    } else {
+      const hairEntity = await this.loadAccessoryEntity(`${ACCESSORY_ROOT}/hair/${body}/${hair}.glb`, `player-hair:${hair}`);
+      if (this.disposed || !hairEntity) return;
+      const fit = HAIR_FIT[body];
+      hairEntity.setLocalScale(fit.scale[0], fit.scale[1], fit.scale[2]);
+      hairEntity.setLocalPosition(fit.position[0], fit.position[1], fit.position[2]);
+      this.tintRenderEntity(hairEntity, hairColor);
+      headBone.addChild(hairEntity);
+      this.playerHairEntity = hairEntity;
+    }
+  }
+
+  /** Loads a small static (unskinned) accessory GLB and returns its
+   * instantiated render entity, or `null` on failure (missing/unsupported
+   * asset — never fatal to the rest of the scene). */
+  private async loadAccessoryEntity(url: string, assetName: string): Promise<pc.Entity | null> {
+    const asset = new pc.Asset(assetName, "container", { url, filename: `${assetName}.glb` });
+    this.app.assets.add(asset);
+    const loaded = await new Promise<boolean>((resolve) => {
+      asset.once("load", () => resolve(true));
+      asset.once("error", (message: string) => {
+        console.error(`[playcanvas] failed to load accessory ${url}: ${message}`);
+        resolve(false);
+      });
+      this.app.assets.load(asset);
+    });
+    if (this.disposed || !loaded) return null;
+    const resource = asset.resource as pc.ContainerResource;
+    return resource.instantiateRenderEntity();
+  }
+
+  /** Tints every render mesh's diffuse colour — mirrors `PlayerActor.ts`'s
+   * hair tint, which clones and recolors every part of the accessory
+   * uniformly (both the "Hair" and "HairScalp" materials in the real asset),
+   * not just a material named "Hair". */
+  private tintRenderEntity(entity: pc.Entity, hex: string) {
+    const color = hexToColor(hex);
+    for (const render of entity.findComponents("render") as pc.RenderComponent[]) {
+      for (const meshInstance of render.meshInstances) {
+        const material = meshInstance.material as pc.StandardMaterial;
+        material.diffuse = color;
+        material.update();
+      }
     }
   }
 
