@@ -73,7 +73,19 @@ export class FrameMetrics {
     if (this.navReadyMs === null) this.navReadyMs = navReadyMs;
   }
 
-  /** Phase 8: largest single main-thread stall seen while the navmesh promise was pending. */
+  /**
+   * Phase 8: largest single main-thread stall seen while the *first*
+   * `ensureStoreNavigation()` promise was pending — exclusively the cost of
+   * `init()` compiling/instantiating the recast-navigation WASM module once
+   * per page load (confirmed as a real `PerformanceObserver("longtask")`
+   * entry, not just a scheduling delay, on 26-09-2026). Every later rebuild
+   * runs off-thread in `navmesh.worker.ts` and never touches this heartbeat.
+   * It is not reflected in `gapMaxMs`/`gapsOver25Ms`: those only start
+   * counting after `RUNTIME_CONTRACT.warmupFrames` (60) frames, and this
+   * stall happens inside that deliberately-excluded warmup window — it is
+   * not missing due to a measurement bug, it is outside the stable sample by
+   * design, same as GPU/JIT warmup.
+   */
   markNavStall(stallMs: number) {
     if (stallMs > this.navMaxStallMs) this.navMaxStallMs = stallMs;
   }

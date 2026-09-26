@@ -160,7 +160,13 @@ export class PlaceholderScene {
    * as this is pending, so any main-thread stall during that first-boot setup
    * is still caught even though it happens outside `render()` — later
    * rebuilds no longer produce one at all (see `navBuildTelemetry` in
-   * `NavMeshService.ts`).
+   * `NavMeshService.ts`). Confirmed on 26-09-2026 with an external
+   * `PerformanceObserver("longtask")` probe: this first-boot WASM compile can
+   * produce a genuine, sustained main-thread long task, not just a scheduling
+   * delay. It never shows up in the panel's `gapMaxMs`/`gapsOver25Ms` — those
+   * only start sampling after `RUNTIME_CONTRACT.warmupFrames`, and this stall
+   * falls inside that deliberately-excluded startup window, same as GPU/JIT
+   * warmup would.
    */
   private async loadNavigation() {
     const beforeNames = typeof performance !== "undefined" && performance.getEntriesByType

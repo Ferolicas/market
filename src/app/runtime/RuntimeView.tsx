@@ -26,7 +26,7 @@ const PANEL_ROWS = [
   ["crowdReadyMs", "Multitud lista", "ms"],
   ["crowdBytes", "Descarga de la multitud", "bytes"],
   ["navReadyMs", "Navmesh listo", "ms"],
-  ["navMaxStallMs", "Mayor bloqueo del hilo (navmesh)", "ms"],
+  ["navMaxStallMs", "Bloqueo de arranque del navmesh (init WASM)", "ms"],
   ["navBytes", "Descarga del navmesh (WASM)", "bytes"],
 ] as const;
 
