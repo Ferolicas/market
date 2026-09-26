@@ -127,7 +127,7 @@ let mainWasmReady: Promise<void> | null = null;
  * future change makes the geometry react to anything else, this signature
  * must grow to cover it too, or it will silently go stale.
  */
-function walkableSignature(areas: readonly string[]): string {
+export function walkableSignature(areas: readonly string[]): string {
   let signature = "";
   for (const obstacle of STORE_OBSTACLES) signature += fixtureAvailable(obstacle.id, areas) ? "1" : "0";
   return signature;
