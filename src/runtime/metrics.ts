@@ -51,6 +51,9 @@ export class FrameMetrics {
   triangles = 0;
   private crowdReadyMs: number | null = null;
   private crowdBytes = 0;
+  private navReadyMs: number | null = null;
+  private navMaxStallMs = 0;
+  private navBytes = 0;
 
   markLoad(loadMs: number) {
     if (this.loadMs === null) this.loadMs = loadMs;
@@ -63,6 +66,20 @@ export class FrameMetrics {
 
   setCrowdBytes(bytes: number) {
     this.crowdBytes = bytes;
+  }
+
+  /** Phase 8: when `ensureStoreNavigation()` resolves, independent of the store/crowd. */
+  markNavReady(navReadyMs: number) {
+    if (this.navReadyMs === null) this.navReadyMs = navReadyMs;
+  }
+
+  /** Phase 8: largest single main-thread stall seen while the navmesh promise was pending. */
+  markNavStall(stallMs: number) {
+    if (stallMs > this.navMaxStallMs) this.navMaxStallMs = stallMs;
+  }
+
+  setNavBytes(bytes: number) {
+    this.navBytes = bytes;
   }
 
   markRaf() {
@@ -140,6 +157,9 @@ export class FrameMetrics {
       rafCount: this.rafs,
       crowdReadyMs: this.crowdReadyMs ?? 0,
       crowdBytes: this.crowdBytes,
+      navReadyMs: this.navReadyMs ?? 0,
+      navMaxStallMs: this.navMaxStallMs,
+      navBytes: this.navBytes,
     };
   }
 

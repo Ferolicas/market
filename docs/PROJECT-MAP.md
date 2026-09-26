@@ -1,5 +1,19 @@
 # Mini Market — mapa vivo
 
+## Fase 8 en medición: navmesh construido (Recast), sin usar todavía — 26-09-2026
+
+Sobre la fase 7 ya aprobada, se aísla el coste de construir el navmesh real de la tienda de nivel 30 (26 zonas desbloqueadas, la lista real del estado sembrado usado para hornear `level30.glb`), sin jugador ni pathfinding: nada lo consulta. Reutilización exclusiva de `ensureStoreNavigation()` (`src/game/navigation/NavMeshService.ts`, sin tocar) — arranca en paralelo con el local y la multitud, en su propia promesa `navReady`, siguiendo el mismo patrón que ya usa esta runtime desde la fase 4.
+
+**Verificado antes de implementar (no asumido):** `ensureStoreNavigation()` es una combinación — `init()` hace `await import('@recast-navigation/wasm')`, una carga async real que cede el hilo; pero la construcción en sí (`threeToSoloNavMesh`) es una llamada **síncrona a WASM sin worker**, bloquea el hilo principal el tiempo que dure. Confirmado leyendo el paquete (no se tocó ningún archivo de `src/game/navigation/`).
+
+**Dos correcciones a la medición sobre la marcha, para no repetir el error de "una promesa no bloquea":**
+1. **El binario no llega como `.wasm`**: el build "wasm-compat" de webpack incrusta el WASM en base64 dentro de un chunk JS cargado por `import()` dinámico — un filtro por extensión `.wasm` habría dado (y dio, en la primera pasada) `0 bytes` de forma falsa. Corregido midiendo por diferencia de `performance.getEntriesByType("resource")` antes/después de la promesa del navmesh, filtrando por `_next/static/chunks/` — así no importa el hash del nombre.
+2. **Ese chunk lazy es solo parte del peso real**: hay un segundo chunk de ~326 KB (glue de `@recast-navigation/three`/`core`) que ya estaba en el bundle antes de mi "antes" porque `NavMeshService.ts` se importa de forma estática — ese peso no lo captura `navBytes` (que mide 221 KB, solo el `import()` diferido de dentro de `init()`), pero sí es peso nuevo que esta fase añade a la página. Documentado, no oculto.
+
+**Nueva telemetría** (no cambia el gate): `navReadyMs` (reloj de pared hasta que `ensureStoreNavigation()` resuelve), `navMaxStallMs` (mayor bloqueo del hilo detectado con un latido `setTimeout(0)` propio, sin tocar el código de navegación — proxy externo del coste síncrono de Recast, no una medición interna exacta), `navBytes` (bytes del chunk diferido).
+
+Probado en local (Chrome+Vulkan, build de producción): 0 errores de consola, **draws y triángulos idénticos a fase 7 (170 / 376 700)** — el navmesh no se añade a ninguna escena visible, tal como se esperaba. `navMaxStallMs` ≈ 27-29 ms en varias pasadas (coherente con los 12-19 ms de Recast ya medidos en Node más el resto de trabajo síncrono de `init()`), ocurriendo antes de que arranque el bucle de render en local, por lo que no apareció como hueco >25 ms en el historial de rAF en estas pruebas — pendiente confirmar si en el iPhone real ocurre igual o se solapa con el bucle ya corriendo. Pendiente la medición real del iPhone, comparada exclusivamente contra `RUNTIME_PHASE7_BASELINE`.
+
 ## Fase 7 aprobada: la diversidad de assets sí cuesta, pero poco y de forma uniforme — 26-09-2026
 
 Medición oficial del iPhone (build `9502440`, lectura limpia), guardada como `RUNTIME_PHASE7_BASELINE` en `src/runtime/contract.ts`: trabajo 2,9 / 3,3 / 5,2 ms (medio/p95/p99), máximo 16,5 ms, 0 trabajos > 16,7 ms; hueco 16,7 / 17 / 17 ms, máximo 25 ms, 0 huecos > 25 ms de 21 201; 170 draws, 376 700 triángulos, 1 103 ms hasta el primer cuadro, 1 238,2 ms hasta que la multitud está lista, 18,61 MB de descarga. Frente a `RUNTIME_PHASE6_BASELINE`: +0,4 ms de media/p95/p99 (subida uniforme, no una cola desproporcionada como en fase 5), +18 draws, +1 910 triángulos, sin regresión de ritmo ni calentamiento. No se optimiza nada.

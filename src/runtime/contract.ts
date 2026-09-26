@@ -247,6 +247,19 @@ export interface RuntimeFrameSummary {
   crowdReadyMs: number;
   /** Phase 4: bytes of crowd bodies/animations downloaded (Resource Timing), separate from the store. */
   crowdBytes: number;
+  /** Phase 8: wall-clock time until `ensureStoreNavigation()` resolves — includes the async WASM fetch/init plus the synchronous Recast build. 0 until known. */
+  navReadyMs: number;
+  /**
+   * Phase 8: the largest single main-thread stall observed (via a
+   * `setTimeout(0)` heartbeat, not an internal timer) while the navmesh
+   * promise was pending. Recast's actual build call is synchronous WASM with
+   * no worker, so this is the best external proxy for its CPU cost without
+   * instrumenting `src/game/navigation/` itself — a floor, not an exact
+   * internal measurement.
+   */
+  navMaxStallMs: number;
+  /** Phase 8: bytes of the Recast `.wasm` binary downloaded (Resource Timing) — separate from crowdBytes. */
+  navBytes: number;
 }
 
 export interface RuntimeGate {
@@ -274,7 +287,11 @@ function average(samples: readonly number[]) {
 
 export function summarizeFrames(
   samples: readonly FrameSample[],
-  extras: { drawCalls: number; triangles: number; loadMs: number; crowdReadyMs?: number; crowdBytes?: number },
+  extras: {
+    drawCalls: number; triangles: number; loadMs: number;
+    crowdReadyMs?: number; crowdBytes?: number;
+    navReadyMs?: number; navMaxStallMs?: number; navBytes?: number;
+  },
 ): RuntimeFrameSummary {
   const work = samples.map((sample) => sample.workMs);
   const gaps = samples.map((sample) => sample.gapMs);
@@ -298,6 +315,9 @@ export function summarizeFrames(
     rafCount: samples.length,
     crowdReadyMs: extras.crowdReadyMs ?? 0,
     crowdBytes: extras.crowdBytes ?? 0,
+    navReadyMs: extras.navReadyMs ?? 0,
+    navMaxStallMs: extras.navMaxStallMs ?? 0,
+    navBytes: extras.navBytes ?? 0,
   };
 }
 

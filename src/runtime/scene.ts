@@ -18,6 +18,7 @@ import {
   employeeBodyOf,
   firstSkinnedMesh,
 } from "@/game/render/CrowdSystems";
+import { ensureStoreNavigation } from "@/game/navigation/NavMeshService";
 import { createSyntheticEmployeeRoster } from "./crowdFeed";
 
 export interface SceneStats {
@@ -26,6 +27,17 @@ export interface SceneStats {
 }
 
 const STORE_URL = "/models/market/budget/world/level30.glb";
+
+/** The real unlocked-zone list of the level-30 seed already used to bake
+ * `level30.glb` (`franchise.unlockedAreas`, read from the seed state used for
+ * `scripts/export-static-world.mjs`) — the full store, not a cut-down one. */
+const LEVEL30_UNLOCKED_AREAS = [
+  "store-floor", "farm-tomato", "checkout-1", "purchase-campaign", "egg-display", "chicken-coop",
+  "farm-tomato-2", "expansion-side", "farm-tomato-3", "checkout-2", "farm-wheat", "chicken-coop-2",
+  "flour-mill", "bread-oven", "dairy-display", "cow-station", "checkout-3", "cheese-maker",
+  "farm-apple", "farm-corn", "coffee-supply", "farm-coffee", "farm-orange", "juice-machine",
+  "preserves-supply", "corn-canner",
+];
 
 /** Every network fetch under `/models/market/` that isn't the store itself is
  * a crowd asset (body GLB or baked animation texture) — phase 4 loads nothing
@@ -41,6 +53,48 @@ function measureCrowdBytes(): number {
 }
 
 /**
+ * Recast ships no separate `.wasm` file to this build: webpack's
+ * "wasm-compat" path embeds the binary as base64 inside a lazily-imported JS
+ * chunk (`import('@recast-navigation/wasm')` inside `init()`), so filtering
+ * by `.wasm` extension silently finds nothing. Instead, diff the resource
+ * list before/after the navmesh promise: any `_next/static/chunks/*` entry
+ * that appears during that window is a chunk `ensureStoreNavigation()`
+ * pulled in, whatever its hashed name is — nothing else in this runtime
+ * lazily imports JS at runtime.
+ */
+function measureNavBytes(beforeNames: ReadonlySet<string>): number {
+  if (typeof performance === "undefined" || !performance.getEntriesByType) return 0;
+  let total = 0;
+  for (const entry of performance.getEntriesByType("resource") as PerformanceResourceTiming[]) {
+    if (beforeNames.has(entry.name) || !entry.name.includes("/_next/static/chunks/")) continue;
+    total += entry.transferSize || entry.encodedBodySize || 0;
+  }
+  return total;
+}
+
+/**
+ * Phase 8: detects main-thread stalls from the outside, without touching
+ * `src/game/navigation/`. `ensureStoreNavigation()`'s actual Recast build is
+ * synchronous WASM with no worker, so it blocks whatever `setTimeout(0)` is
+ * already queued; the gap between two heartbeat callbacks is (at least) as
+ * long as any stall that occurred between them. `onStall` is called with
+ * every gap, including normal ones — the caller keeps the max.
+ */
+function startStallHeartbeat(onStall: (stallMs: number) => void): () => void {
+  let stopped = false;
+  let last = performance.now();
+  const tick = () => {
+    if (stopped) return;
+    const now = performance.now();
+    onStall(now - last);
+    last = now;
+    setTimeout(tick, 0);
+  };
+  setTimeout(tick, 0);
+  return () => { stopped = true; };
+}
+
+/**
  * The measured runtime scene. Renderer settings match the empty baseline.
  * The only added content is the baked static store. Markers, characters,
  * stock and physics stay out.
@@ -53,6 +107,11 @@ export class PlaceholderScene {
   readonly crowdReady: Promise<void>;
   crowdReadyAtMs = 0;
   crowdBytes = 0;
+  /** Phase 8: resolves once `ensureStoreNavigation()` resolves — built but never queried (no player, no pathfinding). */
+  readonly navReady: Promise<void>;
+  navReadyAtMs = 0;
+  navBytes = 0;
+  navMaxStallMs = 0;
   private readonly scene = new THREE.Scene();
   private readonly camera = new THREE.PerspectiveCamera(40, 1, 0.1, 80);
   private readonly lookAt = new THREE.Vector3();
@@ -86,6 +145,33 @@ export class PlaceholderScene {
     this.resize();
     this.ready = this.loadStore();
     this.crowdReady = this.loadCrowd();
+    this.navReady = this.loadNavigation();
+  }
+
+  /**
+   * Phase 8: builds the real level-30 navmesh (26 unlocked zones) in
+   * parallel with the store and the crowd — the same parallel-promise
+   * pattern this runtime has used since phase 4, kept as-is for this
+   * measurement. Nothing ever queries it (no player, no pathfinding). A
+   * `setTimeout(0)` heartbeat runs for as long as this is pending, so the
+   * synchronous Recast build's main-thread stall is caught even though it
+   * happens outside `render()`.
+   */
+  private async loadNavigation() {
+    const beforeNames = typeof performance !== "undefined" && performance.getEntriesByType
+      ? new Set(performance.getEntriesByType("resource").map((entry) => entry.name))
+      : new Set<string>();
+    let maxStall = 0;
+    const stopHeartbeat = startStallHeartbeat((stall) => { if (stall > maxStall) maxStall = stall; });
+    try {
+      await ensureStoreNavigation(0, LEVEL30_UNLOCKED_AREAS);
+    } finally {
+      stopHeartbeat();
+    }
+    if (this.disposed) return;
+    this.navMaxStallMs = maxStall;
+    this.navReadyAtMs = performance.now();
+    this.navBytes = measureNavBytes(beforeNames);
   }
 
   /**

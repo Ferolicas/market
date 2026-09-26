@@ -36,6 +36,11 @@ export class RuntimeLoop {
       this.metrics.markCrowdReady(this.scene.crowdReadyAtMs);
       this.metrics.setCrowdBytes(this.scene.crowdBytes);
     });
+    void this.scene.navReady.then(() => {
+      this.metrics.markNavReady(this.scene.navReadyAtMs);
+      this.metrics.markNavStall(this.scene.navMaxStallMs);
+      this.metrics.setNavBytes(this.scene.navBytes);
+    });
     return this.scene.ready.then(() => {
       if (!this.running || this.rafActive) return;
       this.rafActive = true;
