@@ -29,8 +29,12 @@ export interface SceneStats {
   triangles: number;
   /** Phase 10: time spent in this frame's `storeMoveAlongSurface` call, 0 before the navmesh is ready. */
   playerMoveMs: number;
-  /** Phase 11A: time spent in this frame's `InputManager.sample()` call alone — gamepad polling happens outside the timed window. */
+  /** Phase 11A: exclusive cost of `navigator.getGamepads()` — polled every frame regardless of a gamepad being connected, matching `PlayerActor.step()`'s real production behaviour. */
+  gamepadPollMs: number;
+  /** Phase 11A: exclusive cost of `InputManager.sample()` — normalizing/unifying keyboard+gamepad+pointer state into one axis. */
   inputSampleMs: number;
+  /** Phase 11A: one continuous timer spanning poll → normalize → `sample()` — the real per-frame input pipeline cost, not just the sum of the two above (it also covers `setGamepad()`'s own glue cost in between). */
+  inputTotalMs: number;
 }
 
 /**
@@ -214,19 +218,33 @@ export class PlaceholderScene {
    * Phase 11A: real keyboard/gamepad input drives the capsule via the same
    * `storeMoveAlongSurface()` call phase 10 isolated — no camera-relative
    * transform, no acceleration/braking curve, that is gameplay feel and out
-   * of scope here. Gamepad polling happens before the timed window (it is a
-   * `navigator` API call, not part of `InputManager` itself); only
-   * `sample()` itself is timed as `inputSampleMs`. With no input device
-   * active, `sample()` returns a zero vector every frame — the capsule holds
-   * still, but the cost of calling it every frame is still measured, which
-   * is the isolated variable this phase cares about.
+   * of scope here.
+   *
+   * Three separate timings for the input pipeline (poll device → normalize →
+   * final axis), corrected on 26-09-2026 after the first cut left the
+   * gamepad poll outside `inputSampleMs`, understating the real per-frame
+   * input cost:
+   * - `gamepadPollMs`: exclusively `navigator.getGamepads()`. Polled every
+   *   frame regardless of whether a gamepad is connected — this mirrors
+   *   `PlayerActor.step()`'s real production behaviour exactly (it also
+   *   calls `navigator.getGamepads?.()[0]` unconditionally on every step,
+   *   only feeding it into `InputManager` when one exists); the harness does
+   *   not invent a different polling policy.
+   * - `inputSampleMs`: exclusively `InputManager.sample()`.
+   * - `inputTotalMs`: one continuous timer from just before the poll to just
+   *   after `sample()` returns — the real total, not just the sum of the two
+   *   above, since it also covers `setGamepad()`'s own glue cost in between.
    */
-  private updatePlayer(deltaSeconds: number): { playerMoveMs: number; inputSampleMs: number } {
+  private updatePlayer(deltaSeconds: number): { playerMoveMs: number; gamepadPollMs: number; inputSampleMs: number; inputTotalMs: number } {
+    const inputStart = performance.now();
     const gamepad = typeof navigator !== "undefined" ? navigator.getGamepads?.()[0] : null;
+    const gamepadPollMs = performance.now() - inputStart;
     if (gamepad) this.playerInput.setGamepad(gamepad.axes[0] ?? 0, gamepad.axes[1] ?? 0);
     const sampleStart = performance.now();
     const input = this.playerInput.sample();
-    const inputSampleMs = performance.now() - sampleStart;
+    const sampleEnd = performance.now();
+    const inputSampleMs = sampleEnd - sampleStart;
+    const inputTotalMs = sampleEnd - inputStart;
 
     const targetX = this.playerPos[0] + input.x * PLAYER_SPEED * deltaSeconds;
     const targetZ = this.playerPos[1] + input.y * PLAYER_SPEED * deltaSeconds;
@@ -235,7 +253,7 @@ export class PlaceholderScene {
     const playerMoveMs = performance.now() - moveStart;
     if (moved) this.playerPos = moved;
     this.playerMesh.position.set(this.playerPos[0] * STORE_LAYOUT_SCALE, 0.9, this.playerPos[1] * STORE_LAYOUT_SCALE);
-    return { playerMoveMs, inputSampleMs };
+    return { playerMoveMs, gamepadPollMs, inputSampleMs, inputTotalMs };
   }
 
   /**
@@ -404,13 +422,15 @@ export class PlaceholderScene {
       this.customers.update(this.camera, deltaSeconds, this.elapsedSeconds);
       this.employees.update(this.camera, deltaSeconds);
     }
-    const { playerMoveMs, inputSampleMs } = this.updatePlayer(deltaSeconds);
+    const { playerMoveMs, gamepadPollMs, inputSampleMs, inputTotalMs } = this.updatePlayer(deltaSeconds);
     this.renderer.render(this.scene, this.camera);
     const stats = {
       drawCalls: this.renderer.info.render.calls,
       triangles: this.renderer.info.render.triangles,
       playerMoveMs,
+      gamepadPollMs,
       inputSampleMs,
+      inputTotalMs,
     };
     this.renderer.info.reset();
     return stats;

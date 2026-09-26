@@ -318,13 +318,23 @@ export interface RuntimeFrameSummary {
   playerMoveMaxMs: number;
   /** Phase 10: how often the synthetic player's navmesh query actually runs — should track the render rate closely. */
   playerMoveCallsPerSecond: number;
-  /** Phase 11A: `InputManager.sample()`'s own per-frame cost, sampled every rendered frame (not gated by `warmupFrames`), timed separately from gamepad polling. */
+  /** Phase 11A: `InputManager.sample()`'s own per-frame cost alone, sampled every rendered frame (not gated by `warmupFrames`), exclusive of `gamepadPoll*`/`inputTotal*`. */
   inputSampleAverageMs: number;
   inputSampleP95Ms: number;
   inputSampleP99Ms: number;
   inputSampleMaxMs: number;
-  /** Phase 11A: how often input is sampled per second — should track the render rate closely, same as `playerMoveCallsPerSecond`. */
-  inputSampleCallsPerSecond: number;
+  /** Phase 11A, corrected 26-09-2026: exclusive cost of `navigator.getGamepads()` alone — polled every frame regardless of a connected gamepad, matching `PlayerActor.step()`'s real production behaviour. Previously uncounted, understating the real per-frame input cost. */
+  gamepadPollAverageMs: number;
+  gamepadPollP95Ms: number;
+  gamepadPollP99Ms: number;
+  gamepadPollMaxMs: number;
+  /** Phase 11A: one continuous timer spanning poll → normalize → `sample()` — the real total per-frame input pipeline cost, not just `gamepadPollAverageMs + inputSampleAverageMs`. */
+  inputTotalAverageMs: number;
+  inputTotalP95Ms: number;
+  inputTotalP99Ms: number;
+  inputTotalMaxMs: number;
+  /** Phase 11A: how often the input pipeline runs per second — should track the render rate closely, same as `playerMoveCallsPerSecond`. */
+  inputSamplesPerSecond: number;
 }
 
 export interface RuntimeGate {
@@ -359,7 +369,10 @@ export function summarizeFrames(
     playerMoveAverageMs?: number; playerMoveP95Ms?: number; playerMoveP99Ms?: number;
     playerMoveMaxMs?: number; playerMoveCallsPerSecond?: number;
     inputSampleAverageMs?: number; inputSampleP95Ms?: number; inputSampleP99Ms?: number;
-    inputSampleMaxMs?: number; inputSampleCallsPerSecond?: number;
+    inputSampleMaxMs?: number;
+    gamepadPollAverageMs?: number; gamepadPollP95Ms?: number; gamepadPollP99Ms?: number; gamepadPollMaxMs?: number;
+    inputTotalAverageMs?: number; inputTotalP95Ms?: number; inputTotalP99Ms?: number; inputTotalMaxMs?: number;
+    inputSamplesPerSecond?: number;
   },
 ): RuntimeFrameSummary {
   const work = samples.map((sample) => sample.workMs);
@@ -396,7 +409,15 @@ export function summarizeFrames(
     inputSampleP95Ms: extras.inputSampleP95Ms ?? 0,
     inputSampleP99Ms: extras.inputSampleP99Ms ?? 0,
     inputSampleMaxMs: extras.inputSampleMaxMs ?? 0,
-    inputSampleCallsPerSecond: extras.inputSampleCallsPerSecond ?? 0,
+    gamepadPollAverageMs: extras.gamepadPollAverageMs ?? 0,
+    gamepadPollP95Ms: extras.gamepadPollP95Ms ?? 0,
+    gamepadPollP99Ms: extras.gamepadPollP99Ms ?? 0,
+    gamepadPollMaxMs: extras.gamepadPollMaxMs ?? 0,
+    inputTotalAverageMs: extras.inputTotalAverageMs ?? 0,
+    inputTotalP95Ms: extras.inputTotalP95Ms ?? 0,
+    inputTotalP99Ms: extras.inputTotalP99Ms ?? 0,
+    inputTotalMaxMs: extras.inputTotalMaxMs ?? 0,
+    inputSamplesPerSecond: extras.inputSamplesPerSecond ?? 0,
   };
 }
 

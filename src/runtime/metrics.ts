@@ -12,6 +12,12 @@ const PLAYER_MOVE_BUCKETS = 500;
 /** Phase 11A: `InputManager.sample()` cost per frame — same resolution, expected even smaller than playerMove. */
 const INPUT_SAMPLE_BUCKET_MS = 0.1;
 const INPUT_SAMPLE_BUCKETS = 500;
+/** Phase 11A: `navigator.getGamepads()` cost per frame — same resolution. */
+const GAMEPAD_POLL_BUCKET_MS = 0.1;
+const GAMEPAD_POLL_BUCKETS = 500;
+/** Phase 11A: the full poll→normalize→sample pipeline cost per frame — same resolution. */
+const INPUT_TOTAL_BUCKET_MS = 0.1;
+const INPUT_TOTAL_BUCKETS = 500;
 
 function bucket(value: number, width: number, count: number) {
   const index = Math.round(value / width);
@@ -70,6 +76,14 @@ export class FrameMetrics {
   private inputSampleSum = 0;
   private inputSampleMax = 0;
   private inputSampleFirstAtMs: number | null = null;
+  private readonly gamepadPollHist = new Uint32Array(GAMEPAD_POLL_BUCKETS);
+  private gamepadPollCount = 0;
+  private gamepadPollSum = 0;
+  private gamepadPollMax = 0;
+  private readonly inputTotalHist = new Uint32Array(INPUT_TOTAL_BUCKETS);
+  private inputTotalCount = 0;
+  private inputTotalSum = 0;
+  private inputTotalMax = 0;
 
   markLoad(loadMs: number) {
     if (this.loadMs === null) this.loadMs = loadMs;
@@ -129,10 +143,13 @@ export class FrameMetrics {
 
   /**
    * Phase 11A: one sample per rendered frame, from `PlaceholderScene`'s own
-   * timing around `InputManager.sample()` alone (gamepad polling happens
-   * outside that window). Not gated by `warmupFrames`, same reasoning as
+   * timing around `InputManager.sample()` alone — exclusive of
+   * `navigator.getGamepads()` (see `addGamepadPoll`) and of the full pipeline
+   * (see `addInputTotal`). Not gated by `warmupFrames`, same reasoning as
    * `addPlayerMove`: this measures the call's isolated cost from the first
-   * frame, whether or not an input device is actually connected.
+   * frame, whether or not an input device is actually connected. Also drives
+   * `inputSamplesPerSecond`, since all three input timings are sampled
+   * together, once per frame.
    */
   addInputSample(ms: number) {
     if (!Number.isFinite(ms) || ms < 0) return;
@@ -141,6 +158,35 @@ export class FrameMetrics {
     this.inputSampleCount += 1;
     this.inputSampleSum += ms;
     if (ms > this.inputSampleMax) this.inputSampleMax = ms;
+  }
+
+  /**
+   * Phase 11A, corrected 26-09-2026: exclusive cost of `navigator.getGamepads()`
+   * alone, polled every frame regardless of whether a gamepad is connected
+   * (matching `PlayerActor.step()`'s real production behaviour) — previously
+   * this ran outside any timed window at all, understating the real per-frame
+   * input cost.
+   */
+  addGamepadPoll(ms: number) {
+    if (!Number.isFinite(ms) || ms < 0) return;
+    this.gamepadPollHist[bucket(ms, GAMEPAD_POLL_BUCKET_MS, GAMEPAD_POLL_BUCKETS)] += 1;
+    this.gamepadPollCount += 1;
+    this.gamepadPollSum += ms;
+    if (ms > this.gamepadPollMax) this.gamepadPollMax = ms;
+  }
+
+  /**
+   * Phase 11A: one continuous timer spanning poll → normalize → `sample()` —
+   * the real total per-frame input pipeline cost, not just
+   * `gamepadPollMs + inputSampleMs` (it also covers `setGamepad()`'s own
+   * glue cost in between the two).
+   */
+  addInputTotal(ms: number) {
+    if (!Number.isFinite(ms) || ms < 0) return;
+    this.inputTotalHist[bucket(ms, INPUT_TOTAL_BUCKET_MS, INPUT_TOTAL_BUCKETS)] += 1;
+    this.inputTotalCount += 1;
+    this.inputTotalSum += ms;
+    if (ms > this.inputTotalMax) this.inputTotalMax = ms;
   }
 
   markRaf() {
@@ -232,7 +278,15 @@ export class FrameMetrics {
       inputSampleP95Ms: histPercentile(this.inputSampleHist, INPUT_SAMPLE_BUCKET_MS, this.inputSampleCount, 95),
       inputSampleP99Ms: histPercentile(this.inputSampleHist, INPUT_SAMPLE_BUCKET_MS, this.inputSampleCount, 99),
       inputSampleMaxMs: this.inputSampleMax,
-      inputSampleCallsPerSecond: this.inputSampleFirstAtMs !== null && this.inputSampleCount > 0
+      gamepadPollAverageMs: this.gamepadPollCount ? this.gamepadPollSum / this.gamepadPollCount : 0,
+      gamepadPollP95Ms: histPercentile(this.gamepadPollHist, GAMEPAD_POLL_BUCKET_MS, this.gamepadPollCount, 95),
+      gamepadPollP99Ms: histPercentile(this.gamepadPollHist, GAMEPAD_POLL_BUCKET_MS, this.gamepadPollCount, 99),
+      gamepadPollMaxMs: this.gamepadPollMax,
+      inputTotalAverageMs: this.inputTotalCount ? this.inputTotalSum / this.inputTotalCount : 0,
+      inputTotalP95Ms: histPercentile(this.inputTotalHist, INPUT_TOTAL_BUCKET_MS, this.inputTotalCount, 95),
+      inputTotalP99Ms: histPercentile(this.inputTotalHist, INPUT_TOTAL_BUCKET_MS, this.inputTotalCount, 99),
+      inputTotalMaxMs: this.inputTotalMax,
+      inputSamplesPerSecond: this.inputSampleFirstAtMs !== null && this.inputSampleCount > 0
         ? this.inputSampleCount / Math.max(0.001, (performance.now() - this.inputSampleFirstAtMs) / 1_000)
         : 0,
     };
