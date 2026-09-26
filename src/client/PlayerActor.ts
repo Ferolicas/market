@@ -154,8 +154,11 @@ export class PlayerActor {
   /** Fixed-step locomotion and interactions; call once per frame with the frame delta. */
   step(delta: number, nowMs: number) {
     this.accumulator = Math.min(0.25, this.accumulator + delta);
-    const gamepad = typeof navigator !== "undefined" ? navigator.getGamepads?.()[0] : null;
-    if (gamepad) inputManager.setGamepad(gamepad.axes[0] ?? 0, gamepad.axes[1] ?? 0);
+    // No gamepad in this product (owner-confirmed 2026-09-26) — keyboard,
+    // mouse and touch only. `InputManager.setGamepad`/`clearGamepad` stay on
+    // the shared class untouched for now since production's `MarketScene.tsx`
+    // still calls them; both get removed together when /runtime is promoted
+    // to replace / and that call site goes away too.
     while (this.accumulator >= PHYSICS_STEP) {
       this.accumulator -= PHYSICS_STEP;
       this.fixedStep(PHYSICS_STEP, nowMs);
