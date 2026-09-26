@@ -1,0 +1,75 @@
+.toggle {
+  position: fixed;
+  z-index: 300;
+  top: max(6px, env(safe-area-inset-top));
+  right: max(6px, env(safe-area-inset-right));
+  width: 30px;
+  height: 30px;
+  border: 1px solid #ffffffcc;
+  border-radius: 8px;
+  background: #173f35d9;
+  color: #fff;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.panel {
+  position: fixed;
+  z-index: 300;
+  top: max(40px, calc(env(safe-area-inset-top) + 34px));
+  right: max(6px, env(safe-area-inset-right));
+  width: min(340px, calc(100% - 12px));
+  max-height: calc(100% - 50px);
+  overflow: auto;
+  padding: 6px 8px;
+  border: 1px solid #ffffffcc;
+  border-radius: 10px;
+  background: #ffffffef;
+  box-shadow: 0 16px 40px #14382e2e;
+  color: #173f35;
+}
+
+.rows {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 8px;
+}
+
+.rows span {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 4px;
+  min-width: 0;
+  font-size: 9px;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.rows strong {
+  font-variant-numeric: tabular-nums;
+  flex: none;
+}
+
+.minutes {
+  margin-top: 4px;
+  border-top: 1px solid #dfe6e1;
+  padding-top: 4px;
+  font-size: 8.5px;
+}
+
+.minutes table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.minutes th, .minutes td {
+  padding: 1px 3px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.minutes th:first-child, .minutes td:first-child {
+  text-align: left;
+}

@@ -240,7 +240,15 @@ async function buildOnCurrentThread(generation: number, areas: readonly string[]
   }
 }
 
+/** How many real Recast builds have run this session (the first boot counts
+ * as one) — for gameplay telemetry, not the cache/coalescing logic itself. */
+let navRebuildCount = 0;
+export function getNavRebuildCount() {
+  return navRebuildCount;
+}
+
 function buildNavMesh(generation: number, areas: readonly string[]): Promise<boolean> {
+  navRebuildCount += 1;
   return typeof Worker === "undefined" ? buildOnCurrentThread(generation, areas) : buildInWorker(generation, areas);
 }
 

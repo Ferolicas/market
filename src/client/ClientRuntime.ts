@@ -33,6 +33,16 @@ export interface ClientRuntimeOptions {
   levelName: string;
   debug?: boolean;
   onReady?: () => void;
+  /**
+   * `/runtime`'s integral test only — never set by `/` or `/play2`. One call
+   * per rendered frame with the same shape `FrameMetrics.addFrame` already
+   * consumes: `workMs` (the whole `tick()` body, not just the render call)
+   * and `gapMs` (time since the previous rAF callback, measured independently
+   * of `tick()`'s own clamped `delta` so a real stall over `MAX_FRAME_DELTA`
+   * is not silently capped away). Optional-chained: zero behaviour change and
+   * one extra `performance.now()` pair when unset.
+   */
+  onFrameSample?: (workMs: number, gapMs: number, drawCalls: number, triangles: number) => void;
 }
 
 const MAX_FRAME_DELTA = 0.1;
@@ -64,6 +74,7 @@ export class ClientRuntime {
   private zoneSignature = "";
   private ready = false;
   private readonly onReady?: () => void;
+  private readonly onFrameSample?: ClientRuntimeOptions["onFrameSample"];
   private readonly debug: boolean;
   private mobile: boolean;
 
@@ -83,6 +94,7 @@ export class ClientRuntime {
     this.scene.add(this.layoutRoot);
     this.debug = Boolean(options.debug);
     this.onReady = options.onReady;
+    this.onFrameSample = options.onFrameSample;
     this.player = new PlayerActor({
       onInteract: (id) => this.props?.onInteract(id as InteractionId),
       onDistance: (meters) => this.props?.onDistance(meters),
@@ -255,7 +267,9 @@ export class ClientRuntime {
   }
 
   private tick(now: number) {
-    const delta = Math.min(MAX_FRAME_DELTA, Math.max(0, (now - this.lastFrameAt) / 1000));
+    const tickStart = this.onFrameSample ? performance.now() : 0;
+    const rawGapMs = now - this.lastFrameAt;
+    const delta = Math.min(MAX_FRAME_DELTA, Math.max(0, rawGapMs / 1000));
     this.lastFrameAt = now;
     this.elapsed += delta;
     this.performance.addFrame(delta * 1000);
@@ -277,6 +291,7 @@ export class ClientRuntime {
     this.present(delta, now);
     this.renderer.render(this.scene, this.rig.camera);
     if (this.debug) this.publishDebug();
+    this.onFrameSample?.(performance.now() - tickStart, rawGapMs, this.renderer.info.render.calls, this.renderer.info.render.triangles);
   }
 
   private present(delta: number, now: number) {

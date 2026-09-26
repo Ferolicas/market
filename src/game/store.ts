@@ -13,6 +13,35 @@ import { CAMPAIGN_RELEASE } from "./persistence/CampaignRelease";
 
 type SaveStatus = "idle" | "loading" | "dirty" | "saving" | "saved" | "offline" | "conflict" | "error";
 
+/**
+ * `/runtime`'s integral level-30 test seam. Off by default (`null`) — `/` and
+ * `/play2` never call this, so their `loadGame`/`saveGame` behave exactly as
+ * before. When set, `loadGame` hydrates synchronously from the given state
+ * (or a locally-persisted copy of it, so a mid-session reload does not lose
+ * progress) instead of fetching `/api/game/save`, and `saveGame`/
+ * `adoptLocalCopy`/`restoreServerCopy` never touch the network — the real
+ * engine (`dispatch`, `tickWorld`, `simulate`, navmesh) is untouched either
+ * way, only the load/save plumbing is swapped.
+ */
+let integralSeed: GameState | null = null;
+let integralStorageKey: string | null = null;
+export function configureRuntimeIntegral(seed: GameState, storageKey: string) {
+  integralSeed = seed;
+  integralStorageKey = storageKey;
+}
+/**
+ * Defense in depth: this module-level flag survives client-side navigation
+ * (no full reload resets it). `/runtime` has no in-app link to `/`/`/play2`
+ * today, but if the browser ever soft-navigated away without a full reload,
+ * a stale `integralSeed` would make `loadGame()` hydrate the next mount from
+ * the level-30 fixture instead of the real account. The integral page calls
+ * this on unmount so the flag never outlives its own page.
+ */
+export function clearRuntimeIntegral() {
+  integralSeed = null;
+  integralStorageKey = null;
+}
+
 interface MarketStore {
   game: GameState | null;
   saveRevision: number;
@@ -97,6 +126,16 @@ export const useMarketStore = create<MarketStore>((set, get) => {
     pendingPlayerDistanceMeters = 0;
     pendingInteractions = [];
     resetCommandLog("load");
+    if (integralSeed) {
+      let stored: GameState | null = null;
+      try {
+        const raw = integralStorageKey ? localStorage.getItem(integralStorageKey) : null;
+        stored = raw ? (JSON.parse(raw) as GameState) : null;
+      } catch { /* corrupt/unavailable local copy: fall back to the shipped seed */ }
+      const state = normalizeGameState(stored ?? integralSeed);
+      set({ game: state, saveRevision: 1, saveStatus: "saved", lastSaveConfirmedAt: Date.now(), ...messageOccurrence(stored ? "Progreso local de la prueba integral recuperado" : "Prueba integral: nivel 30 cargado") });
+      return;
+    }
     set({ game: null, saveRevision: 0, saveStatus: "loading", message: "", pendingEvents: [] });
     try {
       const response = await fetch("/api/game/save", { cache: "no-store" });
@@ -240,6 +279,16 @@ export const useMarketStore = create<MarketStore>((set, get) => {
   saveGame: async (options) => {
     const { game, saveRevision, saveStatus, pendingEvents } = get();
     if (!game || saveInFlight || (saveStatus === "saved" && pendingEvents.length === 0)) return;
+    if (integralSeed) {
+      try {
+        if (integralStorageKey) localStorage.setItem(integralStorageKey, JSON.stringify(inPlaceWorldTicks ? structuredClone(game) : game));
+        set({ saveStatus: "saved", pendingEvents: [], lastSaveConfirmedAt: Date.now() });
+      } catch {
+        // localStorage full/unavailable: keep playing, just stop persisting across reloads.
+        set({ saveStatus: "offline" });
+      }
+      return;
+    }
     saveInFlight = true;
     set({ saveStatus: "saving" });
     try {
@@ -325,6 +374,7 @@ export const useMarketStore = create<MarketStore>((set, get) => {
   // the server. On conflict the owner chooses: the server adopts this copy as
   // the next revision, or this device takes the server's copy.
   adoptLocalCopy: async () => {
+    if (integralSeed) return; // No server to reconcile against in the integral test.
     const { game } = get();
     if (!game || saveInFlight) return;
     saveInFlight = true;
@@ -365,6 +415,7 @@ export const useMarketStore = create<MarketStore>((set, get) => {
   },
 
   restoreServerCopy: async () => {
+    if (integralSeed) return; // No server to restore from in the integral test.
     if (saveInFlight) return;
     saveInFlight = true;
     set({ saveStatus: "loading" });

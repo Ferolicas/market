@@ -14,6 +14,7 @@ import { useMarketStore } from "@/game/store";
 import type { AvatarConfig, CountryCode, FranchiseState, GameState, ProductId } from "@/game/types";
 import { MarketScene, type InteractionId, type InteractionVisualEvent, type MarketSceneProps, type PurchaseMarker } from "./MarketScene";
 import { ClientCanvas } from "@/client/ClientCanvas";
+import type { ClientRuntimeOptions } from "@/client/ClientRuntime";
 import { GameRuntime } from "./GameRuntime";
 import { AvatarCustomizer } from "./AvatarCustomizer";
 import { GameInputSurface } from "./GameInputSurface";
@@ -45,7 +46,7 @@ import { cashBundleCount, cashBundleMinor } from "@/game/economy/cash-bundles";
 
 type Panel = "stock" | "orders" | "team" | "map" | "finance" | "avatar" | "help" | "settings" | null;
 
-export function GameShell({ playerName }: { playerName: string }) {
+export function GameShell({ playerName, onFrameSample }: { playerName: string; onFrameSample?: ClientRuntimeOptions["onFrameSample"] }) {
   const game = useMarketStore((state) => state.game);
   const status = useMarketStore((state) => state.saveStatus);
   const saveRevision = useMarketStore((state) => state.saveRevision);
@@ -71,7 +72,8 @@ export function GameShell({ playerName }: { playerName: string }) {
   const [worldReady, setWorldReady] = useState(false);
   const [sceneReady, setSceneReady] = useState(false);
   // /play2 mounts the plain-three client instead of the React scene.
-  const [plainClient] = useState(() => typeof window !== "undefined" && window.location.pathname.startsWith("/play2"));
+  // /runtime mounts the same plain-three client for its integral level-30 test.
+  const [plainClient] = useState(() => typeof window !== "undefined" && (window.location.pathname.startsWith("/play2") || window.location.pathname.startsWith("/runtime")));
   const tutorialStep = game?.tutorialStep ?? 0;
   const interactionSequence = useRef(0);
   const activeInteractionId = useRef<InteractionId | null>(null);
@@ -411,7 +413,7 @@ export function GameShell({ playerName }: { playerName: string }) {
   return (<>
     <GameRuntime />
     <main className="game-shell">
-      {worldReady && <div className={`world${sceneReady ? " scene-ready" : " scene-preparing"}`} aria-hidden={!sceneReady}>{plainClient ? <ClientCanvas {...sceneProps} /> : <MarketScene {...sceneProps} />}{sceneReady && <GameInputSurface />}</div>}
+      {worldReady && <div className={`world${sceneReady ? " scene-ready" : " scene-preparing"}`} aria-hidden={!sceneReady}>{plainClient ? <ClientCanvas {...sceneProps} onFrameSample={onFrameSample} /> : <MarketScene {...sceneProps} />}{sceneReady && <GameInputSurface />}</div>}
       {worldReady && !sceneReady && <LoadingCurtain title="Preparando la tienda…" detail="Cargando personajes y maquinaria sin interrupciones" />}
       <header className="hud-top glass-panel" data-game-ui-interactive="true" aria-label="Estado de la tienda">
         <div className="hud-brand"><span><GameIcon name="store" /></span><div><strong>{franchise.name}</strong><small>{franchise.city}</small></div></div>

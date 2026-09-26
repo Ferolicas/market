@@ -2,14 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { MarketSceneProps } from "@/components/game/MarketScene";
-import { ClientRuntime } from "./ClientRuntime";
+import { ClientRuntime, type ClientRuntimeOptions } from "./ClientRuntime";
 
 /**
  * Mounts the plain-three client on one canvas and forwards the shell's
  * state slices to it. The runtime owns the loop; React never touches the
  * scene graph.
  */
-export function ClientCanvas(props: MarketSceneProps) {
+export function ClientCanvas(props: MarketSceneProps & { onFrameSample?: ClientRuntimeOptions["onFrameSample"] }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const runtimeRef = useRef<ClientRuntime | null>(null);
   const [initialProps] = useState(() => props);
@@ -19,7 +19,7 @@ export function ClientCanvas(props: MarketSceneProps) {
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const runtime = new ClientRuntime({ canvas, levelName: "level30", debug, onReady: onSceneReady });
+    const runtime = new ClientRuntime({ canvas, levelName: "level30", debug, onReady: onSceneReady, onFrameSample: initialProps.onFrameSample });
     runtimeRef.current = runtime;
     let disposed = false;
     const resize = () => runtime.resize();
