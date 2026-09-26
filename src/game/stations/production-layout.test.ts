@@ -45,7 +45,7 @@ describe("professional production room layout", () => {
   });
 
   it("keeps every automated operator socket connected through the glass doorway", async () => {
-    await ensureStoreNavigation(90_021);
+    await ensureStoreNavigation([]);
     const start: [number, number] = [PRODUCTION_CUBICLE.doorway.centerX, PRODUCTION_CUBICLE.bounds.front + 0.25];
     PRODUCTION_WORKSTATION_IDS.filter((id) => id !== "juice" && id !== "canner").forEach((id) => {
       const target = productionFixtureForWorkstation(id).operatorWorkPoint;

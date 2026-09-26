@@ -12,7 +12,7 @@ const SQUARE_SEPARATION = PURCHASE_MARKER.halfSize * 2 * Math.SQRT2 * 0.8;
 
 describe("purchase marker layout", () => {
   it("places every marker on a walkable cell of the fullest store, clear of obstacles", async () => {
-    expect(await ensureStoreNavigation(4, ALL_PURCHASED_AREAS)).toBe(true);
+    expect(await ensureStoreNavigation(ALL_PURCHASED_AREAS)).toBe(true);
     for (const purchase of OPENING_PURCHASES) {
       const position = PURCHASE_POSITIONS[purchase.id];
       const point: [number, number] = [position[0], position[2]];

@@ -820,7 +820,7 @@ describe("motor económico", () => {
   });
 
   it("mantiene al cajero contratado dentro del puesto al llegar con la malla real", async () => {
-    expect(await ensureStoreNavigation(92_002)).toBe(true);
+    expect(await ensureStoreNavigation([])).toBe(true);
     let state = createInitialGame("ES");
     state.level = 5;
     state.franchises[0].open = true;

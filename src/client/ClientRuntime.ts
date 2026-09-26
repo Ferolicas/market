@@ -144,7 +144,7 @@ export class ClientRuntime {
       const color = typeof anchor.color === "number" ? `#${anchor.color.toString(16).padStart(6, "0")}` : anchor.color ?? "#ffffff";
       this.signs.add(anchor.text, { fontSize: anchor.fontSize ?? 0.12, color, weight: 800 }, matrix);
     }
-    await ensureStoreNavigation(0, initial.unlockedAreas);
+    await ensureStoreNavigation(initial.unlockedAreas);
     this.player.snapToNavmesh();
     this.syncStatic(initial);
     // First frame with everything compiled before the cover lifts.

@@ -217,7 +217,7 @@ export const useMarketStore = create<MarketStore>((set, get) => {
     const game = get().game;
     if (!game) return;
     const franchise = game.franchises.find((candidate) => candidate.id === game.currentFranchiseId) ?? game.franchises[0];
-    void ensureStoreNavigation(franchise.structureRevision, franchise.unlockedAreas);
+    void ensureStoreNavigation(franchise.unlockedAreas);
     const playerDistanceMeters = pendingPlayerDistanceMeters;
     const interactions = pendingInteractions;
     const navigationReady = isStoreNavigationReady();

@@ -85,7 +85,7 @@ describe("checkout layout", () => {
   });
 
   it("keeps every till's sockets walkable and reachable in the fully opened store", async () => {
-    expect(await ensureStoreNavigation(7, FULLY_OPENED_STORE)).toBe(true);
+    expect(await ensureStoreNavigation(FULLY_OPENED_STORE)).toBe(true);
     const entrance: [number, number] = [0, 6.5];
     // Recast ends a path at the centre of the nearest walkable cell, up to
     // ~0.6 layout units from an authored socket beside furniture; a socket

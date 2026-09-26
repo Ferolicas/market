@@ -152,10 +152,15 @@ export class PlaceholderScene {
    * Phase 8: builds the real level-30 navmesh (26 unlocked zones) in
    * parallel with the store and the crowd — the same parallel-promise
    * pattern this runtime has used since phase 4, kept as-is for this
-   * measurement. Nothing ever queries it (no player, no pathfinding). A
-   * `setTimeout(0)` heartbeat runs for as long as this is pending, so the
-   * synchronous Recast build's main-thread stall is caught even though it
-   * happens outside `render()`.
+   * measurement. Nothing ever queries it (no player, no pathfinding).
+   * Phase 9 moved the actual Recast build off-thread (`NavMeshService.ts`'s
+   * own persistent worker); what happens here on the main thread is now just
+   * the one-time WASM compile plus `importNavMesh`/`NavMeshQuery` setup for
+   * the *first* navmesh. The `setTimeout(0)` heartbeat still runs for as long
+   * as this is pending, so any main-thread stall during that first-boot setup
+   * is still caught even though it happens outside `render()` — later
+   * rebuilds no longer produce one at all (see `navBuildTelemetry` in
+   * `NavMeshService.ts`).
    */
   private async loadNavigation() {
     const beforeNames = typeof performance !== "undefined" && performance.getEntriesByType
@@ -164,7 +169,7 @@ export class PlaceholderScene {
     let maxStall = 0;
     const stopHeartbeat = startStallHeartbeat((stall) => { if (stall > maxStall) maxStall = stall; });
     try {
-      await ensureStoreNavigation(0, LEVEL30_UNLOCKED_AREAS);
+      await ensureStoreNavigation(LEVEL30_UNLOCKED_AREAS);
     } finally {
       stopHeartbeat();
     }

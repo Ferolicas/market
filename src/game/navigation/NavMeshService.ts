@@ -1,47 +1,73 @@
-import { init, NavMeshQuery, type NavMesh, type Vector3 } from "recast-navigation";
+import { importNavMesh, init, NavMeshQuery, type NavMesh, type Vector3 } from "recast-navigation";
 import { threeToSoloNavMesh } from "@recast-navigation/three";
-import { BufferGeometry, Float32BufferAttribute, Mesh, MeshBasicMaterial } from "three";
-import { overlapsStoreObstacle, scaleStorePoint, STORE_LAYOUT_SCALE } from "../world-scale";
-import { FARM_FIELD } from "../stations/farm-layout";
-import { STORE_REAR_DOOR } from "../stations/storefront-layout";
+import { Mesh, MeshBasicMaterial } from "three";
+import { STORE_OBSTACLES } from "../world-scale";
+import { fixtureAvailable } from "../stations/fixture-availability";
+import type { WorkerBuildRequest, WorkerBuildResult } from "./navmesh-worker-protocol";
+import { createWalkableStoreGeometry } from "./walkable-geometry";
 
-const NAVIGATION_CELL_SIZE = 0.36;
-const NAVMESH_FURNITURE_PADDING = 0.31 * STORE_LAYOUT_SCALE;
-
-export const STORE_NAVIGATION_BOUNDS = {
-  minX: -13,
-  maxX: 13,
-  minZ: FARM_FIELD.center[2] - FARM_FIELD.size[2] / 2 - 0.5,
-  maxZ: 15.7,
-} as const;
-
-const STORE_WALL_BANDS = {
-  front: { minZ: 7.55, maxZ: 8.08, maxAbsX: 11.55, doorHalfWidth: 1.82 },
-  rear: {
-    minZ: STORE_REAR_DOOR.wallCenterZ - STORE_REAR_DOOR.wallDepth / 2 - 0.01,
-    maxZ: -8.2,
-    maxAbsX: STORE_REAR_DOOR.wallHalfWidth + 0.05,
-    doorMinX: STORE_REAR_DOOR.x - STORE_REAR_DOOR.door.outerPostOffset + STORE_REAR_DOOR.door.postWidth / 2,
-    doorMaxX: STORE_REAR_DOOR.x + STORE_REAR_DOOR.door.outerPostOffset - STORE_REAR_DOOR.door.postWidth / 2,
-  },
-  side: { minAbsX: 11.13, maxAbsX: 11.58, minZ: -8.72, maxZ: 8.08 },
-} as const;
+export { createWalkableStoreGeometry, isStoreNavigationPoint, STORE_NAVIGATION_BOUNDS } from "./walkable-geometry";
 
 export class NavMeshService {
   private navMesh: NavMesh | null = null;
   private query: NavMeshQuery | null = null;
-  private revision = -1;
+  private generation = -1;
 
-  async rebuild(meshes: Mesh[], structureRevision: number) {
-    if (this.revision === structureRevision && this.query) return true;
+  /**
+   * Direct, synchronous build — used server-side (`ServerNavigation.ts`,
+   * one Recast build per request in a Node process, no browser/Worker
+   * context available and no 60 Hz loop to protect). The browser's own
+   * `ensureStoreNavigation()` never calls this; it goes through the worker
+   * and `applyImported()` below instead.
+   */
+  async rebuild(meshes: Mesh[], generation: number) {
+    if (this.generation === generation && this.query) return true;
     await init();
     const result = threeToSoloNavMesh(meshes, { cs: 0.18, ch: 0.1, walkableRadius: 2, walkableHeight: 18, walkableClimb: 2 });
     if (!result.success) return false;
     this.dispose();
     this.navMesh = result.navMesh;
     this.query = new NavMeshQuery(result.navMesh, { maxNodes: 4096 });
-    this.revision = structureRevision;
+    this.generation = generation;
     return true;
+  }
+
+  /**
+   * Applies a navmesh built off-thread. `recast-navigation`'s WASM instance
+   * is per-thread — the worker's own `init()` does not help the main thread,
+   * which needs its own compiled module before `importNavMesh`/`NavMeshQuery`
+   * work here. That is a real, separate, one-time cost; `onTiming` reports it
+   * split from `navImportMs`/`navSwapMs` so it is never hidden inside them.
+   * The swap itself is atomic: the previous navMesh/query stay live and
+   * queryable right up until the moment they are replaced in these two
+   * assignments, and the old ones are only disposed after the swap.
+   */
+  async applyImported(buffer: ArrayBuffer, generation: number, onTiming: (mainInitMs: number | null, navImportMs: number, navSwapMs: number) => void) {
+    let mainInitMs: number | null = null;
+    if (!mainWasmReady) {
+      const initStart = performance.now();
+      mainWasmReady = init();
+      await mainWasmReady;
+      mainInitMs = performance.now() - initStart;
+    } else {
+      await mainWasmReady;
+    }
+    const importStart = performance.now();
+    const { navMesh } = importNavMesh(new Uint8Array(buffer));
+    const navImportMs = performance.now() - importStart;
+
+    const swapStart = performance.now();
+    const query = new NavMeshQuery(navMesh, { maxNodes: 4096 });
+    const previousNavMesh = this.navMesh;
+    const previousQuery = this.query;
+    this.navMesh = navMesh;
+    this.query = query;
+    this.generation = generation;
+    previousQuery?.destroy();
+    previousNavMesh?.destroy();
+    const navSwapMs = performance.now() - swapStart;
+
+    onTiming(mainInitMs, navImportMs, navSwapMs);
   }
 
   findPath(start: Vector3, end: Vector3): Vector3[] {
@@ -73,42 +99,210 @@ export class NavMeshService {
     this.navMesh?.destroy();
     this.query = null;
     this.navMesh = null;
-    this.revision = -1;
+    this.generation = -1;
   }
 }
 
 const storeNavigation = new NavMeshService();
 let storeNavigationReady = false;
-let storeNavigationRevision = -1;
+let storeNavigationGeneration = -1;
 let pendingBuild: Promise<boolean> | null = null;
-let pendingRevision = -1;
+let pendingGeneration = -1;
 let requestedSignature = "";
 let navigationGeneration = 0;
+/** The main thread's own compiled WASM module — a separate instance from the
+ * worker's (WASM instances are per-thread; nothing here is shared). */
+let mainWasmReady: Promise<void> | null = null;
 
-export function ensureStoreNavigation(structureRevision: number, areas: readonly string[] = []): Promise<boolean> {
-  const signature = `${structureRevision}:${[...areas].sort().join("|")}`;
+/**
+ * The exact, minimal input `createWalkableStoreGeometry` reacts to: for each
+ * static obstacle, only whether `fixtureAvailable` currently says it blocks
+ * the floor (bounds and wall bands are fixed code, not state). Two `areas`
+ * arrays that leave every obstacle's availability unchanged always produce
+ * byte-identical geometry, no matter what else differs between them (an
+ * unrelated area name, a bumped save counter, a stat-only purchase) — so
+ * this, not a generic revision counter, is the navmesh's real cache key.
+ * Confirmed by reading `createWalkableStoreGeometry` itself: `areas` is its
+ * only variable input, always reached through `fixtureAvailable`. If a
+ * future change makes the geometry react to anything else, this signature
+ * must grow to cover it too, or it will silently go stale.
+ */
+function walkableSignature(areas: readonly string[]): string {
+  let signature = "";
+  for (const obstacle of STORE_OBSTACLES) signature += fixtureAvailable(obstacle.id, areas) ? "1" : "0";
+  return signature;
+}
+
+// ─── Worker: persistent, created once, reused for the page's lifetime ──────
+
+let navWorker: Worker | null = null;
+/** Resolves/rejects the in-flight build's promise; only `worker.onerror` uses this. */
+let activeBuildResolve: ((success: boolean) => void) | null = null;
+
+function getNavWorker(): Worker {
+  if (navWorker) return navWorker;
+  const worker = new Worker(new URL("./navmesh.worker.ts", import.meta.url), { type: "module" });
+  worker.onerror = (event) => {
+    console.error("[NavMeshService] worker error, keeping the last valid navmesh:", event.message);
+    // The last successfully applied navMesh/query are untouched — only the
+    // in-flight build (if any) is reported as failed. A fresh worker replaces
+    // this one so the next request is not stuck talking to a dead context.
+    activeBuildResolve?.(false);
+    activeBuildResolve = null;
+    navWorker = null;
+  };
+  navWorker = worker;
+  return worker;
+}
+
+/** Real, measured cost of the last build — read after `ensureStoreNavigation`
+ * resolves. `workerInitMs`/`mainInitMs` are `null` until the one-time WASM
+ * compile they each measure has actually happened. */
+export const navBuildTelemetry = {
+  workerInitMs: null as number | null,
+  workerBuildMs: 0,
+  transferMs: 0,
+  mainInitMs: null as number | null,
+  navImportMs: 0,
+  navSwapMs: 0,
+};
+
+function buildInWorker(generation: number, areas: readonly string[]): Promise<boolean> {
+  const worker = getNavWorker();
+  const requestStart = performance.now();
+  return new Promise<boolean>((resolve) => {
+    activeBuildResolve = resolve;
+    const handleMessage = (event: MessageEvent<WorkerBuildResult>) => {
+      if (event.data.generation !== generation) return;
+      worker.removeEventListener("message", handleMessage);
+      activeBuildResolve = null;
+      const receivedAt = performance.now();
+      navBuildTelemetry.workerBuildMs = event.data.workerBuildMs;
+      if (event.data.workerInitMs !== undefined) navBuildTelemetry.workerInitMs = event.data.workerInitMs;
+      navBuildTelemetry.transferMs = Math.max(0, receivedAt - requestStart - event.data.workerBuildMs - (event.data.workerInitMs ?? 0));
+      if (!event.data.success || !event.data.buffer) { resolve(false); return; }
+      // Superseded while the worker was building: don't even pay for the
+      // import — a newer request is already what the caller chain wants.
+      if (generation !== navigationGeneration) { resolve(false); return; }
+      storeNavigation.applyImported(event.data.buffer, generation, (mainInitMs, navImportMs, navSwapMs) => {
+        navBuildTelemetry.mainInitMs = mainInitMs ?? navBuildTelemetry.mainInitMs;
+        navBuildTelemetry.navImportMs = navImportMs;
+        navBuildTelemetry.navSwapMs = navSwapMs;
+      }).then(
+        () => resolve(true),
+        // A corrupt/invalid buffer (or a WASM init failure) throwing here must
+        // still resolve — otherwise this promise hangs forever and every
+        // later `ensureStoreNavigation()` call jams behind it for the rest of
+        // the session, exactly like an uncaught worker exception would.
+        (error: unknown) => {
+          console.error("[NavMeshService] importing the worker's navmesh failed, keeping the previous one:", error);
+          resolve(false);
+        },
+      );
+    };
+    worker.addEventListener("message", handleMessage);
+    const request: WorkerBuildRequest = { generation, areas: [...areas] };
+    worker.postMessage(request);
+  });
+}
+
+/**
+ * `Worker` does not exist in this codebase's test/SSR environment (plain
+ * Node, no browser globals) — every real browser has had it for over a
+ * decade, so this is not a workaround for the phase, it is the one runtime
+ * that genuinely lacks it. There, build inline through the same `rebuild()`
+ * server-side navigation already uses, on the calling thread — exactly the
+ * pre-worker behaviour, so every existing navigation test keeps exercising
+ * the real Recast pipeline unchanged.
+ */
+async function buildOnCurrentThread(generation: number, areas: readonly string[]): Promise<boolean> {
+  const buildStart = performance.now();
+  let geometry: ReturnType<typeof createWalkableStoreGeometry> | null = null;
+  let mesh: Mesh | null = null;
+  try {
+    // A synchronous throw here (geometry generation, or the `rebuild()` call
+    // itself) is just as fatal to the coalescing chain as an async rejection
+    // would be — this whole function body, not just a `.then()`, needs to be
+    // guarded so `buildNavMesh` never rejects either way.
+    geometry = createWalkableStoreGeometry(areas);
+    mesh = new Mesh(geometry, new MeshBasicMaterial());
+    return await storeNavigation.rebuild([mesh], generation);
+  } catch (error) {
+    console.error("[NavMeshService] inline navmesh build threw, keeping the previous one:", error);
+    return false;
+  } finally {
+    navBuildTelemetry.workerBuildMs = performance.now() - buildStart;
+    navBuildTelemetry.transferMs = 0;
+    navBuildTelemetry.navImportMs = 0;
+    navBuildTelemetry.navSwapMs = 0;
+    geometry?.dispose();
+    (mesh?.material as MeshBasicMaterial | undefined)?.dispose();
+  }
+}
+
+function buildNavMesh(generation: number, areas: readonly string[]): Promise<boolean> {
+  return typeof Worker === "undefined" ? buildOnCurrentThread(generation, areas) : buildInWorker(generation, areas);
+}
+
+/**
+ * Rebuilds only when the walkable geometry itself would actually change.
+ * Callers may pass a franchise's own change counter or any other unrelated
+ * state without triggering wasted Recast builds — only `areas` (through
+ * `walkableSignature`) can invalidate the cache. Requesting a new generation
+ * does not clear `storeNavigationReady`: whatever navmesh is currently
+ * applied (an older generation, mid-rebuild) stays fully valid and queryable
+ * for as long as the new one takes to build — first boot is the only time
+ * there is genuinely nothing to fall back on.
+ */
+export function ensureStoreNavigation(areas: readonly string[] = []): Promise<boolean> {
+  const signature = walkableSignature(areas);
   if (signature !== requestedSignature) {
     requestedSignature = signature;
     navigationGeneration += 1;
-    storeNavigationReady = false;
   }
   return ensureNavigationGeneration(navigationGeneration, [...areas]);
 }
 
-function ensureNavigationGeneration(structureRevision: number, areas: readonly string[]): Promise<boolean> {
-  if (storeNavigationReady && storeNavigationRevision === structureRevision) return Promise.resolve(true);
-  if (pendingBuild && pendingRevision === structureRevision) return pendingBuild;
-  if (pendingBuild) return pendingBuild.then(() => structureRevision === navigationGeneration ? ensureNavigationGeneration(structureRevision, areas) : false);
-  const mesh = createWalkableStoreMesh(areas);
-  pendingRevision = structureRevision;
-  pendingBuild = storeNavigation.rebuild([mesh], structureRevision).then((success) => {
-    storeNavigationReady = success && structureRevision === navigationGeneration;
-    if (success) storeNavigationRevision = structureRevision;
-    mesh.geometry.dispose();
-    (mesh.material as MeshBasicMaterial).dispose();
+/**
+ * Coalescing: only one build is ever in flight. If generation 10 is building
+ * when 11 then 12 arrive, both just chain onto the same `pendingBuild`; once
+ * 10 settles, whichever generation is still current (12) recurses into a
+ * fresh build here — 11 is never built at all, and 10's result is discarded
+ * the moment it turns out to be stale (`buildInWorker` checks this itself
+ * before paying for the import).
+ *
+ * A failed or superseded build never clears `storeNavigationReady`/
+ * `storeNavigationGeneration` — only a genuine successful import for the
+ * *still-current* generation ever updates them. Whatever was last applied
+ * (possibly an older generation, e.g. while this build was in flight or
+ * after a worker error) keeps answering `storePathfinder`/`isStoreNavigationPoint`
+ * exactly as before. `false` is never itself an error; it means "not this
+ * generation", not "navigation just broke".
+ */
+function ensureNavigationGeneration(generation: number, areas: readonly string[]): Promise<boolean> {
+  if (storeNavigationGeneration === generation) return Promise.resolve(true);
+  if (pendingBuild && pendingGeneration === generation) return pendingBuild;
+  if (pendingBuild) return pendingBuild.then(() => generation === navigationGeneration ? ensureNavigationGeneration(generation, areas) : false);
+  pendingGeneration = generation;
+  const settle = (success: boolean) => {
+    const applied = success && generation === navigationGeneration;
+    if (applied) {
+      storeNavigationReady = true;
+      storeNavigationGeneration = generation;
+    }
     pendingBuild = null;
-    pendingRevision = -1;
-    return success;
+    pendingGeneration = -1;
+    return applied;
+  };
+  // Both `buildInWorker` and `buildOnCurrentThread` already resolve `false`
+  // instead of rejecting on any internal error — this `.catch` is a second,
+  // defense-in-depth guard at the one chokepoint every caller coalesces
+  // through: without it, a single future leaf that forgets to catch its own
+  // errors would leave `pendingBuild` rejected forever, jamming every later
+  // `ensureStoreNavigation()` call behind it for the rest of the session.
+  pendingBuild = buildNavMesh(generation, areas).then(settle, (error: unknown) => {
+    console.error("[NavMeshService] navmesh build rejected unexpectedly, keeping the previous one:", error);
+    return settle(false);
   });
   return pendingBuild;
 }
@@ -125,16 +319,6 @@ export function storePathfinder(start: [number, number], end: [number, number]):
   return path.map((point) => [point.x, point.z]);
 }
 
-function createWalkableStoreMesh(areas: readonly string[]) {
-  return new Mesh(createWalkableStoreGeometry(areas), new MeshBasicMaterial());
-}
-
-/**
- * Pure walkability predicate shared by mesh generation and layout tests.
- * The rear service entrance is cut from the same authored layout used by the
- * visible wall and Rapier colliders, so navigation can never target a false
- * decorative opening.
- */
 /** Surface walk in layout units (same units as `storePathfinder`). */
 export function storeMoveAlongSurface(start: readonly [number, number], end: readonly [number, number]): [number, number] | null {
   const moved = storeNavigation.moveAlongSurface({ x: start[0], y: 0, z: start[1] }, { x: end[0], y: 0, z: end[1] });
@@ -144,41 +328,4 @@ export function storeMoveAlongSurface(start: readonly [number, number], end: rea
 export function storeClosestNavigationPoint(point: readonly [number, number]): [number, number] | null {
   const closest = storeNavigation.closestPoint({ x: point[0], y: 0, z: point[1] });
   return closest ? [closest.x, closest.z] : null;
-}
-
-export function isStoreNavigationPoint(point: readonly [number, number], areas: readonly string[] = []) {
-  const [x, z] = point;
-  if (x < STORE_NAVIGATION_BOUNDS.minX || x > STORE_NAVIGATION_BOUNDS.maxX || z < STORE_NAVIGATION_BOUNDS.minZ || z > STORE_NAVIGATION_BOUNDS.maxZ) return false;
-  if (overlapsStoreObstacle(scaleStorePoint([x, z]), NAVMESH_FURNITURE_PADDING, areas)) return false;
-
-  const absX = Math.abs(x);
-  const front = STORE_WALL_BANDS.front;
-  if (z > front.minZ && z < front.maxZ && absX < front.maxAbsX && absX > front.doorHalfWidth) return false;
-  const rear = STORE_WALL_BANDS.rear;
-  const insideRearDoor = x > rear.doorMinX && x < rear.doorMaxX;
-  if (z > rear.minZ && z < rear.maxZ && absX < rear.maxAbsX && !insideRearDoor) return false;
-  const side = STORE_WALL_BANDS.side;
-  if (absX > side.minAbsX && absX < side.maxAbsX && z > side.minZ && z < side.maxZ) return false;
-  return true;
-}
-
-/** Geometry used by Recast and by the debug overlay, kept from one source. */
-export function createWalkableStoreGeometry(areas: readonly string[] = []) {
-  const cell = NAVIGATION_CELL_SIZE;
-  const positions: number[] = [];
-  const indices: number[] = [];
-  for (let z = STORE_NAVIGATION_BOUNDS.minZ; z < STORE_NAVIGATION_BOUNDS.maxZ; z += cell) {
-    for (let x = STORE_NAVIGATION_BOUNDS.minX; x < STORE_NAVIGATION_BOUNDS.maxX; x += cell) {
-      const center: [number, number] = [x + cell / 2, z + cell / 2];
-      if (!isStoreNavigationPoint(center, areas)) continue;
-      const base = positions.length / 3;
-      positions.push(x, 0, z, x + cell, 0, z, x + cell, 0, z + cell, x, 0, z + cell);
-      indices.push(base, base + 2, base + 1, base, base + 3, base + 2);
-    }
-  }
-  const geometry = new BufferGeometry();
-  geometry.setAttribute("position", new Float32BufferAttribute(positions, 3));
-  geometry.setIndex(indices);
-  geometry.computeVertexNormals();
-  return geometry;
 }

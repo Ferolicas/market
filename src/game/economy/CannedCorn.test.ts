@@ -33,7 +33,7 @@ describe("canned corn supplier chain", () => {
     franchise.shelves.corn = shelfCapacityForTier(1, "corn", franchise.unlockedAreas);
     franchise.shelves.cannedCorn = shelfCapacityForTier(1, "cannedCorn", franchise.unlockedAreas);
     franchise.employees = [{ id: "canner-operator", name: "Luna", role: "operator", level: 1, salaryMinor: 0, energy: 100, hat: "frog" }];
-    await ensureStoreNavigation(91_225, franchise.unlockedAreas);
+    await ensureStoreNavigation(franchise.unlockedAreas);
     for (let tick = 0; tick < 240 && state.franchises[0].warehouse.cannedCorn < 3; tick++) {
       state = advanceWorld(state, 1_000, storePathfinder).state;
     }
@@ -70,7 +70,7 @@ describe("canned corn supplier chain", () => {
     for (const other of obstacles.filter((item) => item !== fixture)) {
       expect(Math.abs(other.x - fixture.x) < other.halfX + fixture.halfX && Math.abs(other.z - fixture.z) < other.halfZ + fixture.halfZ, other.id).toBe(false);
     }
-    await ensureStoreNavigation(91_224, areas);
+    await ensureStoreNavigation(areas);
     const point = productionFixtureForWorkstation("canner").operatorWorkPoint;
     const route = storePathfinder([0.9, -5.2], [...point]);
     expect(route.length).toBeGreaterThan(0);
@@ -120,7 +120,7 @@ describe("canned corn supplier chain", () => {
       const overlaps = Math.abs(other.x - fixture.x) < other.halfX + fixture.halfX && Math.abs(other.z - fixture.z) < other.halfZ + fixture.halfZ;
       expect(overlaps, other.id).toBe(false);
     }
-    expect(await ensureStoreNavigation(91_223, areas)).toBe(true);
+    expect(await ensureStoreNavigation(areas)).toBe(true);
     const destination = retailServicePoint("cannedCorn");
     expect(isStoreNavigationPoint(destination, areas)).toBe(true);
     expect(isStoreNavigationPoint([fixture.x / STORE_LAYOUT_SCALE, fixture.z / STORE_LAYOUT_SCALE], areas)).toBe(false);

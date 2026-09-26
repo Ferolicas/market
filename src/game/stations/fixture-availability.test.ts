@@ -39,17 +39,17 @@ describe("purchased fixtures share geometry and obstacle availability", () => {
     const obstacle = STORE_OBSTACLES.find((candidate) => candidate.id === "fixture:retail-eggs-1")!;
     expect(isStoreNavigationPoint([obstacle.x / STORE_LAYOUT_SCALE, obstacle.z / STORE_LAYOUT_SCALE], opening)).toBe(true);
   });
-  it("rebuilds for different purchases at the same structure revision", async () => {
+  it("rebuilds when the set of available fixtures actually changes", async () => {
     const obstacle = STORE_OBSTACLES.find((candidate) => candidate.id === "fixture:retail-eggs-1")!;
     const center: [number, number] = [obstacle.x / STORE_LAYOUT_SCALE, obstacle.z / STORE_LAYOUT_SCALE];
-    expect(await ensureStoreNavigation(991, opening)).toBe(true);
+    expect(await ensureStoreNavigation(opening)).toBe(true);
     const path = storePathfinder([center[0], center[1] + 2], center);
     expect(path.length).toBeGreaterThan(0);
     expect(Math.hypot(path.at(-1)![0] - center[0], path.at(-1)![1] - center[1])).toBeLessThan(0.2);
-    expect(await ensureStoreNavigation(991, [...opening, "egg-display"])).toBe(true);
+    expect(await ensureStoreNavigation([...opening, "egg-display"])).toBe(true);
     const blockedPath = storePathfinder([center[0], center[1] + 2], center);
     expect(blockedPath.length === 0 || Math.hypot(blockedPath.at(-1)![0] - center[0], blockedPath.at(-1)![1] - center[1]) > 0.2).toBe(true);
-    expect(await ensureStoreNavigation(991, opening)).toBe(true);
+    expect(await ensureStoreNavigation(opening)).toBe(true);
     const restored = storePathfinder([center[0], center[1] + 2], center);
     expect(restored.length).toBeGreaterThan(0);
     expect(Math.hypot(restored.at(-1)![0] - center[0], restored.at(-1)![1] - center[1])).toBeLessThan(0.2);
