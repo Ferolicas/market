@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { authClient } from "@/lib/auth-client";
 import { COUNTRIES, HATS, PRODUCTS, SUPPLIERS } from "@/game/catalog";
 import { canOperateMachine, canProcessCheckoutUnit, countryMoneyScale, formatMoney, isCampaignGame } from "@/game/engine";
@@ -10,7 +10,7 @@ import { campaignLocation } from "@/game/progression/CampaignLocations";
 import { campaignLevel } from "@/game/progression/CampaignLevels";
 import { campaignContracts } from "@/game/progression/CampaignContracts";
 
-import { useMarketStore } from "@/game/store";
+import { setExternalWorldTickDriver, useMarketStore } from "@/game/store";
 import type { AvatarConfig, CountryCode, FranchiseState, GameState, ProductId } from "@/game/types";
 import { MarketScene, type InteractionId, type InteractionVisualEvent, type MarketSceneProps, type PurchaseMarker } from "./MarketScene";
 import { ClientCanvas } from "@/client/ClientCanvas";
@@ -81,6 +81,28 @@ export function GameShell({ playerName, onFrameSample, onInteractiveVerified, le
   // engine-agnostic React reading `useMarketStore`, so it is reused as-is —
   // only the 3D child and the minimal state slice it actually consumes differ.
   const [playCanvasClient] = useState(() => typeof window !== "undefined" && window.location.pathname.startsWith("/playcanvas"));
+  // Root cause fixed 2026-09-27: which side ticks the world (this component's
+  // own `setInterval`, or the engine client's own frame loop) must be decided
+  // synchronously, before any effect runs — `plainClient`/`playCanvasClient`
+  // are already known synchronously above. The previous design let
+  // `ClientRuntime`/`PlayCanvasRuntime` flip this flag themselves, but only
+  // after their own async `load()` (baked world + GLBs) resolved, while this
+  // component's own mount effect (below) had already fired and — finding the
+  // flag still false — started its OWN `setInterval` world-tick driver in the
+  // meantime. Both drivers then ran forever afterward, each ticking the world
+  // every ~200ms out of phase with the other: the world advanced at roughly
+  // double rate on two staggered clocks, which is exactly what fed the crowd's
+  // dead-reckoning interpolator (`CrowdSystems.ts`/`CustomerVisualMotion.ts`)
+  // an irregular, doubled cadence — the root cause of the 2026-09-27 iPhone
+  // playtest's customer "teleport in steps" regression on `/runtime`. A
+  // `useLayoutEffect` here runs before ANY passive effect in the tree
+  // (React flushes every layout effect before any `useEffect`), so this is
+  // now set deterministically before `GameRuntime`'s own effect can read it —
+  // no race, no dependency on how long the 3D client takes to load.
+  useLayoutEffect(() => {
+    setExternalWorldTickDriver(plainClient || playCanvasClient);
+    return () => setExternalWorldTickDriver(false);
+  }, [plainClient, playCanvasClient]);
   const tutorialStep = game?.tutorialStep ?? 0;
   const interactionSequence = useRef(0);
   const activeInteractionId = useRef<InteractionId | null>(null);

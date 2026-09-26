@@ -30,7 +30,7 @@ import { InteractionDirector } from "@/game/interaction/InteractionDirector";
 import type { InteractionZoneConfig } from "@/game/interaction/InteractionZone";
 import { WorkstationController } from "@/game/interaction/WorkstationController";
 import { interactionZoneConfigs } from "@/game/interaction/interactionZoneConfigsPure";
-import { setExternalWorldTickDriver, useMarketStore } from "@/game/store";
+import { useMarketStore } from "@/game/store";
 import { WORLD_TICK_INTERVAL_MS } from "@/game/core/timing";
 import type { AvatarHatId, CharacterId, HairId } from "@/game/types";
 import { characterSceneScale } from "@/game/animation/CharacterScale";
@@ -359,8 +359,14 @@ export class PlayCanvasRuntime {
     // Real world-tick driver: mirrors ClientRuntime.tick's fixed 200ms
     // accumulator, driven from this engine's own render loop instead of a
     // setInterval/setTimeout, so simulation cadence matches production
-    // exactly regardless of frame rate.
-    setExternalWorldTickDriver(true);
+    // exactly regardless of frame rate. Who owns the tick (this loop vs.
+    // `GameRuntime`'s own `setInterval`) is decided synchronously by
+    // `GameShell`'s `useLayoutEffect`, before any component's mount effect
+    // runs — setting it again here, from this constructor, used to race that
+    // same decision on `/runtime`'s plain-three client (`ClientRuntime`,
+    // fixed 2026-09-27) and would race it here too, since this constructor
+    // still only runs once `PlayCanvasCanvas` mounts, after `GameRuntime`'s
+    // own mount effect has already fired.
     this.lastFrameMs = performance.now();
 
     this.app.on("update", (dt: number) => this.onUpdate(dt));
@@ -826,7 +832,9 @@ export class PlayCanvasRuntime {
   dispose() {
     if (this.disposed) return;
     this.disposed = true;
-    setExternalWorldTickDriver(false);
+    // The tick-driver flag itself is owned by `GameShell`'s `useLayoutEffect`
+    // (its lifetime matches the route, not this instance's) — nothing to
+    // reset here.
     window.removeEventListener("keydown", this.keydownHandler);
     window.removeEventListener("keyup", this.keyupHandler);
     inputManager.clearAll();

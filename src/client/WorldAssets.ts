@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { GLTFLoader, type GLTF } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { MeshoptDecoder } from "three/examples/jsm/libs/meshopt_decoder.module.js";
+import { accessoryModelPathForTier, characterModelPathForTier, currentCharacterModelTier } from "@/game/animation/CharacterPresentation";
 
 /**
  * Asset loading for the plain-three client. Every model the level draws is
@@ -22,9 +23,27 @@ export function loadGltf(path: string): Promise<GLTF> {
 }
 
 export const BUDGET_ROOT = "/models/market/budget";
+const CHARACTER_ROOT = "/models/market";
 
 export function budgetPath(family: "characters" | "customers" | "hats" | "hair" | "delivered" | "environment", file: string, body?: string) {
   return body ? `${BUDGET_ROOT}/${family}/${body}/${file}.glb` : `${BUDGET_ROOT}/${family}/${file}.glb`;
+}
+
+/**
+ * The same body/hat/hair GLBs `/` renders (`Avatar.tsx`/`CrowdRenderer.tsx`),
+ * tier-selected by the shared device-capability policy
+ * (`characterModelPathForTier`/`accessoryModelPathForTier` +
+ * `currentCharacterModelTier`) — not `budgetPath`'s fixed, more-reduced tier.
+ * `/runtime`'s worldKit path only (see call sites); `/play2` keeps calling
+ * `budgetPath` unchanged, so its behaviour is byte-for-byte identical to
+ * before this fix.
+ */
+export function characterPath(family: "characters" | "customers", file: string): string {
+  return characterModelPathForTier(`${CHARACTER_ROOT}/${family}/${file}.glb`, currentCharacterModelTier());
+}
+
+export function accessoryPath(family: "hats" | "hair", file: string, body: string): string {
+  return accessoryModelPathForTier(`${CHARACTER_ROOT}/${family}/${body}/${file}.glb`, currentCharacterModelTier());
 }
 
 export interface WorldAnchor {

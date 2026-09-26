@@ -95,6 +95,7 @@ export const scratch = {
   source: new THREE.Vector3(),
   hand: new THREE.Vector3(),
   basket: new THREE.Vector3(),
+  socketFade: new THREE.Matrix4(),
 };
 
 /** QA ablation (`MARKET_PERF_EXPERIMENT=no-anim`): poses stop advancing. */
@@ -111,12 +112,28 @@ export function qaVisualsMap(key: "customerVisuals" | "employeeVisuals"): Record
   return (qaWindow.__MARKET_QA__[key] ??= {}) as Record<string, unknown>;
 }
 
-/** Joint world matrix in rig space (skin × bind), for sockets. */
-export function socketMatrix(animation: CrowdAnimationSet, joint: "Head" | "Hand_L" | "Hand_R", row: number, target: THREE.Matrix4) {
+/**
+ * Joint world matrix in rig space (skin × bind), for sockets.
+ *
+ * `fadeRow`/`fadeWeight` mirror the vertex shader's own cross-fade
+ * (`crowdPose()` in `CrowdSkinning.ts`: `current + (previous - current) *
+ * blend`) so a prop hung from a socket — the player's hat, notably — tracks
+ * the same blended head the shader actually draws. Omitting them keeps the
+ * old current-clip-only read: existing callers (the crowd's own customer and
+ * employee sockets) are unchanged, so `/`'s shared crowd rendering keeps its
+ * exact behaviour; only `PlayerActor` opts into the blended read.
+ */
+export function socketMatrix(animation: CrowdAnimationSet, joint: "Head" | "Hand_L" | "Hand_R", row: number, target: THREE.Matrix4, fadeRow?: number, fadeWeight?: number) {
   const index = crowdBoneIndex(animation, joint);
   const bind = animation.manifest.socketBind[joint];
   if (index < 0 || !bind) return target.identity();
   readCrowdBoneMatrix(animation, index, row, scratch.bone);
+  if (fadeWeight && fadeWeight > 0 && fadeRow !== undefined) {
+    readCrowdBoneMatrix(animation, index, fadeRow, scratch.socketFade);
+    const current = scratch.bone.elements;
+    const previous = scratch.socketFade.elements;
+    for (let i = 0; i < 16; i += 1) current[i] += (previous[i] - current[i]) * fadeWeight;
+  }
   scratch.bind.fromArray(bind);
   return target.multiplyMatrices(scratch.bone, scratch.bind);
 }
@@ -527,7 +544,21 @@ export class CrowdCustomersSystem {
 
 interface EmployeeActor {
   snapshot: CustomerMotionSnapshot | null;
-  snapshotSource: EmployeeRuntimeState | undefined;
+  /** `liveActors.simulationTimeMs` at the last capture — the same scalar,
+   * identity-independent invalidation `CrowdCustomersSystem` uses (see its
+   * `snapshotTickMs`). Root-caused 2026-09-27: this used to compare
+   * `runtime !== actor.snapshotSource` (object identity). `/`'s React scene
+   * gives every tick a fresh `structuredClone`, so identity happened to work
+   * there, but `/runtime`'s plain-three client advances the world in place
+   * (`advanceWorld(..., { inPlace: true })`, a deliberate perf choice —
+   * `ClientRuntime.load()`) precisely so `employee.runtime` keeps the SAME
+   * object reference tick after tick while its fields mutate — which made
+   * this check permanently false after the first capture and froze every
+   * employee's visual position forever, even though `runtime.x`/`z` kept
+   * advancing underneath. A scalar tick counter is correct under both an
+   * immutable clone and an in-place mutation. */
+  snapshotTickMs: number;
+  snapshotState: EmployeeRuntimeState["state"] | null;
   pose: CrowdPoseState;
   locomotion: LocomotionController;
   yaw: number;
@@ -572,12 +603,13 @@ export class CrowdEmployeesSystem {
       let actor = actors.get(employee.id);
       if (!actor) {
         const [x, z] = scaleStorePoint([runtime.x, runtime.z]);
-        actor = { snapshot: null, snapshotSource: undefined, pose: createCrowdPose("Idle"), locomotion: new LocomotionController(), yaw: Math.PI, x, z, visualFrame: 0, lastSeen: frameNow };
+        actor = { snapshot: null, snapshotTickMs: -1, snapshotState: null, pose: createCrowdPose("Idle"), locomotion: new LocomotionController(), yaw: Math.PI, x, z, visualFrame: 0, lastSeen: frameNow };
         actors.set(employee.id, actor);
       }
       actor.lastSeen = frameNow;
-      if (runtime !== actor.snapshotSource || !actor.snapshot) {
-        actor.snapshotSource = runtime;
+      if (liveActors.simulationTimeMs !== actor.snapshotTickMs || runtime.state !== actor.snapshotState || !actor.snapshot) {
+        actor.snapshotTickMs = liveActors.simulationTimeMs;
+        actor.snapshotState = runtime.state;
         actor.snapshot = captureEmployeeMotion(runtime, frameNow);
       }
       const projected = projectCustomerMotion(actor.snapshot, frameNow);

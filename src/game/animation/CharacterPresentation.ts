@@ -80,6 +80,23 @@ export function useCharacterModelTier(): CharacterModelTier {
   return useSyncExternalStore(subscribeCharacterCapabilities, browserCharacterModelTier, serverCharacterModelTier);
 }
 
+/**
+ * The same device-capability tier `useCharacterModelTier()` reads, for a
+ * caller with no React tree to subscribe through — the plain-three client's
+ * imperative `ClientRuntime`/`PlayerActor` (`/runtime`'s worldKit path only;
+ * `/` and `/play2` keep using the hook and are unaffected). Root-caused
+ * 2026-09-27: that path was loading a fixed, unconditional "budget" GLB tier
+ * (~2.2k triangles) well below even this policy's worst case (tier 2, ~5.3k
+ * triangles for the owner body), which is what actually produced the
+ * faceted/triangular faces an iPhone playtest found — not a normals,
+ * material or texture bug (verified: identical material type, normal
+ * attributes present, and the budget tier's own texture is not lower
+ * resolution than tier 2's).
+ */
+export function currentCharacterModelTier(): CharacterModelTier {
+  return typeof window === "undefined" ? serverCharacterModelTier() : browserCharacterModelTier();
+}
+
 /** Hats and hair have their own derived LODs beside each body folder. */
 export function accessoryModelPathForTier(path: string, tier: CharacterModelTier) {
   if (tier === 0) return path;

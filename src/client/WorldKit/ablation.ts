@@ -27,17 +27,25 @@
  *   replaced) — this transmission glass is 100% new load.
  * - `animals`: live farm-animal stations (`dynamic:farm-animal`) are hidden
  *   entirely. The old baseline had no live animals at all.
+ * - `warmup`: disables the GPU warm-up pass added 2026-09-27 for the
+ *   "smoother the more you explore" regression (`gpuWarmup.ts` — proactive
+ *   `renderer.initTexture`/`renderer.compileAsync` for content that would
+ *   otherwise only pay shader-link/texture-upload cost the first time it's
+ *   actually rendered). Reverts to the exact pre-fix behaviour (lazy
+ *   first-render upload) for A/B comparison; never disabled by default.
  */
 export interface AblationFlags {
   skipText: boolean;
   skipGlassTransmission: boolean;
   skipAnimals: boolean;
+  skipWarmup: boolean;
 }
 
 export const ablation: AblationFlags = {
   skipText: false,
   skipGlassTransmission: false,
   skipAnimals: false,
+  skipWarmup: false,
 };
 
 /** Call once, before building any WorldKit content, from `ClientRuntime`'s constructor. */
@@ -46,4 +54,5 @@ export function configureAblation(search: string) {
   ablation.skipText = requested.has("text");
   ablation.skipGlassTransmission = requested.has("glass");
   ablation.skipAnimals = requested.has("animals");
+  ablation.skipWarmup = requested.has("warmup");
 }

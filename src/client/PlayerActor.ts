@@ -21,7 +21,7 @@ import { STORE_LAYOUT_SCALE } from "@/game/world-scale";
 import { buildPlayerPhysics, ensureRapierReady, type PlayerPhysicsHandle } from "./PlayerPhysics";
 import { GROUND_SHADOW_PARTS, HARVEST_BASKET_PARTS, accessoryParts, deliveredProductParts, harvestProductSlot } from "@/components/game/CrowdProps";
 import { CameraRig } from "./CameraRig";
-import { budgetPath, loadGltf } from "./WorldAssets";
+import { accessoryPath, budgetPath, characterPath, loadGltf } from "./WorldAssets";
 
 /**
  * The owner in the plain-three client: a one-instance crowd body (baked
@@ -84,7 +84,13 @@ export class PlayerActor {
   private presentedSpeed = 0;
   readonly basketWorld = new THREE.Vector3();
 
-  constructor(private readonly hooks: PlayerHooks) {
+  constructor(
+    private readonly hooks: PlayerHooks,
+    /** `/runtime`'s worldKit path only (see `ClientRuntimeOptions.worldKit`):
+     * loads the same device-tiered GLBs `/` renders instead of the fixed,
+     * more-reduced budget tier `/play2` still uses unchanged. */
+    private readonly highQuality = false,
+  ) {
     this.group.name = "client:player";
   }
 
@@ -95,7 +101,8 @@ export class PlayerActor {
     // `unlockedAreas` isn't known yet here — built empty and immediately
     // rebuilt by the first real `setZones()` call `ClientRuntime.load()`
     // makes right after this resolves, before anything is ever rendered.
-    const [gltf, animation] = await Promise.all([loadGltf(budgetPath("characters", key)), loadCrowdAnimation(key), ensureRapierReady()]);
+    const bodyPath = this.highQuality ? characterPath("characters", key) : budgetPath("characters", key);
+    const [gltf, animation] = await Promise.all([loadGltf(bodyPath), loadCrowdAnimation(key), ensureRapierReady()]);
     // A `dispose()` mid-await must not let this continuation build (and leak)
     // a Rapier world/GPU resources after the owner has already torn down —
     // confirmed as a real bug by adversarial review 2026-09-26: nothing else
@@ -116,9 +123,12 @@ export class PlayerActor {
       instancer.attach(this.group);
       this.props.set(name, instancer);
     }
+    const hatFile = HAT_FILES[avatar.hat as keyof typeof HAT_FILES] ?? avatar.hat;
     const accessories = await Promise.all([
-      avatar.hat !== "none" ? loadGltf(budgetPath("hats", HAT_FILES[avatar.hat as keyof typeof HAT_FILES] ?? avatar.hat, avatar.body)).catch(() => null) : Promise.resolve(null),
-      loadGltf(budgetPath("hair", avatar.hair, avatar.body)).catch(() => null),
+      avatar.hat !== "none"
+        ? loadGltf(this.highQuality ? accessoryPath("hats", hatFile, avatar.body) : budgetPath("hats", hatFile, avatar.body)).catch(() => null)
+        : Promise.resolve(null),
+      loadGltf(this.highQuality ? accessoryPath("hair", avatar.hair, avatar.body) : budgetPath("hair", avatar.hair, avatar.body)).catch(() => null),
     ]);
     if (this.disposed) return;
     if (accessories[0]) { this.hat = new PartsInstancer(accessoryParts(accessories[0].scene), 1, "player-hat"); this.hat.attach(this.group); }
@@ -283,7 +293,11 @@ export class PlayerActor {
     this.hair?.begin();
     this.props.get("shadow")?.push(scratch.body);
 
-    socketMatrix(animation, "Head", rows.rowA, scratch.prop);
+    // rowB/blend keep the hat and hand sockets tracking the same blended head
+    // the shader draws during a clip cross-fade (start/stop/turn while
+    // walking); a current-clip-only read here made the hat lag or sink into
+    // the head for the ~200ms fade, which read as it disappearing.
+    socketMatrix(animation, "Head", rows.rowA, scratch.prop, rows.rowB, rows.blend);
     scratch.slot.multiplyMatrices(scratch.body, scratch.prop);
     const fit = HAT_FIT_SCALE[this.avatar.body];
     if (this.hair) this.hair.push(scratch.local.multiplyMatrices(scratch.slot, this.hairFit));
@@ -292,9 +306,9 @@ export class PlayerActor {
     const baskets = this.props.get("basket");
     if (carrying && baskets && this.carry) {
       const palms = CHARACTER_PALM_OFFSETS[this.avatar.body];
-      socketMatrix(animation, "Hand_L", rows.rowA, scratch.prop);
+      socketMatrix(animation, "Hand_L", rows.rowA, scratch.prop, rows.rowB, rows.blend);
       scratch.leftHand.fromArray(palms.left as unknown as number[]).applyMatrix4(scratch.prop);
-      socketMatrix(animation, "Hand_R", rows.rowA, scratch.prop);
+      socketMatrix(animation, "Hand_R", rows.rowA, scratch.prop, rows.rowB, rows.blend);
       scratch.rightHand.fromArray(palms.right as unknown as number[]).applyMatrix4(scratch.prop);
       scratch.point.addVectors(scratch.leftHand, scratch.rightHand).multiplyScalar(0.5);
       scratch.point.set(0, scratch.point.y - HARVEST_BASKET_GRIP_HEIGHT, scratch.point.z + HARVEST_BASKET_GRIP_REACH);

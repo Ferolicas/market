@@ -23,6 +23,7 @@
     "qa:campaign-reach": "tsx scripts/qa-campaign-reach.mts",
     "qa:seed-state": "tsx scripts/qa-seed-state.mts",
     "qa:pc-harvest-restock": "tsx scripts/qa-pc-harvest-restock.mts",
+    "qa:runtime-first-visit-hitch": "tsx scripts/qa-runtime-first-visit-hitch.mts",
     "load:test:game": "node scripts/load-test-game-api.mjs",
     "art:manifest": "tsx scripts/write-reference-manifest.ts",
     "art:lods": "node scripts/build-market-lods.mjs",

@@ -7,6 +7,7 @@ import { budgetPath, loadGltf } from "../../WorldAssets";
 import { makeInstances, type InstanceTransform, type Position } from "../primitives";
 import { buildStationSign, roundedBoxMesh } from "./farmShared";
 import { ablation } from "../ablation";
+import { warmUpNewContent } from "../gpuWarmup";
 
 /**
  * Faithful port of `AnimalPaddock`, `StationSign`'s animal-station call site,
@@ -34,7 +35,7 @@ import { ablation } from "../ablation";
  * mesh is copied through.
  */
 
-function buildAnimalCharacter(kind: FarmAnimalKind) {
+function buildAnimalCharacter(renderer: THREE.WebGLRenderer, camera: THREE.Camera, scene: THREE.Scene, kind: FarmAnimalKind) {
   const group = new THREE.Group();
   group.name = `dynamic:delivered-${kind}`;
   group.position.set(0, 0.08, 0.32);
@@ -57,6 +58,10 @@ function buildAnimalCharacter(kind: FarmAnimalKind) {
     group.add(instance);
     mixer = new THREE.AnimationMixer(instance);
     actions = Object.fromEntries(gltf.animations.map((clip) => [clip.name, mixer!.clipAction(clip)]));
+    // Loads well after the first playable frame — warm its shader/texture
+    // now, in idle time, instead of paying that cost the first time the
+    // player actually sees it walking (see `gpuWarmup.ts`).
+    if (!ablation.skipWarmup) warmUpNewContent(renderer, instance, camera, scene);
   }).catch(() => {});
 
   function update(active: boolean) {
@@ -82,7 +87,7 @@ function buildAnimalCharacter(kind: FarmAnimalKind) {
   return { group, update };
 }
 
-function loadEnvironmentProp(id: string, into: THREE.Group) {
+function loadEnvironmentProp(renderer: THREE.WebGLRenderer, camera: THREE.Camera, scene: THREE.Scene, id: string, into: THREE.Group) {
   loadGltf(budgetPath("environment", id)).then((gltf) => {
     const model = gltf.scene.clone(true);
     model.traverse((object) => {
@@ -91,6 +96,8 @@ function loadEnvironmentProp(id: string, into: THREE.Group) {
       object.receiveShadow = true;
     });
     into.add(model);
+    // Same reasoning as `buildAnimalCharacter`'s warm-up call above.
+    if (!ablation.skipWarmup) warmUpNewContent(renderer, model, camera, scene);
   }).catch(() => {});
 }
 
@@ -145,7 +152,7 @@ export function buildAnimalPaddock(kind: "chicken" | "cow"): THREE.Group {
 }
 
 /** `AnimalStation`: sign + coop/station shell + live animal + output prop. */
-export function buildAnimalStation(kind: "chicken" | "cow", position: Position) {
+export function buildAnimalStation(renderer: THREE.WebGLRenderer, camera: THREE.Camera, scene: THREE.Scene, kind: "chicken" | "cow", position: Position) {
   const group = new THREE.Group();
   group.name = "dynamic:farm-animal";
   group.position.set(...position);
@@ -159,9 +166,9 @@ export function buildAnimalStation(kind: "chicken" | "cow", position: Position) 
 
   const shell = new THREE.Group();
   group.add(shell);
-  loadEnvironmentProp(kind === "chicken" ? "chicken_coop" : "cow_station", shell);
+  loadEnvironmentProp(renderer, camera, scene, kind === "chicken" ? "chicken_coop" : "cow_station", shell);
 
-  const animal = buildAnimalCharacter(kind);
+  const animal = buildAnimalCharacter(renderer, camera, scene, kind);
   // `?ablate=animals` diagnostic (see `ablation.ts`): hide the live skinned
   // character entirely — the old baseline had no live animals at all.
   animal.group.visible = !ablation.skipAnimals;
@@ -172,7 +179,7 @@ export function buildAnimalStation(kind: "chicken" | "cow", position: Position) 
   outputProp.scale.setScalar(0.72);
   outputProp.visible = false;
   group.add(outputProp);
-  loadEnvironmentProp(kind === "chicken" ? "egg_output_tray" : "milk_output_can", outputProp);
+  loadEnvironmentProp(renderer, camera, scene, kind === "chicken" ? "egg_output_tray" : "milk_output_can", outputProp);
 
   function update(machine: ProductionMachineState) {
     const feed = chickenFeedStatus(machine);

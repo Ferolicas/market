@@ -7,7 +7,7 @@ import { loadCrowdAnimation } from "@/game/render/CrowdSkinning";
 import { CrowdCustomersSystem, CrowdEmployeesSystem, CUSTOMER_BODY_KEYS, CUSTOMER_PROP_DEFINITIONS, EMPLOYEE_BODY_KEYS, EMPLOYEE_PROP_DEFINITIONS, HAT_FILES, PROP_CAPACITY, PRODUCT_CAPACITY, createCrowdBody, createPropInstancers, employeeBodyOf, firstSkinnedMesh } from "@/game/render/CrowdSystems";
 import { accessoryParts, deliveredProductParts } from "@/components/game/CrowdProps";
 import { ensureStoreNavigation } from "@/game/navigation/NavMeshService";
-import { setExternalWorldTickDriver, setInPlaceWorldTicks, useMarketStore } from "@/game/store";
+import { setInPlaceWorldTicks, useMarketStore } from "@/game/store";
 import { WORLD_TICK_INTERVAL_MS } from "@/game/core/timing";
 import { marketRenderProfileForCapabilities } from "@/game/render/AdaptiveQuality";
 import { FieldPerformanceSampler } from "@/game/telemetry/FieldPerformance";
@@ -19,14 +19,15 @@ import { PlayerActor } from "./PlayerActor";
 import { RetailStockLayer } from "./RetailStockLayer";
 import { SignLayer } from "./SignLayer";
 import { StationLayer } from "./StationLayer";
-import { budgetPath, loadBakedWorld, loadGltf, type BakedWorld } from "./WorldAssets";
+import { accessoryPath, budgetPath, characterPath, loadBakedWorld, loadGltf, type BakedWorld } from "./WorldAssets";
 import { buildFurniture, buildFarm, type FurnitureBuildProps, type FarmBuildProps } from "./WorldKit";
 import { buildStorefrontDoor, type StorefrontDoorHandle } from "./WorldKit/storefrontDoor";
 import { buildRearFarmDoor, type RearFarmDoorHandle } from "./WorldKit/rearFarmDoor";
 import { buildPurchaseMarkers } from "./WorldKit/purchaseMarkers";
 import { buildRegisterCashMarkers } from "./WorldKit/registerCashMarkers";
 import { buildTransferEffects, type TransferEffectsHandle } from "./WorldKit/transferEffects";
-import { configureAblation } from "./WorldKit/ablation";
+import { ablation, configureAblation } from "./WorldKit/ablation";
+import { warmUpNewContent, warmUpTexturesNow } from "./WorldKit/gpuWarmup";
 
 /**
  * The plain-three client: one renderer, one scene built once from the baked
@@ -157,6 +158,14 @@ export class ClientRuntime {
     this.layoutRoot.name = "client:layout";
     this.scene.add(this.layoutRoot);
     this.debug = Boolean(options.debug);
+    if (this.debug) {
+      // Exposed here (constructor time), not just in `publishDebug()`
+      // (tick-gated, so only after `finishReady()` already ran): an external
+      // QA harness that wants to observe curtain-time GPU warm-up work
+      // (`gpuWarmup.ts`, dispatched from `finishReady()` itself) needs the
+      // real renderer reference BEFORE that call, not after.
+      (window as typeof window & { __MARKET_QA_RENDERER__?: THREE.WebGLRenderer }).__MARKET_QA_RENDERER__ = this.renderer;
+    }
     this.onReady = options.onReady;
     this.onFrameSample = options.onFrameSample;
     this.onInteractiveVerified = options.onInteractiveVerified;
@@ -166,7 +175,7 @@ export class ClientRuntime {
       onDistance: (meters) => this.props?.onDistance(meters),
       onDoorPresence: (active) => this.props?.onDoorPresence(active),
       onCheckoutFocus: (focused) => { this.checkoutFocused = focused; },
-    });
+    }, this.worldKit);
     this.layoutRoot.add(this.player.group);
     this.customers.attachTo(this.layoutRoot);
     this.employees.attachTo(this.layoutRoot);
@@ -223,7 +232,12 @@ export class ClientRuntime {
     this.props = initial;
     // `?inplace=0` keeps the cloning tick for A/B checks of the in-place path.
     setInPlaceWorldTicks(!new URLSearchParams(window.location.search).has("inplace") || new URLSearchParams(window.location.search).get("inplace") !== "0");
-    setExternalWorldTickDriver(true);
+    // Who drives `tickWorld` (this loop, vs. `GameRuntime`'s own `setInterval`)
+    // is decided synchronously by `GameShell` before any effect runs (a
+    // `useLayoutEffect` keyed on the same route check this class exists for),
+    // not here: setting it only after this async `load()` resolves used to
+    // race `GameRuntime`'s mount effect and leave BOTH drivers running at
+    // once. See `GameShell.tsx`'s `useLayoutEffect` for the fix.
     const world = await loadBakedWorld(this.options.levelName);
     // A `dispose()` mid-await must not let this continuation touch a scene/
     // renderer that's already torn down, or build (and leak) world content
@@ -261,7 +275,7 @@ export class ClientRuntime {
       if (this.disposed) return;
       this.furniture = furniture;
       this.layoutRoot.add(furniture.group);
-      this.farm = buildFarm(this.farmProps(initial));
+      this.farm = buildFarm(this.renderer, this.rig.camera, this.scene, this.farmProps(initial));
       this.layoutRoot.add(this.farm.group);
       this.storefrontDoor = buildStorefrontDoor(this.glassTransmission);
       this.layoutRoot.add(this.storefrontDoor.group);
@@ -319,6 +333,17 @@ export class ClientRuntime {
 
   private finishReady(initial: MarketSceneProps) {
     this.syncStatic(initial);
+    // `/runtime`'s worldKit path only: `renderer.compile()` below already
+    // precompiles every shader PROGRAM in the scene, but never uploads
+    // texture DATA to the GPU (`WebGLRenderer.compile` only builds/links
+    // programs; textures upload lazily the first time `render()` actually
+    // draws them). Anything outside the camera frustum from `PLAYER_START` —
+    // almost every department except what's immediately visible at spawn —
+    // would otherwise pay that upload cost the first time the player walks
+    // it into view. Doing it here, still inside the loading curtain (before
+    // `onReady()` below), is the fix: pay it once, before declaring
+    // interactive, not on first sight of a section. See `gpuWarmup.ts`.
+    if (this.worldKit && !ablation.skipWarmup) warmUpTexturesNow(this.renderer, this.scene);
     // First frame with everything compiled before the cover lifts.
     this.renderer.compile(this.scene, this.rig.camera);
     this.present(0, performance.now());
@@ -344,23 +369,35 @@ export class ClientRuntime {
   }
 
   private async loadCrowdBodies() {
+    // `worldKit` (`/runtime` only) loads the same device-tiered GLBs `/`
+    // renders instead of the fixed, more-reduced budget tier `/play2` still
+    // loads unchanged — see `WorldAssets.characterPath`'s doc comment.
     await Promise.all([
       ...Object.entries(CUSTOMER_BODY_KEYS).map(async ([, key]) => {
-        const [gltf, animation] = await Promise.all([loadGltf(budgetPath("customers", key)), loadCrowdAnimation(key)]);
+        const path = this.worldKit ? characterPath("customers", key) : budgetPath("customers", key);
+        const [gltf, animation] = await Promise.all([loadGltf(path), loadCrowdAnimation(key)]);
         const skinned = firstSkinnedMesh(gltf.scene);
         if (!skinned) return;
         const body = createCrowdBody(skinned, animation, key);
         this.layoutRoot.add(body.mesh);
         this.customers.bodies.set(key, body);
+        // `/runtime` only — see `finishReady`'s doc comment and
+        // `gpuWarmup.ts`. This body streams in AFTER the first playable
+        // frame on purpose, so its shader/texture warm-up must not block
+        // anything: shader compile is dispatched right away (cheap, scoped
+        // to this one body), texture upload is spread across idle time.
+        if (this.worldKit && !ablation.skipWarmup) warmUpNewContent(this.renderer, body.mesh, this.rig.camera, this.scene);
       }),
       ...Object.values(EMPLOYEE_BODY_KEYS).map(async (key) => {
         if (!key) return;
-        const [gltf, animation] = await Promise.all([loadGltf(budgetPath("characters", key)), loadCrowdAnimation(key)]);
+        const path = this.worldKit ? characterPath("characters", key) : budgetPath("characters", key);
+        const [gltf, animation] = await Promise.all([loadGltf(path), loadCrowdAnimation(key)]);
         const skinned = firstSkinnedMesh(gltf.scene);
         if (!skinned) return;
         const body = createCrowdBody(skinned, animation, key);
         this.layoutRoot.add(body.mesh);
         this.employees.bodies.set(key, body);
+        if (this.worldKit && !ablation.skipWarmup) warmUpNewContent(this.renderer, body.mesh, this.rig.camera, this.scene);
       }),
     ]);
   }
@@ -373,6 +410,8 @@ export class ClientRuntime {
         const instancer = new PartsInstancer(deliveredProductParts(gltf.scene), PRODUCT_CAPACITY, `client-delivered:${productId}`);
         instancer.attach(this.layoutRoot);
         registry.set(productId, instancer);
+        // `/runtime` only — same deferred warm-up as crowd bodies above.
+        if (this.worldKit && !ablation.skipWarmup) warmUpNewContent(this.renderer, instancer.meshes, this.rig.camera, this.scene);
       }
     }
   }
@@ -384,12 +423,15 @@ export class ClientRuntime {
       const [body, hat] = key.split(":") as [CharacterId, HatId];
       const file = HAT_FILES[hat];
       if (!file) continue;
-      const gltf = await loadGltf(budgetPath("hats", file, body)).catch(() => null);
+      const path = this.worldKit ? accessoryPath("hats", file, body) : budgetPath("hats", file, body);
+      const gltf = await loadGltf(path).catch(() => null);
       if (!gltf) continue;
       const instancer = new PartsInstancer(accessoryParts(gltf.scene), PROP_CAPACITY, `client-hat:${key}`);
       instancer.attach(this.layoutRoot);
       this.employees.hats.set(key, instancer);
       this.hatKinds.add(key);
+      // `/runtime` only — same deferred warm-up as crowd bodies above.
+      if (this.worldKit && !ablation.skipWarmup) warmUpNewContent(this.renderer, instancer.meshes, this.rig.camera, this.scene);
     }
   }
 
@@ -572,7 +614,9 @@ export class ClientRuntime {
     this.disposed = true;
     this.stop();
     setInPlaceWorldTicks(false);
-    setExternalWorldTickDriver(false);
+    // The tick-driver flag itself is owned by `GameShell`'s `useLayoutEffect`
+    // (its lifetime matches the route, not this instance's) — nothing to
+    // reset here.
     this.player.dispose();
     this.stock?.dispose();
     this.signs?.dispose();

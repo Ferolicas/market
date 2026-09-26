@@ -81,11 +81,11 @@ function buildFarmPlot(plot: FarmPlotLayout) {
   return { id: plot.id, element, update };
 }
 
-function buildAnimalStationGroup(kind: "chicken" | "cow", position: readonly [number, number, number], fixtureId: string, areaId: string) {
+function buildAnimalStationGroup(renderer: THREE.WebGLRenderer, camera: THREE.Camera, scene: THREE.Scene, kind: "chicken" | "cow", position: readonly [number, number, number], fixtureId: string, areaId: string) {
   const element = makeStoreElement([position[0], position[1], position[2]]);
   element.add(buildAnimalPaddock(kind));
 
-  const station = buildAnimalStation(kind, [0, 0, 0]);
+  const station = buildAnimalStation(renderer, camera, scene, kind, [0, 0, 0]);
   station.group.visible = false;
   element.add(station.group);
 
@@ -99,8 +99,14 @@ function buildAnimalStationGroup(kind: "chicken" | "cow", position: readonly [nu
   return { element, update };
 }
 
-/** `KitFarm`: the whole farm estate, gated exactly like the source. */
-export function buildFarm(props: FarmBuildProps): { group: THREE.Group; update: (next: FarmBuildProps) => void } {
+/** `KitFarm`: the whole farm estate, gated exactly like the source.
+ *
+ * `renderer` is threaded through purely for GPU warm-up (`gpuWarmup.ts`) of
+ * the farm animal characters and coop/station/output-tray environment props,
+ * which `animalStation.ts` loads via fire-and-forget promises well after this
+ * call returns — see that module's doc comment. It is never used to render
+ * anything here. */
+export function buildFarm(renderer: THREE.WebGLRenderer, camera: THREE.Camera, scene: THREE.Scene, props: FarmBuildProps): { group: THREE.Group; update: (next: FarmBuildProps) => void } {
   const group = new THREE.Group();
 
   const gardenElement = makeStoreElement([FARM_FIELD.center[0], FARM_FIELD.center[1], FARM_FIELD.center[2]]);
@@ -114,9 +120,9 @@ export function buildFarm(props: FarmBuildProps): { group: THREE.Group; update: 
   barnElement.add(buildFarmBarn());
   group.add(barnElement);
 
-  const chicken1 = buildAnimalStationGroup("chicken", FARM_ANIMAL_STATIONS.chicken.position, "fixture:chicken-coop", "chicken-coop");
-  const cow1 = buildAnimalStationGroup("cow", FARM_ANIMAL_STATIONS.cow.position, "fixture:cow-station", "cow-station");
-  const chicken2 = buildAnimalStationGroup("chicken", FARM_ANIMAL_STATIONS.chicken2.position, "fixture:chicken-coop-2", "chicken-coop-2");
+  const chicken1 = buildAnimalStationGroup(renderer, camera, scene, "chicken", FARM_ANIMAL_STATIONS.chicken.position, "fixture:chicken-coop", "chicken-coop");
+  const cow1 = buildAnimalStationGroup(renderer, camera, scene, "cow", FARM_ANIMAL_STATIONS.cow.position, "fixture:cow-station", "cow-station");
+  const chicken2 = buildAnimalStationGroup(renderer, camera, scene, "chicken", FARM_ANIMAL_STATIONS.chicken2.position, "fixture:chicken-coop-2", "chicken-coop-2");
   group.add(chicken1.element, cow1.element, chicken2.element);
 
   function update(next: FarmBuildProps) {
