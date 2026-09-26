@@ -81,9 +81,28 @@ Añadida una tercera prueba de regresión en `PlayerPhysics.test.ts` (`describe(
 4. ~~Confirmar cero dependencia de `level30.glb` (el bake viejo completo) para cualquier contenido dependiente de progreso.~~ Confirmado: `grep` de `level30.glb` en `src/` solo aparece en comentarios explicativos y en `src/runtime/scene.ts` — que pertenece al harness de fases **separado** en `/runtime/phases` (`PlaceholderScene`, Fase 10/11A, un microbenchmark aislado de entrada/movimiento, no el juego real; documentado como ruta distinta en el propio `metadata` de `src/app/runtime/page.tsx`). La ruta integral (`/runtime` → `IntegralClient`) solo pide `levelName="level30-shell"`.
 5. ~~Confirmar cero React/R3F en la ruta caliente 3D.~~ Confirmado: `grep` de `@react-three` bajo `src/client/` solo aparece en comentarios de atribución (`primitives.ts`, `farm/farmShared.ts`); el único `import ... from "react"` real es `ClientCanvas.tsx`, el límite sancionado de HUD/montaje (un `useEffect` que instancia `ClientRuntime`), no la ruta caliente de render.
 6. ~~Partida real de nivel 30 en `/runtime`.~~ Hecho (ver punto 3) — quedan solo los dos huecos honestos anotados ahí (compra al 100 % y recogida de caja por el jugador) por limitación del estado de guardado usado, no por duda en el código.
-7. Benchmark final en el iPhone real. **Requiere el dispositivo/flujo real del propietario** — no lo intento sin confirmar primero cómo se accedió a él en fases anteriores de esta sesión (memoria: "Chrome+Vulkan", "paseo táctil por CDP"), para no confundir una emulación de escritorio con la medición real que el propietario exige.
+7. Benchmark final en el iPhone real. **Pendiente del propietario** — es la única prueba de las 14 exigidas que requiere hardware real; todo lo demás (ver checklist de 14 puntos abajo) ya está cerrado autónomamente.
 8. Solo entonces: retirar `/play2`.
 9. Actualizar `docs/PROJECT-MAP.md` con el nuevo estado de `/runtime` (pendiente, se hace al cerrar el punto 6).
+
+## Checklist de QA obligatorio (14 puntos, 26-09-2026)
+
+1. **typecheck** — limpio.
+2. **lint** — limpio (1 aviso preexistente ajeno en `engine.test.ts`, no relacionado con este trabajo).
+3. **tests completos** — 937 pruebas, 108 archivos, todas en verde. Incluye 3 pruebas de regresión específicas para los dos bugs del controlador del jugador ya corregidos.
+4. **production build** — exitoso, incluye `/runtime` como página estática.
+5. **prueba automatizada integral** — `IntegralClient`/`IntegralPanel` mide trabajo/hueco/cadencia/draw calls/triángulos en tiempo real sobre el nivel 30 real sembrado.
+6. **prueba real de gameplay** — múltiples rondas con Playwright dirigiendo al jugador de verdad (no teletransporte salvo para aislar un caso concreto): cosechar, reponer, devolver, pagar, cobrar caja, ambas puertas, apertura/cierre de tienda, caja autónoma con clientes reales, varias compras completadas en secuencia.
+7. **revisión adversarial por agentes distintos** — al menos 4 rondas independientes: revisión de código (memoria/lifecycle/recursos huérfanos), revisión de juego real hostil (sesión larga, spam de interacciones, embestidas contra muros, cruces rápidos de puerta), y una re-revisión específica tras el rediseño de `kitFurniture.ts`. Cada hallazgo real se corrigió y se volvió a verificar.
+8. **memoria/lifecycle** — confirmado por revisión adversarial: se encontró y corrigió una fuga real (`world.root`, el suelo/edificio/perímetro horneado, nunca se liberaba en `dispose()`) y una condición de carrera real (`dispose()` durante un `load()` todavía en vuelo podía construir — y nunca liberar — un mundo Rapier completo o recursos de GPU); ambas corregidas con un flag `disposed` comprobado tras cada punto de espera relevante.
+9. **recursos/listeners/workers huérfanos** — confirmado limpio: un solo `addEventListener` (resize) con su `removeEventListener` correspondiente; cero `setInterval`/`setTimeout` huérfanos; el worker del navmesh es un singleton de módulo deliberado, correcto que `dispose()` no lo toque.
+10. **paridad visual** — ver las tablas de arriba; comparación en 3 estados de progresión para estructura/mobiliario/granja/puertas, capturas de pantalla verificadas tras cada cambio de render.
+11. **paridad funcional** — ver las tablas de arriba; cada sistema disparado y confirmado con el cambio de estado económico exacto (no solo que el evento "ocurre").
+12. **arranque** — TTI real (el jugador puede moverse, no solo que aparece un canvas) mejorado diferiendo cuerpos de multitud/repartidos/gorros/navmesh a después del primer fotograma jugable; recursos cargados antes de interactividad reducidos ~55-63% en bytes, medido por diff real de la cascada de red.
+13. **reconstrucción del navmesh durante el juego** — confirmado disparándose correctamente en una compra real (`Rebuilds navmesh` 1→2 exacto en el momento del desbloqueo), sin congelar al jugador (colisión Rapier, independiente del navmesh). Se encontró aquí el hueco de fotogramas de la compra (ver más abajo) — ya corregido de raíz.
+14. **no reintroducción de los bugs de escala ya corregidos** — cubierto por `PlayerActor.interactionScale.test.ts` y las 3 pruebas de `PlayerPhysics.test.ts` (incluida la de regresión del muro), que fallan de forma demostrada si cualquiera de los dos bugs originales reaparece.
+
+Hallazgo adicional encontrado y corregido durante esta ronda de QA (no en la lista original, pero real): un hueco de fotogramas de hasta 216,6 ms al completar una compra, causado por `kitFurniture.ts` reconstruyendo TODO el mobiliario en vez de solo el fixture recién desbloqueado — reescrito de raíz a reconciliación incremental (ver más abajo), medido en 0 ms de reconstrucción sobrante tras el arreglo, y re-verificado en una segunda ronda adversarial sin hallazgos.
 
 ## Puerta de calidad (`pnpm typecheck && pnpm lint && pnpm test && pnpm build`)
 
