@@ -179,6 +179,57 @@ export const RUNTIME_PHASE7_BASELINE = {
 } as const;
 
 /**
+ * Official iPhone baseline of phase 10 (phase 7's crowd/hats plus the
+ * synthetic kinematic capsule chasing a deterministic target via
+ * `storeMoveAlongSurface()` every frame — no input, no camera follow, no real
+ * player model, no NPC collisions/interaction/purchases/high-level
+ * pathfinding yet). Approved 2026-09-26, clean reading: work/gap stats are
+ * within noise of RUNTIME_PHASE7_BASELINE (0 frames over 16.7 ms, 0 gaps over
+ * 25 ms), no perceptible stutter. `playerMoveCallsPerSecond` ran at ~59.9/s
+ * (essentially the render rate) at `playerMoveAverageMs` 0.1 ms / p99 0.1 ms
+ * / max 2.6 ms — conclusion: `storeMoveAlongSurface()` at near 60 Hz is not a
+ * bottleneck and must not be optimized or throttled on this evidence.
+ * `navMaxStallMs` (105.5 ms here vs 133.1 ms in the phase-8/9 iPhone reading)
+ * is startup-only WASM init cost, not phase 10's own — see the doc comment on
+ * `FrameMetrics.markNavStall`.
+ *
+ * The phone showed mild, subjective (~8%) heating versus fully cold,
+ * localized mainly under the camera housing; no battery-consumption figure
+ * exists and none should be inferred from it. `playerMove`'s measured cost is
+ * far too small to attribute this heating to the player/navmesh layer by
+ * itself — left as an open observation for a dedicated future
+ * thermal/consumption phase that can compare identical conditions and
+ * separate CPU, GPU, render, display and network contributions, not
+ * concluded here.
+ */
+export const RUNTIME_PHASE10_BASELINE = {
+  build: "84e96c5",
+  workAverageMs: 2.9,
+  workP95Ms: 3.2,
+  workP99Ms: 5.1,
+  workMaxMs: 6.8,
+  workOver16: 0,
+  gapAverageMs: 16.7,
+  gapP95Ms: 17.0,
+  gapP99Ms: 18.0,
+  gapMaxMs: 21.0,
+  gapsOver25Ms: 0,
+  renders: 22_122,
+  rafs: 22_122,
+  drawCalls: 171,
+  triangles: 376_844,
+  loadMs: 212,
+  crowdReadyMs: 212.3,
+  navReadyMs: 317.5,
+  navMaxStallMs: 105.5,
+  playerMoveAverageMs: 0.1,
+  playerMoveP95Ms: 0.1,
+  playerMoveP99Ms: 0.1,
+  playerMoveMaxMs: 2.6,
+  playerMoveCallsPerSecond: 59.9,
+} as const;
+
+/**
  * Occasional Safari refresh gaps are normal even for trivial work (see
  * RUNTIME_IPHONE_BASELINE: 16 gaps over 25 ms across 25 600 renders on the
  * empty runtime). Demanding an absolute zero fails real sessions for a
