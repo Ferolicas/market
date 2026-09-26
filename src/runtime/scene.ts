@@ -20,6 +20,8 @@ import {
 } from "@/game/render/CrowdSystems";
 import { ensureStoreNavigation, storeMoveAlongSurface } from "@/game/navigation/NavMeshService";
 import { STORE_LAYOUT_SCALE } from "@/game/world-scale";
+import { InputManager } from "@/game/input/InputManager";
+import { DEFAULT_PLAYER_MOTION } from "@/game/player/PlayerController";
 import { createSyntheticEmployeeRoster } from "./crowdFeed";
 
 export interface SceneStats {
@@ -27,18 +29,19 @@ export interface SceneStats {
   triangles: number;
   /** Phase 10: time spent in this frame's `storeMoveAlongSurface` call, 0 before the navmesh is ready. */
   playerMoveMs: number;
+  /** Phase 11A: time spent in this frame's `InputManager.sample()` call alone — gamepad polling happens outside the timed window. */
+  inputSampleMs: number;
 }
 
 /**
- * Phase 10: a fixed, deterministic target the synthetic player continuously
- * chases — not player input (there is none yet). A sine wave on Z keeps the
- * capsule inside the safe central span of `STORE_NAVIGATION_BOUNDS` (well
- * clear of the front/rear wall bands in `walkable-geometry.ts`) while still
- * changing direction predictably, so `storeMoveAlongSurface()` is exercised
- * continuously and the same way on every run.
+ * Phase 11A: keyboard (WASD/arrows) and gamepad only — the same key set
+ * `GameInputSurface.tsx` listens for, duplicated here (not imported) since
+ * that file is a React component with its own pointer/joystick concerns this
+ * phase deliberately excludes. No DOM touch surface yet (phase 11B).
  */
-const PLAYER_OSCILLATION_PERIOD_S = 12;
-const PLAYER_OSCILLATION_AMPLITUDE = 6;
+const MOVEMENT_KEYS = new Set(["KeyW", "KeyA", "KeyS", "KeyD", "ArrowUp", "ArrowLeft", "ArrowDown", "ArrowRight"]);
+/** Same calibrated base walking speed the real player uses (`DEFAULT_PLAYER_MOTION.walkSpeed`) — no acceleration/braking curve, that is gameplay feel, out of scope for isolating `InputManager.sample()`'s own cost. */
+const PLAYER_SPEED = DEFAULT_PLAYER_MOTION.walkSpeed;
 
 const STORE_URL = "/models/market/budget/world/level30.glb";
 
@@ -138,16 +141,41 @@ export class PlaceholderScene {
   private readonly hatInstancers: PartsInstancer[] = [];
   private disposed = false;
   /**
-   * Phase 10: a kinematic capsule with no input, no rig, no animation — the
-   * minimal visual proxy needed to drive `storeMoveAlongSurface()` every
-   * frame and measure exactly what that call costs in isolation. Position is
-   * design units (same convention `PlayerActor.ts` uses): divide by
+   * Phase 10: a kinematic capsule with no rig, no animation — the minimal
+   * visual proxy needed to drive `storeMoveAlongSurface()` every frame and
+   * measure exactly what that call costs in isolation. Position is design
+   * units (same convention `PlayerActor.ts` uses): divide by
    * `STORE_LAYOUT_SCALE` before calling into navigation, multiply back when
-   * placing the mesh.
+   * placing the mesh. Phase 11A replaces the synthetic sine-wave target with
+   * a real `InputManager` instance (keyboard + gamepad only, no DOM touch
+   * surface yet) — a separate instance from the game's shared
+   * `inputManager` singleton, so this isolated harness never shares state
+   * with a real gameplay session running elsewhere.
    */
   private readonly playerMesh: THREE.Mesh;
   private playerPos: [number, number] = [0, 0];
-  private playerElapsedSeconds = 0;
+  private readonly playerInput = new InputManager();
+  private readonly heldKeys = new Set<string>();
+  private readonly onKeyDown = (event: KeyboardEvent) => {
+    if (!MOVEMENT_KEYS.has(event.code)) return;
+    this.heldKeys.add(event.code);
+    this.publishKeyboardInput();
+  };
+  private readonly onKeyUp = (event: KeyboardEvent) => {
+    if (!MOVEMENT_KEYS.has(event.code)) return;
+    this.heldKeys.delete(event.code);
+    this.publishKeyboardInput();
+  };
+  private readonly onWindowBlur = () => {
+    this.heldKeys.clear();
+    this.playerInput.clearAll();
+  };
+
+  private publishKeyboardInput() {
+    const x = Number(this.heldKeys.has("KeyD") || this.heldKeys.has("ArrowRight")) - Number(this.heldKeys.has("KeyA") || this.heldKeys.has("ArrowLeft"));
+    const y = Number(this.heldKeys.has("KeyS") || this.heldKeys.has("ArrowDown")) - Number(this.heldKeys.has("KeyW") || this.heldKeys.has("ArrowUp"));
+    this.playerInput.setKeyboard(x, y);
+  }
 
   constructor(canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({
@@ -173,6 +201,9 @@ export class PlaceholderScene {
     );
     this.playerMesh.position.set(0, 0.9, 0);
     this.scene.add(this.playerMesh);
+    window.addEventListener("keydown", this.onKeyDown);
+    window.addEventListener("keyup", this.onKeyUp);
+    window.addEventListener("blur", this.onWindowBlur);
     this.resize();
     this.ready = this.loadStore();
     this.crowdReady = this.loadCrowd();
@@ -180,23 +211,31 @@ export class PlaceholderScene {
   }
 
   /**
-   * Phase 10: chases a deterministic, continuously-moving target with
-   * `storeMoveAlongSurface()` every frame — no input yet, just isolating the
-   * navmesh query's own per-frame cost. Runs from the very first frame:
-   * before the navmesh is ready the query returns `null` (see
-   * `NavMeshService.moveAlongSurface`'s `if (!this.query) return null`) and
-   * the capsule simply does not move yet, at negligible cost either way.
+   * Phase 11A: real keyboard/gamepad input drives the capsule via the same
+   * `storeMoveAlongSurface()` call phase 10 isolated — no camera-relative
+   * transform, no acceleration/braking curve, that is gameplay feel and out
+   * of scope here. Gamepad polling happens before the timed window (it is a
+   * `navigator` API call, not part of `InputManager` itself); only
+   * `sample()` itself is timed as `inputSampleMs`. With no input device
+   * active, `sample()` returns a zero vector every frame — the capsule holds
+   * still, but the cost of calling it every frame is still measured, which
+   * is the isolated variable this phase cares about.
    */
-  private updatePlayer(deltaSeconds: number): number {
-    this.playerElapsedSeconds += deltaSeconds;
-    const targetX = 0;
-    const targetZ = PLAYER_OSCILLATION_AMPLITUDE * Math.sin((2 * Math.PI * this.playerElapsedSeconds) / PLAYER_OSCILLATION_PERIOD_S);
+  private updatePlayer(deltaSeconds: number): { playerMoveMs: number; inputSampleMs: number } {
+    const gamepad = typeof navigator !== "undefined" ? navigator.getGamepads?.()[0] : null;
+    if (gamepad) this.playerInput.setGamepad(gamepad.axes[0] ?? 0, gamepad.axes[1] ?? 0);
+    const sampleStart = performance.now();
+    const input = this.playerInput.sample();
+    const inputSampleMs = performance.now() - sampleStart;
+
+    const targetX = this.playerPos[0] + input.x * PLAYER_SPEED * deltaSeconds;
+    const targetZ = this.playerPos[1] + input.y * PLAYER_SPEED * deltaSeconds;
     const moveStart = performance.now();
     const moved = storeMoveAlongSurface(this.playerPos, [targetX, targetZ]);
     const playerMoveMs = performance.now() - moveStart;
     if (moved) this.playerPos = moved;
     this.playerMesh.position.set(this.playerPos[0] * STORE_LAYOUT_SCALE, 0.9, this.playerPos[1] * STORE_LAYOUT_SCALE);
-    return playerMoveMs;
+    return { playerMoveMs, inputSampleMs };
   }
 
   /**
@@ -365,12 +404,13 @@ export class PlaceholderScene {
       this.customers.update(this.camera, deltaSeconds, this.elapsedSeconds);
       this.employees.update(this.camera, deltaSeconds);
     }
-    const playerMoveMs = this.updatePlayer(deltaSeconds);
+    const { playerMoveMs, inputSampleMs } = this.updatePlayer(deltaSeconds);
     this.renderer.render(this.scene, this.camera);
     const stats = {
       drawCalls: this.renderer.info.render.calls,
       triangles: this.renderer.info.render.triangles,
       playerMoveMs,
+      inputSampleMs,
     };
     this.renderer.info.reset();
     return stats;
@@ -379,6 +419,10 @@ export class PlaceholderScene {
   dispose() {
     if (this.disposed) return;
     this.disposed = true;
+    window.removeEventListener("keydown", this.onKeyDown);
+    window.removeEventListener("keyup", this.onKeyUp);
+    window.removeEventListener("blur", this.onWindowBlur);
+    this.playerInput.clearAll();
     // Body geometry/material are exclusive to `createCrowdBody` (cloned from
     // the shared GLB cache), unlike the baked store: these must be freed.
     for (const registry of [this.customers.bodies, this.employees.bodies]) {

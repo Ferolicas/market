@@ -318,6 +318,13 @@ export interface RuntimeFrameSummary {
   playerMoveMaxMs: number;
   /** Phase 10: how often the synthetic player's navmesh query actually runs — should track the render rate closely. */
   playerMoveCallsPerSecond: number;
+  /** Phase 11A: `InputManager.sample()`'s own per-frame cost, sampled every rendered frame (not gated by `warmupFrames`), timed separately from gamepad polling. */
+  inputSampleAverageMs: number;
+  inputSampleP95Ms: number;
+  inputSampleP99Ms: number;
+  inputSampleMaxMs: number;
+  /** Phase 11A: how often input is sampled per second — should track the render rate closely, same as `playerMoveCallsPerSecond`. */
+  inputSampleCallsPerSecond: number;
 }
 
 export interface RuntimeGate {
@@ -351,6 +358,8 @@ export function summarizeFrames(
     navReadyMs?: number; navMaxStallMs?: number; navBytes?: number;
     playerMoveAverageMs?: number; playerMoveP95Ms?: number; playerMoveP99Ms?: number;
     playerMoveMaxMs?: number; playerMoveCallsPerSecond?: number;
+    inputSampleAverageMs?: number; inputSampleP95Ms?: number; inputSampleP99Ms?: number;
+    inputSampleMaxMs?: number; inputSampleCallsPerSecond?: number;
   },
 ): RuntimeFrameSummary {
   const work = samples.map((sample) => sample.workMs);
@@ -383,6 +392,11 @@ export function summarizeFrames(
     playerMoveP99Ms: extras.playerMoveP99Ms ?? 0,
     playerMoveMaxMs: extras.playerMoveMaxMs ?? 0,
     playerMoveCallsPerSecond: extras.playerMoveCallsPerSecond ?? 0,
+    inputSampleAverageMs: extras.inputSampleAverageMs ?? 0,
+    inputSampleP95Ms: extras.inputSampleP95Ms ?? 0,
+    inputSampleP99Ms: extras.inputSampleP99Ms ?? 0,
+    inputSampleMaxMs: extras.inputSampleMaxMs ?? 0,
+    inputSampleCallsPerSecond: extras.inputSampleCallsPerSecond ?? 0,
   };
 }
 

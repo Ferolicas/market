@@ -38,6 +38,11 @@ const PANEL_ROWS = [
   ["playerMoveP99Ms", "Jugador p99", "ms"],
   ["playerMoveMaxMs", "Jugador máx", "ms"],
   ["playerMoveCallsPerSecond", "Jugador llam/s", "rate"],
+  ["inputSampleAverageMs", "Input media", "ms"],
+  ["inputSampleP95Ms", "Input p95", "ms"],
+  ["inputSampleP99Ms", "Input p99", "ms"],
+  ["inputSampleMaxMs", "Input máx", "ms"],
+  ["inputSampleCallsPerSecond", "Input llam/s", "rate"],
 ] as const;
 
 const LOADING_MS_KEYS = new Set(["crowdReadyMs", "navReadyMs"]);

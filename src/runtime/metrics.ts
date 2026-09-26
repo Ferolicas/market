@@ -9,6 +9,9 @@ const GAP_BUCKETS = 2_500;
 /** Phase 10: `storeMoveAlongSurface()` cost per frame is expected sub-millisecond; same resolution as the work histogram. */
 const PLAYER_MOVE_BUCKET_MS = 0.1;
 const PLAYER_MOVE_BUCKETS = 500;
+/** Phase 11A: `InputManager.sample()` cost per frame — same resolution, expected even smaller than playerMove. */
+const INPUT_SAMPLE_BUCKET_MS = 0.1;
+const INPUT_SAMPLE_BUCKETS = 500;
 
 function bucket(value: number, width: number, count: number) {
   const index = Math.round(value / width);
@@ -62,6 +65,11 @@ export class FrameMetrics {
   private playerMoveSum = 0;
   private playerMoveMax = 0;
   private playerMoveFirstAtMs: number | null = null;
+  private readonly inputSampleHist = new Uint32Array(INPUT_SAMPLE_BUCKETS);
+  private inputSampleCount = 0;
+  private inputSampleSum = 0;
+  private inputSampleMax = 0;
+  private inputSampleFirstAtMs: number | null = null;
 
   markLoad(loadMs: number) {
     if (this.loadMs === null) this.loadMs = loadMs;
@@ -117,6 +125,22 @@ export class FrameMetrics {
     this.playerMoveCount += 1;
     this.playerMoveSum += ms;
     if (ms > this.playerMoveMax) this.playerMoveMax = ms;
+  }
+
+  /**
+   * Phase 11A: one sample per rendered frame, from `PlaceholderScene`'s own
+   * timing around `InputManager.sample()` alone (gamepad polling happens
+   * outside that window). Not gated by `warmupFrames`, same reasoning as
+   * `addPlayerMove`: this measures the call's isolated cost from the first
+   * frame, whether or not an input device is actually connected.
+   */
+  addInputSample(ms: number) {
+    if (!Number.isFinite(ms) || ms < 0) return;
+    if (this.inputSampleFirstAtMs === null) this.inputSampleFirstAtMs = performance.now();
+    this.inputSampleHist[bucket(ms, INPUT_SAMPLE_BUCKET_MS, INPUT_SAMPLE_BUCKETS)] += 1;
+    this.inputSampleCount += 1;
+    this.inputSampleSum += ms;
+    if (ms > this.inputSampleMax) this.inputSampleMax = ms;
   }
 
   markRaf() {
@@ -203,6 +227,13 @@ export class FrameMetrics {
       playerMoveMaxMs: this.playerMoveMax,
       playerMoveCallsPerSecond: this.playerMoveFirstAtMs !== null && this.playerMoveCount > 0
         ? this.playerMoveCount / Math.max(0.001, (performance.now() - this.playerMoveFirstAtMs) / 1_000)
+        : 0,
+      inputSampleAverageMs: this.inputSampleCount ? this.inputSampleSum / this.inputSampleCount : 0,
+      inputSampleP95Ms: histPercentile(this.inputSampleHist, INPUT_SAMPLE_BUCKET_MS, this.inputSampleCount, 95),
+      inputSampleP99Ms: histPercentile(this.inputSampleHist, INPUT_SAMPLE_BUCKET_MS, this.inputSampleCount, 99),
+      inputSampleMaxMs: this.inputSampleMax,
+      inputSampleCallsPerSecond: this.inputSampleFirstAtMs !== null && this.inputSampleCount > 0
+        ? this.inputSampleCount / Math.max(0.001, (performance.now() - this.inputSampleFirstAtMs) / 1_000)
         : 0,
     };
   }
