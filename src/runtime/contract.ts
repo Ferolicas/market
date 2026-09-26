@@ -260,6 +260,13 @@ export interface RuntimeFrameSummary {
   navMaxStallMs: number;
   /** Phase 8: bytes of the Recast `.wasm` binary downloaded (Resource Timing) — separate from crowdBytes. */
   navBytes: number;
+  /** Phase 10: `storeMoveAlongSurface()`'s own per-frame cost, sampled every rendered frame (not gated by `warmupFrames`). */
+  playerMoveAverageMs: number;
+  playerMoveP95Ms: number;
+  playerMoveP99Ms: number;
+  playerMoveMaxMs: number;
+  /** Phase 10: how often the synthetic player's navmesh query actually runs — should track the render rate closely. */
+  playerMoveCallsPerSecond: number;
 }
 
 export interface RuntimeGate {
@@ -291,6 +298,8 @@ export function summarizeFrames(
     drawCalls: number; triangles: number; loadMs: number;
     crowdReadyMs?: number; crowdBytes?: number;
     navReadyMs?: number; navMaxStallMs?: number; navBytes?: number;
+    playerMoveAverageMs?: number; playerMoveP95Ms?: number; playerMoveP99Ms?: number;
+    playerMoveMaxMs?: number; playerMoveCallsPerSecond?: number;
   },
 ): RuntimeFrameSummary {
   const work = samples.map((sample) => sample.workMs);
@@ -318,6 +327,11 @@ export function summarizeFrames(
     navReadyMs: extras.navReadyMs ?? 0,
     navMaxStallMs: extras.navMaxStallMs ?? 0,
     navBytes: extras.navBytes ?? 0,
+    playerMoveAverageMs: extras.playerMoveAverageMs ?? 0,
+    playerMoveP95Ms: extras.playerMoveP95Ms ?? 0,
+    playerMoveP99Ms: extras.playerMoveP99Ms ?? 0,
+    playerMoveMaxMs: extras.playerMoveMaxMs ?? 0,
+    playerMoveCallsPerSecond: extras.playerMoveCallsPerSecond ?? 0,
   };
 }
 

@@ -28,14 +28,20 @@ const PANEL_ROWS = [
   ["navReadyMs", "Navmesh listo", "ms"],
   ["navMaxStallMs", "Bloqueo de arranque del navmesh (init WASM)", "ms"],
   ["navBytes", "Descarga del navmesh (WASM)", "bytes"],
+  ["playerMoveAverageMs", "Jugador: consulta navmesh media", "ms"],
+  ["playerMoveP95Ms", "Jugador: consulta navmesh p95", "ms"],
+  ["playerMoveP99Ms", "Jugador: consulta navmesh p99", "ms"],
+  ["playerMoveMaxMs", "Jugador: consulta navmesh máxima", "ms"],
+  ["playerMoveCallsPerSecond", "Jugador: consultas al navmesh por segundo", "rate"],
 ] as const;
 
 const LOADING_MS_KEYS = new Set(["crowdReadyMs", "navReadyMs"]);
 
-function formatValue(summary: RuntimeFrameSummary, key: (typeof PANEL_ROWS)[number][0], unit: "ms" | "count" | "bytes") {
+function formatValue(summary: RuntimeFrameSummary, key: (typeof PANEL_ROWS)[number][0], unit: "ms" | "count" | "bytes" | "rate") {
   const value = summary[key];
   if (unit === "bytes") return value > 0 ? `${(value / (1024 * 1024)).toFixed(2)} MB` : "—";
   if (unit === "ms") return LOADING_MS_KEYS.has(key) && value === 0 ? "cargando…" : `${value.toFixed(1)} ms`;
+  if (unit === "rate") return `${value.toFixed(1)} /s`;
   return String(value);
 }
 

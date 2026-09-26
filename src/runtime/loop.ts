@@ -92,6 +92,7 @@ export class RuntimeLoop {
     const stats = this.scene.render(pose, delta);
     const workMs = performance.now() - workStarted;
     this.metrics.markRender();
+    this.metrics.addPlayerMove(stats.playerMoveMs);
     if (delta === 0) this.metrics.markLoad(now);
     else this.metrics.addFrame(workMs, delta, stats.drawCalls, stats.triangles);
     this.frame = window.requestAnimationFrame(this.tick);

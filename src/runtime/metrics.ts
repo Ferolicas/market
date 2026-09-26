@@ -6,6 +6,9 @@ const WORK_BUCKETS = 500;
 /** Gap histogram covers the recorded range. The exact maximum is kept apart from the buckets. */
 const GAP_BUCKET_MS = 0.1;
 const GAP_BUCKETS = 2_500;
+/** Phase 10: `storeMoveAlongSurface()` cost per frame is expected sub-millisecond; same resolution as the work histogram. */
+const PLAYER_MOVE_BUCKET_MS = 0.1;
+const PLAYER_MOVE_BUCKETS = 500;
 
 function bucket(value: number, width: number, count: number) {
   const index = Math.round(value / width);
@@ -54,6 +57,11 @@ export class FrameMetrics {
   private navReadyMs: number | null = null;
   private navMaxStallMs = 0;
   private navBytes = 0;
+  private readonly playerMoveHist = new Uint32Array(PLAYER_MOVE_BUCKETS);
+  private playerMoveCount = 0;
+  private playerMoveSum = 0;
+  private playerMoveMax = 0;
+  private playerMoveFirstAtMs: number | null = null;
 
   markLoad(loadMs: number) {
     if (this.loadMs === null) this.loadMs = loadMs;
@@ -92,6 +100,23 @@ export class FrameMetrics {
 
   setNavBytes(bytes: number) {
     this.navBytes = bytes;
+  }
+
+  /**
+   * Phase 10: one sample per rendered frame, straight from
+   * `PlaceholderScene.updatePlayer`'s own `performance.now()` wrap around
+   * `storeMoveAlongSurface()` — not gated by `warmupFrames` (unlike
+   * `addFrame`'s work/gap histograms): the goal here is the query's isolated
+   * cost from the very first call, including its cheap no-op before the
+   * navmesh is ready, not a steady-state-only sample.
+   */
+  addPlayerMove(ms: number) {
+    if (!Number.isFinite(ms) || ms < 0) return;
+    if (this.playerMoveFirstAtMs === null) this.playerMoveFirstAtMs = performance.now();
+    this.playerMoveHist[bucket(ms, PLAYER_MOVE_BUCKET_MS, PLAYER_MOVE_BUCKETS)] += 1;
+    this.playerMoveCount += 1;
+    this.playerMoveSum += ms;
+    if (ms > this.playerMoveMax) this.playerMoveMax = ms;
   }
 
   markRaf() {
@@ -172,6 +197,13 @@ export class FrameMetrics {
       navReadyMs: this.navReadyMs ?? 0,
       navMaxStallMs: this.navMaxStallMs,
       navBytes: this.navBytes,
+      playerMoveAverageMs: this.playerMoveCount ? this.playerMoveSum / this.playerMoveCount : 0,
+      playerMoveP95Ms: histPercentile(this.playerMoveHist, PLAYER_MOVE_BUCKET_MS, this.playerMoveCount, 95),
+      playerMoveP99Ms: histPercentile(this.playerMoveHist, PLAYER_MOVE_BUCKET_MS, this.playerMoveCount, 99),
+      playerMoveMaxMs: this.playerMoveMax,
+      playerMoveCallsPerSecond: this.playerMoveFirstAtMs !== null && this.playerMoveCount > 0
+        ? this.playerMoveCount / Math.max(0.001, (performance.now() - this.playerMoveFirstAtMs) / 1_000)
+        : 0,
     };
   }
 

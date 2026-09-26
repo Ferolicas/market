@@ -18,13 +18,27 @@ import {
   employeeBodyOf,
   firstSkinnedMesh,
 } from "@/game/render/CrowdSystems";
-import { ensureStoreNavigation } from "@/game/navigation/NavMeshService";
+import { ensureStoreNavigation, storeMoveAlongSurface } from "@/game/navigation/NavMeshService";
+import { STORE_LAYOUT_SCALE } from "@/game/world-scale";
 import { createSyntheticEmployeeRoster } from "./crowdFeed";
 
 export interface SceneStats {
   drawCalls: number;
   triangles: number;
+  /** Phase 10: time spent in this frame's `storeMoveAlongSurface` call, 0 before the navmesh is ready. */
+  playerMoveMs: number;
 }
+
+/**
+ * Phase 10: a fixed, deterministic target the synthetic player continuously
+ * chases — not player input (there is none yet). A sine wave on Z keeps the
+ * capsule inside the safe central span of `STORE_NAVIGATION_BOUNDS` (well
+ * clear of the front/rear wall bands in `walkable-geometry.ts`) while still
+ * changing direction predictably, so `storeMoveAlongSurface()` is exercised
+ * continuously and the same way on every run.
+ */
+const PLAYER_OSCILLATION_PERIOD_S = 12;
+const PLAYER_OSCILLATION_AMPLITUDE = 6;
 
 const STORE_URL = "/models/market/budget/world/level30.glb";
 
@@ -107,7 +121,7 @@ export class PlaceholderScene {
   readonly crowdReady: Promise<void>;
   crowdReadyAtMs = 0;
   crowdBytes = 0;
-  /** Phase 8: resolves once `ensureStoreNavigation()` resolves — built but never queried (no player, no pathfinding). */
+  /** Phase 8: resolves once `ensureStoreNavigation()` resolves. Phase 10 adds the first real query against it. */
   readonly navReady: Promise<void>;
   navReadyAtMs = 0;
   navBytes = 0;
@@ -123,6 +137,17 @@ export class PlaceholderScene {
   private disposeCrowdProps: (() => void) | null = null;
   private readonly hatInstancers: PartsInstancer[] = [];
   private disposed = false;
+  /**
+   * Phase 10: a kinematic capsule with no input, no rig, no animation — the
+   * minimal visual proxy needed to drive `storeMoveAlongSurface()` every
+   * frame and measure exactly what that call costs in isolation. Position is
+   * design units (same convention `PlayerActor.ts` uses): divide by
+   * `STORE_LAYOUT_SCALE` before calling into navigation, multiply back when
+   * placing the mesh.
+   */
+  private readonly playerMesh: THREE.Mesh;
+  private playerPos: [number, number] = [0, 0];
+  private playerElapsedSeconds = 0;
 
   constructor(canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({
@@ -142,10 +167,36 @@ export class PlaceholderScene {
     key.position.set(6, 10, 4);
     this.scene.add(key);
     this.scene.add(this.crowdRoot);
+    this.playerMesh = new THREE.Mesh(
+      new THREE.CapsuleGeometry(0.4, 1.0, 4, 8),
+      new THREE.MeshStandardMaterial({ color: "#ff3366" }),
+    );
+    this.playerMesh.position.set(0, 0.9, 0);
+    this.scene.add(this.playerMesh);
     this.resize();
     this.ready = this.loadStore();
     this.crowdReady = this.loadCrowd();
     this.navReady = this.loadNavigation();
+  }
+
+  /**
+   * Phase 10: chases a deterministic, continuously-moving target with
+   * `storeMoveAlongSurface()` every frame — no input yet, just isolating the
+   * navmesh query's own per-frame cost. Runs from the very first frame:
+   * before the navmesh is ready the query returns `null` (see
+   * `NavMeshService.moveAlongSurface`'s `if (!this.query) return null`) and
+   * the capsule simply does not move yet, at negligible cost either way.
+   */
+  private updatePlayer(deltaSeconds: number): number {
+    this.playerElapsedSeconds += deltaSeconds;
+    const targetX = 0;
+    const targetZ = PLAYER_OSCILLATION_AMPLITUDE * Math.sin((2 * Math.PI * this.playerElapsedSeconds) / PLAYER_OSCILLATION_PERIOD_S);
+    const moveStart = performance.now();
+    const moved = storeMoveAlongSurface(this.playerPos, [targetX, targetZ]);
+    const playerMoveMs = performance.now() - moveStart;
+    if (moved) this.playerPos = moved;
+    this.playerMesh.position.set(this.playerPos[0] * STORE_LAYOUT_SCALE, 0.9, this.playerPos[1] * STORE_LAYOUT_SCALE);
+    return playerMoveMs;
   }
 
   /**
@@ -308,16 +359,18 @@ export class PlaceholderScene {
    */
   render(pose: Float32Array, deltaMs = 0) {
     void pose;
+    const deltaSeconds = Math.max(0, deltaMs) / 1_000;
     if (this.crowdBodiesReady) {
-      const deltaSeconds = Math.max(0, deltaMs) / 1_000;
       this.elapsedSeconds += deltaSeconds;
       this.customers.update(this.camera, deltaSeconds, this.elapsedSeconds);
       this.employees.update(this.camera, deltaSeconds);
     }
+    const playerMoveMs = this.updatePlayer(deltaSeconds);
     this.renderer.render(this.scene, this.camera);
     const stats = {
       drawCalls: this.renderer.info.render.calls,
       triangles: this.renderer.info.render.triangles,
+      playerMoveMs,
     };
     this.renderer.info.reset();
     return stats;
