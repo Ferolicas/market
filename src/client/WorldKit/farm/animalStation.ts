@@ -6,6 +6,7 @@ import { chickenFeedStatus } from "@/game/stations/StationSystem";
 import { budgetPath, loadGltf } from "../../WorldAssets";
 import { makeInstances, type InstanceTransform, type Position } from "../primitives";
 import { buildStationSign, roundedBoxMesh } from "./farmShared";
+import { ablation } from "../ablation";
 
 /**
  * Faithful port of `AnimalPaddock`, `StationSign`'s animal-station call site,
@@ -161,6 +162,9 @@ export function buildAnimalStation(kind: "chicken" | "cow", position: Position) 
   loadEnvironmentProp(kind === "chicken" ? "chicken_coop" : "cow_station", shell);
 
   const animal = buildAnimalCharacter(kind);
+  // `?ablate=animals` diagnostic (see `ablation.ts`): hide the live skinned
+  // character entirely — the old baseline had no live animals at all.
+  animal.group.visible = !ablation.skipAnimals;
   group.add(animal.group);
 
   const outputProp = new THREE.Group();

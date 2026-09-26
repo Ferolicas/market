@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { STORE_REAR_DOOR, advanceRearDoorMotion, CLOSED_REAR_DOOR_MOTION, rearDoorActorPresent, rearDoorLeafCenter } from "@/game/stations/storefront-layout";
 import { liveActors } from "@/game/render/LiveActors";
 import { STORE_LAYOUT_SCALE } from "@/game/world-scale";
+import { ablation } from "./ablation";
 
 /**
  * `dynamic:rear-farm-door` (`RearDoorAssembly` in `MarketScene.tsx`) — a
@@ -28,6 +29,9 @@ const leafHandleMaterial = new THREE.MeshStandardMaterial({ color: "#e4b95f", me
 const indicatorHousingMaterial = new THREE.MeshStandardMaterial({ color: "#203a33", metalness: 0.5, roughness: 0.3 });
 
 export function buildRearFarmDoor(): RearFarmDoorHandle {
+  // `?ablate=glass` diagnostic (see `ablation.ts`) — see `storefrontDoor.ts`'s
+  // matching comment for why this is set here, not at module scope.
+  leafGlassMaterial.transmission = ablation.skipGlassTransmission ? 0 : 0.32;
   const door = STORE_REAR_DOOR.door;
   const doorHalfHeight = door.leafHeight / 2;
 

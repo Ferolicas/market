@@ -29,6 +29,12 @@ export function IntegralClient() {
   const [ready, setReady] = useState(false);
   const [metrics] = useState(() => new IntegralMetrics());
   const [startedAt] = useState(() => performance.now());
+  // Top-level sanity-check ablation for the 2026-09-26 iPhone frame-pacing
+  // causal audit: `?worldkit=0` reverts this exact deployed build to the old
+  // level30.glb bake + navmesh player (byte-for-byte pre-port behaviour) so
+  // the same commit can be compared against itself on the same device.
+  // Absent (default), behaviour is unchanged. See `docs/RUNTIME-PARITY-INVENTORY.md`.
+  const [worldKitEnabled] = useState(() => typeof window === "undefined" || new URLSearchParams(window.location.search).get("worldkit") !== "0");
 
   useEffect(() => {
     let cancelled = false;
@@ -57,8 +63,8 @@ export function IntegralClient() {
       <GameRuntime />
       <GameShell
         playerName="Prueba integral"
-        levelName="level30-shell"
-        worldKit
+        levelName={worldKitEnabled ? "level30-shell" : "level30"}
+        worldKit={worldKitEnabled}
         onFrameSample={(workMs, gapMs, drawCalls, triangles) => {
           const elapsedMs = performance.now() - startedAt;
           if (metrics.loadMs === null) {

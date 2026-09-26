@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { STOREFRONT_LAYOUT, storefrontDoorLeafCenter, storefrontDoorProgress } from "@/game/stations/storefront-layout";
 import { frameDelta } from "@/game/locomotion";
 import { STORE_LAYOUT_SCALE } from "@/game/world-scale";
+import { ablation } from "./ablation";
 
 /**
  * `dynamic:storefront-door`, from `MarketBuilding`/`StorefrontDoorMotion` in
@@ -34,6 +35,12 @@ export interface StorefrontDoorHandle {
 }
 
 export function buildStorefrontDoor(): StorefrontDoorHandle {
+  // `?ablate=glass` diagnostic (see `ablation.ts`): forces transmission to 0
+  // on the shared module-level material, skipping Three.js's extra
+  // background render pass for it. Set here (not at module scope, which
+  // evaluates before `ClientRuntime`'s constructor calls `configureAblation`)
+  // so the flag is actually read after it's configured.
+  glassMaterial.transmission = ablation.skipGlassTransmission ? 0 : 0.5;
   const door = STOREFRONT_LAYOUT.door;
   // The source nests `dynamic:storefront-door` (unscaled design-unit
   // position/geometry) inside `perf:building`'s own

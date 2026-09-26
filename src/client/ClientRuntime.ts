@@ -26,6 +26,7 @@ import { buildRearFarmDoor, type RearFarmDoorHandle } from "./WorldKit/rearFarmD
 import { buildPurchaseMarkers } from "./WorldKit/purchaseMarkers";
 import { buildRegisterCashMarkers } from "./WorldKit/registerCashMarkers";
 import { buildTransferEffects, type TransferEffectsHandle } from "./WorldKit/transferEffects";
+import { configureAblation } from "./WorldKit/ablation";
 
 /**
  * The plain-three client: one renderer, one scene built once from the baked
@@ -105,6 +106,10 @@ export class ClientRuntime {
   private mobile: boolean;
 
   constructor(private readonly options: ClientRuntimeOptions) {
+    // Diagnostic-only, opt-in ablation flags for the iPhone frame-pacing
+    // causal audit (`?ablate=text,glass,animals`) — off by default, no
+    // behaviour change for real traffic. See `WorldKit/ablation.ts`.
+    configureAblation(window.location.search);
     const profile = marketRenderProfileForCapabilities({ width: window.innerWidth, coarsePointer: window.matchMedia("(any-pointer: coarse)").matches, devicePixelRatio: window.devicePixelRatio });
     this.mobile = profile.mobile;
     this.renderer = new THREE.WebGLRenderer({ canvas: options.canvas, antialias: !profile.mobile, powerPreference: profile.powerPreference, alpha: false, stencil: false, depth: true });

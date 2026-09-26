@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { toCreasedNormals } from "three-stdlib";
 import { Text as TroikaText } from "troika-three-text";
+import { ablation } from "./ablation";
 
 /**
  * Imperative, framework-free equivalents of `MarketKit.tsx`'s shared JSX
@@ -225,6 +226,10 @@ export function makeText({ text, position, rotation, fontSize, color, anchorX = 
   mesh.fontWeight = fontWeight;
   if (position) mesh.position.set(...position);
   if (rotation) mesh.rotation.set(...rotation);
+  // `?ablate=text` diagnostic (see `ablation.ts`): skip SDF layout/upload and
+  // hide the mesh entirely — Three.js's renderer skips invisible objects
+  // before reaching troika's per-frame `onBeforeRender` bookkeeping.
+  if (ablation.skipText) { mesh.visible = false; return mesh; }
   mesh.sync();
   return mesh;
 }
