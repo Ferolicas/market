@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import type { Inventory, ProductId } from "@/game/types";
-import { makeBox, makeText, type Position } from "../primitives";
+import { makeBox, makeText, mergeStaticMeshes, type Position } from "../primitives";
 import { buildRetailProductUnit } from "./retailProductUnit";
 
 /**
@@ -39,5 +39,6 @@ export function buildReturnsCubicle(): { group: THREE.Group; update(inventory: I
 
   update({} as Inventory);
 
+  mergeStaticMeshes(group);
   return { group, update };
 }

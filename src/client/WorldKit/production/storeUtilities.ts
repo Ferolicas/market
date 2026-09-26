@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { STORE_REAR_DOOR } from "@/game/stations/storefront-layout";
 import { budgetPath, loadGltf } from "../../WorldAssets";
-import { makeBox, makeText, palette } from "../primitives";
+import { makeBox, makeText, mergeStaticMeshes, palette } from "../primitives";
 import { makeStoreElement } from "../storeElement";
 
 /**
@@ -42,6 +42,11 @@ function buildSecurityCamera(rotationY = 0): THREE.Group {
   lens.position.set(0, 0, 0.12);
   group.add(lens);
   group.add(makeBox({ args: [0.06, 0.35, 0.06], position: [0, 0.22, -0.05], color: palette.frame }));
+  // Merged per-camera (not store-wide, see `buildStoreUtilities`): the two
+  // cameras sit at opposite corners of the store, so folding their boxes
+  // together at the outer level would grow one merged mesh's bounding
+  // volume across the whole floor and hurt frustum culling.
+  mergeStaticMeshes(group);
   return group;
 }
 
@@ -53,6 +58,7 @@ function buildHangingSign(label: string): THREE.Group {
   backLabel.rotation.set(0, Math.PI, 0);
   group.add(backLabel);
   for (const x of [-0.56, 0.56]) group.add(makeBox({ args: [0.025, 0.55, 0.025], position: [x, 0.45, 0], color: palette.frame }));
+  mergeStaticMeshes(group);
   return group;
 }
 

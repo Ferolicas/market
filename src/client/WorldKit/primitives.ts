@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { toCreasedNormals } from "three-stdlib";
+import { mergeBufferGeometries, toCreasedNormals } from "three-stdlib";
 import { Text as TroikaText } from "troika-three-text";
 import { ablation } from "./ablation";
 
@@ -150,9 +150,73 @@ export function makeBox({ args, position, color, rotation, radius = 0.035, recei
   if (position) mesh.position.set(...position);
   if (rotation) mesh.rotation.set(...rotation);
   mesh.receiveShadow = receiveShadow;
+  // Marks this mesh as eligible for `mergeStaticMeshes()`: every `makeBox()`
+  // caller in WorldKit adds the returned mesh straight into a group and
+  // never keeps a reference to it afterwards (verified: no
+  // `= makeBox(` assignment exists anywhere in WorldKit), so it is never
+  // individually repositioned, recolored or toggled once built — safe to
+  // fold into a single merged draw call with its same-material siblings.
+  mesh.userData.staticMerge = true;
   return mesh;
 }
 const boxGeometryCache = new Map<string, THREE.ExtrudeGeometry>();
+
+// ─── Static geometry merging (fewer draw calls, zero visual change) ───────
+
+/**
+ * Folds every `makeBox()`-tagged mesh under `root` that shares the exact
+ * same (already-deduped, see `surfaceMaterial`/`flatMaterial`) material
+ * instance into one merged `THREE.Mesh` per material, baking each source
+ * mesh's matrix relative to `root` into the merged geometry so the combined
+ * result renders pixel-identical to the original many-mesh version — just
+ * as one draw call instead of many.
+ *
+ * Safe by construction: only meshes carrying `userData.staticMerge` (set
+ * exclusively by `makeBox()`) are ever touched, and those are never
+ * mutated/toggled after creation (see the comment on `makeBox()`). The
+ * newly created merged mesh is left untagged, so calling this again on an
+ * ancestor after a descendant has already been merged is a no-op for that
+ * descendant's content — safe to call bottom-up at every fixture's own
+ * build function without double-merging or reaching across an unrelated
+ * sibling's independent `.visible` toggle (which always lives on a group,
+ * never on a tagged mesh itself).
+ */
+export function mergeStaticMeshes(root: THREE.Object3D): void {
+  root.updateWorldMatrix(true, true);
+  const rootInverse = new THREE.Matrix4().copy(root.matrixWorld).invert();
+  const byMaterial = new Map<THREE.Material, THREE.Mesh[]>();
+  root.traverse((object) => {
+    if (object === root) return;
+    if (!(object instanceof THREE.Mesh) || object instanceof THREE.InstancedMesh) return;
+    if (!object.userData.staticMerge || Array.isArray(object.material)) return;
+    const list = byMaterial.get(object.material) ?? [];
+    list.push(object);
+    byMaterial.set(object.material, list);
+  });
+  for (const [material, meshes] of byMaterial) {
+    if (meshes.length < 2) continue;
+    const baked: THREE.BufferGeometry[] = [];
+    let receiveShadow = false;
+    for (const mesh of meshes) {
+      mesh.updateWorldMatrix(true, false);
+      const local = new THREE.Matrix4().multiplyMatrices(rootInverse, mesh.matrixWorld);
+      const geometry = mesh.geometry.clone();
+      geometry.applyMatrix4(local);
+      baked.push(geometry);
+      if (mesh.receiveShadow) receiveShadow = true;
+      mesh.parent?.remove(mesh);
+    }
+    const merged = mergeBufferGeometries(baked, false);
+    for (const geometry of baked) geometry.dispose();
+    if (!merged) continue;
+    merged.computeBoundingBox();
+    merged.computeBoundingSphere();
+    const mesh = new THREE.Mesh(merged, material);
+    mesh.receiveShadow = receiveShadow;
+    mesh.name = "static-merged";
+    root.add(mesh);
+  }
+}
 
 // ─── Instancing (StaticInstances) ──────────────────────────────────────────
 

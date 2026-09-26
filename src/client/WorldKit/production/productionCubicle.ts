@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { PRODUCTION_CUBICLE } from "@/game/stations/production-layout";
 import { STORE_ELEMENT_SCALE, STORE_LAYOUT_SCALE } from "@/game/world-scale";
-import { makeBox, makeText, type Position } from "../primitives";
+import { makeBox, makeText, mergeStaticMeshes, type Position } from "../primitives";
 import { makeStoreElement } from "../storeElement";
 
 /**
@@ -87,5 +87,9 @@ export function buildProductionCubicle(): THREE.Group {
   frontElement.add(threshold);
   root.add(frontElement);
 
+  // Fully static shell (see file header) — nothing here is ever toggled or
+  // re-touched after construction, so one merge over the whole cubicle is
+  // safe: the floor grid alone is 15 individual same-material boxes.
+  mergeStaticMeshes(root);
   return root;
 }

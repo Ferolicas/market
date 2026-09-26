@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { STORE_SERVICE_FIXTURES } from "@/game/stations/store-service-layout";
 import { WAREHOUSE_RETURN_STATION } from "@/game/stations/warehouse-layout";
 import { budgetPath, loadGltf } from "../../WorldAssets";
-import { makeBox, makeInstances, makeText, palette, type InstanceTransform, type Position } from "../primitives";
+import { makeBox, makeInstances, makeText, mergeStaticMeshes, palette, type InstanceTransform, type Position } from "../primitives";
 
 /**
  * Faithful port of `SupplierCorner`, `WarehouseReturnBasket`, `TerminalModel`,
@@ -93,6 +93,7 @@ export function buildSupplierCorner(position: Position): THREE.Group {
   group.add(buildParcel([0.25, 0.34, -0.68], true));
   group.add(buildParcel([0.05, 0.73, -0.68]));
 
+  mergeStaticMeshes(group);
   return group;
 }
 
@@ -120,5 +121,6 @@ export function buildWarehouseReturnBasket(): THREE.Group {
   group.add(makeText({ text: "DEVOLVER", position: [-0.62, 1.46, -0.122], fontSize: 0.075, color: "#fff3ce", anchorX: "center", anchorY: "middle", fontWeight: 800 }));
   group.add(makeText({ text: "AL ALMACÉN", position: [-0.62, 1.375, -0.122], fontSize: 0.058, color: "#9fd8c0", anchorX: "center", anchorY: "middle", fontWeight: 800 }));
 
+  mergeStaticMeshes(group);
   return group;
 }

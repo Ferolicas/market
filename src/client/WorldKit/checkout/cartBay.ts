@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { makeBox, makeInstances, makeText, type InstanceTransform, type Position } from "../primitives";
+import { makeBox, makeInstances, makeText, mergeStaticMeshes, type InstanceTransform, type Position } from "../primitives";
 
 /**
  * Faithful port of `CartBay`, `cartTubeTransform`, `CartTubeInstances` and
@@ -79,6 +79,11 @@ function buildShoppingCart(): THREE.Group {
   group.add(makeInstances(wheelTransforms, wheelOuterGeometry, wheelOuterMaterial));
   group.add(makeInstances(wheelTransforms, wheelInnerGeometry, wheelInnerMaterial));
 
+  // Merged here (inside one cart), never at `buildCartBay`'s outer level:
+  // each of the four carts is shown/hidden as a whole unit by `update()`,
+  // so folding this cart's own static boxes together is safe, but merging
+  // across carts would break their independent `.visible` toggle.
+  mergeStaticMeshes(group);
   return group;
 }
 
@@ -127,5 +132,10 @@ export function buildCartBay(position: Position): { group: THREE.Group; update(c
 
   update(2);
 
+  // Safe at this outer level too: each cart's own boxes were already merged
+  // (and left untagged) inside `buildShoppingCart()` above, so this call only
+  // folds the bay shell's own static boxes together and never reaches across
+  // a cart's independent `.visible` toggle.
+  mergeStaticMeshes(group);
   return { group, update };
 }

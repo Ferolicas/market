@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import type { CheckoutTransaction } from "@/game/types";
 import type { CheckoutLane } from "@/game/stations/checkout-layout";
-import { makeBox, makeText, palette, updateText, type Position } from "../primitives";
+import { makeBox, makeText, mergeStaticMeshes, palette, updateText, type Position } from "../primitives";
 import { buildRetailProductUnit } from "./retailProductUnit";
 
 /**
@@ -203,6 +203,11 @@ export function buildCheckoutKit(lane: CheckoutLane): {
 
   update(undefined, undefined, false);
 
+  // Only the counter/kiosk shell's own boxes are tagged here — the bags
+  // (`buildCheckoutBag`, plain untagged meshes) and the belt product units
+  // (`dynamic:checkout`/`checkout-units`, untagged) are left untouched, so
+  // this can't disturb their independent per-frame updates.
+  mergeStaticMeshes(group);
   return { group, update, animate };
 }
 
@@ -224,5 +229,6 @@ export function buildClosedCheckoutKit(lane: CheckoutLane): THREE.Group {
       fontWeight: 800,
     }),
   );
+  mergeStaticMeshes(group);
   return group;
 }

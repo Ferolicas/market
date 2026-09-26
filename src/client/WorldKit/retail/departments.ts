@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import type { ProductId } from "@/game/types";
 import { PRODUCE_BIN_COLUMNS, PRODUCE_BIN_PITCH, PRODUCE_DECK, PRODUCT_RETAIL_DEPARTMENT, RETAIL_DEPARTMENTS, RETAIL_FIXTURE_LEVELS, produceDeckLocalPoint } from "@/game/stations/retail-layout";
-import { makeBox, makeInstances, makeRoundedBoxGeometry, makeText, palette, updateText, type InstanceTransform, type Position } from "../primitives";
+import { makeBox, makeInstances, makeRoundedBoxGeometry, makeText, mergeStaticMeshes, palette, updateText, type InstanceTransform, type Position } from "../primitives";
 import { makeCommercialBackPanel, makeCommercialShelfBank, makeDepartmentSign, makeFixtureUprights, makeScreenRail } from "../fixtureShell";
 import { buildRetailStockGroup, updateRetailStockGroup } from "../retailProducts";
 import { buildBasketProductMesh } from "./basketProduct";
@@ -64,6 +64,7 @@ export function buildGondola(renderer: THREE.WebGLRenderer, props: GondolaProps)
     if (stockGroup) updateRetailStockGroup(stockGroup, productId, count);
     screen.update(count, capacity);
   };
+  mergeStaticMeshes(group);
   return { group, update };
 }
 
@@ -109,6 +110,7 @@ export function buildBakeryDisplay(renderer: THREE.WebGLRenderer, props: BakeryD
     flourScreen.update(stock.flour ?? 0, capacity.flour ?? 0);
     wheatScreen.update(stock.wheat ?? 0, capacity.wheat ?? 0);
   };
+  mergeStaticMeshes(group);
   return { group, update };
 }
 
@@ -208,6 +210,11 @@ export function buildProduceTable(props: ProduceTableProps) {
     }
     slotSigns.forEach((sign, index) => sign.update(nextStock[PRODUCE_PRODUCTS[index]] ?? 0, nextCapacity[PRODUCE_PRODUCTS[index]] ?? 0));
   };
+  // Merged at the whole-table level (not per-sign): all four slot signs
+  // share the exact same frame/panel/label materials and none of them is
+  // ever independently shown/hidden (only their `dynamic:produce-sign` text
+  // children change), so folding all of it into one draw call is safe.
+  mergeStaticMeshes(group);
   return { group, update };
 }
 
@@ -297,6 +304,7 @@ export function buildDrinksDisplay(renderer: THREE.WebGLRenderer, props: DrinksD
     if (juiceGroup) updateRetailStockGroup(juiceGroup, "juice", nextCount);
     screen.update(nextCount, nextCapacity);
   };
+  mergeStaticMeshes(group);
   return { group, update };
 }
 

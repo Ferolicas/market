@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { makeBox } from "../primitives";
+import { makeBox, mergeStaticMeshes } from "../primitives";
 
 /** Faithful, fully static port of `CashierWorkArea` from `MarketKit.tsx`. */
 export function buildCashierWorkArea(): THREE.Group {
@@ -12,5 +12,6 @@ export function buildCashierWorkArea(): THREE.Group {
     mark.position.set(x, 0.049, 0);
     group.add(mark);
   }
+  mergeStaticMeshes(group);
   return group;
 }

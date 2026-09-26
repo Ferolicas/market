@@ -6,7 +6,7 @@ import { machineInputCapacity } from "@/game/stations/StationSystem";
 import { STORE_PRODUCTION_FIXTURES, type ProductionFixtureLayout } from "@/game/stations/production-layout";
 import { cornLabelGeometry, cornLabelMaterial, cornTinGeometry, cornTinMaterial } from "@/components/game/CannedCornModel";
 import { budgetPath, loadGltf } from "../../WorldAssets";
-import { makeBox, makeText, updateText, type Position } from "../primitives";
+import { makeBox, makeText, mergeStaticMeshes, updateText, type Position } from "../primitives";
 
 /**
  * Faithful port of `machineStatus`, `ProductionMachineIdentity`, `BakeryKit`,
@@ -120,6 +120,7 @@ export function buildBakeryKit(position: Position): MachineHandle {
     processingLight.visible = machine?.status === "PROCESSING";
   }
   update(undefined);
+  mergeStaticMeshes(group);
   return { group, update };
 }
 
@@ -135,6 +136,7 @@ export function buildMillMachine(position: Position): MachineHandle {
     identity.update(machine);
   }
   update(undefined);
+  mergeStaticMeshes(group);
   return { group, update };
 }
 
@@ -221,6 +223,9 @@ export function buildProcessMachine(kind: "cheese" | "juice", position?: Positio
     slots.forEach((slot, index) => { slot.visible = index < visibleCount; });
   }
   update(undefined);
+  // `dynamic:machine-output`'s slots are plain (untagged) meshes/GLB clones,
+  // never a `makeBox()` result, so this can't touch their per-slot toggle.
+  mergeStaticMeshes(group);
   return { group, update };
 }
 
@@ -275,5 +280,6 @@ export function buildCornCanner(): MachineHandle {
     cans.forEach((can, index) => { can.visible = index < visibleCount; });
   }
   update(undefined);
+  mergeStaticMeshes(group);
   return { group, update };
 }
