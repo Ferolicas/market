@@ -803,11 +803,17 @@ export class PlayCanvasRuntime {
   }
 
   /** QA/debug-only accessor: every currently-active real interaction zone's
-   * id/position/radius (the same list `InteractionDirector` was constructed
-   * from), so headless verification can steer the player to a real zone's
-   * exact coordinates instead of guessing. */
+   * id/position/radius/footprint (the same list `InteractionDirector` was
+   * constructed from), so headless verification can steer the player to a
+   * real zone's exact coordinates instead of guessing. `halfExtents` is
+   * included because several real zones (stocking magnets, production
+   * machines, ...) are fixture-footprint boxes, not points — a zone's real
+   * activation rule (`interactionZonePlanarDistance()` in
+   * `InteractionZone.ts`) measures `enterRadius` outward from that box's
+   * surface, not from `x`/`z`, so a walker that only knew the center could
+   * aim at a point inside the solid fixture and never arrive. */
   getInteractionZones() {
-    return this.currentZoneConfigs.map((zone) => ({ id: zone.id, x: zone.x, z: zone.z, enterRadius: zone.enterRadius }));
+    return this.currentZoneConfigs.map((zone) => ({ id: zone.id, x: zone.x, z: zone.z, enterRadius: zone.enterRadius, halfExtents: zone.halfExtents ?? null }));
   }
 
   resize() {
