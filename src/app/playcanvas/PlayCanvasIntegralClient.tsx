@@ -73,6 +73,35 @@ export function PlayCanvasIntegralClient() {
     const franchise = game?.franchises.find((candidate) => candidate.id === game.currentFranchiseId) ?? game?.franchises[0];
     return franchise?.playerSpeedTier;
   });
+  // Only `id`/`status` are needed for the farm's real per-plot gating
+  // (`buildFarmEstate` in PlayCanvasRuntime) — collapsed to a stable string
+  // signature so this selector doesn't force a new array identity (and thus
+  // a `sceneProps` rebuild) on every unrelated world tick.
+  const cropsSignature = useMarketStore((state) => {
+    const game = state.game;
+    const franchise = game?.franchises.find((candidate) => candidate.id === game.currentFranchiseId) ?? game?.franchises[0];
+    return (franchise?.crops ?? []).map((crop) => `${crop.id}:${crop.status}`).join(",");
+  });
+  // Real crowd: every customer on the floor, plus every employee the sim has
+  // actually spawned a runtime for (`employee.runtime` — an unspawned/
+  // resting employee has none and gets no capsule, matching production's
+  // own crowd-body gating). Collapsed to a stable string signature for the
+  // same reason as `cropsSignature` above; positions change every tick, so
+  // this still re-renders often, but it avoids an extra array-identity churn
+  // on top of that.
+  const customersSignature = useMarketStore((state) => {
+    const game = state.game;
+    const franchise = game?.franchises.find((candidate) => candidate.id === game.currentFranchiseId) ?? game?.franchises[0];
+    return (franchise?.customers ?? []).map((customer) => `${customer.id}:${customer.x}:${customer.z}:${customer.state}`).join("|");
+  });
+  const employeesSignature = useMarketStore((state) => {
+    const game = state.game;
+    const franchise = game?.franchises.find((candidate) => candidate.id === game.currentFranchiseId) ?? game?.franchises[0];
+    return (franchise?.employees ?? [])
+      .filter((employee) => employee.runtime)
+      .map((employee) => `${employee.id}:${employee.runtime!.x}:${employee.runtime!.z}:${employee.role}`)
+      .join("|");
+  });
 
   const unlockedAreasSignature = unlockedAreas?.join("|") ?? "";
   const sceneProps: PlayCanvasSceneProps = useMemo(() => ({
@@ -81,7 +110,19 @@ export function PlayCanvasIntegralClient() {
     doorProgress: doorProgress ?? 0,
     open: open ?? false,
     playerSpeedTier: playerSpeedTier ?? 0,
-  }), [unlockedAreasSignature, doorState, doorProgress, open, playerSpeedTier]);
+    crops: cropsSignature ? cropsSignature.split(",").map((entry) => {
+      const [id, status] = entry.split(":");
+      return { id, status };
+    }) : [],
+    customers: customersSignature ? customersSignature.split("|").map((entry) => {
+      const [id, x, z, state] = entry.split(":");
+      return { id, x: Number(x), z: Number(z), state };
+    }) : [],
+    employees: employeesSignature ? employeesSignature.split("|").map((entry) => {
+      const [id, x, z, role] = entry.split(":");
+      return { id, x: Number(x), z: Number(z), role };
+    }) : [],
+  }), [unlockedAreasSignature, doorState, doorProgress, open, playerSpeedTier, cropsSignature, customersSignature, employeesSignature]);
 
   if (!ready) return <LoadingCurtain title="Cargando nivel 30 (PlayCanvas, fase 2)" detail="Sembrando la partida y preparando el motor PlayCanvas" />;
 

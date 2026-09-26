@@ -1,6 +1,6 @@
 import * as pc from "playcanvas";
 import { OVERVIEW_CAMERA_OFFSET } from "@/game/render/overview-camera";
-import { WORLD_SCALE, STORE_LAYOUT_SCALE, STORE_ELEMENT_SCALE, scaleStorePosition } from "@/game/world-scale";
+import { WORLD_SCALE, STORE_LAYOUT_SCALE, STORE_ELEMENT_SCALE, scaleStorePosition, scaleStorePoint } from "@/game/world-scale";
 import {
   STOREFRONT_LAYOUT,
   STORE_REAR_DOOR,
@@ -20,6 +20,13 @@ import { cameraRelativeMovement, moveVelocity, playerMotionForTier, smoothYaw, t
 import { buildPlayerPhysics, ensureRapierReady, type PlayerPhysicsHandle } from "@/client/PlayerPhysics";
 import { fixtureAvailable } from "@/game/stations/fixture-availability";
 import { RETAIL_DEPARTMENTS, RETAIL_DEPARTMENT_IDS, retailFixtureDisplayPositions, type RetailDepartmentId } from "@/game/stations/retail-layout";
+import { CHECKOUT_LANE_IDS, CHECKOUT_LANES, checkoutAreaForLane, type CheckoutLane } from "@/game/stations/checkout-layout";
+import { STORE_PRODUCTION_FIXTURES, PRODUCTION_FIXTURE_IDS, type ProductionFixtureId } from "@/game/stations/production-layout";
+import { STORE_SERVICE_FIXTURES } from "@/game/stations/store-service-layout";
+import { WAREHOUSE_RETURN_STATION } from "@/game/stations/warehouse-layout";
+import { FARM_PLOTS, FARM_BARN, FARM_ANIMAL_STATIONS, FARM_FIELD, FARM_ANIMAL_FOOTPRINTS, type FarmPlotLayout } from "@/game/stations/farm-layout";
+import { setExternalWorldTickDriver, useMarketStore } from "@/game/store";
+import { WORLD_TICK_INTERVAL_MS } from "@/game/core/timing";
 
 /**
  * Phase 2 of the PlayCanvas port: a controllable player capsule with real
@@ -30,10 +37,13 @@ import { RETAIL_DEPARTMENTS, RETAIL_DEPARTMENT_IDS, retailFixtureDisplayPosition
  * (`src/client/CameraRig.ts`), both real doors (storefront + rear farm door,
  * driven by real game state / player-proximity, ported the same way
  * `/runtime`'s `storefrontDoor.ts`/`rearFarmDoor.ts` do), real "MINI MARKET"/
- * "GRANJA" signage via `pc.CanvasFont`, and simplified (box-volume, but
- * real-position/real-size/real-color) retail department fixtures gated by
- * `fixtureAvailable()`. See the phase 2 report for what remains (checkout,
- * production, farm, crowd, real character mesh, HUD input wiring).
+ * "GRANJA" signage via `pc.CanvasFont`, simplified (box-volume, but
+ * real-position/real-size/real-color) retail/checkout/production/farm
+ * fixtures gated by `fixtureAvailable()`/real crop status, and a real
+ * fixed-200ms world-tick driver (`setExternalWorldTickDriver` +
+ * `useMarketStore.getState().tickWorld`) so the simulation actually advances.
+ * See the phase 3 report for what remains (crowd, real character mesh, HUD
+ * input wiring, save/load).
  *
  * Every dimension/color below is copied from the real source of truth, never
  * approximated — see each section's comment for its exact origin.
@@ -91,9 +101,20 @@ export interface PlayCanvasSceneProps {
   doorProgress: number;
   open: boolean;
   playerSpeedTier: number;
+  /** Real crop status from `franchise.crops` — only `id`/`status` are needed
+   * to reproduce `KitFarm`'s exact per-plot gating (`kitFarm.ts`'s
+   * `gated = unlockedAreas.includes("purchase-campaign") && (!crop || crop.status === "LOCKED")`). */
+  crops: Array<{ id: string; status: string }>;
+  /** Real `franchise.customers` positions (layout units, same space as
+   * `CrowdSystems.ts`'s `scaleStorePoint([customer.x, customer.z])`). */
+  customers: Array<{ id: string; x: number; z: number; state: string }>;
+  /** Real `franchise.employees` runtime positions — only entries with a
+   * live `runtime` (spawned/working) are included, mirroring how the crowd
+   * bodies only exist for actors the sim has actually placed on the floor. */
+  employees: Array<{ id: string; x: number; z: number; role: string }>;
 }
 
-const DEFAULT_PROPS: PlayCanvasSceneProps = { unlockedAreas: [], doorState: "CLOSED", doorProgress: 0, open: false, playerSpeedTier: 0 };
+const DEFAULT_PROPS: PlayCanvasSceneProps = { unlockedAreas: [], doorState: "CLOSED", doorProgress: 0, open: false, playerSpeedTier: 0, crops: [], customers: [], employees: [] };
 
 export class PlayCanvasRuntime {
   readonly app: pc.Application;
@@ -133,6 +154,20 @@ export class PlayCanvasRuntime {
   // ---- furniture ----
   private furnitureGroup: pc.Entity | null = null;
   private furnitureSignature = "";
+
+  // ---- world tick driver (mirrors ClientRuntime.tick's fixed 200ms accumulator) ----
+  private tickAccumulatorMs = 0;
+  private lastFrameMs = 0;
+
+  // ---- crowd (customers + employees) ----
+  // A pooled, unskinned capsule per live actor (real count/position, no GPU
+  // per-texture skinning à la CrowdSystems.ts — see the phase 3 report for
+  // why a simplified approach was chosen for this phase). Keyed by real id
+  // so an entity is only created/destroyed when an actor actually
+  // spawns/despawns; every other update just moves the existing capsule.
+  private crowdRoot: pc.Entity | null = null;
+  private readonly customerEntities = new Map<string, pc.Entity>();
+  private readonly employeeEntities = new Map<string, pc.Entity>();
 
   constructor(canvas: HTMLCanvasElement, initialProps?: Partial<PlayCanvasSceneProps>) {
     this.canvas = canvas;
@@ -200,15 +235,26 @@ export class PlayCanvasRuntime {
     // source's two-level nesting documented in storefrontDoor.ts/rearFarmDoor.ts).
     this.buildStorefrontDoor(worldRoot);
     this.buildRearFarmDoor(worldRoot);
-    this.buildFurniture(worldRoot, this.props.unlockedAreas);
+    this.buildFurniture(worldRoot, this.props.unlockedAreas, this.props.crops);
 
     // Player entity lives directly under app.root, at world scale, exactly
     // like production's own RigidBody (`worldStart = PLAYER_START * WORLD_SCALE`).
     this.buildPlayerVisual();
     void this.initPlayerPhysics();
 
+    this.crowdRoot = new pc.Entity("perf:crowd");
+    this.app.root.addChild(this.crowdRoot);
+    this.syncCrowd(this.props.customers, this.props.employees);
+
     window.addEventListener("keydown", this.keydownHandler);
     window.addEventListener("keyup", this.keyupHandler);
+
+    // Real world-tick driver: mirrors ClientRuntime.tick's fixed 200ms
+    // accumulator, driven from this engine's own render loop instead of a
+    // setInterval/setTimeout, so simulation cadence matches production
+    // exactly regardless of frame rate.
+    setExternalWorldTickDriver(true);
+    this.lastFrameMs = performance.now();
 
     this.app.on("update", (dt: number) => this.onUpdate(dt));
 
@@ -223,11 +269,58 @@ export class PlayCanvasRuntime {
     const speedChanged = nextProps.playerSpeedTier !== this.props.playerSpeedTier || nextProps.unlockedAreas.includes("purchase-campaign") !== this.props.unlockedAreas.includes("purchase-campaign");
     this.props = nextProps;
     if (speedChanged) this.motion = playerMotionForTier(nextProps.playerSpeedTier, nextProps.unlockedAreas.includes("purchase-campaign"));
-    if (unlockedChanged) {
-      this.physics?.setUnlockedAreas(nextProps.unlockedAreas);
-      const worldRoot = this.app.root.findByName("world-scale-root") as pc.Entity | null;
-      if (worldRoot) this.buildFurniture(worldRoot, nextProps.unlockedAreas);
+    if (unlockedChanged) this.physics?.setUnlockedAreas(nextProps.unlockedAreas);
+    const worldRoot = this.app.root.findByName("world-scale-root") as pc.Entity | null;
+    // buildFurniture() itself dirty-checks the combined unlockedAreas+crops
+    // signature and no-ops when nothing relevant changed, so it is safe to
+    // call on every prop update (crops advance every world tick).
+    if (worldRoot) this.buildFurniture(worldRoot, nextProps.unlockedAreas, nextProps.crops);
+    this.syncCrowd(nextProps.customers, nextProps.employees);
+  }
+
+  /** Real customer/employee count and position from `franchise.customers`/
+   * `franchise.employees`, pooled by id so a capsule is created once per
+   * live actor and just repositioned on every later update — the same
+   * "cheap position sync, no rebuild" rule `kitFurniture.ts`'s own
+   * per-fixture `update()` calls follow. */
+  private syncCrowd(customers: PlayCanvasSceneProps["customers"], employees: PlayCanvasSceneProps["employees"]) {
+    if (!this.crowdRoot) return;
+    this.syncCrowdGroup(this.customerEntities, customers, "#c97b52");
+    this.syncCrowdGroup(this.employeeEntities, employees, "#4f8f6b");
+  }
+
+  private syncCrowdGroup(pool: Map<string, pc.Entity>, actors: Array<{ id: string; x: number; z: number }>, color: string) {
+    const seen = new Set<string>();
+    for (const actor of actors) {
+      seen.add(actor.id);
+      let entity = pool.get(actor.id);
+      if (!entity) {
+        entity = this.buildCrowdCapsule(color);
+        this.crowdRoot!.addChild(entity);
+        pool.set(actor.id, entity);
+      }
+      const [x, z] = scaleStorePoint([actor.x, actor.z]);
+      entity.setLocalPosition(x * WORLD_SCALE, 0, z * WORLD_SCALE);
     }
+    for (const [id, entity] of pool) {
+      if (seen.has(id)) continue;
+      entity.destroy();
+      pool.delete(id);
+    }
+  }
+
+  private buildCrowdCapsule(color: string): pc.Entity {
+    // Same simplified-capsule treatment as the player placeholder (real
+    // capsule collider proportions from PlayerPhysics.ts, scaled to
+    // PlayCanvas's default capsule primitive), one size down so customers/
+    // employees read as distinct from the owner at a glance.
+    const root = new pc.Entity("crowd-actor");
+    const body = new pc.Entity("body");
+    body.addComponent("render", { type: "capsule", material: this.material(color) });
+    body.setLocalScale(0.42, 0.62, 0.42);
+    body.setLocalPosition(0, 0.62 * WORLD_SCALE, 0);
+    root.addChild(body);
+    return root;
   }
 
   private onKey(event: KeyboardEvent, down: boolean) {
@@ -269,9 +362,29 @@ export class PlayCanvasRuntime {
 
   /** Single render loop tick. */
   private onUpdate(dt: number) {
+    this.stepWorldTick();
     this.stepPlayer(dt);
     this.stepDoors(dt);
     this.updateCamera();
+  }
+
+  /** Fixed 200ms world-tick steps, driven off wall-clock time exactly like
+   * `ClientRuntime.tick` (never off PlayCanvas's own possibly-clamped `dt`),
+   * so the pure simulation in `src/game/engine.ts`/`store.ts` advances on
+   * the same real cadence production uses. Capped at 3 steps/frame with the
+   * same catch-up-then-drop-the-rest behavior as the reference. */
+  private stepWorldTick() {
+    const now = performance.now();
+    this.tickAccumulatorMs += now - this.lastFrameMs;
+    this.lastFrameMs = now;
+    if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+    let steps = 0;
+    while (this.tickAccumulatorMs >= WORLD_TICK_INTERVAL_MS && steps < 3) {
+      this.tickAccumulatorMs -= WORLD_TICK_INTERVAL_MS;
+      steps += 1;
+      useMarketStore.getState().tickWorld(WORLD_TICK_INTERVAL_MS);
+    }
+    if (this.tickAccumulatorMs > WORLD_TICK_INTERVAL_MS * 3) this.tickAccumulatorMs = 0;
   }
 
   private stepPlayer(dt: number) {
@@ -373,6 +486,7 @@ export class PlayCanvasRuntime {
   dispose() {
     if (this.disposed) return;
     this.disposed = true;
+    setExternalWorldTickDriver(false);
     window.removeEventListener("keydown", this.keydownHandler);
     window.removeEventListener("keyup", this.keyupHandler);
     inputManager.clearAll();
@@ -649,12 +763,13 @@ export class PlayCanvasRuntime {
    * `makeStoreElement`'s exact formula (`scaleStorePosition` + yaw +
    * `STORE_ELEMENT_SCALE`), sized from each department's real
    * `fixtureHalfExtents`, gated by the real `fixtureAvailable()` check.
-   * Checkout, production, farm and stock-level detail are deferred (see the
-   * report) — this covers "the retail shelving/departments visible and
-   * correctly gated", the task's stated minimum for this phase.
+   * Also builds checkout lanes, production machines, always-on service
+   * fixtures and the farm estate (see the three private methods below) —
+   * stock-level/machine-status/transaction detail on top of these box
+   * volumes is deferred (see the report).
    */
-  private buildFurniture(worldRoot: pc.Entity, unlockedAreas: string[]) {
-    const signature = unlockedAreas.slice().sort().join("|");
+  private buildFurniture(worldRoot: pc.Entity, unlockedAreas: string[], crops: Array<{ id: string; status: string }>) {
+    const signature = `${unlockedAreas.slice().sort().join("|")}::${crops.map((crop) => `${crop.id}:${crop.status}`).join(",")}`;
     if (signature === this.furnitureSignature && this.furnitureGroup) return;
     this.furnitureSignature = signature;
     if (this.furnitureGroup) {
@@ -685,6 +800,198 @@ export class PlayCanvasRuntime {
         continue;
       }
       this.buildDepartmentFixture(group, department, [...department.display] as [number, number, number], department.yaw ?? 0);
+    }
+
+    this.buildCheckoutLanes(group, unlockedAreas);
+    this.buildProductionMachines(group, unlockedAreas);
+    this.buildServiceFixtures(group);
+    this.buildFarmEstate(group, unlockedAreas, crops);
+  }
+
+  /** Box-volume port of `kitFurniture.ts`'s checkout loop (real counter/
+   * cashier positions from `CHECKOUT_LANES`, real per-lane gating via
+   * `checkoutAreaForLane`, real closed-lane fallback while the campaign is
+   * unlocked but that lane isn't yet). Transaction/handoff visuals (the
+   * belt items, cashier animation) are deferred — see the phase 3 report. */
+  private buildCheckoutLanes(parent: pc.Entity, unlockedAreas: string[]) {
+    for (const lane of CHECKOUT_LANE_IDS as readonly CheckoutLane[]) {
+      const open = lane === 0 || unlockedAreas.includes(checkoutAreaForLane(lane));
+      const layout = CHECKOUT_LANES[lane];
+      const counter = new pc.Entity(`checkout-counter-${lane}`);
+      const counterScaled = scaleStorePosition([...layout.counter] as [number, number, number]);
+      counter.setLocalPosition(counterScaled[0], counterScaled[1], counterScaled[2]);
+      parent.addChild(counter);
+      const body = new pc.Entity("body");
+      body.addComponent("render", { type: "box", material: this.material(open ? "#d8d2c2" : "#8a8478") });
+      body.setLocalScale(1.05 * STORE_ELEMENT_SCALE, 0.92 * STORE_ELEMENT_SCALE, 0.55 * STORE_ELEMENT_SCALE);
+      body.setLocalPosition(0, 0.46 * STORE_ELEMENT_SCALE, 0);
+      counter.addChild(body);
+      const belt = new pc.Entity("belt");
+      belt.addComponent("render", { type: "box", material: this.material(open ? "#3f4a44" : "#5a564d") });
+      belt.setLocalScale(0.85 * STORE_ELEMENT_SCALE, 0.06 * STORE_ELEMENT_SCALE, 0.42 * STORE_ELEMENT_SCALE);
+      belt.setLocalPosition(0, 0.95 * STORE_ELEMENT_SCALE, 0);
+      counter.addChild(belt);
+      if (!open) continue;
+      const cashierScaled = scaleStorePosition([...layout.cashierWork] as [number, number, number]);
+      const cashierSpot = new pc.Entity(`checkout-cashier-${lane}`);
+      cashierSpot.setLocalPosition(cashierScaled[0], cashierScaled[1], cashierScaled[2]);
+      parent.addChild(cashierSpot);
+      const mat = new pc.Entity("mat");
+      mat.addComponent("render", { type: "box", material: this.material("#4b6f5f") });
+      mat.setLocalScale(0.5 * STORE_ELEMENT_SCALE, 0.03 * STORE_ELEMENT_SCALE, 0.5 * STORE_ELEMENT_SCALE);
+      cashierSpot.addChild(mat);
+    }
+  }
+
+  /** Box-volume port of `kitFurniture.ts`'s production machines (real
+   * positions from `STORE_PRODUCTION_FIXTURES`, real per-machine gating via
+   * `fixtureAvailable(fixture.obstacleId, unlockedAreas)`). Machine
+   * status/queue visuals are deferred. */
+  private buildProductionMachines(parent: pc.Entity, unlockedAreas: string[]) {
+    if (fixtureAvailable("fixture:production-cubicle-shell", unlockedAreas)) {
+      const shell = new pc.Entity("production-cubicle-shell");
+      const scaled = scaleStorePosition([-9, 0, -5.9]);
+      shell.setLocalPosition(scaled[0], scaled[1], scaled[2]);
+      parent.addChild(shell);
+      const floor = new pc.Entity("floor");
+      floor.addComponent("render", { type: "box", material: this.material("#c7bfa9") });
+      floor.setLocalScale(5 * STORE_ELEMENT_SCALE, 0.04 * STORE_ELEMENT_SCALE, 5.3 * STORE_ELEMENT_SCALE);
+      floor.setLocalPosition(0, 0.02 * STORE_ELEMENT_SCALE, 0);
+      shell.addChild(floor);
+    }
+    for (const id of PRODUCTION_FIXTURE_IDS as ProductionFixtureId[]) {
+      const fixture = STORE_PRODUCTION_FIXTURES[id];
+      if (!fixtureAvailable(fixture.obstacleId, unlockedAreas)) continue;
+      const scaled = scaleStorePosition([...fixture.position] as [number, number, number]);
+      const element = new pc.Entity(`fixture:${fixture.obstacleId}`);
+      element.setLocalPosition(scaled[0], scaled[1], scaled[2]);
+      element.setEulerAngles(0, fixture.yaw ?? 0, 0);
+      parent.addChild(element);
+      const { halfX, halfZ, centerX, centerZ } = fixture.localFootprint;
+      const body = new pc.Entity("machine");
+      body.addComponent("render", { type: "box", material: this.material(fixture.accent) });
+      body.setLocalScale(halfX * 2 * STORE_ELEMENT_SCALE, 1.1 * STORE_ELEMENT_SCALE, halfZ * 2 * STORE_ELEMENT_SCALE);
+      body.setLocalPosition(centerX * STORE_ELEMENT_SCALE, 0.55 * STORE_ELEMENT_SCALE, centerZ * STORE_ELEMENT_SCALE);
+      element.addChild(body);
+    }
+  }
+
+  /** Ungated service furniture (`STORE_SERVICE_FIXTURES` + the warehouse
+   * return crate) — always present in the base game, box-volume only. */
+  private buildServiceFixtures(parent: pc.Entity) {
+    for (const [key, color] of [["orders", "#5c7ba0"], ["returns", "#a05c6f"], ["cartBay", "#7d8a5c"]] as const) {
+      const fixture = STORE_SERVICE_FIXTURES[key];
+      const scaled = scaleStorePosition([...fixture.position] as [number, number, number]);
+      const element = new pc.Entity(`fixture:${fixture.obstacleId}`);
+      element.setLocalPosition(scaled[0], scaled[1], scaled[2]);
+      parent.addChild(element);
+      const body = new pc.Entity("body");
+      body.addComponent("render", { type: "box", material: this.material(color) });
+      body.setLocalScale(fixture.footprint.halfX * 2 * STORE_ELEMENT_SCALE, 1 * STORE_ELEMENT_SCALE, fixture.footprint.halfZ * 2 * STORE_ELEMENT_SCALE);
+      body.setLocalPosition(0, 0.5 * STORE_ELEMENT_SCALE, 0);
+      element.addChild(body);
+    }
+    {
+      const scaled = scaleStorePosition([...WAREHOUSE_RETURN_STATION.position] as [number, number, number]);
+      const element = new pc.Entity(`fixture:${WAREHOUSE_RETURN_STATION.obstacleId}`);
+      element.setLocalPosition(scaled[0], scaled[1], scaled[2]);
+      parent.addChild(element);
+      const body = new pc.Entity("body");
+      body.addComponent("render", { type: "box", material: this.material("#6b6153") });
+      body.setLocalScale(WAREHOUSE_RETURN_STATION.footprint.halfX * 2 * STORE_ELEMENT_SCALE, 0.9 * STORE_ELEMENT_SCALE, WAREHOUSE_RETURN_STATION.footprint.halfZ * 2 * STORE_ELEMENT_SCALE);
+      body.setLocalPosition(0, 0.45 * STORE_ELEMENT_SCALE, 0);
+      element.addChild(body);
+    }
+  }
+
+  /** Box-volume port of `kitFarm.ts`: garden floor, barn, eight crop plots
+   * (real position/accent from `FARM_PLOTS`, real per-plot gating from the
+   * real `CropState.status`) and the three animal paddocks (real position/
+   * footprint from `FARM_ANIMAL_STATIONS`/`FARM_ANIMAL_FOOTPRINTS`, real
+   * gating via `fixtureAvailable`). Crop growth stage / animal-station work
+   * visuals are deferred (see the report). */
+  private buildFarmEstate(parent: pc.Entity, unlockedAreas: string[], crops: Array<{ id: string; status: string }>) {
+    const cropsById = new Map(crops.map((crop) => [crop.id, crop]));
+
+    // Garden floor.
+    {
+      const scaled = scaleStorePosition([...FARM_FIELD.center] as [number, number, number]);
+      const floor = new pc.Entity("farm-garden-floor");
+      floor.setLocalPosition(scaled[0], scaled[1], scaled[2]);
+      parent.addChild(floor);
+      const body = new pc.Entity("body");
+      body.addComponent("render", { type: "box", material: this.material("#7fa15c") });
+      body.setLocalScale(FARM_FIELD.size[0] * STORE_ELEMENT_SCALE, 0.03 * STORE_ELEMENT_SCALE, FARM_FIELD.size[2] * STORE_ELEMENT_SCALE);
+      body.setLocalPosition(0, 0.015 * STORE_ELEMENT_SCALE, 0);
+      floor.addChild(body);
+    }
+
+    // Barn (always present — the intake point, ungated in the source).
+    {
+      const scaled = scaleStorePosition([...FARM_BARN.position] as [number, number, number]);
+      const element = new pc.Entity(`fixture:${FARM_BARN.obstacleId}`);
+      element.setLocalPosition(scaled[0], scaled[1], scaled[2]);
+      parent.addChild(element);
+      const body = new pc.Entity("body");
+      body.addComponent("render", { type: "box", material: this.material("#8a5a3a") });
+      body.setLocalScale(FARM_BARN.footprint.halfX * 2 * STORE_ELEMENT_SCALE, 1.9 * STORE_ELEMENT_SCALE, FARM_BARN.footprint.halfZ * 2 * STORE_ELEMENT_SCALE);
+      body.setLocalPosition(0, 0.95 * STORE_ELEMENT_SCALE, 0);
+      element.addChild(body);
+      const roof = new pc.Entity("roof");
+      roof.addComponent("render", { type: "box", material: this.material("#5a3a28") });
+      roof.setLocalScale(FARM_BARN.footprint.halfX * 2.15 * STORE_ELEMENT_SCALE, 0.22 * STORE_ELEMENT_SCALE, FARM_BARN.footprint.halfZ * 2.15 * STORE_ELEMENT_SCALE);
+      roof.setLocalPosition(0, 2 * STORE_ELEMENT_SCALE, 0);
+      element.addChild(roof);
+    }
+
+    // Eight crop plots — gated exactly like `kitFarm.ts`'s `buildFarmPlot.update`.
+    for (const plot of FARM_PLOTS as readonly FarmPlotLayout[]) {
+      const crop = cropsById.get(plot.id);
+      const gated = unlockedAreas.includes("purchase-campaign") && (!crop || crop.status === "LOCKED");
+      if (gated) continue;
+      const isDormant = !crop || crop.status === "LOCKED";
+      const scaled = scaleStorePosition([...plot.position] as [number, number, number]);
+      const element = new pc.Entity(`farm-plot:${plot.id}`);
+      element.setLocalPosition(scaled[0], scaled[1], scaled[2]);
+      parent.addChild(element);
+      const bed = new pc.Entity("bed");
+      bed.addComponent("render", { type: "box", material: this.material("#5f4530") });
+      bed.setLocalScale(1.92 * STORE_ELEMENT_SCALE, 0.16 * STORE_ELEMENT_SCALE, 1.18 * STORE_ELEMENT_SCALE);
+      bed.setLocalPosition(0, 0.08 * STORE_ELEMENT_SCALE, 0);
+      element.addChild(bed);
+      if (!isDormant && crop) {
+        const growth = crop.status === "READY" ? 1 : crop.status === "GROWING" ? 0.55 : crop.status === "HARVESTING" ? 0.8 : 0.15;
+        const plants = new pc.Entity("plants");
+        plants.addComponent("render", { type: "box", material: this.material(plot.accent) });
+        plants.setLocalScale(1.55 * STORE_ELEMENT_SCALE, (0.1 + growth * 0.5) * STORE_ELEMENT_SCALE, 0.85 * STORE_ELEMENT_SCALE);
+        plants.setLocalPosition(0, (0.16 + (0.1 + growth * 0.5) / 2) * STORE_ELEMENT_SCALE, 0);
+        element.addChild(plants);
+      }
+    }
+
+    // Three animal paddocks — real position/footprint, real gating.
+    const stations: Array<[keyof typeof FARM_ANIMAL_FOOTPRINTS, readonly [number, number, number], string, string]> = [
+      ["chicken", FARM_ANIMAL_STATIONS.chicken.position, "fixture:chicken-coop", "#d9c26a"],
+      ["cow", FARM_ANIMAL_STATIONS.cow.position, "fixture:cow-station", "#e8e2d5"],
+      ["chicken2", FARM_ANIMAL_STATIONS.chicken2.position, "fixture:chicken-coop-2", "#d9c26a"],
+    ];
+    for (const [footprintId, position, obstacleId, color] of stations) {
+      if (!fixtureAvailable(obstacleId, unlockedAreas)) continue;
+      const footprint = FARM_ANIMAL_FOOTPRINTS[footprintId];
+      const scaled = scaleStorePosition([...position] as [number, number, number]);
+      const element = new pc.Entity(`fixture:${obstacleId}`);
+      element.setLocalPosition(scaled[0], scaled[1], scaled[2]);
+      parent.addChild(element);
+      const fence = new pc.Entity("fence");
+      fence.addComponent("render", { type: "box", material: this.material("#b89a6a", 0.85) });
+      fence.setLocalScale(footprint.halfX * 2 * STORE_ELEMENT_SCALE, 0.5 * STORE_ELEMENT_SCALE, footprint.halfZ * 2 * STORE_ELEMENT_SCALE);
+      fence.setLocalPosition(0, 0.25 * STORE_ELEMENT_SCALE, 0);
+      element.addChild(fence);
+      const animal = new pc.Entity("animal");
+      animal.addComponent("render", { type: "box", material: this.material(color) });
+      animal.setLocalScale(footprint.halfX * STORE_ELEMENT_SCALE, 0.32 * STORE_ELEMENT_SCALE, footprint.halfZ * STORE_ELEMENT_SCALE);
+      animal.setLocalPosition(0, 0.35 * STORE_ELEMENT_SCALE, 0);
+      element.addChild(animal);
     }
   }
 

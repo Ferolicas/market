@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { PlayCanvasRuntime, type PlayCanvasSceneProps } from "./PlayCanvasRuntime";
+import { useMarketStore } from "@/game/store";
 
 /**
  * Mounts the PlayCanvas engine on one canvas. React only renders the
@@ -23,12 +24,17 @@ export function PlayCanvasCanvas({ initialProps }: { initialProps: PlayCanvasSce
     const runtime = new PlayCanvasRuntime(canvas, initialProps);
     runtimeRef.current = runtime;
     runtime.start();
-    const qaWindow = window as typeof window & { __MARKET_PC_RUNTIME__?: PlayCanvasRuntime };
+    const qaWindow = window as typeof window & { __MARKET_PC_RUNTIME__?: PlayCanvasRuntime; __MARKET_STORE__?: typeof useMarketStore };
     qaWindow.__MARKET_PC_RUNTIME__ = runtime;
+    // QA-only: lets headless verification read real world-tick state
+    // (`minuteOfDay`/`simulationTimeMs`) without a React render, the same
+    // way __MARKET_PC_RUNTIME__ already exposes the engine itself.
+    qaWindow.__MARKET_STORE__ = useMarketStore;
     return () => {
       runtime.dispose();
       runtimeRef.current = null;
       if (qaWindow.__MARKET_PC_RUNTIME__ === runtime) delete qaWindow.__MARKET_PC_RUNTIME__;
+      delete qaWindow.__MARKET_STORE__;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
