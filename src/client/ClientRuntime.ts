@@ -210,10 +210,27 @@ export class ClientRuntime {
     this.signs = new SignLayer();
     this.scene.add(this.signs.mesh);
     if (this.worldKit) {
+      // `/runtime` only (see `ClientRuntimeOptions.worldKit`'s doc comment —
+      // never set by `/`/`/play2`, whose own branch below is untouched).
+      // Startup-performance fix (2026-09-26): the crowd's own body/animation
+      // GLBs, its delivered-product props and its hats used to sit in this
+      // same awaited chain as the player's own load and the navmesh build,
+      // so the curtain stayed up for every character variant and every
+      // fixture's stock-screen photo before the player could take a single
+      // step, even though none of it gates movement. `player.load()` builds
+      // real Rapier collision from authored layout constants
+      // (`PlayerPhysics.ts`), completely independent of the navmesh; the
+      // crowd systems already no-op cleanly when a body/hat/delivered-product
+      // registry entry isn't loaded yet (`CrowdSystems.update()`'s
+      // `if (!body) continue/return`, mirrored by the isolated
+      // `src/runtime/scene.ts` measurement harness's `crowdReady`/`navReady`
+      // resolving independently of `ready`). So only the store shell, its
+      // furniture/farm/doors/markers and the player itself are awaited here;
+      // everything else loads in the background right after the first
+      // playable frame (`loadDeferredWorldKitAssets`).
       const [furniture] = await Promise.all([
         buildFurniture(this.renderer, this.furnitureProps(initial)),
         this.player.load(initial.avatar, PLAYER_START[0], PLAYER_START[2]),
-        this.loadCrowdBodies(),
       ]);
       this.furniture = furniture;
       this.layoutRoot.add(furniture.group);
@@ -232,34 +249,47 @@ export class ClientRuntime {
       this.transferEffects = buildTransferEffects();
       this.transferEffects.sync(initial.transferEvents, initial.unlockedAreas, initial.onTransferProgress);
       this.layoutRoot.add(this.transferEffects.group);
-    } else {
-      this.stock = new RetailStockLayer(world.anchors);
-      this.stations = new StationLayer(world.anchors, this.signs);
-      await Promise.all([
-        this.stock.load(),
-        this.stations.load(),
-        this.player.load(initial.avatar, PLAYER_START[0], PLAYER_START[2]),
-        this.loadCrowdBodies(),
-      ]);
-      // Baked anchors are world-space matrices: stock and machines hang from
-      // the scene; crops use layout positions and hang from the scaled root.
-      this.scene.add(this.stock.group, this.stations.worldGroup);
-      this.layoutRoot.add(this.stations.group);
+      createPropInstancers(this.layoutRoot, CUSTOMER_PROP_DEFINITIONS(), this.customers.props);
+      createPropInstancers(this.layoutRoot, EMPLOYEE_PROP_DEFINITIONS(), this.employees.props);
+      this.addSigns(world);
+      this.finishReady(initial);
+      void this.loadDeferredWorldKitAssets(initial);
+      return;
     }
+    this.stock = new RetailStockLayer(world.anchors);
+    this.stations = new StationLayer(world.anchors, this.signs);
+    await Promise.all([
+      this.stock.load(),
+      this.stations.load(),
+      this.player.load(initial.avatar, PLAYER_START[0], PLAYER_START[2]),
+      this.loadCrowdBodies(),
+    ]);
+    // Baked anchors are world-space matrices: stock and machines hang from
+    // the scene; crops use layout positions and hang from the scaled root.
+    this.scene.add(this.stock.group, this.stations.worldGroup);
+    this.layoutRoot.add(this.stations.group);
     createPropInstancers(this.layoutRoot, CUSTOMER_PROP_DEFINITIONS(), this.customers.props);
     createPropInstancers(this.layoutRoot, EMPLOYEE_PROP_DEFINITIONS(), this.employees.props);
     await this.loadDeliveredProducts();
     await this.loadEmployeeHats(initial);
+    this.addSigns(world);
+    await ensureStoreNavigation(initial.unlockedAreas);
+    this.player.snapToNavmesh();
+    this.finishReady(initial);
+  }
+
+  private addSigns(world: BakedWorld) {
     for (const anchor of world.anchors) {
       if (anchor.kind !== "text" || !anchor.text) continue;
       // Live counters are drawn by the station layer; skip their baked copies.
       if (anchor.within && /^(retail-stock-screen|dynamic:(stock-screen|machine-status|machine-output))/.test(anchor.within)) continue;
       const matrix = new THREE.Matrix4().fromArray(anchor.matrix);
       const color = typeof anchor.color === "number" ? `#${anchor.color.toString(16).padStart(6, "0")}` : anchor.color ?? "#ffffff";
-      this.signs.add(anchor.text, { fontSize: anchor.fontSize ?? 0.12, color, weight: 800 }, matrix);
+      this.signs?.add(anchor.text, { fontSize: anchor.fontSize ?? 0.12, color, weight: 800 }, matrix);
     }
-    await ensureStoreNavigation(initial.unlockedAreas);
-    this.player.snapToNavmesh();
+  }
+
+  private finishReady(initial: MarketSceneProps) {
     this.syncStatic(initial);
     // First frame with everything compiled before the cover lifts.
     this.renderer.compile(this.scene, this.rig.camera);
@@ -267,6 +297,20 @@ export class ClientRuntime {
     this.renderer.render(this.scene, this.rig.camera);
     this.ready = true;
     this.onReady?.();
+  }
+
+  /** `/runtime`'s worldKit path only: everything that doesn't gate the first
+   * playable frame (see the doc comment above its `load()` call site) —
+   * every crowd body/animation, the crowd's delivered-product props, every
+   * employee's hat, and the navmesh (queried only by `player.snapToNavmesh()`,
+   * a one-time safety net; real per-frame player collision is Rapier, not
+   * this). Fired-and-forgotten right after `onReady()`, so a slow network
+   * never keeps the curtain up, and each system simply starts rendering the
+   * moment its own registry gains an entry. */
+  private async loadDeferredWorldKitAssets(initial: MarketSceneProps) {
+    await Promise.all([this.loadCrowdBodies(), this.loadDeliveredProducts(), this.loadEmployeeHats(initial)]);
+    await ensureStoreNavigation(initial.unlockedAreas);
+    this.player.snapToNavmesh();
   }
 
   private async loadCrowdBodies() {
@@ -451,7 +495,13 @@ export class ClientRuntime {
       const geometry = object.geometry as THREE.BufferGeometry;
       const triangles = Math.floor((geometry.index ? geometry.index.count : geometry.attributes.position.count) / 3) * count;
       const draws = Array.isArray(object.material) ? Math.max(1, geometry.groups.length) : 1;
-      const key = (object.name || "mesh").split(":")[0] || "mesh";
+      // Attribute an unnamed leaf mesh (e.g. a bare `makeBox()`/`new
+      // THREE.Mesh()` fixture part) to its nearest named ancestor group
+      // instead of the generic "mesh" bucket, so the breakdown says which
+      // WorldKit fixture actually owns each draw call.
+      let ownerName = object.name;
+      if (!ownerName) { let owner = object.parent; while (owner && !owner.name) owner = owner.parent; ownerName = owner?.name ?? ""; }
+      const key = (ownerName || "mesh").split(":")[0] || "mesh";
       const row = rows[key] ??= { draws: 0, triangles: 0 };
       row.draws += draws; row.triangles += triangles;
     });
