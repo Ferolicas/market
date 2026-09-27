@@ -316,12 +316,11 @@ export interface PlayCanvasSceneProps {
    * bodies only exist for actors the sim has actually placed on the floor. */
   employees: Array<{ id: string; x: number; z: number; role: string }>;
   /** Real `purchaseMarkers` (`GameShell.tsx`'s own array, the same one
-   * `availablePurchaseIds` above is derived from) — phase 10 renders the real
-   * pulsing floor square + funded-progress fill for each (see
-   * `purchaseMarkers.ts`'s doc comment); the standing name/remaining-amount
-   * sign is still text-pipeline-deferred (no font/MSDF asset wired in this
-   * port yet — see the report). */
-  purchaseMarkers: Array<{ id: string; funded: number; highlighted: boolean }>;
+   * `availablePurchaseIds` above is derived from) — the pulsing floor square
+   * + funded-progress fill (phase 10) plus the standing sign board with its
+   * name/remaining-amount text (phase 14), both reconciled by `id` exactly
+   * like `purchaseMarkers.ts`'s own `update()`. */
+  purchaseMarkers: Array<{ id: string; funded: number; highlighted: boolean; label: string; remainingLabel: string }>;
   /** Real `franchise.registerCashMinor` (per-lane, matching `CheckoutLane`
    * index) and the real `cashBundleMinor(countryMoneyScale(...))` unit value
    * `GameShell.tsx` already computes for `MarketScene` — phase 10 reuses both
@@ -439,6 +438,10 @@ interface PurchaseMarkerEntry {
   topMaterial: pc.StandardMaterial;
   fillEntity: pc.Entity;
   highlighted: boolean;
+  labelEntity: pc.Entity;
+  remainingEntity: pc.Entity;
+  label: string;
+  remainingLabel: string;
 }
 
 /** One open checkout lane's stacked real cash-bundle pile
@@ -448,6 +451,7 @@ interface RegisterCashEntry {
   group: pc.Entity;
   bundles: pc.Entity[];
   bundleCount: number;
+  label: pc.Entity;
 }
 
 interface FarmAnimalActor {
@@ -513,6 +517,13 @@ const PURCHASE_MARKER_NORMAL_COLOR = "#e8ca6b";
 // Mirrors `registerCashMarkers.ts`'s own `CASH_BUNDLE_SIZE`/`CASH_STACK_PER_LAYER`.
 const CASH_BUNDLE_SIZE: [number, number, number] = [0.2, 0.05, 0.1];
 const CASH_STACK_PER_LAYER = 9;
+// Mirrors `registerCashMarkers.ts`'s own `stackHeightFor()`.
+function registerCashStackHeight(bundles: number): number {
+  return Math.ceil(bundles / CASH_STACK_PER_LAYER) * (CASH_BUNDLE_SIZE[1] + 0.004);
+}
+// Mirrors `purchaseMarkers.ts`'s own (unexported) `FLOOR_LABEL_YAW` constant —
+// the yaw that squares a floor label with the fixed isometric camera.
+const FLOOR_LABEL_YAW = Math.atan2(OVERVIEW_CAMERA_OFFSET.x, OVERVIEW_CAMERA_OFFSET.z);
 // Mirrors `CrowdSystems.ts`'s `HAT_FIT_SCALE` (copied verbatim — that module
 // pulls in Three.js).
 const HAT_FIT_SCALE: Record<CharacterId, number> = { "adult-man": 0.49, "adult-woman": 0.49, boy: 0.64, girl: 0.68 };
@@ -610,6 +621,9 @@ export class PlayCanvasRuntime {
   private purchaseMarkersGroup: pc.Entity | null = null;
   private readonly purchaseMarkerEntries = new Map<string, PurchaseMarkerEntry>();
   private purchaseMarkersElapsedSeconds = 0;
+  // Shared dynamic-label font (phase 14) — see `ensureDynamicFont()`'s doc comment.
+  private dynamicFont: pc.CanvasFont | null = null;
+  private dynamicFontAsset: pc.Asset | null = null;
   private registerCashGroup: pc.Entity | null = null;
   private readonly registerCashEntries = new Map<CheckoutLane, RegisterCashEntry>();
 
@@ -823,24 +837,28 @@ export class PlayCanvasRuntime {
     return root;
   }
 
-  /** Real pulsing purchase-marker floor squares (`purchaseMarkers.ts`'s
-   * `update()` — reconciled by id the same way: an id still present gets its
-   * fill/highlight patched in place, a new id gets a freshly built marker, a
-   * dropped id gets torn down). The standing sign's name/remaining-amount
-   * text is not built here — see `PlayCanvasSceneProps.purchaseMarkers`'s doc
-   * comment. */
+  /** Real pulsing purchase-marker floor squares plus the standing sign board
+   * (`purchaseMarkers.ts`'s `update()` — reconciled by id the same way: an id
+   * still present gets its fill/highlight/label text patched in place, a new
+   * id gets a freshly built marker, a dropped id gets torn down). Sign text
+   * is dirty-checked per entry (`entry.label !== marker.label`, mirroring the
+   * real source) before the shared dynamic-label font's charset is refreshed
+   * and `entity.element.text` is written — see `refreshDynamicFontCharset()`'s
+   * doc comment for why the font refresh itself is safe to call unconditionally. */
   private syncPurchaseMarkers(markers: PlayCanvasSceneProps["purchaseMarkers"]) {
     if (!this.purchaseMarkersGroup) return;
     const seen = new Set<string>();
+    let textDirty = false;
     for (const marker of markers) {
       seen.add(marker.id);
       const position = (PURCHASE_POSITIONS as Record<string, readonly [number, number, number]>)[marker.id];
       if (!position) continue;
       let entry = this.purchaseMarkerEntries.get(marker.id);
       if (!entry) {
-        entry = this.buildPurchaseMarkerEntry(marker.id, position, marker.highlighted);
+        entry = this.buildPurchaseMarkerEntry(marker.id, position, marker.highlighted, marker.label, marker.remainingLabel);
         this.purchaseMarkersGroup.addChild(entry.group);
         this.purchaseMarkerEntries.set(marker.id, entry);
+        textDirty = true;
       }
       if (entry.highlighted !== marker.highlighted) {
         entry.highlighted = marker.highlighted;
@@ -850,6 +868,14 @@ export class PlayCanvasRuntime {
       const clamped = Math.max(0, Math.min(1, marker.funded));
       entry.fillEntity.enabled = clamped > 0;
       entry.fillEntity.setLocalScale(clamped, 1, clamped);
+      if (entry.label !== marker.label) {
+        entry.label = marker.label;
+        textDirty = true;
+      }
+      if (entry.remainingLabel !== marker.remainingLabel) {
+        entry.remainingLabel = marker.remainingLabel;
+        textDirty = true;
+      }
     }
     for (const [id, entry] of this.purchaseMarkerEntries) {
       if (seen.has(id)) continue;
@@ -857,9 +883,85 @@ export class PlayCanvasRuntime {
       entry.topMaterial.destroy();
       this.purchaseMarkerEntries.delete(id);
     }
+    if (textDirty) {
+      this.refreshDynamicFontCharset();
+      for (const entry of this.purchaseMarkerEntries.values()) {
+        if (entry.labelEntity.element!.text !== entry.label) entry.labelEntity.element!.text = entry.label;
+        if (entry.remainingEntity.element!.text !== entry.remainingLabel) entry.remainingEntity.element!.text = entry.remainingLabel;
+      }
+    }
   }
 
-  private buildPurchaseMarkerEntry(id: string, position: readonly [number, number, number], highlighted: boolean): PurchaseMarkerEntry {
+  /** Shared across every purchase-marker sign's label + remaining-amount
+   * text (per the phase-14 handoff: "use ONE shared `CanvasFont` for all
+   * dynamic labels in this port"). Bakes plain white glyphs so each text
+   * entity's own `element.color` tints it to the real per-field colour
+   * (`#2a4a3e` for the name, `#1f5c3b` for the remaining amount) without
+   * needing a separate font per colour. */
+  private ensureDynamicFont(): pc.Asset {
+    if (!this.dynamicFontAsset) {
+      const font = new pc.CanvasFont(this.app, { fontName: "Arial", fontWeight: "800", fontSize: 64, color: hexToColor("#ffffff") });
+      const asset = new pc.Asset("font:dynamic-labels", "font", { url: "" });
+      asset.resource = font;
+      asset.loaded = true;
+      this.app.assets.add(asset);
+      this.dynamicFont = font;
+      this.dynamicFontAsset = asset;
+    }
+    return this.dynamicFontAsset;
+  }
+
+  /** Rebuilds the shared dynamic-label font's glyph atlas to cover every
+   * character currently in use across every live purchase-marker sign.
+   * `CanvasFont.createTextures()` (see `canvas-font.js`) does its own cheap
+   * charset diff internally and only re-renders the atlas when the sorted
+   * character set actually changed, so calling this on every text-dirty sync
+   * pass — rather than only when literally necessary — is safe and matches
+   * the handoff's "cheap once the charset stabilizes" note. */
+  private refreshDynamicFontCharset() {
+    const font = this.dynamicFont;
+    if (!font) return;
+    let corpus = "";
+    for (const entry of this.purchaseMarkerEntries.values()) corpus += entry.label + entry.remainingLabel;
+    font.createTextures(corpus);
+  }
+
+  /** Builds one dynamic (font-shared, dirty-checked) text entity — the
+   * purchase-marker sign's counterpart to `buildText()`'s build-time-constant
+   * signage. `maxWidth`, when given, reproduces the source's
+   * `labelText.maxWidth`/`textAlign = "center"` centred word-wrap. */
+  private buildDynamicText(parent: pc.Entity, name: string, text: string, fontSize: number, position: [number, number, number], color: string, maxWidth?: number): pc.Entity {
+    const fontAsset = this.ensureDynamicFont();
+    // A freshly constructed `CanvasFont` has no glyph atlas at all yet
+    // (`this.data = {}` in its constructor) — attaching an `element`
+    // component whose `fontAsset` resolves to it before `createTextures()`
+    // has ever run throws deep inside `ElementComponent`'s text layout
+    // (`data.chars` is undefined). Seeding the atlas with at least this
+    // entity's own text before the element is created keeps that first
+    // frame valid; `syncPurchaseMarkers()`'s `refreshDynamicFontCharset()`
+    // then folds in every other live marker's characters right after.
+    this.dynamicFont!.createTextures(text);
+    const entity = new pc.Entity(name);
+    entity.addComponent("element", {
+      type: pc.ELEMENTTYPE_TEXT,
+      text,
+      fontAsset,
+      fontSize,
+      color: hexToColor(color),
+      anchor: new pc.Vec4(0.5, 0.5, 0.5, 0.5),
+      pivot: new pc.Vec2(0.5, 0.5),
+      autoWidth: maxWidth === undefined,
+      autoHeight: true,
+      wrapLines: maxWidth !== undefined,
+      alignment: new pc.Vec2(0.5, 0.5),
+    });
+    if (maxWidth !== undefined) entity.element!.width = maxWidth;
+    entity.setLocalPosition(position[0], position[1], position[2]);
+    parent.addChild(entity);
+    return entity;
+  }
+
+  private buildPurchaseMarkerEntry(id: string, position: readonly [number, number, number], highlighted: boolean, label: string, remainingLabel: string): PurchaseMarkerEntry {
     const size = PURCHASE_MARKER.halfSize * 2;
     const innerSize = size - 0.1;
     const group = new pc.Entity(`purchase-marker:${id}`);
@@ -900,7 +1002,46 @@ export class PlayCanvasRuntime {
     fillEntity.enabled = false;
     pulse.addChild(fillEntity);
 
-    return { group, pulse, topMaterial, fillEntity, highlighted };
+    // Standing sign (phase 14) — real dimensions from `purchaseMarkers.ts`
+    // (`boardGeometry`/`faceGeometry`/`postGeometry`), squared to the fixed
+    // isometric camera by `FLOOR_LABEL_YAW` exactly like the source's
+    // `signRoot`. PlayCanvas's `box`/`plane` primitives are natively
+    // horizontal (unlike Three's, which needed the `-Math.PI/2` X rotation
+    // already applied to `top`/`base`/`fill` above), so `face` — the only
+    // plane that must stand vertical, facing +Z — gets the complementary
+    // +90° X rotation instead.
+    const signRoot = new pc.Entity("sign-root");
+    signRoot.setLocalPosition(0, 0, PURCHASE_MARKER.signOffsetZ);
+    signRoot.setLocalEulerAngles(0, FLOOR_LABEL_YAW * (180 / Math.PI), 0);
+    group.addChild(signRoot);
+
+    const post = new pc.Entity("post");
+    post.addComponent("render", { type: "box", material: this.material("#4b5b56") });
+    post.setLocalScale(0.06, PURCHASE_MARKER.signHeight, 0.06);
+    post.setLocalPosition(0, PURCHASE_MARKER.signHeight / 2, 0);
+    signRoot.addChild(post);
+
+    const sign = new pc.Entity("sign");
+    sign.setLocalPosition(0, PURCHASE_MARKER.signHeight + 0.34, 0);
+    sign.setLocalEulerAngles((-0.2 * 180) / Math.PI, 0, 0);
+    signRoot.addChild(sign);
+
+    const board = new pc.Entity("board");
+    board.addComponent("render", { type: "box", material: this.material("#f4e4ad") });
+    board.setLocalScale(1.76, 0.84, 0.06);
+    sign.addChild(board);
+
+    const face = new pc.Entity("face");
+    face.addComponent("render", { type: "plane", material: this.material("#fff8e1") });
+    face.setLocalScale(1.64, 1, 0.72);
+    face.setLocalEulerAngles(90, 0, 0);
+    face.setLocalPosition(0, 0, 0.031);
+    sign.addChild(face);
+
+    const labelEntity = this.buildDynamicText(sign, "sign-label", label, 0.15, [0, 0.2, 0.036], "#2a4a3e", 1.56);
+    const remainingEntity = this.buildDynamicText(sign, "sign-remaining", remainingLabel, 0.27, [0, -0.18, 0.036], "#1f5c3b", 1.56);
+
+    return { group, pulse, topMaterial, fillEntity, highlighted, labelEntity, remainingEntity, label, remainingLabel };
   }
 
   /** Breathing-pulse animation (`purchaseMarkers.ts`'s own `animate()`),
@@ -953,7 +1094,13 @@ export class PlayCanvasRuntime {
     ring.setLocalScale(0.96, 1, 0.96);
     group.addChild(ring);
 
-    const entry: RegisterCashEntry = { group, bundles: [], bundleCount: 0 };
+    // "RECOGER" is a constant string across every lane's lifetime — built
+    // once here, matching `registerCashMarkers.ts`'s own label (source line
+    // 69: `anchorX: "center", anchorY: "middle"`, which `buildText()`'s
+    // fixed center/center anchor+pivot already reproduces). Only its local Y
+    // position needs to track the stack height as bundles are added/removed.
+    const label = this.buildText(group, "recoger", "RECOGER", 0.13, [0, 0.3, 0], "#28483e");
+    const entry: RegisterCashEntry = { group, bundles: [], bundleCount: 0, label };
     this.applyRegisterCashBundles(entry, bundles);
     return entry;
   }
@@ -982,6 +1129,7 @@ export class PlayCanvasRuntime {
       entry.bundles.push(box);
     }
     entry.bundleCount = bundles;
+    entry.label.setLocalPosition(0, registerCashStackHeight(bundles) + 0.3, 0);
   }
 
   /** Spawns/retires bursts for the current `transferEvents` snapshot — the
@@ -1759,13 +1907,24 @@ export class PlayCanvasRuntime {
    * verification can confirm the visual floor square without
    * screenshot-diffing. */
   getPurchaseMarkerDebug() {
-    return Array.from(this.purchaseMarkerEntries.entries()).map(([id, entry]) => ({ id, highlighted: entry.highlighted, fillVisible: entry.fillEntity.enabled, fillScale: entry.fillEntity.getLocalScale().x }));
+    return Array.from(this.purchaseMarkerEntries.entries()).map(([id, entry]) => ({
+      id,
+      highlighted: entry.highlighted,
+      fillVisible: entry.fillEntity.enabled,
+      fillScale: entry.fillEntity.getLocalScale().x,
+      label: entry.label,
+      remainingLabel: entry.remainingLabel,
+      labelText: entry.labelEntity.element!.text,
+      remainingText: entry.remainingEntity.element!.text,
+    }));
   }
 
   /** QA/debug-only accessor (phase 10): every open lane's real rendered
-   * cash-bundle count. */
+   * cash-bundle count, plus (phase 14) the "RECOGER" label's local Y
+   * position, so headless verification can confirm it tracks the stack
+   * height without screenshot-diffing. */
   getRegisterCashDebug() {
-    return Array.from(this.registerCashEntries.entries()).map(([lane, entry]) => ({ lane, bundleCount: entry.bundleCount }));
+    return Array.from(this.registerCashEntries.entries()).map(([lane, entry]) => ({ lane, bundleCount: entry.bundleCount, labelText: entry.label.element!.text, labelY: entry.label.getLocalPosition().y }));
   }
 
   getFarmAnimalDebug() {

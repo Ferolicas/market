@@ -68,7 +68,7 @@ try {
   // in-page call captures this call's own effect deterministically.
   const afterUpdate = await page.evaluate(() => {
     const runtime = window.__MARKET_PC_RUNTIME__!;
-    runtime.update({ ...runtime.props, purchaseMarkers: [{ id: "cheese-maker-1", funded: 0.6, highlighted: true }], registerCashMinor: [500_000, 0, 0] });
+    runtime.update({ ...runtime.props, purchaseMarkers: [{ id: "cheese-maker-1", funded: 0.6, highlighted: true, label: "Quesería", remainingLabel: "64.000,00 €" }], registerCashMinor: [500_000, 0, 0] });
     return { markers: runtime.getPurchaseMarkerDebug(), register: runtime.getRegisterCashDebug() };
   });
   const afterMarkers = afterUpdate.markers;
@@ -91,7 +91,7 @@ try {
   // Drop funded to 0 and unhighlight — fill must hide, colour must revert.
   const afterReset = await page.evaluate(() => {
     const runtime = window.__MARKET_PC_RUNTIME__!;
-    runtime.update({ ...runtime.props, purchaseMarkers: [{ id: "cheese-maker-1", funded: 0, highlighted: false }] });
+    runtime.update({ ...runtime.props, purchaseMarkers: [{ id: "cheese-maker-1", funded: 0, highlighted: false, label: "Quesería", remainingLabel: "160.000,00 €" }] });
     return runtime.getPurchaseMarkerDebug();
   });
   evidence.afterReset = afterReset;
