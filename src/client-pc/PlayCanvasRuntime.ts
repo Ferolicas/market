@@ -30,9 +30,12 @@ import {
   PRODUCT_RETAIL_DEPARTMENT,
   type RetailDepartmentId,
 } from "@/game/stations/retail-layout";
-import { CHECKOUT_LANE_IDS, CHECKOUT_LANES, checkoutAreaForLane, type CheckoutLane } from "@/game/stations/checkout-layout";
-import { STORE_PRODUCTION_FIXTURES, PRODUCTION_FIXTURE_IDS, isProductionWorkstationId, type ProductionFixtureId } from "@/game/stations/production-layout";
-import { STORE_SERVICE_FIXTURES } from "@/game/stations/store-service-layout";
+import { CHECKOUT_LANE_IDS, CHECKOUT_LANES, checkoutAreaForLane, activeCheckoutForLane, checkoutHandoffForLane, checkoutBagLocation, type CheckoutLane } from "@/game/stations/checkout-layout";
+import { STORE_PRODUCTION_FIXTURES, PRODUCTION_FIXTURE_IDS, isProductionWorkstationId, type ProductionFixtureId, type ProductionFixtureLayout } from "@/game/stations/production-layout";
+import { machineInputCapacity } from "@/game/stations/StationSystem";
+import { PRODUCT_CONFIG } from "@/game/economy/products";
+import { PRODUCTS } from "@/game/catalog";
+import { STORE_SERVICE_FIXTURES, type StoreServiceFixture } from "@/game/stations/store-service-layout";
 import { WAREHOUSE_RETURN_STATION } from "@/game/stations/warehouse-layout";
 import { PURCHASE_MARKER } from "@/game/stations/purchase-marker";
 import { PURCHASE_POSITIONS } from "@/game/stations/purchase-layout";
@@ -47,7 +50,7 @@ import { WorkstationController } from "@/game/interaction/WorkstationController"
 import { interactionZoneConfigs } from "@/game/interaction/interactionZoneConfigsPure";
 import { useMarketStore } from "@/game/store";
 import { WORLD_TICK_INTERVAL_MS } from "@/game/core/timing";
-import type { AvatarHatId, CharacterId, HairId, ProductId } from "@/game/types";
+import type { AvatarHatId, CharacterId, HairId, ProductId, CheckoutTransaction, ProductionMachineState } from "@/game/types";
 import { characterSceneScale } from "@/game/animation/CharacterScale";
 import type { OpeningPurchaseId } from "@/game/progression/MartCampaign";
 
@@ -263,6 +266,98 @@ interface RetailStockActor {
   fixtureCount: number;
   group: pc.Entity;
   units: pc.Entity[];
+}
+
+/** One checkout bag (`buildCheckoutBag()` in `checkout/checkoutKit.ts`):
+ * a body box + a static handle box (no torus primitive in PlayCanvas — a box
+ * is the same faithful-parameters substitute this file already uses for the
+ * corn canner/transfer-burst "sparkle") + a content box shown once the bag
+ * has any items. `update()` mirrors the source's fill/position/visibility. */
+interface CheckoutBagEntry {
+  group: pc.Entity;
+  content: pc.Entity;
+  update(fill: number, position: [number, number, number], visible: boolean): void;
+}
+
+/** One product unit riding a checkout belt, sliding towards its `target`
+ * local position every frame (`stepCheckout()`'s own exponential-lerp,
+ * mirroring `checkoutKit.ts`'s `animate()`). */
+interface CheckoutLiveUnit {
+  entity: pc.Entity;
+  target: pc.Vec3;
+}
+
+/** One open checkout lane's dynamic detail (phase 15 port of
+ * `checkout/checkoutKit.ts`'s `update()`/`animate()`): the belt point light
+ * + belt-light strip emissive, the register screen glow + its "LISTA"/
+ * "bagged/total" text, the card-reader glow, the three bags and the sliding
+ * belt product units. Built only for OPEN lanes — closed lanes keep the
+ * placeholder `buildClosedCheckoutKit()` geometry with no dynamic detail. */
+interface CheckoutLaneEntry {
+  lane: CheckoutLane;
+  beltLightMaterial: pc.StandardMaterial;
+  scanningLight: pc.Entity;
+  scanningLightOnIntensity: number;
+  screenGlowMaterial: pc.StandardMaterial;
+  screenText: pc.Entity;
+  cardGlowMaterial: pc.StandardMaterial;
+  bagA: CheckoutBagEntry;
+  bagB: CheckoutBagEntry;
+  bagC: CheckoutBagEntry;
+  unitsGroup: pc.Entity;
+  liveUnits: Map<string, CheckoutLiveUnit>;
+}
+
+/** One production fixture's dynamic status board (phase 15 port of
+ * `production/machines.ts`'s `buildMachineIdentity()`'s `update()`), plus
+ * (for bakery/cheese/juice) the processing point light and (for cheese/
+ * juice/corn-canner) the `dynamic:machine-output` slot visibility this file
+ * had not built at all before this phase. Keyed by `fixture.machineId`,
+ * matching `ProductionMachineState.id` — the same key `kitFurniture.ts`'s own
+ * `machineFinder()` uses. */
+interface MachineBoardEntry {
+  machineId: string;
+  outputText: pc.Entity;
+  ingredientText: pc.Entity;
+  queuedText: pc.Entity;
+  statusLabelText: pc.Entity;
+  statusDotMaterial: pc.StandardMaterial;
+  processingLight: pc.Entity | null;
+  processingLightOnIntensity: number;
+  outputSlots: pc.Entity[];
+  cannerIndicatorMaterial: pc.StandardMaterial | null;
+}
+
+/** Faithful port of `checkoutKit.ts`'s own `computeUnits()` — flattens a
+ * transaction's `pendingItems` lines into one entry per physical unit
+ * (loaded/scanned/bagged booleans), exactly like the source. */
+function computeCheckoutUnits(transaction?: CheckoutTransaction): { productId: ProductId; loaded: boolean; scanned: boolean; bagged: boolean }[] {
+  return (
+    transaction?.pendingItems.flatMap((line) =>
+      Array.from({ length: line.quantity }, (_, unit) => ({
+        productId: line.productId,
+        loaded: unit < line.loaded,
+        scanned: unit < line.scanned,
+        bagged: unit < line.bagged,
+      })),
+    ) ?? []
+  );
+}
+
+/** Faithful port of `machines.ts`'s own `machineStatus()` — kept as a local
+ * pure duplicate (rather than an import) so this file never pulls in
+ * `production/machines.ts`'s THREE.js module graph. */
+function machineStatusOf(machine?: ProductionMachineState): { label: string; color: string } {
+  if (!machine || machine.status === "LOCKED") return { label: "BLOQUEADA", color: "#9ea7a3" };
+  if (machine.output > 0 || machine.status === "OUTPUT_READY" || machine.status === "FULL") return { label: "RECOGER", color: "#54d998" };
+  if (machine.status === "PROCESSING") return { label: "EN PROCESO", color: "#f0ad55" };
+  return { label: "CARGAR", color: "#7fc8e8" };
+}
+
+/** `machines.ts`'s own `outputItemPosition()` — the 2×2 grid a process
+ * machine's four output slots (cheese/juice/corn-canner) sit at. */
+function machineOutputSlotPosition(index: number): [number, number, number] {
+  return [0.34 + (index % 2) * 0.13, 0.16 + Math.floor(index / 2) * 0.12, 0.45];
 }
 
 export type DoorState = "CLOSED" | "OPENING" | "OPEN" | "CLOSING" | "BLOCKED";
@@ -616,6 +711,21 @@ export class PlayCanvasRuntime {
   // `stepFarmAnimals()` reads `productionMachines`.
   private readonly retailStockActors: RetailStockActor[] = [];
 
+  // ---- checkout lane / production machine dynamic detail (phase 15) ----
+  // Rebuilt with the rest of `furnitureGroup` on a signature change; driven
+  // every render frame from `stepCheckout()`/`stepProductionMachines()`
+  // reading `franchise.checkoutTransactions`/`franchise.productionMachines`
+  // directly off the store, exactly like `stepFarmAnimals()`/
+  // `stepRetailStock()` above.
+  private readonly checkoutLaneEntries = new Map<CheckoutLane, CheckoutLaneEntry>();
+  private readonly machineBoardEntries = new Map<string, MachineBoardEntry>();
+  private checkoutElapsedMs = 0;
+
+  // ---- returns cubicle / cart bay dynamic detail (phase 15) ----
+  private returnsUnitsGroup: pc.Entity | null = null;
+  private returnsBinSignature = "";
+  private readonly cartBayEntities: pc.Entity[] = [];
+
   // ---- purchase markers / register cash (phase 10 — real visuals, see
   // `purchaseMarkers.ts`/`registerCashMarkers.ts`'s doc comments) ----
   private purchaseMarkersGroup: pc.Entity | null = null;
@@ -929,8 +1039,16 @@ export class PlayCanvasRuntime {
   /** Builds one dynamic (font-shared, dirty-checked) text entity — the
    * purchase-marker sign's counterpart to `buildText()`'s build-time-constant
    * signage. `maxWidth`, when given, reproduces the source's
-   * `labelText.maxWidth`/`textAlign = "center"` centred word-wrap. */
-  private buildDynamicText(parent: pc.Entity, name: string, text: string, fontSize: number, position: [number, number, number], color: string, maxWidth?: number): pc.Entity {
+   * `labelText.maxWidth`/`textAlign = "center"` centred word-wrap.
+   *
+   * `anchorX` (phase 15, for `production/machines.ts`'s identity board, whose
+   * source `<Text anchorX="left"|"right">` calls keep a field's text growing
+   * away from its label instead of centred on a fixed point) reproduces the
+   * source's horizontal anchor without word-wrap: `"left"` pins the pivot/
+   * anchor/alignment to the entity's own local position and grows text
+   * rightward; `"right"` grows it leftward; `"center"` (the default, and the
+   * only mode every call site before this phase used) is unchanged. */
+  private buildDynamicText(parent: pc.Entity, name: string, text: string, fontSize: number, position: [number, number, number], color: string, maxWidth?: number, anchorX: "left" | "center" | "right" = "center"): pc.Entity {
     const fontAsset = this.ensureDynamicFont();
     // A freshly constructed `CanvasFont` has no glyph atlas at all yet
     // (`this.data = {}` in its constructor) — attaching an `element`
@@ -941,6 +1059,7 @@ export class PlayCanvasRuntime {
     // frame valid; `syncPurchaseMarkers()`'s `refreshDynamicFontCharset()`
     // then folds in every other live marker's characters right after.
     this.dynamicFont!.createTextures(text);
+    const anchorValue = anchorX === "left" ? 0 : anchorX === "right" ? 1 : 0.5;
     const entity = new pc.Entity(name);
     entity.addComponent("element", {
       type: pc.ELEMENTTYPE_TEXT,
@@ -948,12 +1067,12 @@ export class PlayCanvasRuntime {
       fontAsset,
       fontSize,
       color: hexToColor(color),
-      anchor: new pc.Vec4(0.5, 0.5, 0.5, 0.5),
-      pivot: new pc.Vec2(0.5, 0.5),
+      anchor: new pc.Vec4(anchorValue, 0.5, anchorValue, 0.5),
+      pivot: new pc.Vec2(anchorValue, 0.5),
       autoWidth: maxWidth === undefined,
       autoHeight: true,
       wrapLines: maxWidth !== undefined,
-      alignment: new pc.Vec2(0.5, 0.5),
+      alignment: new pc.Vec2(anchorValue, 0.5),
     });
     if (maxWidth !== undefined) entity.element!.width = maxWidth;
     entity.setLocalPosition(position[0], position[1], position[2]);
@@ -1715,6 +1834,10 @@ export class PlayCanvasRuntime {
     this.stepDoors(dt);
     this.stepFarmAnimals();
     this.stepRetailStock();
+    this.stepCheckout(dt);
+    this.stepProductionMachines();
+    this.stepCartBay();
+    this.stepReturnsCubicle();
     this.stepPurchaseMarkersAnimation(dt);
     this.stepTransferBursts(dt);
     this.updateCamera();
@@ -2252,6 +2375,15 @@ export class PlayCanvasRuntime {
     // Same story for retail stock actors — every pooled unit entity lives
     // under a fixture `element` inside the group being torn down above.
     this.retailStockActors.length = 0;
+    // Same story for checkout-lane/production-machine dynamic entries — every
+    // material/text/light/pooled unit they reference lives under the group
+    // being torn down above.
+    this.checkoutLaneEntries.clear();
+    this.machineBoardEntries.clear();
+    // Same story for the returns-cubicle unit pool and cart-bay entries.
+    this.returnsUnitsGroup = null;
+    this.returnsBinSignature = "";
+    this.cartBayEntities.length = 0;
     const group = new pc.Entity("worldkit:furniture");
     worldRoot.addChild(group);
     this.furnitureGroup = group;
@@ -2299,11 +2431,19 @@ export class PlayCanvasRuntime {
    * `checkoutKit.ts`'s own numbers are already in `makeStoreElement`'s
    * pre-scale local-unit convention — confirmed against `BASE_STORE_OBSTACLES`'s
    * checkout halfX/halfZ (2.25/0.65) in `world-scale.ts`, which match this
-   * body's 4.45×1.18 footprint exactly). What stays deferred: the belt point
-   * lights, the three checkout bags, the sliding belt product units, and the
-   * "LISTA"/"CAJA N" board text (transaction-reactive — real position/gating
-   * of the static housing itself, ported here, is the box/cylinder geometry
-   * item this phase targets). */
+   * body's 4.45×1.18 footprint exactly).
+   *
+   * Phase 15: an open lane also gets the belt point light (toggled by
+   * `intensity`, never `.visible` — same crowd-recompile-safety rule as every
+   * other point light this file toggles, see `buildBakeryKit`'s doc comment
+   * in `machines.ts` for why), the belt-light strip's emissive glow, the
+   * register screen glow + its dynamic "LISTA"/"bagged/total" text, the
+   * card-reader glow, the three checkout bags and the sliding belt product
+   * units — all registered into `checkoutLaneEntries` for `stepCheckout()` to
+   * drive every frame/transaction change, exactly mirroring
+   * `checkoutKit.ts`'s own `update()`/`animate()`. The static "CAJA N" board
+   * text is build-time constant (the lane number never changes), so it uses
+   * `buildText()`, not the dynamic pipeline. */
   private buildCheckoutLanes(parent: pc.Entity, unlockedAreas: string[]) {
     for (const lane of CHECKOUT_LANE_IDS as readonly CheckoutLane[]) {
       const open = lane === 0 || unlockedAreas.includes(checkoutAreaForLane(lane));
@@ -2329,22 +2469,98 @@ export class PlayCanvasRuntime {
         this.box(counter, { size: [0.025 * s, 0.018 * s, 0.78 * s], pos: [(-1.7 + index * 0.28) * s, 1.125 * s, 0], color: "#68726f", name: "belt-roller" });
       }
       this.box(counter, { size: [0.52 * s, 0.11 * s, 0.94 * s], pos: [0.64 * s, 1.1 * s, 0], color: "#1f2a27", name: "bagging-shelf" });
-      this.box(counter, { size: [0.27 * s, 0.018 * s, 0.57 * s], pos: [0.64 * s, 1.165 * s, 0], color: "#2d6553", name: "belt-light" });
+
+      const beltLightMaterial = new pc.StandardMaterial();
+      beltLightMaterial.diffuse = hexToColor("#8fe8c5");
+      beltLightMaterial.emissive = hexToColor("#2d6553");
+      beltLightMaterial.emissiveIntensity = 0.5;
+      beltLightMaterial.update();
+      const beltLight = new pc.Entity("belt-light");
+      beltLight.addComponent("render", { type: "box", material: beltLightMaterial });
+      beltLight.setLocalScale(0.27 * s, 0.018 * s, 0.57 * s);
+      beltLight.setLocalPosition(0.64 * s, 1.165 * s, 0);
+      counter.addChild(beltLight);
+
       this.box(counter, { size: [0.86 * s, 0.18 * s, 0.62 * s], pos: [1.28 * s, 1.13 * s, -0.18 * s], color: "#24302d", name: "register-housing" });
+
+      // `mainLight`/`scanningLight` from `checkoutKit.ts` — real point lights,
+      // always `enabled = true` and toggled only via `intensity` (never
+      // `.visible`/`.enabled`), for the same reason every other toggled light
+      // in this file stays always-on: flipping `enabled` changes the live
+      // light COUNT the forward renderer's shader variant is keyed on, which
+      // would force a synchronous shader recompile for every lit material in
+      // the scene (crowd bodies worst of all) the instant a cashier starts
+      // scanning. `intensity = 0` contributes exactly the same zero light.
+      const mainLight = new pc.Entity("checkout-main-light");
+      mainLight.addComponent("light", { type: "point", color: hexToColor("#fff0d2"), intensity: 0.72, range: 5.8 * s });
+      mainLight.setLocalPosition(0, 2.7 * s, -1.7 * s);
+      counter.addChild(mainLight);
+
+      const scanningLightOnIntensity = 1.4;
+      const scanningLight = new pc.Entity("checkout-scanning-light");
+      scanningLight.addComponent("light", { type: "point", color: hexToColor("#64ffc2"), intensity: 0, range: 1.4 * s });
+      scanningLight.setLocalPosition(0.64 * s, 1.35 * s, 0);
+      counter.addChild(scanningLight);
 
       const screenBack = this.box(counter, { size: [0.72 * s, 0.62 * s, 0.1 * s], pos: [1.28 * s, 1.61 * s, -0.13 * s], color: "#25322f", name: "screen-back" });
       screenBack.setEulerAngles((-0.23 * 180) / Math.PI, 0, 0);
-      const screenGlow = this.box(counter, { size: [0.56 * s, 0.42 * s, 0.02 * s], pos: [1.28 * s, 1.62 * s, -0.07 * s], color: "#bde9d8", name: "screen-glow" });
-      screenGlow.setEulerAngles((-0.23 * 180) / Math.PI, 0, 0);
+      const screenGlowMaterial = new pc.StandardMaterial();
+      screenGlowMaterial.diffuse = hexToColor("#bde9d8");
+      screenGlowMaterial.emissive = hexToColor("#27463d");
+      screenGlowMaterial.emissiveIntensity = 0.8;
+      screenGlowMaterial.update();
+      const screenGlow = new pc.Entity("screen-glow");
+      screenGlow.addComponent("render", { type: "plane", material: screenGlowMaterial });
+      screenGlow.setLocalScale(0.56 * s, 1, 0.42 * s);
+      screenGlow.setLocalPosition(1.28 * s, 1.62 * s, -0.07 * s);
+      screenGlow.setLocalEulerAngles(90 - (0.23 * 180) / Math.PI, 0, 0);
+      counter.addChild(screenGlow);
+      const screenText = this.buildDynamicText(counter, "screen-text", "LISTA", 0.11 * s, [1.28 * s, 1.63 * s, -0.01 * s], "#173f35");
+      screenText.setLocalEulerAngles((-0.23 * 180) / Math.PI, 0, 0);
 
       this.box(counter, { size: [0.32 * s, 0.13 * s, 0.5 * s], pos: [1.78 * s, 1.16 * s, 0.24 * s], color: "#e8ece7", name: "card-reader" });
-      const cardGlow = this.box(counter, { size: [0.21 * s, 0.18 * s, 0.02 * s], pos: [1.78 * s, 1.26 * s, 0.26 * s], color: "#77948a", name: "card-glow" });
-      cardGlow.setEulerAngles((-0.42 * 180) / Math.PI, 0, 0);
+      const cardGlowMaterial = new pc.StandardMaterial();
+      cardGlowMaterial.diffuse = hexToColor("#77948a");
+      cardGlowMaterial.emissive = hexToColor("#42a776");
+      cardGlowMaterial.emissiveIntensity = 0.18;
+      cardGlowMaterial.update();
+      const cardGlow = new pc.Entity("card-glow");
+      cardGlow.addComponent("render", { type: "plane", material: cardGlowMaterial });
+      cardGlow.setLocalScale(0.21 * s, 1, 0.18 * s);
+      cardGlow.setLocalPosition(1.78 * s, 1.26 * s, 0.26 * s);
+      cardGlow.setLocalEulerAngles(90 - (0.42 * 180) / Math.PI, 0, 0);
+      counter.addChild(cardGlow);
 
       this.box(counter, { size: [0.92 * s, 0.5 * s, 0.82 * s], pos: [1.67 * s, 0.48 * s, 0], color: "#eff1e8", name: "bag-counter" });
 
+      const bagA = this.buildCheckoutBagEntry(counter, s);
+      const bagB = this.buildCheckoutBagEntry(counter, s);
+      const bagC = this.buildCheckoutBagEntry(counter, s);
+      bagA.update(0, [1.67 * s, 1.02 * s, 0], false);
+      bagB.update(0, [1.67 * s, 1.02 * s, 0], false);
+      bagC.update(0, [1.67 * s, 1.02 * s, 0], false);
+
+      const unitsGroup = new pc.Entity("checkout-units");
+      counter.addChild(unitsGroup);
+
       this.box(counter, { size: [0.06 * s, 2.35 * s, 0.06 * s], pos: [-1.55 * s, 2.32 * s, -0.48 * s], color: "#4b5b56", name: "sign-pole" });
       this.box(counter, { size: [0.98 * s, 0.58 * s, 0.12 * s], pos: [-1.55 * s, 3.08 * s, -0.44 * s], color: "#f4e4ad", name: "sign-board" });
+      this.buildText(counter, `checkout-sign-${lane}`, `CAJA ${lane + 1}`, 0.24 * s, [-1.55 * s, 3.09 * s, -0.36 * s], "#24453d");
+
+      this.checkoutLaneEntries.set(lane, {
+        lane,
+        beltLightMaterial,
+        scanningLight,
+        scanningLightOnIntensity,
+        screenGlowMaterial,
+        screenText,
+        cardGlowMaterial,
+        bagA,
+        bagB,
+        bagC,
+        unitsGroup,
+        liveUnits: new Map(),
+      });
 
       const cashierScaled = scaleStorePosition([...layout.cashierWork] as [number, number, number]);
       const cashierSpot = new pc.Entity(`checkout-cashier-${lane}`);
@@ -2352,6 +2568,86 @@ export class PlayCanvasRuntime {
       parent.addChild(cashierSpot);
       this.box(cashierSpot, { size: [0.5 * s, 0.03 * s, 0.5 * s], pos: [0, 0, 0], color: "#4b6f5f", name: "mat" });
     }
+  }
+
+  /** One checkout bag: body box + a static handle box (no torus primitive in
+   * PlayCanvas) + a content box shown once `fill > 0`. Mirrors
+   * `checkoutKit.ts`'s `buildCheckoutBag()`; `s` is `STORE_ELEMENT_SCALE`,
+   * applied the same manual per-child way every other checkout-counter part
+   * in this method applies it. */
+  private buildCheckoutBagEntry(parent: pc.Entity, s: number): CheckoutBagEntry {
+    const group = new pc.Entity("checkout-bag");
+    parent.addChild(group);
+
+    const bag = new pc.Entity("bag-body");
+    bag.addComponent("render", { type: "box", material: this.material("#c7935e") });
+    bag.setLocalScale(0.56 * s, 0.72 * s, 0.42 * s);
+    group.addChild(bag);
+
+    const handle = new pc.Entity("bag-handle");
+    handle.addComponent("render", { type: "box", material: this.material("#8b623d") });
+    handle.setLocalScale(0.36 * s, 0.05 * s, 0.05 * s);
+    handle.setLocalPosition(0, 0.41 * s, 0);
+    group.addChild(handle);
+
+    const content = new pc.Entity("bag-content");
+    content.addComponent("render", { type: "box", material: this.material("#e0b44a") });
+    content.setLocalScale(0.4 * s, 0.12 * s, 0.3 * s);
+    content.setLocalPosition(0, 0.26 * s, 0);
+    content.enabled = false;
+    group.addChild(content);
+
+    function update(fill: number, position: [number, number, number], visible: boolean) {
+      group.enabled = visible;
+      group.setLocalPosition(position[0], position[1], position[2]);
+      bag.setLocalScale(0.56 * s, (0.72 + fill * 0.28) * s, 0.42 * s);
+      content.enabled = fill > 0;
+    }
+    return { group, content, update };
+  }
+
+  /** Faithful port of `machines.ts`'s `buildMachineIdentity()`: the plinth +
+   * top plate every production fixture shares, plus the illuminated board
+   * (front label/process-label, a mirrored back label, and the
+   * `dynamic:machine-status` block — "LISTO", the output "x/y", the
+   * ingredient name, the queued "x/y" and the status label + dot, all driven
+   * every frame by `stepProductionMachines()`). Registers the dynamic text
+   * entities + status-dot material into a `MachineBoardEntry`, keyed by
+   * `fixture.machineId` — the caller (`buildProductionMachines()`) fills in
+   * the per-kind `processingLight`/`outputSlots`/`cannerIndicatorMaterial`
+   * fields and adds the entry to `machineBoardEntries`. */
+  private buildMachineIdentityBoard(element: pc.Entity, fixture: ProductionFixtureLayout): Omit<MachineBoardEntry, "machineId" | "processingLight" | "processingLightOnIntensity" | "outputSlots" | "cannerIndicatorMaterial"> {
+    const s = STORE_ELEMENT_SCALE;
+    this.box(element, { size: [1.22 * s, 0.13 * s, 1.05 * s], pos: [0, 0.065 * s, -0.53 * s], color: "#55635f", name: "identity-plinth" });
+    this.box(element, { size: [1.08 * s, 0.06 * s, 0.9 * s], pos: [0, 0.145 * s, -0.53 * s], color: "#c7ceca", name: "identity-plinth-top" });
+
+    const board = new pc.Entity("identity-board");
+    board.setLocalPosition(0, 2.3 * s, 0.12 * s);
+    element.addChild(board);
+    this.box(board, { size: [1.52 * s, 1.1 * s, 0.12 * s], pos: [0, 0, 0], color: "#223832", name: "board-back" });
+    this.buildText(board, `machine-label:${fixture.obstacleId}`, fixture.label, 0.19 * s, [0, 0.39 * s, 0.068 * s], "#fff5d8");
+    this.buildText(board, `machine-process:${fixture.obstacleId}`, fixture.processLabel, 0.082 * s, [0, 0.22 * s, 0.069 * s], fixture.accent);
+    const backLabel = this.buildText(board, `machine-label-back:${fixture.obstacleId}`, fixture.label, 0.19 * s, [0, 0.39 * s, -0.068 * s], "#fff5d8");
+    backLabel.setLocalEulerAngles(0, 180, 0);
+
+    const statusGroup = new pc.Entity("dynamic-machine-status");
+    board.addChild(statusGroup);
+    this.buildDynamicText(statusGroup, "machine-ready", "LISTO", 0.13 * s, [-0.63 * s, 0, 0.07 * s], "#bcd9cc", undefined, "left");
+    const outputText = this.buildDynamicText(statusGroup, "machine-output", "0/0", 0.26 * s, [0.63 * s, 0, 0.07 * s], "#ffffff", undefined, "right");
+    const ingredientText = this.buildDynamicText(statusGroup, "machine-ingredient", "COLA", 0.11 * s, [-0.63 * s, -0.22 * s, 0.07 * s], "#bcd9cc", undefined, "left");
+    const queuedText = this.buildDynamicText(statusGroup, "machine-queued", "0/0", 0.17 * s, [0.63 * s, -0.22 * s, 0.07 * s], "#ffffff", undefined, "right");
+    const statusLabelText = this.buildDynamicText(statusGroup, "machine-status-label", "BLOQUEADA", 0.155 * s, [0.63 * s, -0.43 * s, 0.07 * s], "#9ea7a3", undefined, "right");
+
+    const statusDotMaterial = new pc.StandardMaterial();
+    statusDotMaterial.diffuse = hexToColor("#9ea7a3");
+    statusDotMaterial.update();
+    const statusDot = new pc.Entity("machine-status-dot");
+    statusDot.addComponent("render", { type: "sphere", material: statusDotMaterial });
+    statusDot.setLocalScale(0.1 * s, 0.1 * s, 0.1 * s);
+    statusDot.setLocalPosition(-0.6 * s, -0.43 * s, 0.07 * s);
+    statusGroup.addChild(statusDot);
+
+    return { outputText, ingredientText, queuedText, statusLabelText, statusDotMaterial };
   }
 
   /** Port of `kitFurniture.ts`'s production machines (real positions from
@@ -2363,9 +2659,20 @@ export class PlayCanvasRuntime {
    * doc comments); the corn canner is now a real procedural primitive
    * assembly too (see `buildCornCannerDetail()`), matching `machines.ts`'s own
    * `buildCornCanner()` — there is still no real canner GLB to port, but the
-   * housing/hopper/pipe/indicator/can shapes are. Machine status/queue text
-   * overlays (the illuminated board `buildMachineIdentity()` draws) are still
-   * deferred. */
+   * housing/hopper/pipe/indicator/can shapes are.
+   *
+   * Phase 15: every fixture now also gets the real illuminated status board
+   * (`buildMachineIdentityBoard()` above), registered into
+   * `machineBoardEntries` for `stepProductionMachines()` to drive; bakery/
+   * cheese/juice get their real processing point light
+   * (`intensity`-toggled — same crowd-recompile-safety rule as every other
+   * toggled light in this file), and cheese/juice/corn-canner get their real
+   * `dynamic:machine-output` slot primitives (cheese: a cheese-colored
+   * cylinder per slot; juice: a juice-bottle cylinder; corn canner: a
+   * canned-corn cylinder — all from `RETAIL_PRODUCT_VISUAL`, the same
+   * "one faithful-color/size primitive" trade this file already makes for
+   * retail shelf stock/belt units), gated by `machine.output` exactly like
+   * `machines.ts`'s own `slots.forEach((slot, index) => slot.visible = ...)`. */
   private buildProductionMachines(parent: pc.Entity, unlockedAreas: string[]) {
     if (fixtureAvailable("fixture:production-cubicle-shell", unlockedAreas)) {
       const shell = new pc.Entity("production-cubicle-shell");
@@ -2387,6 +2694,22 @@ export class PlayCanvasRuntime {
       juice: { root: PRODUCTION_MODEL_ROOT, file: "juicer", y: 0.175 },
       cheese: { root: ENVIRONMENT_MODEL_ROOT, file: "equipment_cheese_maker", y: 0 },
     };
+    // Real per-kind processing-light color/intensity from `machines.ts`'s
+    // `buildBakeryKit()`/`buildProcessMachine()` (mill has no processing
+    // light in the source — its `update()` only forwards to `identity.update`).
+    const PROCESSING_LIGHT_BY_WORKSTATION: Partial<Record<string, { color: string; onIntensity: number }>> = {
+      bakery: { color: "#df8b43", onIntensity: 0.8 },
+      cheese: { color: "#ffd75c", onIntensity: 0.45 },
+      juice: { color: "#ff6b43", onIntensity: 0.45 },
+    };
+    // Real per-kind output-slot visual + `outputItemPosition()` count from
+    // `machines.ts`'s `buildProcessMachine()`/`buildCornCanner()` (mill/bakery
+    // have no `dynamic:machine-output` group in the source).
+    const OUTPUT_SLOT_BY_WORKSTATION: Partial<Record<string, ProductId>> = {
+      cheese: "cheese",
+      juice: "juice",
+      canner: "cannedCorn",
+    };
     const ownerGroup = parent;
     for (const id of PRODUCTION_FIXTURE_IDS as ProductionFixtureId[]) {
       const fixture = STORE_PRODUCTION_FIXTURES[id];
@@ -2397,21 +2720,76 @@ export class PlayCanvasRuntime {
       element.setEulerAngles(0, fixture.yaw ?? 0, 0);
       parent.addChild(element);
       const { halfX, halfZ, centerX, centerZ } = fixture.localFootprint;
+      const s = STORE_ELEMENT_SCALE;
+
+      const identity = this.buildMachineIdentityBoard(element, fixture);
+
+      let processingLight: pc.Entity | null = null;
+      let processingLightOnIntensity = 0;
+      const processingSpec = PROCESSING_LIGHT_BY_WORKSTATION[fixture.workstationId];
+      if (processingSpec) {
+        // Same `intensity`-not-`enabled` toggle rule as every other point
+        // light in this file (see the checkout main/scanning lights' doc
+        // comment above for why): a light that turns on/off for a live
+        // machine must stay `enabled = true` for the whole session.
+        processingLight = new pc.Entity("machine-processing-light");
+        processingLight.addComponent("light", { type: "point", color: hexToColor(processingSpec.color), intensity: 0, range: (fixture.workstationId === "bakery" ? 2.2 : 1.6) * s });
+        processingLight.setLocalPosition(0, (fixture.workstationId === "bakery" ? 0.95 : 0.65) * s, (fixture.workstationId === "bakery" ? 0.52 : 0.45) * s);
+        element.addChild(processingLight);
+        processingLightOnIntensity = processingSpec.onIntensity;
+      }
+
+      let cannerIndicatorMaterial: pc.StandardMaterial | null = null;
+      const outputSlots: pc.Entity[] = [];
+      const outputProductId = OUTPUT_SLOT_BY_WORKSTATION[fixture.workstationId];
+
       const model = MODEL_BY_WORKSTATION[fixture.workstationId];
       if (model) {
         const anchor = this.attachFixtureModel(element, ownerGroup, `${model.root}/${model.file}.glb`, `fixture-model:${fixture.obstacleId}`, STORE_ELEMENT_SCALE);
         anchor.setLocalPosition(centerX * STORE_ELEMENT_SCALE, model.y * STORE_ELEMENT_SCALE, centerZ * STORE_ELEMENT_SCALE);
-        continue;
-      }
-      if (fixture.workstationId === "canner") {
+      } else if (fixture.workstationId === "canner") {
         this.buildCornCannerDetail(element);
-        continue;
+        const indicatorMaterial = new pc.StandardMaterial();
+        indicatorMaterial.diffuse = hexToColor("#d1ae56");
+        indicatorMaterial.update();
+        const indicator = new pc.Entity("canner-indicator");
+        indicator.addComponent("render", { type: "sphere", material: indicatorMaterial });
+        indicator.setLocalScale(0.09 * s, 0.09 * s, 0.09 * s);
+        indicator.setLocalPosition(0.44 * s, 0.85 * s, 0.012 * s);
+        element.addChild(indicator);
+        cannerIndicatorMaterial = indicatorMaterial;
+      } else {
+        const body = new pc.Entity("machine");
+        body.addComponent("render", { type: "box", material: this.material(fixture.accent) });
+        body.setLocalScale(halfX * 2 * STORE_ELEMENT_SCALE, 1.1 * STORE_ELEMENT_SCALE, halfZ * 2 * STORE_ELEMENT_SCALE);
+        body.setLocalPosition(centerX * STORE_ELEMENT_SCALE, 0.55 * STORE_ELEMENT_SCALE, centerZ * STORE_ELEMENT_SCALE);
+        element.addChild(body);
       }
-      const body = new pc.Entity("machine");
-      body.addComponent("render", { type: "box", material: this.material(fixture.accent) });
-      body.setLocalScale(halfX * 2 * STORE_ELEMENT_SCALE, 1.1 * STORE_ELEMENT_SCALE, halfZ * 2 * STORE_ELEMENT_SCALE);
-      body.setLocalPosition(centerX * STORE_ELEMENT_SCALE, 0.55 * STORE_ELEMENT_SCALE, centerZ * STORE_ELEMENT_SCALE);
-      element.addChild(body);
+
+      if (outputProductId) {
+        const outputGroup = new pc.Entity("dynamic-machine-output");
+        element.addChild(outputGroup);
+        const spec = RETAIL_PRODUCT_VISUAL[outputProductId];
+        for (let index = 0; index < 4; index += 1) {
+          const [ox, oy, oz] = machineOutputSlotPosition(index);
+          const slot = new pc.Entity(`output-slot-${index}`);
+          slot.addComponent("render", { type: spec.shape, material: this.material(spec.color) });
+          slot.setLocalScale(spec.size[0] * 0.8 * s, spec.size[1] * 0.8 * s, spec.size[2] * 0.8 * s);
+          slot.setLocalPosition(ox * s, oy * s, oz * s);
+          slot.enabled = false;
+          outputGroup.addChild(slot);
+          outputSlots.push(slot);
+        }
+      }
+
+      this.machineBoardEntries.set(fixture.machineId, {
+        machineId: fixture.machineId,
+        ...identity,
+        processingLight,
+        processingLightOnIntensity,
+        outputSlots,
+        cannerIndicatorMaterial,
+      });
     }
   }
 
@@ -2422,10 +2800,10 @@ export class PlayCanvasRuntime {
    * local dimensions relative to the fixture element (`STORE_ELEMENT_SCALE`
    * applied the same way every other production fixture in this file applies
    * it): the housing, its top plate, the intake hopper (pipe stem + lid box),
-   * the vertical feed pipe (cylinder), the status indicator (sphere) and one
-   * static labelled can standing at the outfeed. The four dynamic output-slot
-   * cans (`machine.output`-gated) and the identity board's status text stay
-   * deferred — this only ports the static geometry. */
+   * the vertical feed pipe (cylinder) and one static labelled can standing at
+   * the outfeed. The status indicator sphere, the four dynamic output-slot
+   * cans and the identity board are built by `buildProductionMachines()`
+   * itself (phase 15) — see its own doc comment. */
   private buildCornCannerDetail(element: pc.Entity) {
     const s = STORE_ELEMENT_SCALE;
     this.box(element, { size: [1.2 * s, 0.85 * s, 1.1 * s], pos: [0, 0.6 * s, -0.55 * s], color: "#97aaa4", name: "canner-body" });
@@ -2439,11 +2817,11 @@ export class PlayCanvasRuntime {
     pipe.setLocalPosition(-0.03 * s, 1.47 * s, -0.55 * s);
     element.addChild(pipe);
 
-    const indicator = new pc.Entity("canner-indicator");
-    indicator.addComponent("render", { type: "sphere", material: this.material("#d1ae56") });
-    indicator.setLocalScale(0.09 * s, 0.09 * s, 0.09 * s);
-    indicator.setLocalPosition(0.44 * s, 0.85 * s, 0.012 * s);
-    element.addChild(indicator);
+    // The status indicator sphere is built by `buildProductionMachines()`
+    // itself now (phase 15), as a dedicated per-instance material so
+    // `stepProductionMachines()` can recolor it via `cannerIndicatorMaterial`
+    // — not here, where `this.material()`'s shared cache would recolor every
+    // canner (and anything else using that exact hex) at once.
 
     // `buildCannedCornGroup()`'s static can standing at the outfeed —
     // approximated with a tin-colored cylinder + a paler label band, matching
@@ -2463,20 +2841,28 @@ export class PlayCanvasRuntime {
   }
 
   /** Ungated service furniture (`STORE_SERVICE_FIXTURES` + the warehouse
-   * return crate) — always present in the base game, box-volume only. */
+   * return crate) — always present in the base game. "orders" stays a
+   * box-volume placeholder (out of this phase's scope — no source file for
+   * it was part of the phase-15 handoff); "returns"/"cartBay" are now real
+   * procedural ports of `checkout/returnsCubicle.ts`/`checkout/cartBay.ts`
+   * (see `buildReturnsCubicleDetail()`/`buildCartBayDetail()` below), each
+   * with the real dynamic detail the source drives from
+   * `franchise.returnsBin`/`franchise.returnedCartCount`. */
   private buildServiceFixtures(parent: pc.Entity) {
-    for (const [key, color] of [["orders", "#5c7ba0"], ["returns", "#a05c6f"], ["cartBay", "#7d8a5c"]] as const) {
-      const fixture = STORE_SERVICE_FIXTURES[key];
+    {
+      const fixture = STORE_SERVICE_FIXTURES.orders;
       const scaled = scaleStorePosition([...fixture.position] as [number, number, number]);
       const element = new pc.Entity(`fixture:${fixture.obstacleId}`);
       element.setLocalPosition(scaled[0], scaled[1], scaled[2]);
       parent.addChild(element);
       const body = new pc.Entity("body");
-      body.addComponent("render", { type: "box", material: this.material(color) });
+      body.addComponent("render", { type: "box", material: this.material("#5c7ba0") });
       body.setLocalScale(fixture.footprint.halfX * 2 * STORE_ELEMENT_SCALE, 1 * STORE_ELEMENT_SCALE, fixture.footprint.halfZ * 2 * STORE_ELEMENT_SCALE);
       body.setLocalPosition(0, 0.5 * STORE_ELEMENT_SCALE, 0);
       element.addChild(body);
     }
+    this.buildReturnsCubicleDetail(parent, STORE_SERVICE_FIXTURES.returns);
+    this.buildCartBayDetail(parent, STORE_SERVICE_FIXTURES.cartBay);
     {
       const scaled = scaleStorePosition([...WAREHOUSE_RETURN_STATION.position] as [number, number, number]);
       const element = new pc.Entity(`fixture:${WAREHOUSE_RETURN_STATION.obstacleId}`);
@@ -2488,6 +2874,164 @@ export class PlayCanvasRuntime {
       body.setLocalPosition(0, 0.45 * STORE_ELEMENT_SCALE, 0);
       element.addChild(body);
     }
+  }
+
+  /** Procedural (real box-primitive assembly) port of
+   * `checkout/returnsCubicle.ts`'s static shell: body/inner boxes, the
+   * "DEVOLUCIONES" sign (build-time constant text). Registers
+   * `this.returnsUnitsGroup` for `stepReturnsCubicle()` to fill from the real
+   * `franchise.returnsBin`. The fixed 180° yaw matches the source's own
+   * `group.rotation.set(0, Math.PI, 0)` (baked into the cubicle itself, not
+   * applied by the caller — `kitFurniture.ts`'s `makeStoreElement` wraps it
+   * with position only). */
+  private buildReturnsCubicleDetail(parent: pc.Entity, fixture: StoreServiceFixture) {
+    const s = STORE_ELEMENT_SCALE;
+    const scaled = scaleStorePosition([...fixture.position] as [number, number, number]);
+    const element = new pc.Entity(`fixture:${fixture.obstacleId}`);
+    element.setLocalPosition(scaled[0], scaled[1], scaled[2]);
+    element.setEulerAngles(0, 180, 0);
+    parent.addChild(element);
+
+    this.box(element, { size: [1.35 * s, 1.25 * s, 1.05 * s], pos: [0, 0.63 * s, 0], color: "#d5c3aa", name: "returns-body" });
+    this.box(element, { size: [1.05 * s, 0.72 * s, 0.82 * s], pos: [0, 0.86 * s, 0.04 * s], color: "#735847", name: "returns-inner" });
+    this.box(element, { size: [1.42 * s, 0.34 * s, 0.08 * s], pos: [0, 1.31 * s, 0.54 * s], color: "#e7bb62", name: "returns-sign" });
+    this.buildText(element, "returns-sign-text", "DEVOLUCIONES", 0.15 * s, [0, 1.31 * s, 0.59 * s], "#493821");
+
+    const unitsGroup = new pc.Entity("returns-units");
+    element.addChild(unitsGroup);
+    this.returnsUnitsGroup = unitsGroup;
+  }
+
+  /** Procedural (real box/cylinder-primitive assembly, not the source's full
+   * tube-instanced lattice — see `buildSimplifiedCart()`'s own doc comment)
+   * port of `checkout/cartBay.ts`'s static shell (base plate, two side
+   * rails + trim + cap spheres, the "CARROS" sign) plus the four pooled cart
+   * entities `syncCartBay()`/`stepCartBay()` show 2-4 of, driven from the
+   * real `franchise.returnedCartCount`. */
+  private buildCartBayDetail(parent: pc.Entity, fixture: StoreServiceFixture) {
+    const s = STORE_ELEMENT_SCALE;
+    const scaled = scaleStorePosition([...fixture.position] as [number, number, number]);
+    const element = new pc.Entity(`fixture:${fixture.obstacleId}`);
+    element.setLocalPosition(scaled[0], scaled[1], scaled[2]);
+    parent.addChild(element);
+
+    this.box(element, { size: [2.1 * s, 0.07 * s, 1.45 * s], pos: [0, 0.035 * s, 0], color: "#596864", name: "cartbay-base" });
+    for (const x of [-0.96, 0.96]) {
+      this.box(element, { size: [0.075 * s, 1.34 * s, 1.45 * s], pos: [x * s, 0.67 * s, 0], color: "#53645f", name: "cartbay-rail" });
+      this.box(element, { size: [0.16 * s, 0.14 * s, 1.48 * s], pos: [x * s, 0.18 * s, 0], color: "#d6a745", name: "cartbay-rail-trim" });
+      const cap = new pc.Entity("cartbay-cap");
+      cap.addComponent("render", { type: "sphere", material: this.material("#f0c45e") });
+      cap.setLocalScale(0.2 * s, 0.2 * s, 0.2 * s);
+      cap.setLocalPosition(x * s, 1.35 * s, 0);
+      element.addChild(cap);
+    }
+    this.box(element, { size: [2.08 * s, 0.4 * s, 0.12 * s], pos: [0, 1.5 * s, -0.66 * s], color: "#f1e8cf", name: "cartbay-sign" });
+    this.buildText(element, "cartbay-sign-text", "CARROS", 0.16 * s, [0, 1.5 * s, -0.59 * s], "#28483e");
+
+    const carts: pc.Entity[] = [];
+    for (let index = 0; index < 4; index += 1) {
+      const cart = this.buildSimplifiedCart();
+      const cartScale = (1 - index * 0.055) * s;
+      cart.setLocalScale(cartScale, cartScale, cartScale);
+      cart.setLocalPosition(0, 0, (0.42 - index * 0.26) * s);
+      element.addChild(cart);
+      carts.push(cart);
+    }
+    this.cartBayEntities.length = 0;
+    this.cartBayEntities.push(...carts);
+    this.syncCartBay(2);
+  }
+
+  /** One shopping cart: a box basket + handle bar + four wheel/leg pairs.
+   * `checkout/cartBay.ts`'s real `ShoppingCart` is a tube-instanced wire
+   * lattice (`cartTubeTransform` spans a cylinder between two points for
+   * every frame member) — PlayCanvas has no equivalent instanced-tube helper
+   * in this file, so this reproduces the same real silhouette (basket box,
+   * handle height, four-wheel stance) with the box/cylinder primitive
+   * substitution this port already uses everywhere else (corn canner,
+   * transfer-burst "sparkle", retail/belt product units), at the source's own
+   * real per-part local dimensions where a direct equivalent exists. Geometry
+   * is authored in the SAME raw (pre-`STORE_ELEMENT_SCALE`) local units the
+   * source's `ShoppingCart` uses, so the caller's per-cart uniform
+   * `setLocalScale(STORE_ELEMENT_SCALE * shrink)` reproduces the source's own
+   * `cart.scale.setScalar(1 - index * 0.055)` composed with the fixture's
+   * usual element scale. */
+  private buildSimplifiedCart(): pc.Entity {
+    const cart = new pc.Entity("shopping-cart");
+    const basket = new pc.Entity("basket");
+    basket.addComponent("render", { type: "box", material: this.material("#9aa5a2", 0.6) });
+    basket.setLocalScale(0.88, 0.42, 0.7);
+    basket.setLocalPosition(0, 0.62, 0.05);
+    cart.addChild(basket);
+
+    const handle = new pc.Entity("handle");
+    handle.addComponent("render", { type: "box", material: this.material("#315f4d") });
+    handle.setLocalScale(1.04, 0.05, 0.05);
+    handle.setLocalPosition(0, 1.02, -0.43);
+    cart.addChild(handle);
+
+    for (const [x, z] of [[-0.33, -0.23], [0.33, -0.23], [-0.33, 0.28], [0.33, 0.28]] as const) {
+      const wheel = new pc.Entity("wheel");
+      wheel.addComponent("render", { type: "cylinder", material: this.material("#272d2c") });
+      wheel.setLocalScale(0.15, 0.055, 0.15);
+      wheel.setLocalEulerAngles(0, 0, 90);
+      wheel.setLocalPosition(x, 0.085, z);
+      cart.addChild(wheel);
+
+      const leg = new pc.Entity("leg");
+      leg.addComponent("render", { type: "box", material: this.material("#6d7774") });
+      leg.setLocalScale(0.045, 0.3, 0.045);
+      leg.setLocalPosition(x, 0.24, z);
+      cart.addChild(leg);
+    }
+    return cart;
+  }
+
+  /** `checkout/cartBay.ts`'s own `update(count)`: shows 2-4 carts, never
+   * fewer than 2 or more than 4. */
+  private syncCartBay(count: number) {
+    const visible = Math.max(2, Math.min(4, count));
+    this.cartBayEntities.forEach((cart, index) => { cart.enabled = index < visible; });
+  }
+
+  /** Real per-frame cart-bay count, read off `franchise.returnedCartCount`
+   * directly (like every other `step*()` in this file). */
+  private stepCartBay() {
+    if (this.cartBayEntities.length === 0) return;
+    const game = useMarketStore.getState().game;
+    const franchise = game?.franchises.find((item) => item.id === game.currentFranchiseId) ?? game?.franchises[0];
+    if (!franchise) return;
+    this.syncCartBay(franchise.returnedCartCount);
+  }
+
+  /** Real per-frame returns-bin contents, read off `franchise.returnsBin`
+   * directly. Dirty-checked against a cheap signature string so the pool
+   * isn't torn down and rebuilt every frame when nothing changed — the
+   * source itself rebuilds unconditionally on every `update()` call, but its
+   * `update()` is only ever invoked on a real React prop change, not every
+   * render frame, so the dirty-check here reproduces the same real-world
+   * update cadence without this file needing a React-level diff. */
+  private stepReturnsCubicle() {
+    const group = this.returnsUnitsGroup;
+    if (!group) return;
+    const game = useMarketStore.getState().game;
+    const franchise = game?.franchises.find((item) => item.id === game.currentFranchiseId) ?? game?.franchises[0];
+    if (!franchise) return;
+    const entries = Object.entries(franchise.returnsBin) as [ProductId, number][];
+    const signature = entries.map(([id, qty]) => `${id}:${qty}`).join(",");
+    if (signature === this.returnsBinSignature) return;
+    this.returnsBinSignature = signature;
+    for (const child of group.children.slice()) child.destroy();
+    const s = STORE_ELEMENT_SCALE;
+    const units = entries.flatMap(([productId, quantity]) => Array.from({ length: Math.min(6, quantity) }, () => productId)).slice(0, 6);
+    units.forEach((productId, index) => {
+      const spec = RETAIL_PRODUCT_VISUAL[productId];
+      const unit = new pc.Entity(`returns-unit:${index}`);
+      unit.addComponent("render", { type: spec.shape, material: this.material(spec.color) });
+      unit.setLocalScale(spec.size[0] * s, spec.size[1] * s, spec.size[2] * s);
+      unit.setLocalPosition(((index % 3) - 1) * 0.24 * s, (0.62 + Math.floor(index / 3) * 0.2) * s, 0.48 * s);
+      group.addChild(unit);
+    });
   }
 
   /** Box-volume port of `kitFarm.ts`: garden floor, barn, eight crop plots
@@ -2781,6 +3325,157 @@ export class PlayCanvasRuntime {
       unit.enabled = false;
       actor.group.addChild(unit);
       actor.units.push(unit);
+    }
+  }
+
+  /** Real per-frame checkout detail (phase 15 port of `checkoutKit.ts`'s
+   * `update()` + `animate()`). Reads `useMarketStore.getState()` directly
+   * (like `stepFarmAnimals()`/`stepRetailStock()` above) since
+   * `checkoutTransactions`/`customers` are raw store state with no React-side
+   * derivation. Reuses the exact same pure helpers the real `/` renderer's
+   * `kitFurniture.ts` calls (`activeCheckoutForLane`, `checkoutHandoffForLane`,
+   * `checkoutBagLocation`) so the handoff-bag logic can never drift from the
+   * real one. */
+  private stepCheckout(dt: number) {
+    if (this.checkoutLaneEntries.size === 0) return;
+    const game = useMarketStore.getState().game;
+    const franchise = game?.franchises.find((item) => item.id === game.currentFranchiseId) ?? game?.franchises[0];
+    if (!franchise) return;
+    const s = STORE_ELEMENT_SCALE;
+    const factor = 1 - Math.exp(-8 * dt);
+
+    for (const [lane, entry] of this.checkoutLaneEntries) {
+      const transaction = activeCheckoutForLane(franchise.checkoutTransactions, lane);
+      const handoffTransaction = checkoutHandoffForLane(franchise.checkoutTransactions, lane, franchise.customers);
+      const handoffLocation = checkoutBagLocation(handoffTransaction, franchise.customers);
+      const hasSeparateHandoffBag = Boolean(handoffTransaction && handoffLocation === "counter");
+
+      const scanning = transaction?.state === "SCANNING" || transaction?.state === "BAGGING";
+      const bagged = transaction?.pendingItems.reduce((sum, line) => sum + line.bagged, 0) ?? 0;
+      const total = transaction?.pendingItems.reduce((sum, line) => sum + line.quantity, 0) ?? 0;
+      const handoffBagged = handoffTransaction?.pendingItems.reduce((sum, line) => sum + line.bagged, 0) ?? 0;
+      const handoffTotal = handoffTransaction?.pendingItems.reduce((sum, line) => sum + line.quantity, 0) ?? 0;
+
+      entry.beltLightMaterial.emissive = hexToColor(scanning ? "#60ffbd" : "#2d6553");
+      entry.beltLightMaterial.emissiveIntensity = scanning ? 2.2 : 0.5;
+      entry.beltLightMaterial.update();
+      entry.scanningLight.light!.intensity = scanning ? entry.scanningLightOnIntensity : 0;
+
+      entry.screenGlowMaterial.emissive = hexToColor(transaction ? "#4d9b80" : "#27463d");
+      entry.screenGlowMaterial.update();
+      const screenLabel = transaction ? `${bagged}/${total}` : "LISTA";
+      if (entry.screenText.element!.text !== screenLabel) {
+        entry.screenText.element!.text = screenLabel;
+        this.dynamicFont?.createTextures(screenLabel);
+      }
+
+      const payment = transaction?.state === "PAYMENT";
+      entry.cardGlowMaterial.diffuse = hexToColor(payment ? "#91f2be" : "#77948a");
+      entry.cardGlowMaterial.emissiveIntensity = payment ? 1.4 : 0.18;
+      entry.cardGlowMaterial.update();
+
+      entry.bagA.update(total ? bagged / total : 0, hasSeparateHandoffBag ? [1.34 * s, 1.02 * s, 0.24 * s] : [1.67 * s, 1.02 * s, 0], Boolean(transaction));
+      entry.bagB.update(handoffTotal ? handoffBagged / handoffTotal : 1, transaction ? [1.94 * s, 1.02 * s, -0.24 * s] : [1.67 * s, 1.02 * s, 0], hasSeparateHandoffBag);
+      entry.bagC.update(0, [1.67 * s, 1.02 * s, 0], !transaction && !handoffTransaction);
+
+      const unitsList = computeCheckoutUnits(transaction);
+      const seen = new Set<string>();
+      unitsList.forEach((unit, index) => {
+        if (!unit.loaded || unit.bagged) return;
+        const key = `${unit.productId}-${index}`;
+        seen.add(key);
+        const targetX = (unit.scanned ? 1.48 : Math.min(0.15, -1.66 + index * 0.29)) * s;
+        const targetY = (unit.scanned ? 1.38 : 1.25) * s;
+        const targetZ = (unit.scanned ? 0.18 : 0) * s;
+        const live = entry.liveUnits.get(key);
+        if (live) {
+          live.target.set(targetX, targetY, targetZ);
+        } else {
+          const spec = RETAIL_PRODUCT_VISUAL[unit.productId];
+          const unitEntity = new pc.Entity(`checkout-unit:${key}`);
+          unitEntity.addComponent("render", { type: spec.shape, material: this.material(spec.color) });
+          unitEntity.setLocalScale(spec.size[0] * 1.18 * s, spec.size[1] * 1.18 * s, spec.size[2] * 1.18 * s);
+          unitEntity.setLocalPosition(-2.05 * s, 1.45 * s, 0.42 * s);
+          entry.unitsGroup.addChild(unitEntity);
+          entry.liveUnits.set(key, { entity: unitEntity, target: new pc.Vec3(targetX, targetY, targetZ) });
+        }
+      });
+      for (const [key, live] of entry.liveUnits) {
+        if (!seen.has(key)) {
+          live.entity.destroy();
+          entry.liveUnits.delete(key);
+        }
+      }
+      for (const live of entry.liveUnits.values()) {
+        const p = live.entity.getLocalPosition();
+        live.entity.setLocalPosition(
+          p.x + (live.target.x - p.x) * factor,
+          p.y + (live.target.y - p.y) * factor,
+          p.z + (live.target.z - p.z) * factor,
+        );
+      }
+    }
+  }
+
+  /** Real per-frame production-machine status (phase 15 port of
+   * `machines.ts`'s `buildMachineIdentity()`'s `update()`, plus the
+   * per-machine processing light and `dynamic:machine-output` slot
+   * visibility). Reads `useMarketStore.getState()` directly, like
+   * `stepFarmAnimals()`/`stepCheckout()` above. */
+  private stepProductionMachines() {
+    if (this.machineBoardEntries.size === 0) return;
+    const game = useMarketStore.getState().game;
+    const franchise = game?.franchises.find((item) => item.id === game.currentFranchiseId) ?? game?.franchises[0];
+    if (!franchise) return;
+    const machineById = new Map(franchise.productionMachines.map((machine) => [machine.id, machine] as const));
+    for (const entry of this.machineBoardEntries.values()) {
+      const machine = machineById.get(entry.machineId);
+      const status = machineStatusOf(machine);
+      const ingredient = machine ? (Object.keys(PRODUCT_CONFIG[machine.productId]?.recipe ?? {})[0] as ProductId | undefined) : undefined;
+      const queued = machine && ingredient
+        ? (machine.input[ingredient] ?? 0) + Number(machine.status === "PROCESSING") * Number(PRODUCT_CONFIG[machine.productId]?.recipe?.[ingredient] ?? 0)
+        : 0;
+      const queueCapacity = machine && ingredient ? machineInputCapacity(machine, ingredient) : 0;
+
+      const outputLabel = `${machine?.output ?? 0}/${machine?.outputCapacity ?? 0}`;
+      if (entry.outputText.element!.text !== outputLabel) {
+        entry.outputText.element!.text = outputLabel;
+        this.dynamicFont?.createTextures(outputLabel);
+      }
+      entry.outputText.element!.color = hexToColor(machine && machine.output > 0 ? "#8ce6a1" : "#ffffff");
+
+      const ingredientLabel = ingredient ? PRODUCTS[ingredient].name.toUpperCase() : "COLA";
+      if (entry.ingredientText.element!.text !== ingredientLabel) {
+        entry.ingredientText.element!.text = ingredientLabel;
+        this.dynamicFont?.createTextures(ingredientLabel);
+      }
+
+      const queuedLabel = `${queued}/${queueCapacity}`;
+      if (entry.queuedText.element!.text !== queuedLabel) {
+        entry.queuedText.element!.text = queuedLabel;
+        this.dynamicFont?.createTextures(queuedLabel);
+      }
+      entry.queuedText.element!.color = hexToColor(queued > 0 ? "#ffd98a" : "#ffffff");
+
+      if (entry.statusLabelText.element!.text !== status.label) {
+        entry.statusLabelText.element!.text = status.label;
+        this.dynamicFont?.createTextures(status.label);
+      }
+      entry.statusLabelText.element!.color = hexToColor(status.color);
+      entry.statusDotMaterial.diffuse = hexToColor(status.color);
+      entry.statusDotMaterial.update();
+
+      if (entry.processingLight) {
+        entry.processingLight.light!.intensity = machine?.status === "PROCESSING" ? entry.processingLightOnIntensity : 0;
+      }
+      if (entry.cannerIndicatorMaterial) {
+        entry.cannerIndicatorMaterial.diffuse = hexToColor(machine?.status === "PROCESSING" ? "#77e686" : "#d1ae56");
+        entry.cannerIndicatorMaterial.update();
+      }
+      if (entry.outputSlots.length > 0) {
+        const visibleCount = Math.min(entry.outputSlots.length, machine?.output ?? 0);
+        entry.outputSlots.forEach((slot, index) => { slot.enabled = index < visibleCount; });
+      }
     }
   }
 
