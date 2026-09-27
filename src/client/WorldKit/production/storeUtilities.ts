@@ -17,7 +17,7 @@ import { warmUpShadersBeforeAttach, warmUpTexturesIdle } from "../gpuWarmup";
  * never lets a lamp glow without also looking on.
  */
 
-interface CeilingLampHandle { group: THREE.Group; update(on: boolean, dynamicLight: boolean): void; }
+interface CeilingLampHandle { group: THREE.Group; update(on: boolean): void; }
 
 function buildWallClock(): THREE.Group {
   const group = new THREE.Group();
@@ -67,7 +67,7 @@ function buildHangingSign(label: string): THREE.Group {
  * shader-warm-up bug as `production/machines.ts`'s `attachModel` — four of
  * these load the same GLB right after `onReady()`, never awaiting shader
  * compile before attach. Fixed the same way. */
-function buildCeilingLamp(renderer: THREE.WebGLRenderer, camera: THREE.Camera, scene: THREE.Scene): CeilingLampHandle {
+function buildCeilingLamp(renderer: THREE.WebGLRenderer, camera: THREE.Camera, scene: THREE.Scene, dynamicLight: boolean): CeilingLampHandle {
   const group = new THREE.Group();
   group.name = "dynamic:ceiling-lamp";
   const modelAnchor = new THREE.Group();
@@ -75,7 +75,30 @@ function buildCeilingLamp(renderer: THREE.WebGLRenderer, camera: THREE.Camera, s
 
   const clonedMaterials: THREE.MeshStandardMaterial[] = [];
   let currentOn = false;
-  let pointLight: THREE.PointLight | null = null;
+  // 2026-09-27 crowd-recompile fix: this used to add/remove a real
+  // `THREE.PointLight` from `group` as `on`/`dynamicLight` changed. Every
+  // such add/remove changes THREE's per-material program cache key
+  // (`numPointLights`), forcing every standard/physical material in the
+  // scene — crowd bodies' instanced+skinned material worst of all, since
+  // it's the largest program to relink — to recompile synchronously the
+  // next time it's drawn, no matter how early `warmUpShadersBeforeAttach`
+  // already ran for it (a warm-up can only cover the light configuration
+  // that existed in the scene AT THAT TIME, and these lamps' point lights
+  // used to not exist yet then). `dynamicLight` itself never actually
+  // changes after construction (`ClientRuntime`'s call site passes
+  // `!this.mobile`, decided once) — only `on` (`lightsOn`, tied to whether
+  // customers are in the store) toggles during a session — so the light
+  // object itself can be created once, up front, and kept permanently
+  // `visible` (added to `group` unconditionally when `dynamicLight` is
+  // true, never created at all when it's false — mobile keeps its exact
+  // zero-point-light behaviour). Only `intensity` (0 when off) toggles from
+  // here on, which THREE does not treat as a program-cache-key input: zero
+  // visual difference, but the light count — and therefore the cache key —
+  // never changes again after the loading curtain's initial warm-up.
+  const pointLight = dynamicLight
+    ? (() => { const light = new THREE.PointLight("#fff2c9", 0, 4); light.position.set(0, -0.15, 0); group.add(light); return light; })()
+    : null;
+  const pointLightOnIntensity = 0.18;
 
   function applyEmissive(on: boolean) {
     for (const material of clonedMaterials) {
@@ -84,16 +107,8 @@ function buildCeilingLamp(renderer: THREE.WebGLRenderer, camera: THREE.Camera, s
     }
   }
 
-  function syncLight(on: boolean, dynamicLight: boolean) {
-    const shouldHaveLight = on && dynamicLight;
-    if (shouldHaveLight && !pointLight) {
-      pointLight = new THREE.PointLight("#fff2c9", 0.18, 4);
-      pointLight.position.set(0, -0.15, 0);
-      group.add(pointLight);
-    } else if (!shouldHaveLight && pointLight) {
-      group.remove(pointLight);
-      pointLight = null;
-    }
+  function syncLight(on: boolean) {
+    if (pointLight) pointLight.intensity = on ? pointLightOnIntensity : 0;
   }
 
   loadGltf(budgetPath("environment", "equipment_ceiling_light")).then(async (gltf) => {
@@ -116,17 +131,17 @@ function buildCeilingLamp(renderer: THREE.WebGLRenderer, camera: THREE.Camera, s
     applyEmissive(currentOn);
   }).catch(() => {});
 
-  function update(on: boolean, dynamicLight: boolean) {
+  function update(on: boolean) {
     currentOn = on;
     applyEmissive(on);
-    syncLight(on, dynamicLight);
+    syncLight(on);
   }
   return { group, update };
 }
 
 export interface StoreUtilitiesHandle {
   group: THREE.Group;
-  update(lightsOn: boolean, dynamicCeilingLights: boolean): void;
+  update(lightsOn: boolean): void;
 }
 
 export function buildStoreUtilities(renderer: THREE.WebGLRenderer, camera: THREE.Camera, scene: THREE.Scene, lightsOn: boolean, dynamicCeilingLights: boolean): StoreUtilitiesHandle {
@@ -154,15 +169,15 @@ export function buildStoreUtilities(renderer: THREE.WebGLRenderer, camera: THREE
 
   const lamps: CeilingLampHandle[] = [-7.2, -2.4, 2.4, 7.2].map((x) => {
     const element = makeStoreElement([x, 2.85, -0.6]);
-    const lamp = buildCeilingLamp(renderer, camera, scene);
+    const lamp = buildCeilingLamp(renderer, camera, scene, dynamicCeilingLights);
     element.add(lamp.group);
     group.add(element);
     return lamp;
   });
 
-  function update(on: boolean, dynamicLight: boolean) {
-    for (const lamp of lamps) lamp.update(on, dynamicLight);
+  function update(on: boolean) {
+    for (const lamp of lamps) lamp.update(on);
   }
-  update(lightsOn, dynamicCeilingLights);
+  update(lightsOn);
   return { group, update };
 }

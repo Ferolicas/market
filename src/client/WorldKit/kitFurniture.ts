@@ -365,7 +365,7 @@ function fixtureDescriptors(): FixtureDescriptor[] {
     available: () => true,
     build: ({ renderer, camera, scene, props }) => {
       const utilities = buildStoreUtilities(renderer, camera, scene, props.lightsOn, props.dynamicCeilingLights);
-      return { element: utilities.group, update: (next) => utilities.update(next.lightsOn, next.dynamicCeilingLights) };
+      return { element: utilities.group, update: (next) => utilities.update(next.lightsOn) };
     },
   });
 

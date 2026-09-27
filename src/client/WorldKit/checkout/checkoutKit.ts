@@ -94,9 +94,19 @@ export function buildCheckoutKit(renderer: THREE.WebGLRenderer, camera: THREE.Ca
   beltLight.position.set(0.64, 1.165, 0);
   group.add(beltLight);
 
-  const scanningLight = new THREE.PointLight("#64ffc2", 1.4, 1.4);
+  // 2026-09-27 crowd-recompile fix: `intensity` (never `.visible`) is this
+  // light's on/off toggle. `.visible` changes THREE's per-material program
+  // cache key (`numPointLights`) the instant it flips, forcing every
+  // standard/physical material in the scene — crowd bodies' instanced+
+  // skinned material worst of all — to recompile synchronously the next
+  // time it's drawn, no matter how early `warmUpShadersBeforeAttach` already
+  // ran (it can only warm the light configuration that existed AT THAT
+  // TIME). Staying always-`visible` keeps the light count, and therefore the
+  // cache key, stable for the whole session. Zero visual difference:
+  // `intensity = 0` contributes exactly the same (zero) light as no light.
+  const scanningLight = new THREE.PointLight("#64ffc2", 0, 1.4);
+  const scanningLightOnIntensity = 1.4;
   scanningLight.position.set(0.64, 1.35, 0);
-  scanningLight.visible = false;
   group.add(scanningLight);
 
   group.add(makeBox({ args: [0.86, 0.18, 0.62], position: [1.28, 1.13, -0.18], color: "#24302d", radius: 0.08 }));
@@ -156,7 +166,7 @@ export function buildCheckoutKit(renderer: THREE.WebGLRenderer, camera: THREE.Ca
 
     beltLightMaterial.emissive.set(scanning ? "#60ffbd" : "#2d6553");
     beltLightMaterial.emissiveIntensity = scanning ? 2.2 : 0.5;
-    scanningLight.visible = scanning;
+    scanningLight.intensity = scanning ? scanningLightOnIntensity : 0;
 
     screenGlowMaterial.emissive.set(transaction ? "#4d9b80" : "#27463d");
     updateText(screenText, { text: transaction ? `${bagged}/${total}` : "LISTA" });

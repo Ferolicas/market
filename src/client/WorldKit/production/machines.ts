@@ -128,14 +128,29 @@ export function buildBakeryKit(renderer: THREE.WebGLRenderer, camera: THREE.Came
   const identity = buildMachineIdentity(fixture);
   group.add(identity.group);
   group.add(attachModel(renderer, camera, scene, "delivered", "oven", [0, 0.175, -0.55]));
-  const processingLight = new THREE.PointLight("#df8b43", 0.8, 2.2);
+  // 2026-09-27 crowd-recompile fix: `intensity` (never `.visible`) is this
+  // light's on/off toggle — see the matching comment on `processingLight` in
+  // `buildProcessMachine` below for why: `.visible` changes `numPointLights`,
+  // which is part of THREE's per-material program cache key, so toggling it
+  // silently forces every standard/physical material in the scene (crowd
+  // bodies especially — their instanced+skinned material is the heaviest to
+  // recompile) to recompile its shader program synchronously the next time
+  // it's drawn. `warmUpShadersBeforeAttach` can only warm the light
+  // configuration that exists AT WARM-UP TIME; it can never warm for a light
+  // that doesn't exist in the scene yet. Staying always-`visible` (added once,
+  // never removed) keeps the light COUNT — and therefore the program cache
+  // key — stable for the rest of the session, so the one warm-up that already
+  // runs during the loading curtain covers every later on/off toggle for
+  // free. Zero visual difference: a light at `intensity = 0` contributes
+  // exactly the same (zero) illumination as no light at all.
+  const processingLight = new THREE.PointLight("#df8b43", 0, 2.2);
+  const processingLightOnIntensity = 0.8;
   processingLight.position.set(0, 0.95, 0.52);
-  processingLight.visible = false;
   group.add(processingLight);
 
   function update(machine?: ProductionMachineState) {
     identity.update(machine);
-    processingLight.visible = machine?.status === "PROCESSING";
+    processingLight.intensity = machine?.status === "PROCESSING" ? processingLightOnIntensity : 0;
   }
   update(undefined);
   mergeStaticMeshes(group);
@@ -207,9 +222,11 @@ export function buildProcessMachine(renderer: THREE.WebGLRenderer, camera: THREE
     group.add(attachModel(renderer, camera, scene, "delivered", "juicer", [0, 0.175, -0.55]));
   }
 
-  const processingLight = new THREE.PointLight(kind === "cheese" ? "#ffd75c" : "#ff6b43", 0.45, 1.6);
+  // Same `intensity`-not-`.visible` toggle as `buildBakeryKit`'s
+  // `processingLight` above — see its doc comment for why.
+  const processingLight = new THREE.PointLight(kind === "cheese" ? "#ffd75c" : "#ff6b43", 0, 1.6);
+  const processingLightOnIntensity = 0.45;
   processingLight.position.set(0, 0.65, 0.45);
-  processingLight.visible = false;
   group.add(processingLight);
 
   const outputGroup = new THREE.Group();
@@ -236,7 +253,7 @@ export function buildProcessMachine(renderer: THREE.WebGLRenderer, camera: THREE
 
   function update(machine?: ProductionMachineState) {
     identity.update(machine);
-    processingLight.visible = machine?.status === "PROCESSING";
+    processingLight.intensity = machine?.status === "PROCESSING" ? processingLightOnIntensity : 0;
     const visibleCount = Math.min(4, machine?.output ?? 0);
     slots.forEach((slot, index) => { slot.visible = index < visibleCount; });
   }
