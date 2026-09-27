@@ -24,7 +24,12 @@ import { CHECKOUT_LANE_IDS, CHECKOUT_LANES, checkoutAreaForLane, type CheckoutLa
 import { STORE_PRODUCTION_FIXTURES, PRODUCTION_FIXTURE_IDS, isProductionWorkstationId, type ProductionFixtureId } from "@/game/stations/production-layout";
 import { STORE_SERVICE_FIXTURES } from "@/game/stations/store-service-layout";
 import { WAREHOUSE_RETURN_STATION } from "@/game/stations/warehouse-layout";
+import { PURCHASE_MARKER } from "@/game/stations/purchase-marker";
+import { PURCHASE_POSITIONS } from "@/game/stations/purchase-layout";
+import { REGISTER_INTERACTION_IDS, registerLane, registerPickupPosition, type RegisterInteractionId } from "@/game/stations/register-layout";
+import { CASH_BUNDLE_RENDER_CAP, cashBundleCount } from "@/game/economy/cash-bundles";
 import { FARM_PLOTS, FARM_BARN, FARM_ANIMAL_STATIONS, FARM_FIELD, FARM_ANIMAL_FOOTPRINTS, type FarmPlotLayout } from "@/game/stations/farm-layout";
+import { animalMotion, type FarmAnimalClip, type FarmAnimalKind } from "@/game/animation/AnimalMotion";
 import { isWorkstationId, WORKSTATION_IDS } from "@/game/stations/workstation-layout";
 import { InteractionDirector } from "@/game/interaction/InteractionDirector";
 import type { InteractionZoneConfig } from "@/game/interaction/InteractionZone";
@@ -146,9 +151,24 @@ export interface PlayCanvasSceneProps {
    * live `runtime` (spawned/working) are included, mirroring how the crowd
    * bodies only exist for actors the sim has actually placed on the floor. */
   employees: Array<{ id: string; x: number; z: number; role: string }>;
+  /** Real `purchaseMarkers` (`GameShell.tsx`'s own array, the same one
+   * `availablePurchaseIds` above is derived from) — phase 10 renders the real
+   * pulsing floor square + funded-progress fill for each (see
+   * `purchaseMarkers.ts`'s doc comment); the standing name/remaining-amount
+   * sign is still text-pipeline-deferred (no font/MSDF asset wired in this
+   * port yet — see the report). */
+  purchaseMarkers: Array<{ id: string; funded: number; highlighted: boolean }>;
+  /** Real `franchise.registerCashMinor` (per-lane, matching `CheckoutLane`
+   * index) and the real `cashBundleMinor(countryMoneyScale(...))` unit value
+   * `GameShell.tsx` already computes for `MarketScene` — phase 10 reuses both
+   * unchanged to render the real stacked cash-bundle pile at each open lane
+   * (`registerCashMarkers.ts`'s doc comment). The "RECOGER" label above the
+   * stack is deferred with the same text-pipeline gap as `purchaseMarkers`. */
+  registerCashMinor: [number, number, number];
+  cashBundleMinor: number;
 }
 
-const DEFAULT_PROPS: PlayCanvasSceneProps = { avatarBody: "adult-man", avatarHair: "fade", avatarHairColor: "#3a2a1e", avatarHat: "none", unlockedAreas: [], doorState: "CLOSED", doorProgress: 0, open: false, playerSpeedTier: 0, checkoutLevel: 1, availablePurchaseIds: [], crops: [], customers: [], employees: [], onInteract: () => {}, onDistance: () => {}, onDoorPresence: () => {} };
+const DEFAULT_PROPS: PlayCanvasSceneProps = { avatarBody: "adult-man", avatarHair: "fade", avatarHairColor: "#3a2a1e", avatarHat: "none", unlockedAreas: [], doorState: "CLOSED", doorProgress: 0, open: false, playerSpeedTier: 0, checkoutLevel: 1, availablePurchaseIds: [], crops: [], customers: [], employees: [], purchaseMarkers: [], registerCashMinor: [0, 0, 0], cashBundleMinor: 1000, onInteract: () => {}, onDistance: () => {}, onDoorPresence: () => {} };
 
 // Mirrors `PlayerActor.ts`'s `OWNER_BODY_KEY` — the real owner GLB filenames.
 const OWNER_BODY_KEY: Record<CharacterId, string> = { "adult-man": "owner_man", "adult-woman": "owner_woman", boy: "owner_boy", girl: "owner_girl" };
@@ -192,7 +212,17 @@ const LOCOMOTION_MOVING_START = 0.12;
 const LOCOMOTION_MOVING_STOP = 0.07;
 const LOCOMOTION_WALK_NATURAL_SPEED = 0.35;
 const LOCOMOTION_RUN_GAIT_RATIO = { start: 2.4, stop: 2.12 };
+// Mirrors `CrowdPose.ts`'s `crowdGaitTimeScale()`/`CROWD_TIME_SCALE_RANGE` —
+// the same continuous retiming `PlayerActor.ts` (the real third-person
+// renderer, not the GPU crowd texture pipeline) applies every frame so a
+// Walk/Run clip's stride cadence matches the body's actual presented speed
+// instead of snapping between two fixed playback rates. Copied verbatim
+// (not imported — that module pulls in `CrowdAnimation.ts`'s three-adjacent
+// types) for the same reason `LOCOMOTION_MOVING_START` is copied.
+const LOCOMOTION_RUN_NATURAL_SPEED = 1.07;
+const CROWD_TIME_SCALE_RANGE = { min: 0.55, max: 2.8 };
 type PlayerAnimClip = "Idle" | "Walk" | "Run" | "ScanItem" | "PickupLow";
+const LOCOMOTION_CLIP_NATURAL_SPEED: Partial<Record<PlayerAnimClip, number>> = { Walk: LOCOMOTION_WALK_NATURAL_SPEED, Run: LOCOMOTION_RUN_NATURAL_SPEED };
 // Mirrors `PlayerActor.ts`'s `WORKSTATION_CLIP` table, restricted to the ids
 // `WorkstationController` can ever report as `performingZoneId()` in this
 // port (checkout + the two chicken stations + cow — see `fixedStepPlayer()`'s
@@ -211,6 +241,50 @@ const PLAYER_WORKSTATION_CLIP: Partial<Record<string, PlayerAnimClip>> = { check
 // Regenerate the same way if the source budget assets change. This does not
 // touch any file `/`, `/play2` or `/runtime` reads.
 const ACCESSORY_ROOT = "/models/market/playcanvas-accessories";
+
+/** One live farm-animal character (phase 10 — see `ANIMAL_MODEL_ROOT`'s doc
+ * comment). `stationGroup` is the sub-entity `animalStation.ts`'s
+ * `station.group` corresponds to (sign/coop-shell/animal/output-tray),
+ * enabled only while `unlockedAreas.includes(areaId) && Boolean(machine)`
+ * — the exact `showStation` condition `kitFarm.ts`'s
+ * `buildAnimalStationGroup.update()` applies (see `buildFarmEstate()`'s call
+ * site for why the port previously missed this second condition). `entity`/
+ * `animAvailable` are `null`/empty until the converted GLB finishes loading;
+ * `stepFarmAnimals()` no-ops per-actor until then. */
+/** One live purchase-marker floor square (`purchaseMarkers.ts`'s
+ * `MarkerEntry`, minus the label text — see `PlayCanvasSceneProps.purchaseMarkers`'s
+ * doc comment for why the sign board's text is deferred). `pulse` wraps only
+ * the floor-square entities, matching the source's own breathing-pulse
+ * group (the sign, when added, is never scaled by it). */
+interface PurchaseMarkerEntry {
+  group: pc.Entity;
+  pulse: pc.Entity;
+  topMaterial: pc.StandardMaterial;
+  fillEntity: pc.Entity;
+  highlighted: boolean;
+}
+
+/** One open checkout lane's stacked real cash-bundle pile
+ * (`registerCashMarkers.ts`'s `LaneEntry`, minus the "RECOGER" label text —
+ * same deferral as `PurchaseMarkerEntry`). */
+interface RegisterCashEntry {
+  group: pc.Entity;
+  bundles: pc.Entity[];
+  bundleCount: number;
+}
+
+interface FarmAnimalActor {
+  kind: FarmAnimalKind;
+  machineId: string;
+  areaId: string;
+  stationGroup: pc.Entity;
+  characterGroup: pc.Entity;
+  entity: pc.Entity | null;
+  animAvailable: Set<FarmAnimalClip>;
+  currentClip: FarmAnimalClip | null;
+  time: number;
+  lastTickMs: number;
+}
 
 // Real static fixture GLBs `/runtime`'s own WorldKit modules load for these
 // exact fixtures — not every filename under `public/models/market/environment`
@@ -241,6 +315,27 @@ const ENVIRONMENT_MODEL_ROOT = "/models/market/environment";
 // Regenerate the same way if the source `delivered` assets change. This does
 // not touch any file `/`, `/play2` or `/runtime` reads.
 const PRODUCTION_MODEL_ROOT = "/models/market/playcanvas-production";
+// Real live chicken/cow character GLBs (`animalStation.ts`'s
+// `buildAnimalCharacter()` loads `budgetPath("delivered", kind)` — the same
+// `public/models/market/budget/delivered/{chicken,cow}.glb` `machine`
+// production reads for its `output`/`status`). Both require
+// `EXT_meshopt_compression` AND `KHR_mesh_quantization` (confirmed via
+// `gltf-transform inspect`, same problem as `PRODUCTION_MODEL_ROOT`'s doc
+// comment), so both are stripped the identical way into this repo's
+// `playcanvas-production/` directory (co-located with the other converted
+// production-machine GLBs, not a separate directory, since both come from
+// the same conversion pipeline and requirement set):
+//   npx gltf-transform copy budget/delivered/<file>.glb playcanvas-production/<file>.glb
+//   npx gltf-transform dequantize playcanvas-production/<file>.glb playcanvas-production/<file>.glb
+// Regenerate the same way if the source budget asset changes. This does not
+// touch any file `/`, `/play2` or `/runtime` reads.
+const ANIMAL_MODEL_ROOT = PRODUCTION_MODEL_ROOT;
+// Mirrors `purchaseMarkers.ts`'s own `HIGHLIGHT_COLOR`/`NORMAL_COLOR`.
+const PURCHASE_MARKER_HIGHLIGHT_COLOR = "#ffd75e";
+const PURCHASE_MARKER_NORMAL_COLOR = "#e8ca6b";
+// Mirrors `registerCashMarkers.ts`'s own `CASH_BUNDLE_SIZE`/`CASH_STACK_PER_LAYER`.
+const CASH_BUNDLE_SIZE: [number, number, number] = [0.2, 0.05, 0.1];
+const CASH_STACK_PER_LAYER = 9;
 // Mirrors `CrowdSystems.ts`'s `HAT_FIT_SCALE` (copied verbatim — that module
 // pulls in Three.js).
 const HAT_FIT_SCALE: Record<CharacterId, number> = { "adult-man": 0.49, "adult-woman": 0.49, boy: 0.64, girl: 0.68 };
@@ -319,6 +414,20 @@ export class PlayCanvasRuntime {
   // ---- furniture ----
   private furnitureGroup: pc.Entity | null = null;
   private furnitureSignature = "";
+
+  // ---- farm animals (real live chicken/cow characters, phase 10) ----
+  // Rebuilt with the rest of `furnitureGroup` on a signature change; driven
+  // every render frame from `stepFarmAnimals()` (real `animalMotion()`, same
+  // as `animalStation.ts`'s own `update()`).
+  private readonly farmAnimalActors: FarmAnimalActor[] = [];
+
+  // ---- purchase markers / register cash (phase 10 — real visuals, see
+  // `purchaseMarkers.ts`/`registerCashMarkers.ts`'s doc comments) ----
+  private purchaseMarkersGroup: pc.Entity | null = null;
+  private readonly purchaseMarkerEntries = new Map<string, PurchaseMarkerEntry>();
+  private purchaseMarkersElapsedSeconds = 0;
+  private registerCashGroup: pc.Entity | null = null;
+  private readonly registerCashEntries = new Map<CheckoutLane, RegisterCashEntry>();
 
   // ---- world tick driver (mirrors ClientRuntime.tick's fixed 200ms accumulator) ----
   private tickAccumulatorMs = 0;
@@ -412,6 +521,13 @@ export class PlayCanvasRuntime {
     this.app.root.addChild(this.crowdRoot);
     this.syncCrowd(this.props.customers, this.props.employees);
 
+    this.purchaseMarkersGroup = new pc.Entity("dynamic:purchase-markers");
+    worldRoot.addChild(this.purchaseMarkersGroup);
+    this.syncPurchaseMarkers(this.props.purchaseMarkers);
+    this.registerCashGroup = new pc.Entity("dynamic:register-cash");
+    worldRoot.addChild(this.registerCashGroup);
+    this.syncRegisterCash(this.props.registerCashMinor, this.props.cashBundleMinor);
+
     window.addEventListener("keydown", this.keydownHandler);
     window.addEventListener("keyup", this.keyupHandler);
 
@@ -449,6 +565,8 @@ export class PlayCanvasRuntime {
     // call on every prop update (crops advance every world tick).
     if (worldRoot) this.buildFurniture(worldRoot, nextProps.unlockedAreas, nextProps.crops);
     this.syncCrowd(nextProps.customers, nextProps.employees);
+    this.syncPurchaseMarkers(nextProps.purchaseMarkers);
+    this.syncRegisterCash(nextProps.registerCashMinor, nextProps.cashBundleMinor);
   }
 
   /** Rebuilds the real `InteractionDirector` (`interactionZoneConfigsPure`'s
@@ -510,6 +628,167 @@ export class PlayCanvasRuntime {
     body.setLocalPosition(0, 0.62 * WORLD_SCALE, 0);
     root.addChild(body);
     return root;
+  }
+
+  /** Real pulsing purchase-marker floor squares (`purchaseMarkers.ts`'s
+   * `update()` — reconciled by id the same way: an id still present gets its
+   * fill/highlight patched in place, a new id gets a freshly built marker, a
+   * dropped id gets torn down). The standing sign's name/remaining-amount
+   * text is not built here — see `PlayCanvasSceneProps.purchaseMarkers`'s doc
+   * comment. */
+  private syncPurchaseMarkers(markers: PlayCanvasSceneProps["purchaseMarkers"]) {
+    if (!this.purchaseMarkersGroup) return;
+    const seen = new Set<string>();
+    for (const marker of markers) {
+      seen.add(marker.id);
+      const position = (PURCHASE_POSITIONS as Record<string, readonly [number, number, number]>)[marker.id];
+      if (!position) continue;
+      let entry = this.purchaseMarkerEntries.get(marker.id);
+      if (!entry) {
+        entry = this.buildPurchaseMarkerEntry(marker.id, position, marker.highlighted);
+        this.purchaseMarkersGroup.addChild(entry.group);
+        this.purchaseMarkerEntries.set(marker.id, entry);
+      }
+      if (entry.highlighted !== marker.highlighted) {
+        entry.highlighted = marker.highlighted;
+        entry.topMaterial.diffuse = hexToColor(marker.highlighted ? PURCHASE_MARKER_HIGHLIGHT_COLOR : PURCHASE_MARKER_NORMAL_COLOR);
+        entry.topMaterial.update();
+      }
+      const clamped = Math.max(0, Math.min(1, marker.funded));
+      entry.fillEntity.enabled = clamped > 0;
+      entry.fillEntity.setLocalScale(clamped, 1, clamped);
+    }
+    for (const [id, entry] of this.purchaseMarkerEntries) {
+      if (seen.has(id)) continue;
+      entry.group.destroy();
+      entry.topMaterial.destroy();
+      this.purchaseMarkerEntries.delete(id);
+    }
+  }
+
+  private buildPurchaseMarkerEntry(id: string, position: readonly [number, number, number], highlighted: boolean): PurchaseMarkerEntry {
+    const size = PURCHASE_MARKER.halfSize * 2;
+    const innerSize = size - 0.1;
+    const group = new pc.Entity(`purchase-marker:${id}`);
+    const scaled = scaleStorePosition([...position] as [number, number, number]);
+    group.setLocalPosition(scaled[0], scaled[1], scaled[2]);
+    group.setLocalScale(STORE_ELEMENT_SCALE, STORE_ELEMENT_SCALE, STORE_ELEMENT_SCALE);
+
+    const pulse = new pc.Entity("pulse");
+    group.addChild(pulse);
+
+    // Not `this.material()` — that cache is keyed by colour/opacity and
+    // shared across every caller, but this material's colour is mutated
+    // in place per-marker as `highlighted` toggles (see `syncPurchaseMarkers()`),
+    // so each marker needs its own dedicated instance.
+    const topMaterial = new pc.StandardMaterial();
+    topMaterial.diffuse = hexToColor(highlighted ? PURCHASE_MARKER_HIGHLIGHT_COLOR : PURCHASE_MARKER_NORMAL_COLOR);
+    topMaterial.opacity = 0.95;
+    topMaterial.blendType = pc.BLEND_NORMAL;
+    topMaterial.depthWrite = false;
+    topMaterial.update();
+    const top = new pc.Entity("top");
+    top.addComponent("render", { type: "plane", material: topMaterial });
+    top.setLocalEulerAngles(0, 0, 0);
+    top.setLocalScale(size, 1, size);
+    top.setLocalPosition(0, 0.012, 0);
+    pulse.addChild(top);
+
+    const base = new pc.Entity("base");
+    base.addComponent("render", { type: "plane", material: this.material("#2e4a3f", 0.85) });
+    base.setLocalScale(innerSize, 1, innerSize);
+    base.setLocalPosition(0, 0.018, 0);
+    pulse.addChild(base);
+
+    const fillEntity = new pc.Entity("fill");
+    fillEntity.addComponent("render", { type: "plane", material: this.material("#7fba63", 0.9) });
+    fillEntity.setLocalScale(innerSize, 1, innerSize);
+    fillEntity.setLocalPosition(0, 0.024, 0);
+    fillEntity.enabled = false;
+    pulse.addChild(fillEntity);
+
+    return { group, pulse, topMaterial, fillEntity, highlighted };
+  }
+
+  /** Breathing-pulse animation (`purchaseMarkers.ts`'s own `animate()`),
+   * driven every render frame — the same sine formula, keyed off an
+   * internally accumulated clock. */
+  private stepPurchaseMarkersAnimation(dt: number) {
+    if (this.purchaseMarkerEntries.size === 0) return;
+    this.purchaseMarkersElapsedSeconds += dt;
+    for (const entry of this.purchaseMarkerEntries.values()) {
+      const breath = 1 + Math.sin(this.purchaseMarkersElapsedSeconds * 3.1) * (entry.highlighted ? 0.12 : 0.07);
+      entry.pulse.setLocalScale(breath, 1, breath);
+    }
+  }
+
+  /** Real stacked cash-bundle piles at each open checkout lane
+   * (`registerCashMarkers.ts`'s `update()` — a lane with money waiting gets
+   * its box count refreshed in place, a lane that drops to zero has its
+   * group torn down). The "RECOGER" label text is not built here — see
+   * `PlayCanvasSceneProps.registerCashMinor`'s doc comment. */
+  private syncRegisterCash(amounts: readonly [number, number, number], bundleMinor: number) {
+    if (!this.registerCashGroup) return;
+    for (const id of REGISTER_INTERACTION_IDS as readonly RegisterInteractionId[]) {
+      const lane = registerLane(id);
+      const bundles = Math.min(CASH_BUNDLE_RENDER_CAP, cashBundleCount(amounts[lane], bundleMinor));
+      const entry = this.registerCashEntries.get(lane);
+      if (bundles <= 0) {
+        if (entry) {
+          entry.group.destroy();
+          this.registerCashEntries.delete(lane);
+        }
+        continue;
+      }
+      if (!entry) {
+        this.registerCashEntries.set(lane, this.buildRegisterCashEntry(lane, bundles));
+        continue;
+      }
+      if (entry.bundleCount !== bundles) this.applyRegisterCashBundles(entry, bundles);
+    }
+  }
+
+  private buildRegisterCashEntry(lane: CheckoutLane, bundles: number): RegisterCashEntry {
+    const group = new pc.Entity(`register-cash:${lane}`);
+    this.registerCashGroup!.addChild(group);
+    const scaled = scaleStorePosition([...registerPickupPosition(lane)] as [number, number, number]);
+    group.setLocalPosition(scaled[0], scaled[1], scaled[2]);
+    group.setLocalScale(STORE_ELEMENT_SCALE, STORE_ELEMENT_SCALE, STORE_ELEMENT_SCALE);
+
+    const ring = new pc.Entity("ring");
+    ring.addComponent("render", { type: "plane", material: this.material("#e8ca6b") });
+    ring.setLocalScale(0.96, 1, 0.96);
+    group.addChild(ring);
+
+    const entry: RegisterCashEntry = { group, bundles: [], bundleCount: 0 };
+    this.applyRegisterCashBundles(entry, bundles);
+    return entry;
+  }
+
+  /** Mirrors `registerCashMarkers.ts`'s `bundleTransforms()`/`applyInstanceTransforms`
+   * layout exactly (3×3 layers of individual bundle boxes) — this port uses
+   * plain child entities instead of an `InstancedMesh`, appropriate at this
+   * scale (`CASH_BUNDLE_RENDER_CAP` is a real ceiling on register cash, not a
+   * typical count — a handful of bundles is the common case). */
+  private applyRegisterCashBundles(entry: RegisterCashEntry, bundles: number) {
+    for (const box of entry.bundles) box.destroy();
+    entry.bundles = [];
+    const [sizeX, sizeY, sizeZ] = CASH_BUNDLE_SIZE;
+    for (let index = 0; index < bundles; index += 1) {
+      const layer = Math.floor(index / CASH_STACK_PER_LAYER);
+      const slot = index % CASH_STACK_PER_LAYER;
+      const box = new pc.Entity(`bundle-${index}`);
+      box.addComponent("render", { type: "box", material: this.material("#79b063") });
+      box.setLocalScale(sizeX, sizeY, sizeZ);
+      box.setLocalPosition(
+        ((slot % 3) - 1) * (sizeX + 0.02),
+        sizeY / 2 + layer * (sizeY + 0.004),
+        (Math.floor(slot / 3) - 1) * (sizeZ + 0.02),
+      );
+      entry.group.addChild(box);
+      entry.bundles.push(box);
+    }
+    entry.bundleCount = bundles;
   }
 
   private onKey(event: KeyboardEvent, down: boolean) {
@@ -765,6 +1044,23 @@ export class PlayCanvasRuntime {
       this.playerAnimTarget = target;
       layer.transition(target, WALK_TRANSITION_SECONDS);
     }
+    // Continuous gait retiming (mirrors `crowdGaitTimeScale()` — see
+    // `LOCOMOTION_CLIP_NATURAL_SPEED`'s doc comment): every frame, not just on
+    // a clip switch, so foot-plant cadence scales smoothly with the body's
+    // actual presented speed instead of snapping between Walk/Run's authored
+    // playback rate of 1. `AnimComponent.speed` is a single multiplier over
+    // the whole component's `update(dt)` (`component.js`: `layers[i].update(dt
+    // * this.speed)`), which is exactly the right knob here because this
+    // entity's anim graph has only one active layer/state at a time — setting
+    // it while a work-pose plays would misspeed that pose, so it is pinned to
+    // 1 whenever the active target isn't a locomotion clip.
+    const natural = LOCOMOTION_CLIP_NATURAL_SPEED[this.playerAnimTarget];
+    if (natural !== undefined) {
+      const floor = natural * Math.max(1e-5, this.playerAnimRootScale);
+      anim.speed = Math.min(CROWD_TIME_SCALE_RANGE.max, Math.max(CROWD_TIME_SCALE_RANGE.min, presentedSpeed / floor));
+    } else {
+      anim.speed = 1;
+    }
   }
 
   /** Single render loop tick. */
@@ -772,6 +1068,8 @@ export class PlayCanvasRuntime {
     this.stepWorldTick();
     this.stepPlayer(dt, performance.now());
     this.stepDoors(dt);
+    this.stepFarmAnimals();
+    this.stepPurchaseMarkersAnimation(dt);
     this.updateCamera();
   }
 
@@ -940,6 +1238,50 @@ export class PlayCanvasRuntime {
    * aim at a point inside the solid fixture and never arrive. */
   getInteractionZones() {
     return this.currentZoneConfigs.map((zone) => ({ id: zone.id, x: zone.x, z: zone.z, enterRadius: zone.enterRadius, halfExtents: zone.halfExtents ?? null }));
+  }
+
+  /** QA/debug-only accessor (phase 10): the real gait `timeScale`
+   * (`AnimComponent.speed`, see `updatePlayerAnimation()`'s doc comment) and
+   * current clip currently applied to the player's own anim component, so
+   * headless verification can confirm continuous retiming instead of only
+   * the discrete Idle/Walk/Run switch. */
+  getPlayerAnimDebug() {
+    return { clip: this.playerAnimTarget, speed: this.playerAnimEntity?.anim?.speed ?? null };
+  }
+
+  /** QA/debug-only accessor (phase 10): every real farm-animal actor's live
+   * state — whether its `stationGroup` (coop/station shell + animal) is
+   * currently shown, whether the real GLB has finished loading, and its
+   * current clip/local position — so headless verification can confirm the
+   * live chicken/cow character (not just the static paddock/coop) without
+   * screenshot-diffing. */
+  /** QA/debug-only accessor (phase 10): every currently-rendered purchase
+   * marker's real funded/highlighted/enabled-fill state, so headless
+   * verification can confirm the visual floor square without
+   * screenshot-diffing. */
+  getPurchaseMarkerDebug() {
+    return Array.from(this.purchaseMarkerEntries.entries()).map(([id, entry]) => ({ id, highlighted: entry.highlighted, fillVisible: entry.fillEntity.enabled, fillScale: entry.fillEntity.getLocalScale().x }));
+  }
+
+  /** QA/debug-only accessor (phase 10): every open lane's real rendered
+   * cash-bundle count. */
+  getRegisterCashDebug() {
+    return Array.from(this.registerCashEntries.entries()).map(([lane, entry]) => ({ lane, bundleCount: entry.bundleCount }));
+  }
+
+  getFarmAnimalDebug() {
+    return this.farmAnimalActors.map((actor) => {
+      const position = actor.characterGroup.getLocalPosition();
+      return {
+        kind: actor.kind,
+        machineId: actor.machineId,
+        areaId: actor.areaId,
+        stationVisible: actor.stationGroup.enabled,
+        loaded: actor.entity !== null,
+        clip: actor.currentClip,
+        localPosition: { x: position.x, y: position.y, z: position.z },
+      };
+    });
   }
 
   resize() {
@@ -1244,6 +1586,10 @@ export class PlayCanvasRuntime {
       this.furnitureGroup.destroy();
       this.furnitureGroup = null;
     }
+    // Every farm animal actor lives under the furniture group being torn
+    // down above — drop the stale list so `stepFarmAnimals()` never touches
+    // a destroyed entity while `buildFarmEstate()` below repopulates it.
+    this.farmAnimalActors.length = 0;
     const group = new pc.Entity("worldkit:furniture");
     worldRoot.addChild(group);
     this.furnitureGroup = group;
@@ -1546,19 +1892,23 @@ export class PlayCanvasRuntime {
 
     // Three animal paddocks — real position/footprint, real gating. The
     // procedural fence stays a box volume (`animalStation.ts`'s own
-    // `buildAnimalPaddock()` is primitives too — posts/rails/trough, no GLB);
-    // the plain "animal" box is replaced with the real coop/station shell GLB
-    // `animalStation.ts`'s `loadEnvironmentProp()` loads for this exact
-    // fixture (see `ENVIRONMENT_MODEL_ROOT`'s doc comment). The live skinned
-    // chicken/cow character itself (`FarmAnimal`'s `AnimationMixer`) is a
-    // separate, still-deferred piece — this only ports the static shell.
-    const stations: Array<[keyof typeof FARM_ANIMAL_FOOTPRINTS, readonly [number, number, number], string, string]> = [
-      ["chicken", FARM_ANIMAL_STATIONS.chicken.position, "fixture:chicken-coop", "chicken_coop"],
-      ["cow", FARM_ANIMAL_STATIONS.cow.position, "fixture:cow-station", "cow_station"],
-      ["chicken2", FARM_ANIMAL_STATIONS.chicken2.position, "fixture:chicken-coop-2", "chicken_coop"],
+    // `buildAnimalPaddock()` is primitives too — posts/rails/trough, no GLB).
+    // `stationGroup` (coop/station shell + live animal) is a second, more
+    // restrictive gate on top of the paddock fence — mirrors
+    // `kitFarm.ts`'s `buildAnimalStationGroup.update()`'s own
+    // `showStation = unlockedAreas.includes(areaId) && Boolean(machine)`,
+    // which is why a fresh paddock (fence visible, no machine purchased yet)
+    // shows no coop/animal in production either; `stepFarmAnimals()` (per
+    // render frame — the machine can appear via `chicken-2`/`cow-1` purchases
+    // without a furniture-signature change) re-evaluates this every frame,
+    // not just at build time.
+    const stations: Array<[keyof typeof FARM_ANIMAL_FOOTPRINTS, readonly [number, number, number], string, string, FarmAnimalKind, string, string]> = [
+      ["chicken", FARM_ANIMAL_STATIONS.chicken.position, "fixture:chicken-coop", "chicken_coop", "chicken", "chicken-coop-1", "chicken-coop"],
+      ["cow", FARM_ANIMAL_STATIONS.cow.position, "fixture:cow-station", "cow_station", "cow", "cow-station-1", "cow-station"],
+      ["chicken2", FARM_ANIMAL_STATIONS.chicken2.position, "fixture:chicken-coop-2", "chicken_coop", "chicken", "chicken-coop-2", "chicken-coop-2"],
     ];
     const ownerGroup = parent;
-    for (const [footprintId, position, obstacleId, glbFile] of stations) {
+    for (const [footprintId, position, obstacleId, glbFile, kind, machineId, areaId] of stations) {
       if (!fixtureAvailable(obstacleId, unlockedAreas)) continue;
       const footprint = FARM_ANIMAL_FOOTPRINTS[footprintId];
       const scaled = scaleStorePosition([...position] as [number, number, number]);
@@ -1574,7 +1924,102 @@ export class PlayCanvasRuntime {
       // `buildAnimalStation()` adds its coop/station `shell` group with no
       // offset, inside a `group` also positioned at `[0, 0, 0]` relative to
       // the real `makeStoreElement()` anchor this fixture's `element` mirrors.
-      this.attachFixtureModel(element, ownerGroup, `${ENVIRONMENT_MODEL_ROOT}/${glbFile}.glb`, `fixture-model:${obstacleId}`, STORE_ELEMENT_SCALE);
+      const stationGroup = new pc.Entity(`fixture-station:${obstacleId}`);
+      stationGroup.enabled = false;
+      element.addChild(stationGroup);
+      this.attachFixtureModel(stationGroup, ownerGroup, `${ENVIRONMENT_MODEL_ROOT}/${glbFile}.glb`, `fixture-model:${obstacleId}`, STORE_ELEMENT_SCALE);
+
+      const characterGroup = new pc.Entity(`fixture-animal:${obstacleId}`);
+      // Real `buildAnimalCharacter()` local offset (`group.position.set(0, 0.08, 0.32)`).
+      characterGroup.setLocalPosition(0, 0.08 * STORE_ELEMENT_SCALE, 0.32 * STORE_ELEMENT_SCALE);
+      stationGroup.addChild(characterGroup);
+      const actor: FarmAnimalActor = { kind, machineId, areaId, stationGroup, characterGroup, entity: null, animAvailable: new Set(), currentClip: null, time: kind === "cow" ? 4 : 0, lastTickMs: performance.now() };
+      this.farmAnimalActors.push(actor);
+      void this.loadFarmAnimalCharacter(actor);
+    }
+  }
+
+  /** Loads the real skinned chicken/cow GLB (`ANIMAL_MODEL_ROOT`'s doc
+   * comment), instantiates it under `actor.characterGroup`, and wires its
+   * `Idle`/`Walk`/`Peck`(chicken)/`Graze`(cow) clips onto a plain anim state
+   * graph — same "one entity, PlayCanvas's own `anim` component" approach
+   * `loadPlayerCharacter()` uses, appropriate here too since there are at
+   * most three animal stations on screen at once (see `animalStation.ts`'s
+   * own doc comment for why a per-instance mixer, not the crowd GPU-skinning
+   * pipeline, is the right port for this actor). `stepFarmAnimals()` drives
+   * clip switching/position every frame once this resolves; no-ops until
+   * then. Fire-and-forget, like every other WorldKit-adjacent GLB load in
+   * this file. */
+  private async loadFarmAnimalCharacter(actor: FarmAnimalActor) {
+    const url = `${ANIMAL_MODEL_ROOT}/${actor.kind}.glb`;
+    const asset = new pc.Asset(`farm-animal:${actor.kind}:${actor.machineId}`, "container", { url, filename: `${actor.kind}-${actor.machineId}.glb` });
+    this.app.assets.add(asset);
+    const loaded = await new Promise<boolean>((resolve) => {
+      asset.once("load", () => resolve(true));
+      asset.once("error", (message: string) => {
+        console.error(`[playcanvas] failed to load farm animal ${url}: ${message}`);
+        resolve(false);
+      });
+      this.app.assets.load(asset);
+    });
+    if (this.disposed || !loaded || !this.farmAnimalActors.includes(actor)) return;
+    const resource = asset.resource as pc.ContainerResource & { animations: pc.Asset[] };
+    const entity = resource.instantiateRenderEntity();
+    entity.addComponent("anim", { activate: true, speed: 1 });
+    actor.characterGroup.addChild(entity);
+    actor.entity = entity;
+
+    const animAssets = resource.animations;
+    const findClip = (name: string) => animAssets.find((clipAsset) => (clipAsset.resource as pc.AnimTrack | undefined)?.name === name)?.resource as pc.AnimTrack | undefined;
+    const idle = findClip("Idle");
+    const walk = findClip("Walk");
+    const workClipName: FarmAnimalClip = actor.kind === "cow" ? "Graze" : "Peck";
+    const workClip = findClip(workClipName);
+    const anim = entity.anim;
+    if (anim && idle) {
+      const states: Array<{ name: string; speed?: number; loop?: boolean }> = [{ name: "START" }, { name: "Idle", speed: 1, loop: true }];
+      actor.animAvailable.add("Idle");
+      if (walk) { states.push({ name: "Walk", speed: 1, loop: true }); actor.animAvailable.add("Walk"); }
+      if (workClip) { states.push({ name: workClipName, speed: 1, loop: true }); actor.animAvailable.add(workClipName); }
+      anim.loadStateGraph({ layers: [{ name: "locomotion", states, transitions: [{ from: "START", to: "Idle" }] }], parameters: {} });
+      anim.assignAnimation("Idle", idle, "locomotion");
+      if (walk) anim.assignAnimation("Walk", walk, "locomotion");
+      if (workClip) anim.assignAnimation(workClipName, workClip, "locomotion");
+    }
+  }
+
+  /** Real per-frame chicken/cow drive — the exact `animalMotion()` pure
+   * function `animalStation.ts`'s own `update()` calls, fed the exact same
+   * `machine.status === "PROCESSING"` `active` flag. Reads
+   * `useMarketStore.getState()` directly (like `stepWorldTick()`'s
+   * `tickWorld()` call) rather than through `PlayCanvasSceneProps`, since
+   * `productionMachines` is raw store state with no React-side derivation —
+   * this also means a machine purchased mid-session (e.g. `chicken-2`) shows
+   * its coop/animal the very next frame, with no furniture rebuild needed. */
+  private stepFarmAnimals() {
+    if (this.farmAnimalActors.length === 0) return;
+    const game = useMarketStore.getState().game;
+    const franchise = game?.franchises.find((item) => item.id === game.currentFranchiseId) ?? game?.franchises[0];
+    if (!franchise) return;
+    const machineById = new Map(franchise.productionMachines.map((machine) => [machine.id, machine] as const));
+    const nowMs = performance.now();
+    for (const actor of this.farmAnimalActors) {
+      const machine = machineById.get(actor.machineId);
+      const showStation = franchise.unlockedAreas.includes(actor.areaId) && Boolean(machine);
+      actor.stationGroup.enabled = showStation;
+      const step = Math.min((nowMs - actor.lastTickMs) / 1000, 0.05);
+      actor.lastTickMs = nowMs;
+      if (!showStation || !actor.entity) continue;
+      actor.time += step;
+      const motion = animalMotion(actor.kind, actor.time, machine!.status === "PROCESSING");
+      actor.characterGroup.setLocalPosition(motion.x * STORE_ELEMENT_SCALE, 0.08 * STORE_ELEMENT_SCALE, 0.32 * STORE_ELEMENT_SCALE);
+      actor.characterGroup.setEulerAngles(0, (motion.yaw * 180) / Math.PI, 0);
+      let target = motion.clip;
+      if (!actor.animAvailable.has(target)) target = "Idle";
+      if (target !== actor.currentClip && actor.animAvailable.has(target)) {
+        actor.currentClip = target;
+        actor.entity.anim?.baseLayer?.transition(target, 0.15);
+      }
     }
   }
 
