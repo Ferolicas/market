@@ -38,6 +38,16 @@
  *   `ClientRuntime`'s constructor for the real fix this reverts (disabling
  *   it there is the one that actually ships enabled). For A/B comparison
  *   only; never enabled by default.
+ * - `cadence`: forces `ClientRuntime.shouldPresentNow()` to always present,
+ *   reverting to the pre-2026-09-27 behaviour of calling `present()`+
+ *   `render()` on every single rAF tick regardless of the mobile profile's
+ *   `targetFps: 30` idle budget. Root-caused with the owner's report of an
+ *   iPhone staying warm for minutes after a 15-minute `/runtime` playtest
+ *   despite in-budget per-frame timing (3-7ms): this loop never actually
+ *   read `targetFps`/`motionFps` at all, so a mostly-idle session was
+ *   presenting a full GPU frame roughly twice as often as intended for its
+ *   whole duration — the sustained load the single-frame timing couldn't
+ *   see. For A/B comparison only; never enabled by default.
  */
 export interface AblationFlags {
   skipText: boolean;
@@ -45,6 +55,7 @@ export interface AblationFlags {
   skipAnimals: boolean;
   skipWarmup: boolean;
   forceShaderChecks: boolean;
+  forceEveryFramePresent: boolean;
 }
 
 export const ablation: AblationFlags = {
@@ -53,6 +64,7 @@ export const ablation: AblationFlags = {
   skipAnimals: false,
   skipWarmup: false,
   forceShaderChecks: false,
+  forceEveryFramePresent: false,
 };
 
 /** Call once, before building any WorldKit content, from `ClientRuntime`'s constructor. */
@@ -63,4 +75,5 @@ export function configureAblation(search: string) {
   ablation.skipAnimals = requested.has("animals");
   ablation.skipWarmup = requested.has("warmup");
   ablation.forceShaderChecks = requested.has("shaderchecks");
+  ablation.forceEveryFramePresent = requested.has("cadence");
 }

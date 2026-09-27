@@ -5,11 +5,14 @@ import { publishLiveActors } from "@/game/render/LiveActors";
 import { PartsInstancer } from "@/game/render/CrowdParts";
 import { loadCrowdAnimation } from "@/game/render/CrowdSkinning";
 import { CrowdCustomersSystem, CrowdEmployeesSystem, CUSTOMER_BODY_KEYS, CUSTOMER_PROP_DEFINITIONS, EMPLOYEE_BODY_KEYS, EMPLOYEE_PROP_DEFINITIONS, HAT_FILES, PROP_CAPACITY, PRODUCT_CAPACITY, createCrowdBody, createPropInstancers, employeeBodyOf, firstSkinnedMesh } from "@/game/render/CrowdSystems";
+import { prepareCharacterModel } from "@/game/animation/CharacterPresentation";
+import { daylightPresentation } from "@/game/time/BusinessDay";
 import { accessoryParts, deliveredProductParts } from "@/components/game/CrowdProps";
 import { ensureStoreNavigation } from "@/game/navigation/NavMeshService";
 import { setInPlaceWorldTicks, useMarketStore } from "@/game/store";
 import { WORLD_TICK_INTERVAL_MS } from "@/game/core/timing";
-import { marketRenderProfileForCapabilities } from "@/game/render/AdaptiveQuality";
+import { DisplayCadenceEstimator, marketRenderProfileForCapabilities, MotionCadenceController, presentationDivisor, type MarketRenderProfile } from "@/game/render/AdaptiveQuality";
+import { visibleActorMotionActive } from "@/game/render/LiveActors";
 import { FieldPerformanceSampler } from "@/game/telemetry/FieldPerformance";
 import { STORE_LAYOUT_SCALE, WORLD_SCALE } from "@/game/world-scale";
 import type { CharacterId, HatId } from "@/game/types";
@@ -19,7 +22,7 @@ import { PlayerActor } from "./PlayerActor";
 import { RetailStockLayer } from "./RetailStockLayer";
 import { SignLayer } from "./SignLayer";
 import { StationLayer } from "./StationLayer";
-import { accessoryPath, budgetPath, characterPath, loadBakedWorld, loadGltf, type BakedWorld } from "./WorldAssets";
+import { accessoryPath, budgetPath, characterPath, getInFlightLoadCount, loadBakedWorld, loadGltf, type BakedWorld } from "./WorldAssets";
 import { buildFurniture, buildFarm, type FurnitureBuildProps, type FarmBuildProps } from "./WorldKit";
 import { buildStorefrontDoor, type StorefrontDoorHandle } from "./WorldKit/storefrontDoor";
 import { buildRearFarmDoor, type RearFarmDoorHandle } from "./WorldKit/rearFarmDoor";
@@ -27,7 +30,9 @@ import { buildPurchaseMarkers } from "./WorldKit/purchaseMarkers";
 import { buildRegisterCashMarkers } from "./WorldKit/registerCashMarkers";
 import { buildTransferEffects, type TransferEffectsHandle } from "./WorldKit/transferEffects";
 import { ablation, configureAblation } from "./WorldKit/ablation";
-import { warmUpNewContent, warmUpTexturesNow } from "./WorldKit/gpuWarmup";
+import { warmUpShadersBeforeAttach, warmUpTexturesIdle, warmUpTexturesNow } from "./WorldKit/gpuWarmup";
+import { FrameAttribution, type FrameBreakdown } from "@/runtime/frameAttribution";
+import { readUsedJsHeapMb } from "@/runtime/integralMetrics";
 
 /**
  * The plain-three client: one renderer, one scene built once from the baked
@@ -123,8 +128,33 @@ export class ClientRuntime {
   private readonly onInteractiveVerified?: ClientRuntimeOptions["onInteractiveVerified"];
   private interactiveVerified = false;
   private readonly debug: boolean;
+  /** `/runtime`'s worldKit path only (`this.worldKit && this.debug`) — see
+   * `frameAttribution.ts`'s module doc comment. `null` (never constructed)
+   * for `/` and `/play2`, and for `/runtime` itself without `?debug=1`, so
+   * neither pays even the cheap `mark()` bracket cost by default. */
+  private readonly attribution: FrameAttribution | null;
   private mobile: boolean;
   private glassTransmission: boolean;
+  private readonly renderProfile: MarketRenderProfile;
+  /** Idle-vs-motion presentation cadence for mobile — root-caused 2026-09-27:
+   * this loop used to call `present()`+`render()` on every single rAF tick
+   * unconditionally, so a `targetFps: 30` mobile profile never actually took
+   * effect here (only `/`'s and `/play2`'s React canvas, via MarketScene's
+   * `CappedFrameScheduler`, ever read it). A 15-minute iPhone playtest spends
+   * most of its time with the player standing still, so `/runtime` was doing
+   * a full submit-and-present GPU pass roughly twice as often as the already
+   * shipped, already-tuned idle budget intends for that whole span — cheap
+   * per frame (3-7ms), but sustained at 2x the necessary rate is exactly the
+   * kind of "keeps the chip busy beyond the measured work window" load that
+   * shows up as lingering heat rather than as a slow frame. Desktop
+   * (`targetFps: 60`) is completely unaffected: the divisor is always 1. */
+  private readonly presentCadence = new DisplayCadenceEstimator();
+  private readonly presentMotionCadence = new MotionCadenceController();
+  private presentTicksSincePresent = 0;
+  private presentLastAt = 0;
+  private presentLastSlotMs = 0;
+  private presentLastTickAt = 0;
+  private presentAccumulatedDelta = 0;
 
   constructor(private readonly options: ClientRuntimeOptions) {
     // Diagnostic-only, opt-in ablation flags for the iPhone frame-pacing
@@ -134,6 +164,7 @@ export class ClientRuntime {
     const profile = marketRenderProfileForCapabilities({ width: window.innerWidth, coarsePointer: window.matchMedia("(any-pointer: coarse)").matches, devicePixelRatio: window.devicePixelRatio });
     this.mobile = profile.mobile;
     this.glassTransmission = profile.glassTransmission;
+    this.renderProfile = profile;
     this.renderer = new THREE.WebGLRenderer({ canvas: options.canvas, antialias: !profile.mobile, powerPreference: profile.powerPreference, alpha: false, stencil: false, depth: true });
     this.renderer.setPixelRatio(Math.min(profile.mobile ? 2 : 2, window.devicePixelRatio));
     // `/runtime`'s worldKit path only (`/play2` keeps three.js's default,
@@ -195,6 +226,7 @@ export class ClientRuntime {
     this.onFrameSample = options.onFrameSample;
     this.onInteractiveVerified = options.onInteractiveVerified;
     this.worldKit = Boolean(options.worldKit);
+    this.attribution = this.worldKit && this.debug ? new FrameAttribution(getInFlightLoadCount, readUsedJsHeapMb) : null;
     this.player = new PlayerActor({
       onInteract: (id) => this.props?.onInteract(id as InteractionId),
       onDistance: (meters) => this.props?.onDistance(meters),
@@ -242,19 +274,59 @@ export class ClientRuntime {
     };
   }
 
+  private keyLight!: THREE.DirectionalLight;
+  private ambientLight!: THREE.AmbientLight;
+
   private setupLights() {
-    // One key light, no shadow map, hemisphere fill: occlusion is baked.
-    const key = new THREE.DirectionalLight("#fff2dc", 2.1);
+    // One key light, no shadow map: occlusion is baked. Initial values match
+    // `daylightPresentation()`'s `DAY` phase (`/`'s `BusinessDay.ts`) so the
+    // very first frame (before any `setProps`/`syncStatic` call lands) looks
+    // right without waiting on a tick.
+    const key = new THREE.DirectionalLight("#fff6df", 2.3);
     key.position.set(8 * WORLD_SCALE, 13 * WORLD_SCALE, 7 * WORLD_SCALE);
     key.castShadow = false;
-    const hemisphere = new THREE.HemisphereLight("#dfeaf2", "#7d6f5c", 1.15);
-    const ambient = new THREE.AmbientLight("#ffffff", 0.35);
-    this.scene.add(key, hemisphere, ambient);
+    const ambient = new THREE.AmbientLight("#ffffff", 1.15);
+    this.keyLight = key;
+    this.ambientLight = ambient;
+    this.scene.add(key, ambient);
+    if (this.worldKit) {
+      // `/runtime` only — mirrors `MarketScene.tsx`'s `<fog>` (`daylight.fog`,
+      // near/far `62/105 * WORLD_SCALE`) so distant geometry fades into the
+      // sky colour like the source instead of popping at the far plane.
+      // `/play2` is unaffected (no `this.scene.fog` assignment at all,
+      // exactly as before this fix).
+      this.scene.fog = new THREE.Fog(new THREE.Color("#b8dfce"), 62 * WORLD_SCALE, 105 * WORLD_SCALE);
+    } else {
+      // `/play2` keeps its own invented fill light, unchanged — it never
+      // existed in `/` (`MarketScene.tsx` has no `<hemisphereLight>` at all,
+      // confirmed by direct grep) and was never part of the parity contract
+      // for that route, which this fix does not touch.
+      this.scene.add(new THREE.HemisphereLight("#dfeaf2", "#7d6f5c", 1.15));
+    }
+  }
+
+  /** `/runtime` only (`this.worldKit`) — real gap found by direct comparison
+   * with `MarketScene.tsx`: the source's key light, ambient light, sky/fog
+   * colour and clear colour all track `daylightPresentation(minuteOfDay)`
+   * (`BusinessDay.ts`) through a full day → sunset → night cycle, but
+   * `ClientRuntime` only ever set them once, statically, at construction —
+   * so `/runtime` never dimmed, tinted or fogged the scene as the in-game
+   * clock advanced, unlike `/`. `/play2` is untouched (never calls this). */
+  private applyDaylight(minuteOfDay: number) {
+    const daylight = daylightPresentation(minuteOfDay);
+    this.keyLight.color.set(daylight.keyColor);
+    this.keyLight.intensity = daylight.keyIntensity;
+    this.ambientLight.intensity = daylight.ambientIntensity;
+    const background = new THREE.Color(daylight.background);
+    this.scene.background = background;
+    this.renderer.setClearColor(background, 1);
+    if (this.scene.fog instanceof THREE.Fog) this.scene.fog.color.set(daylight.fog);
   }
 
   /** Loads the level: baked store, owner, crowd bodies, props, signs. */
   async load(initial: MarketSceneProps) {
     this.props = initial;
+    if (this.worldKit) this.applyDaylight(initial.minuteOfDay);
     // `?inplace=0` keeps the cloning tick for A/B checks of the in-place path.
     setInPlaceWorldTicks(!new URLSearchParams(window.location.search).has("inplace") || new URLSearchParams(window.location.search).get("inplace") !== "0");
     // Who drives `tickWorld` (this loop, vs. `GameRuntime`'s own `setInterval`)
@@ -397,8 +469,8 @@ export class ClientRuntime {
   /** Runs `tasks` with at most `concurrency` in flight, yielding one rendered
    * frame after each task finishes before starting the next on that worker —
    * network fetches still overlap (`concurrency` of them at a time), but each
-   * task's own main-thread work (GLTF `parse()`, `createCrowdBody`, the scene
-   * mutation and `warmUpNewContent` dispatch it triggers) lands in its own
+   * task's own main-thread work (GLTF `parse()`, `createCrowdBody`, the
+   * shader-warm-up-before-attach `warmUpShadersBeforeAttach` dispatches) lands in its own
    * frame instead of piling up in one continuous stretch. Root-caused
    * 2026-09-27 with a real CDP CPU profile taken under 4x CPU throttling
    * (approximating a real mobile SoC — real GPU driver work is invisible on
@@ -444,28 +516,47 @@ export class ClientRuntime {
     const customerTasks = Object.entries(CUSTOMER_BODY_KEYS).map(([, key]) => async () => {
       const path = this.worldKit ? characterPath("customers", key) : budgetPath("customers", key);
       const [gltf, animation] = await Promise.all([loadGltf(path), loadCrowdAnimation(key)]);
-      const skinned = firstSkinnedMesh(gltf.scene);
+      // `/runtime` only (`this.worldKit`) — `/play2` keeps the raw GLB
+      // material unchanged, byte-for-byte. `/`'s own `CrowdRenderer.tsx`
+      // (`CrowdBodyBatch`) always runs every crowd body through
+      // `prepareCharacterModel({ crowd: true, reducedDetail: true })` before
+      // reading its skinned mesh — the "premium" pass that removes the dry
+      // GLB-scan look (roughness reduction, envMapIntensity, an emissive
+      // self-fill for facial readability, clearcoat/sheen where the GLB
+      // ships `MeshPhysicalMaterial`, and 8x anisotropy + linear filtering on
+      // every character texture map). `/runtime`'s port never called it —
+      // found by direct comparison with `CrowdRenderer.tsx:31`.
+      const skinned = firstSkinnedMesh(this.worldKit ? prepareCharacterModel(gltf.scene, { crowd: true, reducedDetail: true }) : gltf.scene);
       if (!skinned) return;
       const body = createCrowdBody(skinned, animation, key);
-      this.layoutRoot.add(body.mesh);
-      this.customers.bodies.set(key, body);
       // `/runtime` only — see `finishReady`'s doc comment and
       // `gpuWarmup.ts`. This body streams in AFTER the first playable
       // frame on purpose, so its shader/texture warm-up must not block
-      // anything: shader compile is dispatched right away (cheap, scoped
-      // to this one body), texture upload is spread across idle time.
-      if (this.worldKit && !ablation.skipWarmup) warmUpNewContent(this.renderer, body.mesh, this.rig.camera, this.scene);
+      // anything long — but the shader program itself must be linked
+      // BEFORE this mesh is a scene child, or three.js's normal render path
+      // compiles it synchronously the instant it becomes visible (real
+      // evidence: `FrameAttribution`, 2026-09-27 — see
+      // `warmUpShadersBeforeAttach`'s doc comment). Texture upload stays on
+      // the idle path, same as before, since that was never the measured
+      // cost here.
+      if (this.worldKit && !ablation.skipWarmup) await warmUpShadersBeforeAttach(this.renderer, body.mesh, this.rig.camera, this.scene);
+      this.layoutRoot.add(body.mesh);
+      this.customers.bodies.set(key, body);
+      if (this.worldKit && !ablation.skipWarmup) warmUpTexturesIdle(this.renderer, body.mesh);
     });
     const employeeTasks = Object.values(EMPLOYEE_BODY_KEYS).map((key) => async () => {
       if (!key) return;
       const path = this.worldKit ? characterPath("characters", key) : budgetPath("characters", key);
       const [gltf, animation] = await Promise.all([loadGltf(path), loadCrowdAnimation(key)]);
-      const skinned = firstSkinnedMesh(gltf.scene);
+      // See the matching comment on `customerTasks` above — same fix, same
+      // gate, mirroring `CrowdRenderer.tsx:31`'s `EMPLOYEE_BODY_KEYS` path.
+      const skinned = firstSkinnedMesh(this.worldKit ? prepareCharacterModel(gltf.scene, { crowd: true, reducedDetail: true }) : gltf.scene);
       if (!skinned) return;
       const body = createCrowdBody(skinned, animation, key);
+      if (this.worldKit && !ablation.skipWarmup) await warmUpShadersBeforeAttach(this.renderer, body.mesh, this.rig.camera, this.scene);
       this.layoutRoot.add(body.mesh);
       this.employees.bodies.set(key, body);
-      if (this.worldKit && !ablation.skipWarmup) warmUpNewContent(this.renderer, body.mesh, this.rig.camera, this.scene);
+      if (this.worldKit && !ablation.skipWarmup) warmUpTexturesIdle(this.renderer, body.mesh);
     });
     const tasks = [...customerTasks, ...employeeTasks];
     if (stagger) await ClientRuntime.runStaggered(tasks, 2);
@@ -478,10 +569,11 @@ export class ClientRuntime {
       const productId = id === "egg" ? "eggs" : id;
       for (const registry of [this.customers.delivered, this.employees.delivered]) {
         const instancer = new PartsInstancer(deliveredProductParts(gltf.scene), PRODUCT_CAPACITY, `client-delivered:${productId}`);
+        // `/runtime` only — same shader-before-attach fix as crowd bodies above.
+        if (this.worldKit && !ablation.skipWarmup) await warmUpShadersBeforeAttach(this.renderer, instancer.meshes, this.rig.camera, this.scene);
         instancer.attach(this.layoutRoot);
         registry.set(productId, instancer);
-        // `/runtime` only — same deferred warm-up as crowd bodies above.
-        if (this.worldKit && !ablation.skipWarmup) warmUpNewContent(this.renderer, instancer.meshes, this.rig.camera, this.scene);
+        if (this.worldKit && !ablation.skipWarmup) warmUpTexturesIdle(this.renderer, instancer.meshes);
       }
     }
   }
@@ -497,11 +589,12 @@ export class ClientRuntime {
       const gltf = await loadGltf(path).catch(() => null);
       if (!gltf) continue;
       const instancer = new PartsInstancer(accessoryParts(gltf.scene), PROP_CAPACITY, `client-hat:${key}`);
+      // `/runtime` only — same shader-before-attach fix as crowd bodies above.
+      if (this.worldKit && !ablation.skipWarmup) await warmUpShadersBeforeAttach(this.renderer, instancer.meshes, this.rig.camera, this.scene);
       instancer.attach(this.layoutRoot);
       this.employees.hats.set(key, instancer);
       this.hatKinds.add(key);
-      // `/runtime` only — same deferred warm-up as crowd bodies above.
-      if (this.worldKit && !ablation.skipWarmup) warmUpNewContent(this.renderer, instancer.meshes, this.rig.camera, this.scene);
+      if (this.worldKit && !ablation.skipWarmup) warmUpTexturesIdle(this.renderer, instancer.meshes);
     }
   }
 
@@ -511,10 +604,15 @@ export class ClientRuntime {
     this.props = props;
     if (!this.ready) return;
     if (props.employees !== previous?.employees) void this.loadEmployeeHats(props);
-    this.syncStatic(props);
+    if (this.attribution) this.attribution.markAsync("setProps:syncStatic", () => this.syncStatic(props));
+    else this.syncStatic(props);
   }
 
   private syncStatic(props: MarketSceneProps) {
+    // `/runtime` only — cheap (a few colour/intensity writes, no allocation
+    // beyond one `THREE.Color`), runs once per world tick like every other
+    // `syncStatic` update, not per rendered frame.
+    if (this.worldKit) this.applyDaylight(props.minuteOfDay);
     publishLiveActors(props.customers, props.checkoutTransactions, props.employees, props.simulationTimeMs);
     this.employees.setEmployees(props.employees);
     this.player.carry = props.carry;
@@ -567,7 +665,7 @@ export class ClientRuntime {
   }
 
   private tick(now: number) {
-    const tickStart = this.onFrameSample ? performance.now() : 0;
+    const tickStart = this.onFrameSample || this.attribution ? performance.now() : 0;
     const rawGapMs = now - this.lastFrameAt;
     const delta = Math.min(MAX_FRAME_DELTA, Math.max(0, rawGapMs / 1000));
     this.lastFrameAt = now;
@@ -583,15 +681,27 @@ export class ClientRuntime {
         steps += 1;
         const before = performance.now();
         useMarketStore.getState().tickWorld(WORLD_TICK_INTERVAL_MS);
-        window.dispatchEvent(new CustomEvent("market-world-tick-cost", { detail: performance.now() - before }));
+        const cost = performance.now() - before;
+        window.dispatchEvent(new CustomEvent("market-world-tick-cost", { detail: cost }));
+        this.attribution?.addWorldTick(cost);
       }
       if (this.tickAccumulatorMs > WORLD_TICK_INTERVAL_MS * 3) this.tickAccumulatorMs = 0;
     }
     if (!this.ready) return;
+    this.presentAccumulatedDelta += delta;
+    if (!this.shouldPresentNow(now)) {
+      const workMs = performance.now() - tickStart;
+      this.onFrameSample?.(workMs, rawGapMs, this.renderer.info.render.calls, this.renderer.info.render.triangles);
+      this.attribution?.endFrame(workMs, rawGapMs);
+      return;
+    }
+    const presentDelta = this.presentAccumulatedDelta;
+    this.presentAccumulatedDelta = 0;
     const prevX = this.onInteractiveVerified && !this.interactiveVerified ? this.player.position.x : 0;
     const prevZ = this.onInteractiveVerified && !this.interactiveVerified ? this.player.position.z : 0;
-    this.present(delta, now);
-    this.renderer.render(this.scene, this.rig.camera);
+    this.present(presentDelta, now);
+    if (this.attribution) this.attribution.mark("render", () => this.renderer.render(this.scene, this.rig.camera));
+    else this.renderer.render(this.scene, this.rig.camera);
     if (this.onInteractiveVerified && !this.interactiveVerified) {
       const moved = Math.hypot(this.player.position.x - prevX, this.player.position.z - prevZ) > 0.0005;
       if (moved && this.player.input.magnitude > 0.05) {
@@ -600,23 +710,73 @@ export class ClientRuntime {
       }
     }
     if (this.debug) this.publishDebug();
-    this.onFrameSample?.(performance.now() - tickStart, rawGapMs, this.renderer.info.render.calls, this.renderer.info.render.triangles);
+    const workMs = performance.now() - tickStart;
+    this.onFrameSample?.(workMs, rawGapMs, this.renderer.info.render.calls, this.renderer.info.render.triangles);
+    this.attribution?.endFrame(workMs, rawGapMs);
   }
 
+  /** Same idle/motion cadence gate as MarketScene's `CappedFrameScheduler`,
+   * reimplemented here because this runtime drives its own manual rAF loop
+   * instead of R3F's `advance()`. Desktop (`targetFps: 60`) always returns
+   * true — `presentationDivisor` degenerates to 1, so behaviour there is
+   * byte-for-byte unchanged. On mobile, presents at `motionFps` (60) while
+   * the player or any visible crowd actor is actually moving, and drops to
+   * `targetFps` (30) the rest of the time — real accumulated wall-clock delta
+   * (`presentAccumulatedDelta`) is handed to the eventual `present()` call so
+   * motion covers the true elapsed time instead of looking slowed down. */
+  private shouldPresentNow(now: number): boolean {
+    if (ablation.forceEveryFramePresent) return true;
+    if (!this.renderProfile.mobile || this.renderProfile.targetFps >= 60) return true;
+    if (document.visibilityState !== "visible") return false;
+    const refreshIntervalMs = this.presentCadence.observe(now);
+    if (
+      this.presentLastAt > 0 &&
+      this.presentLastTickAt === this.presentLastAt &&
+      this.presentMotionCadence.observe(now - this.presentLastAt, this.presentLastSlotMs, now, refreshIntervalMs, this.renderProfile.motionFps)
+    ) {
+      // Motion cadence level changed (stepped down/up) — no diagnostics
+      // consumer for `/runtime` today, unlike MarketScene's `announce()`.
+    }
+    this.presentLastTickAt = now;
+    const moving = this.player.input.magnitude > 0.05 || visibleActorMotionActive();
+    const divisor = moving
+      ? this.presentMotionCadence.divisor(refreshIntervalMs, this.renderProfile.motionFps)
+      : presentationDivisor(refreshIntervalMs, this.renderProfile.targetFps);
+    this.presentTicksSincePresent += 1;
+    if (this.presentTicksSincePresent < divisor) return false;
+    this.presentTicksSincePresent = 0;
+    this.presentLastAt = now;
+    this.presentLastSlotMs = refreshIntervalMs * divisor;
+    return true;
+  }
+
+  /** Subsystem cost attribution (`FrameAttribution`, `/runtime`'s worldKit
+   * path + `?debug=1` only) brackets these same calls in the same order —
+   * this file never runs a second, attribution-only code path that could
+   * itself drift from real behaviour. A no-op passthrough (`fn()` with no
+   * `performance.now()` pair) when attribution isn't constructed. */
   private present(delta: number, now: number) {
-    this.player.setDoorProgress(this.storefrontDoor?.progress ?? 0, this.rearFarmDoor?.progress ?? 0);
-    this.player.step(delta, now);
-    this.player.present(delta);
-    this.rig.update(this.player.position.x, this.player.position.z, this.checkoutFocused, delta, delta === 0);
-    this.customers.update(this.rig.camera, delta, this.elapsed);
-    this.employees.update(this.rig.camera, delta);
-    this.stations?.update(delta);
-    this.furniture?.animate(delta);
-    this.purchaseMarkers?.animate(delta);
-    if (this.props) this.storefrontDoor?.update(this.props.doorState, this.props.doorProgress, this.props.open, delta);
-    this.rearFarmDoor?.update(this.player.position.x / STORE_LAYOUT_SCALE, this.player.position.z / STORE_LAYOUT_SCALE, delta);
-    this.transferEffects?.animate(delta, this.player.basketWorld);
-    this.signs?.flush(this.renderer);
+    const attribution = this.attribution;
+    const mark = attribution ? attribution.mark.bind(attribution) : <T,>(_key: keyof FrameBreakdown, fn: () => T) => fn();
+    mark("physics", () => {
+      this.player.setDoorProgress(this.storefrontDoor?.progress ?? 0, this.rearFarmDoor?.progress ?? 0);
+      this.player.step(delta, now);
+      this.player.present(delta);
+      this.rig.update(this.player.position.x, this.player.position.z, this.checkoutFocused, delta, delta === 0);
+    });
+    mark("crowd", () => {
+      this.customers.update(this.rig.camera, delta, this.elapsed);
+      this.employees.update(this.rig.camera, delta);
+    });
+    mark("stations", () => {
+      this.stations?.update(delta);
+      this.furniture?.animate(delta);
+      this.purchaseMarkers?.animate(delta);
+      if (this.props) this.storefrontDoor?.update(this.props.doorState, this.props.doorProgress, this.props.open, delta);
+      this.rearFarmDoor?.update(this.player.position.x / STORE_LAYOUT_SCALE, this.player.position.z / STORE_LAYOUT_SCALE, delta);
+      this.transferEffects?.animate(delta, this.player.basketWorld);
+      this.signs?.flush(this.renderer);
+    });
   }
 
   resize() {
@@ -665,7 +825,19 @@ export class ClientRuntime {
     // EXT_disjoint_timer_query_webgl2 around `renderer.render()`.
     const qaWindow = window as typeof window & { __MARKET_QA__?: Record<string, unknown>; __MARKET_PERF_SCENE__?: () => THREE.Scene; __MARKET_QA_RENDERER__?: THREE.WebGLRenderer };
     qaWindow.__MARKET_QA__ ??= {};
-    if (performance.now() - this.debugBreakdownAt > 1000) { this.debugBreakdownAt = performance.now(); qaWindow.__MARKET_QA__.drawBreakdown = this.drawBreakdown(); }
+    if (performance.now() - this.debugBreakdownAt > 1000) {
+      this.debugBreakdownAt = performance.now();
+      qaWindow.__MARKET_QA__.drawBreakdown = this.drawBreakdown();
+      // `/runtime`'s worldKit path + `?debug=1` only — see `frameAttribution.ts`.
+      // Refreshed on the same 1s cadence as `drawBreakdown` (not every frame):
+      // the spike buffer changes rarely (only on a real >=20ms frame), so
+      // resorting/copying it every frame would be pure waste.
+      if (this.attribution) {
+        qaWindow.__MARKET_QA__.frameAttributionSpikes = this.attribution.getSpikes();
+        qaWindow.__MARKET_QA__.frameAttributionGltfParse = this.attribution.getGltfParseEvents();
+        qaWindow.__MARKET_QA__.frameAttributionAsync = this.attribution.getAsyncEvents();
+      }
+    }
     qaWindow.__MARKET_QA__.player = { x: this.player.position.x, z: this.player.position.z, presentedX: this.player.position.x, presentedZ: this.player.position.z, speed: 0, visible: true };
     qaWindow.__MARKET_QA__.input = this.player.input;
     const hooks = window as typeof window & { __MARKET_SET_PLAYER_INPUT__?: (x: number, y: number) => void };
@@ -683,6 +855,7 @@ export class ClientRuntime {
   dispose() {
     this.disposed = true;
     this.stop();
+    this.attribution?.dispose();
     setInPlaceWorldTicks(false);
     // The tick-driver flag itself is owned by `GameShell`'s `useLayoutEffect`
     // (its lifetime matches the route, not this instance's) — nothing to

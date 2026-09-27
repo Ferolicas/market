@@ -103,24 +103,30 @@ export function warmUpTexturesIdle(renderer: THREE.WebGLRenderer, root: WarmRoot
   schedule();
 }
 
-/** Dispatches non-blocking shader compilation for every material under
- * `root`, using the real live `scene` so lighting/fog match what will
- * actually be rendered — the exact use the source documents for
- * `WebGLRenderer.compile`'s third parameter ("If you want to add a 3D
- * object to an existing scene, use the target scene parameter"). Cheap even
- * called often: scoped to just `root`'s own materials (not a whole-scene
- * traversal), and an already-linked program is reused, never recompiled. */
-export function warmUpShaders(renderer: THREE.WebGLRenderer, root: WarmRoot, camera: THREE.Camera, scene: THREE.Scene): void {
-  for (const object of Array.isArray(root) ? root : [root]) {
-    void renderer.compileAsync(object as THREE.Object3D, camera, scene).catch(() => {});
-  }
-}
-
-/** The one call site every deferred WorldKit loader (crowd bodies/hats/
- * delivered products, farm animals, environment props) makes the instant
- * its new content attaches to the live scene — see the module doc comment
- * for why this is the actual fix, not a relocation of the same stall. */
-export function warmUpNewContent(renderer: THREE.WebGLRenderer, root: WarmRoot, camera: THREE.Camera, scene: THREE.Scene): void {
-  warmUpShaders(renderer, root, camera, scene);
-  warmUpTexturesIdle(renderer, root);
+/**
+ * 2026-09-27 tail-latency fix: an earlier version of this module
+ * (`warmUpShaders`/`warmUpNewContent`, now removed) dispatched
+ * `renderer.compileAsync()` but never waited for it — every deferred loader
+ * used to call it AFTER already attaching `root` to the live scene
+ * (`this.layoutRoot.add(...)` before the warm-up call). Real evidence
+ * (`FrameAttribution`, a 6-minute throttled `/runtime` session,
+ * 2026-09-27): the single worst two frames recorded (215.6ms and 170.2ms
+ * `workMs`, ~97% of it inside `renderer.render()` itself) both landed
+ * exactly during the post-ready crowd-body streaming window, each carrying
+ * 32-36 real `gl.compileShader` and 16-18 `gl.linkProgram` calls in that one
+ * frame — `compileAsync` was still in flight (or had not even been awaited
+ * anywhere) when the object was already a scene child close enough to the
+ * camera to actually get drawn, so three.js fell back to its normal
+ * synchronous "compile the program the first time it's used" path, right
+ * inside that frame's `render()` call. `compileAsync` needs a scene
+ * reference for lighting/fog context, not scene MEMBERSHIP (`root` need not
+ * be attached yet) — so every deferred loader now awaits this BEFORE
+ * `layoutRoot.add(root)`, guaranteeing the program is already linked before
+ * the object can ever be drawn. Texture upload stays on the idle path
+ * (`warmUpTexturesIdle`, called after attach, unchanged): the same evidence
+ * showed `glTexUploadCount` flat and low (3) even in the worst frames, so
+ * shader compile — not texture upload — was the real, dominant, fixable
+ * cost here. */
+export async function warmUpShadersBeforeAttach(renderer: THREE.WebGLRenderer, root: WarmRoot, camera: THREE.Camera, scene: THREE.Scene): Promise<void> {
+  await Promise.all((Array.isArray(root) ? root : [root]).map((object) => renderer.compileAsync(object, camera, scene).catch(() => {})));
 }

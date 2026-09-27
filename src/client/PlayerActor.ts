@@ -8,6 +8,7 @@ import { BODY_SCALE, HAT_FIT_SCALE, HAT_FILES, LOCOMOTION_CLIPS, PRODUCT_CAPACIT
 import { CLIP_NATURAL_SPEED, LocomotionController } from "@/game/animation/LocomotionController";
 import { CHARACTER_PALM_OFFSETS, HARVEST_BASKET_GRIP_HEIGHT, HARVEST_BASKET_GRIP_REACH } from "@/game/animation/CarrySocket";
 import { characterSceneScale } from "@/game/animation/CharacterScale";
+import { prepareCharacterModel } from "@/game/animation/CharacterPresentation";
 import { cameraRelativeMovement, moveVelocity, playerMotionForTier, smoothYaw, type PlayerMotionConfig } from "@/game/player/PlayerController";
 import { carriedProductIds, carryQuantity, carryTotal, MAX_WAREHOUSE_PICKUP_BATCH } from "@/game/player/CarrySystem";
 import { inputManager, type InputVector } from "@/game/input/InputManager";
@@ -39,6 +40,39 @@ const HAIR_FIT: Record<CharacterId, { scale: [number, number, number]; position:
   girl: { scale: [0.5, 0.53, 0.5], position: [0, 0, 0.028] },
 };
 const PHYSICS_STEP = 1 / 60;
+
+/** `this.highQuality` (`/runtime`) only — mirrors `CharacterAccessories.tsx`'s
+ * `cloneStaticScene()` per-material pass 1:1 (same clamp values, same
+ * `isHair` detection by material name, same `MeshPhysicalMaterial` clearcoat/
+ * sheen block) so the player's own hat/hair get the identical "premium"
+ * treatment `/`'s `Avatar.tsx` already gives them. `/runtime`'s port
+ * (`accessoryParts()`) previously used the raw GLB material untouched — the
+ * same code path the background crowd's hats use in both `/` and `/runtime`,
+ * where that's correct parity (`CrowdRenderer.tsx`'s `HatBatch` does the
+ * same, undecorated) — but the player's own accessories are held to the
+ * richer `Avatar.tsx` standard in the source, not the crowd standard. */
+function enhanceAccessoryMaterial(material: THREE.Material | THREE.Material[]): THREE.Material | THREE.Material[] {
+  const enhanceOne = (source: THREE.Material) => {
+    const clone = source.clone();
+    if (!(clone instanceof THREE.MeshStandardMaterial)) return clone;
+    const isHair = clone.name.toLowerCase().includes("hair");
+    clone.side = THREE.DoubleSide;
+    clone.metalness = 0;
+    clone.roughness = isHair ? 0.62 : THREE.MathUtils.clamp(clone.roughness * 0.82, 0.58, 0.72);
+    clone.envMapIntensity = isHair ? 0.72 : 0.78;
+    if (clone instanceof THREE.MeshPhysicalMaterial) {
+      clone.clearcoat = isHair ? 0.06 : 0.1;
+      clone.clearcoatRoughness = 0.68;
+      clone.sheen = isHair ? 0.1 : 0.06;
+      clone.sheenColor.set("#fff5eb");
+      clone.sheenRoughness = 0.84;
+      clone.specularIntensity = isHair ? 0.3 : 0.34;
+    }
+    clone.needsUpdate = true;
+    return clone;
+  };
+  return Array.isArray(material) ? material.map(enhanceOne) : enhanceOne(material);
+}
 
 export interface PlayerHooks {
   onInteract: (id: string) => void;
@@ -109,7 +143,13 @@ export class PlayerActor {
     // ever re-disposes state constructed after `dispose()` already ran once.
     if (this.disposed) return;
     this.physics = buildPlayerPhysics([], startX, startZ);
-    const skinned = firstSkinnedMesh(gltf.scene);
+    // `this.highQuality` only (`/runtime`) — `/play2` (`highQuality=false`)
+    // keeps the raw GLB material, byte-for-byte unchanged. `/`'s own
+    // `Avatar.tsx` always runs the player body through the same
+    // `prepareCharacterModel()` "premium" pass `CrowdRenderer.tsx` uses for
+    // the crowd (see `ClientRuntime.ts`'s matching comment) before reading
+    // its skinned mesh; `/runtime`'s player never called it.
+    const skinned = firstSkinnedMesh(this.highQuality ? prepareCharacterModel(gltf.scene, { build: avatar.body === "boy" || avatar.body === "girl" ? "child" : "adult", reducedDetail: false }) : gltf.scene);
     if (!skinned) throw new Error(`player body ${key} has no skinned mesh`);
     this.animation = animation;
     this.body = createCrowdBody(skinned, animation, `player:${key}`);
@@ -131,11 +171,15 @@ export class PlayerActor {
       loadGltf(this.highQuality ? accessoryPath("hair", avatar.hair, avatar.body) : budgetPath("hair", avatar.hair, avatar.body)).catch(() => null),
     ]);
     if (this.disposed) return;
-    if (accessories[0]) { this.hat = new PartsInstancer(accessoryParts(accessories[0].scene), 1, "player-hat"); this.hat.attach(this.group); }
+    if (accessories[0]) {
+      const parts = accessoryParts(accessories[0].scene).map((part) => ({ ...part, material: this.highQuality ? enhanceAccessoryMaterial(part.material) : part.material }));
+      this.hat = new PartsInstancer(parts, 1, "player-hat");
+      this.hat.attach(this.group);
+    }
     // Hair shows only without a hat, tinted with the avatar's colour.
     if (accessories[1] && avatar.hat === "none") {
       const parts = accessoryParts(accessories[1].scene).map((part) => {
-        const material = (Array.isArray(part.material) ? part.material[0] : part.material).clone() as THREE.MeshStandardMaterial;
+        const material = (this.highQuality ? enhanceAccessoryMaterial(part.material) : (Array.isArray(part.material) ? part.material[0] : part.material).clone()) as THREE.MeshStandardMaterial;
         if (material.color) material.color.set(avatar.hairColor);
         return { ...part, material };
       });

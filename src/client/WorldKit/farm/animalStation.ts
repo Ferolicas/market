@@ -7,7 +7,7 @@ import { budgetPath, loadGltf } from "../../WorldAssets";
 import { makeInstances, type InstanceTransform, type Position } from "../primitives";
 import { buildStationSign, roundedBoxMesh } from "./farmShared";
 import { ablation } from "../ablation";
-import { warmUpNewContent } from "../gpuWarmup";
+import { warmUpShadersBeforeAttach, warmUpTexturesIdle } from "../gpuWarmup";
 
 /**
  * Faithful port of `AnimalPaddock`, `StationSign`'s animal-station call site,
@@ -47,21 +47,25 @@ function buildAnimalCharacter(renderer: THREE.WebGLRenderer, camera: THREE.Camer
   let currentClip: FarmAnimalClip | null = null;
   let root: THREE.Object3D | null = null;
 
-  loadGltf(budgetPath("delivered", kind)).then((gltf) => {
+  loadGltf(budgetPath("delivered", kind)).then(async (gltf) => {
     const instance = cloneSkeleton(gltf.scene) as THREE.Object3D;
     instance.traverse((node) => {
       if (node instanceof THREE.Mesh) { node.castShadow = true; node.receiveShadow = true; }
       // The animated head can extend beyond the rest-pose bounding sphere.
       if (node instanceof THREE.SkinnedMesh) node.frustumCulled = false;
     });
+    // Loads well after the first playable frame. Shader compile must finish
+    // BEFORE this joins `group` (a scene descendant) — see
+    // `warmUpShadersBeforeAttach`'s doc comment (2026-09-27 real evidence:
+    // this exact class of streamed-in content produced the two worst frames
+    // recorded in a real `/runtime` session). Texture upload stays on the
+    // idle path, unchanged.
+    if (!ablation.skipWarmup) await warmUpShadersBeforeAttach(renderer, instance, camera, scene);
     root = instance;
     group.add(instance);
     mixer = new THREE.AnimationMixer(instance);
     actions = Object.fromEntries(gltf.animations.map((clip) => [clip.name, mixer!.clipAction(clip)]));
-    // Loads well after the first playable frame — warm its shader/texture
-    // now, in idle time, instead of paying that cost the first time the
-    // player actually sees it walking (see `gpuWarmup.ts`).
-    if (!ablation.skipWarmup) warmUpNewContent(renderer, instance, camera, scene);
+    if (!ablation.skipWarmup) warmUpTexturesIdle(renderer, instance);
   }).catch(() => {});
 
   function update(active: boolean) {
@@ -88,16 +92,17 @@ function buildAnimalCharacter(renderer: THREE.WebGLRenderer, camera: THREE.Camer
 }
 
 function loadEnvironmentProp(renderer: THREE.WebGLRenderer, camera: THREE.Camera, scene: THREE.Scene, id: string, into: THREE.Group) {
-  loadGltf(budgetPath("environment", id)).then((gltf) => {
+  loadGltf(budgetPath("environment", id)).then(async (gltf) => {
     const model = gltf.scene.clone(true);
     model.traverse((object) => {
       if (!(object instanceof THREE.Mesh)) return;
       object.castShadow = true;
       object.receiveShadow = true;
     });
-    into.add(model);
     // Same reasoning as `buildAnimalCharacter`'s warm-up call above.
-    if (!ablation.skipWarmup) warmUpNewContent(renderer, model, camera, scene);
+    if (!ablation.skipWarmup) await warmUpShadersBeforeAttach(renderer, model, camera, scene);
+    into.add(model);
+    if (!ablation.skipWarmup) warmUpTexturesIdle(renderer, model);
   }).catch(() => {});
 }
 

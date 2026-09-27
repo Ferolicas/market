@@ -12,10 +12,22 @@ const loader = new GLTFLoader();
 loader.setMeshoptDecoder(MeshoptDecoder);
 const cache = new Map<string, Promise<GLTF>>();
 
+/** Real in-flight fetch+parse count, not a guess — incremented only for a
+ * genuinely new (uncached) load, decremented once it settles either way.
+ * Read by `/runtime`'s `FrameAttribution` (worldKit + debug only) to
+ * correlate a frame-time/gap spike with "an asset was loading concurrently";
+ * `/` and `/play2` never read it, so this counter existing changes nothing
+ * about their behaviour. */
+let inFlightLoads = 0;
+export function getInFlightLoadCount(): number {
+  return inFlightLoads;
+}
+
 export function loadGltf(path: string): Promise<GLTF> {
   let pending = cache.get(path);
   if (!pending) {
-    pending = loader.loadAsync(path);
+    inFlightLoads += 1;
+    pending = loader.loadAsync(path).finally(() => { inFlightLoads -= 1; });
     cache.set(path, pending);
     pending.catch(() => cache.delete(path));
   }

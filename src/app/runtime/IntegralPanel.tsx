@@ -18,7 +18,15 @@ export function IntegralPanel({ metrics }: { metrics: IntegralMetrics }) {
   const [summary, setSummary] = useState<IntegralSummary | null>(null);
 
   useEffect(() => {
-    const publish = () => setSummary(metrics.summary(getNavRebuildCount(), readUsedJsHeapMb()));
+    const publish = () => {
+      const next = metrics.summary(getNavRebuildCount(), readUsedJsHeapMb());
+      setSummary(next);
+      // QA-only: lets an external Playwright harness (`scripts/qa-runtime-*`)
+      // read the same real percentile summary this panel shows, without
+      // scraping rendered DOM text. `/` and `/play2` never mount this panel.
+      (window as typeof window & { __MARKET_QA__?: Record<string, unknown> }).__MARKET_QA__ ??= {};
+      (window as typeof window & { __MARKET_QA__?: Record<string, unknown> }).__MARKET_QA__!.integralSummary = next;
+    };
     publish();
     const timer = window.setInterval(publish, 1_000);
     return () => window.clearInterval(timer);

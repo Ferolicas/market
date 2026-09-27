@@ -49,7 +49,7 @@ import { WAREHOUSE_ORDERS_TERMINAL, WAREHOUSE_RETURN_STATION } from "@/game/stat
 import { isProductionWorkstationId, productionMachineMagnet, PRODUCTION_WORKSTATION_IDS } from "@/game/stations/production-layout";
 import { ADAPTIVE_QUALITY_GRACE_MS, advanceAdaptiveQuality, DisplayCadenceEstimator, MotionCadenceController, INITIAL_ADAPTIVE_QUALITY_STATE, legacyMobileRenderProfile, marketRenderProfileForCapabilities, MOBILE_ADAPTIVE_QUALITY, MOBILE_MOTION_ADAPTIVE_QUALITY, presentationDivisor, recoveredDpr, regressedDpr, type MarketRenderProfile } from "@/game/render/AdaptiveQuality";
 import { createStaticMeshBatch } from "@/game/render/StaticMeshBatch";
-import { liveActors, publishLiveActors } from "@/game/render/LiveActors";
+import { liveActors, publishLiveActors, visibleActorMotionActive } from "@/game/render/LiveActors";
 import { daylightPresentation } from "@/game/time/BusinessDay";
 import { flushRecoverySnapshot } from "@/game/persistence/RecoveryStorage";
 import { OVERVIEW_CAMERA_OFFSET } from "@/game/render/overview-camera";
@@ -511,12 +511,6 @@ function CappedFrameScheduler({ profile, playerMotionActiveRef, publishDiagnosti
     };
   }, [advance, playerMotionActiveRef, profile, publishDiagnostics]);
   return null;
-}
-
-function visibleActorMotionActive() {
-  for (const actor of liveActors.customers.values()) if ((actor.currentSpeed ?? 0) > 0.05) return true;
-  for (const actor of liveActors.employees.values()) if ((actor.currentSpeed ?? 0) > 0.05) return true;
-  return false;
 }
 
 /**
