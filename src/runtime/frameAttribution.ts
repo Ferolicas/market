@@ -61,6 +61,22 @@ const MAX_ASYNC_EVENTS = 300;
 
 let gltfParsePatched = false;
 
+/** Guards `patchGl()` against ever wrapping an already-wrapped GL prototype
+ * method twice, and lets `dispose()` restore the untouched original —
+ * necessary because the patch target (`WebGLRenderingContext.prototype` /
+ * `WebGL2RenderingContext.prototype`) is a single global shared by every
+ * route and every renderer in the tab, not something scoped to one
+ * `FrameAttribution` instance. Without this, a second construction in the
+ * same page lifetime (there is no reasonable path to that today — `debug`
+ * and the initial props `ClientCanvas` passes to `ClientRuntime` are both
+ * stable across re-renders — but nothing enforced it structurally) would
+ * wrap the ALREADY-wrapped function again, stacking call overhead forever
+ * and leaking a reference to the disposed instance's counters. Not covering
+ * this would have meant "the GL patch is provably inert for other routes"
+ * was only true by accident of today's call sites, not by construction. */
+type GlPatchEntry = { ctor: typeof WebGLRenderingContext | typeof WebGL2RenderingContext; name: string; original: (...args: unknown[]) => unknown };
+let glPatchState: GlPatchEntry[] | null = null;
+
 export class FrameAttribution {
   current: FrameBreakdown = { physics: 0, crowd: 0, stations: 0, worldTick: 0, render: 0, other: 0 };
   private readonly spikes: FrameSpike[] = [];
@@ -82,12 +98,17 @@ export class FrameAttribution {
 
   /** Counts only — no per-call timestamp — so a burst of texture uploads
    * (e.g. `warmUpTexturesIdle`'s chunked upload) never itself adds
-   * measurable overhead to the thing it is trying to explain. */
+   * measurable overhead to the thing it is trying to explain. Skips
+   * re-patching if a still-live instance already holds the prototype patch
+   * (see `glPatchState`'s doc comment); `dispose()` releases it. */
   private patchGl() {
-    const patch = (proto: unknown, name: string, onCall: () => void) => {
-      const target = proto as Record<string, unknown>;
+    if (glPatchState) return;
+    const applied: GlPatchEntry[] = [];
+    const patch = (ctor: typeof WebGLRenderingContext | typeof WebGL2RenderingContext, name: string, onCall: () => void) => {
+      const target = ctor.prototype as unknown as Record<string, unknown>;
       const original = target[name];
       if (typeof original !== "function") return;
+      applied.push({ ctor, name, original: original as (...args: unknown[]) => unknown });
       target[name] = function (this: unknown, ...args: unknown[]) {
         onCall();
         return (original as (...a: unknown[]) => unknown).apply(this, args);
@@ -95,11 +116,24 @@ export class FrameAttribution {
     };
     for (const ctor of [window.WebGLRenderingContext, window.WebGL2RenderingContext]) {
       if (!ctor) continue;
-      patch(ctor.prototype, "compileShader", () => { this.glCompileCount += 1; });
-      patch(ctor.prototype, "linkProgram", () => { this.glLinkCount += 1; });
-      patch(ctor.prototype, "texImage2D", () => { this.glTexUploadCount += 1; });
-      patch(ctor.prototype, "texSubImage2D", () => { this.glTexUploadCount += 1; });
+      patch(ctor, "compileShader", () => { this.glCompileCount += 1; });
+      patch(ctor, "linkProgram", () => { this.glLinkCount += 1; });
+      patch(ctor, "texImage2D", () => { this.glTexUploadCount += 1; });
+      patch(ctor, "texSubImage2D", () => { this.glTexUploadCount += 1; });
     }
+    glPatchState = applied;
+  }
+
+  /** Restores every GL prototype method this instance patched, so disposing
+   * `/runtime`'s `ClientRuntime` (e.g. a client-side route change to `/` or
+   * `/play2` in the same tab, or a future re-construction) leaves the global
+   * `WebGLRenderingContext`/`WebGL2RenderingContext` prototypes exactly as
+   * it found them — never a permanent extra call-layer on every route's
+   * WebGL calls for the rest of the tab's life. */
+  private unpatchGl() {
+    if (!glPatchState) return;
+    for (const { ctor, name, original } of glPatchState) (ctor.prototype as unknown as Record<string, unknown>)[name] = original;
+    glPatchState = null;
   }
 
   /** `GLTFLoader.parse()` is synchronous CPU work invoked from a fetch's
@@ -179,6 +213,7 @@ export class FrameAttribution {
   dispose() {
     this.longTaskObserver?.disconnect();
     this.longTaskObserver = null;
+    this.unpatchGl();
   }
 
   /** Brackets `fn` and adds its cost to `current[key]` — the one shared code

@@ -3,6 +3,7 @@ import { STORE_SERVICE_FIXTURES } from "@/game/stations/store-service-layout";
 import { WAREHOUSE_RETURN_STATION } from "@/game/stations/warehouse-layout";
 import { budgetPath, loadGltf } from "../../WorldAssets";
 import { makeBox, makeInstances, makeText, mergeStaticMeshes, palette, type InstanceTransform, type Position } from "../primitives";
+import { warmUpShadersBeforeAttach, warmUpTexturesIdle } from "../gpuWarmup";
 
 /**
  * Faithful port of `SupplierCorner`, `WarehouseReturnBasket`, `TerminalModel`,
@@ -71,7 +72,7 @@ function buildParcel(position: Position, small = false): THREE.Group {
  * while the delivery dock and pallet back onto the wall behind it, matching
  * `SupplierCorner`'s comment in the source verbatim.
  */
-export function buildSupplierCorner(position: Position): THREE.Group {
+export function buildSupplierCorner(renderer: THREE.WebGLRenderer, camera: THREE.Camera, scene: THREE.Scene, position: Position): THREE.Group {
   const group = new THREE.Group();
   group.name = STORE_SERVICE_FIXTURES.orders.obstacleId;
   group.position.set(...position);
@@ -81,10 +82,15 @@ export function buildSupplierCorner(position: Position): THREE.Group {
   const dock = new THREE.Group();
   dock.position.set(0, 0.52, -0.9);
   dock.scale.setScalar(0.72);
-  loadGltf(budgetPath("environment", "equipment_delivery_dock")).then((gltf) => {
+  // 2026-09-27 tail-latency follow-up: same real, unfixed instance of the
+  // shader-warm-up bug as `production/machines.ts`'s `attachModel` — see its
+  // doc comment.
+  loadGltf(budgetPath("environment", "equipment_delivery_dock")).then(async (gltf) => {
     const model = gltf.scene.clone(true);
     model.traverse((node) => { if (node instanceof THREE.Mesh) { node.castShadow = true; node.receiveShadow = true; } });
+    await warmUpShadersBeforeAttach(renderer, model, camera, scene);
     dock.add(model);
+    warmUpTexturesIdle(renderer, model);
   }).catch(() => {});
   group.add(dock);
 

@@ -62,9 +62,9 @@ export interface FurnitureBuildProps {
  * once-rendered stock-screen photo texture), exactly like every other prop
  * change (stock, machine status, checkout, cart count, lights) already was.
  */
-export async function buildFurniture(renderer: THREE.WebGLRenderer, props: FurnitureBuildProps): Promise<{ group: THREE.Group; update: (next: FurnitureBuildProps) => void; animate: (deltaSeconds: number) => void }> {
+export async function buildFurniture(renderer: THREE.WebGLRenderer, camera: THREE.Camera, scene: THREE.Scene, props: FurnitureBuildProps): Promise<{ group: THREE.Group; update: (next: FurnitureBuildProps) => void; animate: (deltaSeconds: number) => void }> {
   const deliveredAssets = await loadDeliveredStockAssets();
-  return buildFixtureSet(renderer, deliveredAssets, props);
+  return buildFixtureSet(renderer, camera, scene, deliveredAssets, props);
 }
 
 interface FixtureHandles {
@@ -87,6 +87,8 @@ interface FixtureDescriptor {
 
 interface FixtureBuildContext {
   renderer: THREE.WebGLRenderer;
+  camera: THREE.Camera;
+  scene: THREE.Scene;
   deliveredAssets: DeliveredStockAssets;
   props: FurnitureBuildProps;
 }
@@ -127,10 +129,10 @@ function buildCheckoutOpenDescriptor(lane: CheckoutLane): FixtureDescriptor {
   return {
     key: `checkout-open-${lane}`,
     available: (unlockedAreas) => lane === 0 || unlockedAreas.includes(checkoutAreaForLane(lane)),
-    build: ({ props }) => {
+    build: ({ renderer, camera, scene, props }) => {
       const counter = makeStoreElement([...CHECKOUT_LANES[lane].counter]);
       const cashierSpot = makeStoreElement([...CHECKOUT_LANES[lane].cashierWork]);
-      const kit = buildCheckoutKit(lane);
+      const kit = buildCheckoutKit(renderer, camera, scene, lane);
       counter.add(kit.group);
       cashierSpot.add(buildCashierWorkArea());
       const element = new THREE.Group();
@@ -251,9 +253,9 @@ function fixtureDescriptors(): FixtureDescriptor[] {
   descriptors.push({
     key: "returns-cubicle",
     available: () => true,
-    build: ({ props }) => {
+    build: ({ renderer, camera, scene, props }) => {
       const element = makeStoreElement([...STORE_SERVICE_FIXTURES.returns.position]);
-      const returns = buildReturnsCubicle();
+      const returns = buildReturnsCubicle(renderer, camera, scene);
       element.add(returns.group);
       returns.update(props.returnsBin);
       return { element, update: (next) => returns.update(next.returnsBin) };
@@ -281,9 +283,9 @@ function fixtureDescriptors(): FixtureDescriptor[] {
   descriptors.push({
     key: "bread-oven",
     available: (areas) => fixtureAvailable("fixture:bread-oven", areas),
-    build: ({ props }) => {
+    build: ({ renderer, camera, scene, props }) => {
       const element = makeStoreElement([...STORE_PRODUCTION_FIXTURES.breadOven.position]);
-      const bakery = buildBakeryKit([0, 0, 0]);
+      const bakery = buildBakeryKit(renderer, camera, scene, [0, 0, 0]);
       element.add(bakery.group);
       bakery.update(machineFinder(props.machines)("bread-oven-1"));
       return { element, update: (next) => bakery.update(machineFinder(next.machines)("bread-oven-1")) };
@@ -293,9 +295,9 @@ function fixtureDescriptors(): FixtureDescriptor[] {
   descriptors.push({
     key: "flour-mill",
     available: (areas) => fixtureAvailable("fixture:flour-mill", areas),
-    build: ({ props }) => {
+    build: ({ renderer, camera, scene, props }) => {
       const element = makeStoreElement([...STORE_PRODUCTION_FIXTURES.flourMill.position]);
-      const mill = buildMillMachine([0, 0, 0]);
+      const mill = buildMillMachine(renderer, camera, scene, [0, 0, 0]);
       element.add(mill.group);
       mill.update(machineFinder(props.machines)("flour-mill-1"));
       return { element, update: (next) => mill.update(machineFinder(next.machines)("flour-mill-1")) };
@@ -305,9 +307,9 @@ function fixtureDescriptors(): FixtureDescriptor[] {
   descriptors.push({
     key: "cheese-maker",
     available: (areas) => fixtureAvailable("fixture:cheese-maker", areas),
-    build: ({ props }) => {
+    build: ({ renderer, camera, scene, props }) => {
       const element = makeStoreElement([...STORE_PRODUCTION_FIXTURES.cheeseMaker.position]);
-      const cheeseMaker = buildProcessMachine("cheese", [0, 0, 0]);
+      const cheeseMaker = buildProcessMachine(renderer, camera, scene, "cheese", [0, 0, 0]);
       element.add(cheeseMaker.group);
       cheeseMaker.update(machineFinder(props.machines)("cheese-maker-1"));
       return { element, update: (next) => cheeseMaker.update(machineFinder(next.machines)("cheese-maker-1")) };
@@ -317,9 +319,9 @@ function fixtureDescriptors(): FixtureDescriptor[] {
   descriptors.push({
     key: "juice-machine",
     available: (areas) => fixtureAvailable("fixture:juice-machine", areas),
-    build: ({ props }) => {
+    build: ({ renderer, camera, scene, props }) => {
       const element = makeStoreElement([...STORE_PRODUCTION_FIXTURES.juiceMachine.position]);
-      const juiceMachine = buildProcessMachine("juice", [0, 0, 0]);
+      const juiceMachine = buildProcessMachine(renderer, camera, scene, "juice", [0, 0, 0]);
       element.add(juiceMachine.group);
       juiceMachine.update(machineFinder(props.machines)("juice-machine-1"));
       return { element, update: (next) => juiceMachine.update(machineFinder(next.machines)("juice-machine-1")) };
@@ -341,9 +343,9 @@ function fixtureDescriptors(): FixtureDescriptor[] {
   descriptors.push({
     key: "supplier-corner",
     available: () => true,
-    build: () => {
+    build: ({ renderer, camera, scene }) => {
       const element = makeStoreElement([...STORE_SERVICE_FIXTURES.orders.position]);
-      element.add(buildSupplierCorner([0, 0, 0]));
+      element.add(buildSupplierCorner(renderer, camera, scene, [0, 0, 0]));
       return { element };
     },
   });
@@ -361,8 +363,8 @@ function fixtureDescriptors(): FixtureDescriptor[] {
   descriptors.push({
     key: "store-utilities",
     available: () => true,
-    build: ({ props }) => {
-      const utilities = buildStoreUtilities(props.lightsOn, props.dynamicCeilingLights);
+    build: ({ renderer, camera, scene, props }) => {
+      const utilities = buildStoreUtilities(renderer, camera, scene, props.lightsOn, props.dynamicCeilingLights);
       return { element: utilities.group, update: (next) => utilities.update(next.lightsOn, next.dynamicCeilingLights) };
     },
   });
@@ -373,7 +375,7 @@ function fixtureDescriptors(): FixtureDescriptor[] {
 /** Builds the fixture SET once and reconciles it incrementally forever after
  * — see the doc comment on `buildFurniture()` for why this replaced a
  * destroy-and-rebuild-everything approach. */
-function buildFixtureSet(renderer: THREE.WebGLRenderer, deliveredAssets: DeliveredStockAssets, initialProps: FurnitureBuildProps): FixtureHandles {
+function buildFixtureSet(renderer: THREE.WebGLRenderer, camera: THREE.Camera, scene: THREE.Scene, deliveredAssets: DeliveredStockAssets, initialProps: FurnitureBuildProps): FixtureHandles {
   const group = new THREE.Group();
   group.name = "worldkit:furniture";
   const descriptors = fixtureDescriptors();
@@ -384,7 +386,7 @@ function buildFixtureSet(renderer: THREE.WebGLRenderer, deliveredAssets: Deliver
       const shouldExist = descriptor.available(props.unlockedAreas);
       const existing = live.get(descriptor.key);
       if (shouldExist && !existing) {
-        const built = descriptor.build({ renderer, deliveredAssets, props });
+        const built = descriptor.build({ renderer, camera, scene, deliveredAssets, props });
         live.set(descriptor.key, built);
         group.add(built.element);
       } else if (!shouldExist && existing) {

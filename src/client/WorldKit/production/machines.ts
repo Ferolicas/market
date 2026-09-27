@@ -7,6 +7,7 @@ import { STORE_PRODUCTION_FIXTURES, type ProductionFixtureLayout } from "@/game/
 import { cornLabelGeometry, cornLabelMaterial, cornTinGeometry, cornTinMaterial } from "@/components/game/CannedCornModel";
 import { budgetPath, loadGltf } from "../../WorldAssets";
 import { makeBox, makeText, mergeStaticMeshes, updateText, type Position } from "../primitives";
+import { warmUpShadersBeforeAttach, warmUpTexturesIdle } from "../gpuWarmup";
 
 /**
  * Faithful port of `machineStatus`, `ProductionMachineIdentity`, `BakeryKit`,
@@ -34,15 +35,32 @@ export function machineStatus(machine?: ProductionMachineState): { label: string
  * `EnvironmentModel` used with no `onFrame`/`onUpdate`/`isolateMaterials` —
  * both set `castShadow`/`receiveShadow` on every mesh unconditionally. The
  * anchor group is returned immediately (synchronous API for the builders
- * below); the GLB is cloned in once its load resolves. */
-function attachModel(family: "delivered" | "environment", file: string, position: Position, scale = 1): THREE.Group {
+ * below); the GLB is cloned in once its load resolves.
+ *
+ * 2026-09-27 tail-latency follow-up: this was a real, unfixed instance of
+ * the exact same bug `gpuWarmup.ts`'s `warmUpShadersBeforeAttach` was
+ * written for — attaching straight from the `.then()`, no shader warm-up at
+ * all (not even the old fire-and-forget one). Independently confirmed with
+ * a real throttled `/runtime` session AFTER that fix already shipped: two
+ * spikes (143.2ms and 129.7ms `workMs`, 32-36 `gl.compileShader` and 16-18
+ * `gl.linkProgram` calls each) landed a few seconds after `onReady()` —
+ * exactly the window these production-fixture models (bakery oven, flour
+ * mill, cheese/juice equipment, corn canner's static parts already merged,
+ * ceiling lights, delivery dock) stream in on, all started from the same
+ * `buildFurniture()` call but never awaited by it. Same fix as every other
+ * deferred WorldKit loader: await the shader compile before this model ever
+ * becomes a scene descendant of `anchor` (itself already attached to a
+ * fixture group in the live scene), texture upload stays on the idle path. */
+function attachModel(renderer: THREE.WebGLRenderer, camera: THREE.Camera, scene: THREE.Scene, family: "delivered" | "environment", file: string, position: Position, scale = 1): THREE.Group {
   const anchor = new THREE.Group();
   anchor.position.set(...position);
   anchor.scale.setScalar(scale);
-  loadGltf(budgetPath(family, file)).then((gltf) => {
+  loadGltf(budgetPath(family, file)).then(async (gltf) => {
     const model = gltf.scene.clone(true);
     model.traverse((node) => { if (node instanceof THREE.Mesh) { node.castShadow = true; node.receiveShadow = true; } });
+    await warmUpShadersBeforeAttach(renderer, model, camera, scene);
     anchor.add(model);
+    warmUpTexturesIdle(renderer, model);
   }).catch(() => {});
   return anchor;
 }
@@ -103,13 +121,13 @@ function buildMachineIdentity(fixture: ProductionFixtureLayout): MachineIdentity
   return { group, update };
 }
 
-export function buildBakeryKit(position: Position): MachineHandle {
+export function buildBakeryKit(renderer: THREE.WebGLRenderer, camera: THREE.Camera, scene: THREE.Scene, position: Position): MachineHandle {
   const fixture = STORE_PRODUCTION_FIXTURES.breadOven;
   const group = new THREE.Group();
   group.position.set(...position);
   const identity = buildMachineIdentity(fixture);
   group.add(identity.group);
-  group.add(attachModel("delivered", "oven", [0, 0.175, -0.55]));
+  group.add(attachModel(renderer, camera, scene, "delivered", "oven", [0, 0.175, -0.55]));
   const processingLight = new THREE.PointLight("#df8b43", 0.8, 2.2);
   processingLight.position.set(0, 0.95, 0.52);
   processingLight.visible = false;
@@ -124,13 +142,13 @@ export function buildBakeryKit(position: Position): MachineHandle {
   return { group, update };
 }
 
-export function buildMillMachine(position: Position): MachineHandle {
+export function buildMillMachine(renderer: THREE.WebGLRenderer, camera: THREE.Camera, scene: THREE.Scene, position: Position): MachineHandle {
   const fixture = STORE_PRODUCTION_FIXTURES.flourMill;
   const group = new THREE.Group();
   group.position.set(...position);
   const identity = buildMachineIdentity(fixture);
   group.add(identity.group);
-  group.add(attachModel("delivered", "mill", [0, 0.175, -0.58]));
+  group.add(attachModel(renderer, camera, scene, "delivered", "mill", [0, 0.175, -0.58]));
 
   function update(machine?: ProductionMachineState) {
     identity.update(machine);
@@ -168,7 +186,7 @@ function outputItemPosition(index: number): Position {
   return [0.34 + (index % 2) * 0.13, 0.16 + Math.floor(index / 2) * 0.12, 0.45];
 }
 
-export function buildProcessMachine(kind: "cheese" | "juice", position?: Position): MachineHandle {
+export function buildProcessMachine(renderer: THREE.WebGLRenderer, camera: THREE.Camera, scene: THREE.Scene, kind: "cheese" | "juice", position?: Position): MachineHandle {
   const fixture = kind === "cheese" ? STORE_PRODUCTION_FIXTURES.cheeseMaker : STORE_PRODUCTION_FIXTURES.juiceMachine;
   const group = new THREE.Group();
   if (position) group.position.set(...position);
@@ -178,7 +196,7 @@ export function buildProcessMachine(kind: "cheese" | "juice", position?: Positio
   if (kind === "cheese") {
     // `EnvironmentModel id="equipment_cheese_maker"`, plus the static pole,
     // top bar and vat drawn straight into the group in the source.
-    group.add(attachModel("environment", "equipment_cheese_maker", [0, 0, 0]));
+    group.add(attachModel(renderer, camera, scene, "environment", "equipment_cheese_maker", [0, 0, 0]));
     group.add(makeBox({ args: [0.09, 0.78, 0.09], position: [-0.4, 1.18, -0.35], color: "#4c5855", radius: 0.012 }));
     group.add(makeBox({ args: [0.88, 0.1, 0.12], position: [0, 1.52, -0.35], color: "#4c5855", radius: 0.015 }));
     const vat = new THREE.Mesh(new THREE.CylinderGeometry(0.29, 0.29, 0.16, 18), new THREE.MeshStandardMaterial({ color: "#e7b938", roughness: 0.72 }));
@@ -186,7 +204,7 @@ export function buildProcessMachine(kind: "cheese" | "juice", position?: Positio
     vat.rotation.set(Math.PI / 2, 0, 0);
     group.add(vat);
   } else {
-    group.add(attachModel("delivered", "juicer", [0, 0.175, -0.55]));
+    group.add(attachModel(renderer, camera, scene, "delivered", "juicer", [0, 0.175, -0.55]));
   }
 
   const processingLight = new THREE.PointLight(kind === "cheese" ? "#ffd75c" : "#ff6b43", 0.45, 1.6);
@@ -204,7 +222,7 @@ export function buildProcessMachine(kind: "cheese" | "juice", position?: Positio
       // `RetailProduct(productId="cheese")`: `deliveredProductId("cheese")`
       // is truthy, so the source renders the real delivered "cheese" GLB
       // here, not the low-poly wedge mesh further down `RetailProduct`.
-      slot = attachModel("delivered", "cheese", slotPosition, 0.8);
+      slot = attachModel(renderer, camera, scene, "delivered", "cheese", slotPosition, 0.8);
     } else {
       slot = buildJuiceBottle();
       slot.position.set(...slotPosition);

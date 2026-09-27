@@ -4,6 +4,7 @@ import { deliveredModelPath, deliveredProductId } from "@/components/game/Delive
 import { cornLabelGeometry, cornLabelMaterial, cornTinGeometry, cornTinMaterial } from "@/components/game/CannedCornModel";
 import { loadGltf } from "@/client/WorldAssets";
 import { makeRoundedBoxGeometry, makeText, type Position } from "../primitives";
+import { warmUpShadersBeforeAttach, warmUpTexturesIdle } from "../gpuWarmup";
 
 /**
  * Faithful port of `RetailProduct` from `MarketKit.tsx` for a SINGLE unit
@@ -85,25 +86,43 @@ function loadDeliveredScene(id: DeliveredGlbId): Promise<THREE.Object3D> {
 
 /** `<group name={`delivered:${id}`}><DeliveredModel id={id} .../></group>` —
  * `DeliveredModel` clones the loaded scene and marks every mesh cast/receive
- * shadow, matching the source exactly. */
-function attachDeliveredClone(parent: THREE.Group, id: DeliveredGlbId) {
+ * shadow, matching the source exactly.
+ *
+ * 2026-09-27 tail-latency follow-up: a real, unfixed instance of the same
+ * shader-warm-up bug fixed elsewhere (`production/machines.ts`'s
+ * `attachModel`, `gpuWarmup.ts`'s `warmUpShadersBeforeAttach`) — worse here,
+ * because `buildRetailProductUnit` is called not just once at load but on
+ * every `checkoutKit.ts`/`returnsCubicle.ts` `update()` for a newly-appeared
+ * unit, i.e. DURING live gameplay (a customer's items landing on the
+ * checkout belt, or a returned item appearing on the shelf) — matching the
+ * owner's report of "occasional" spikes during play, not just at startup.
+ * `deliveredModelPath` is a different asset family from
+ * `retail/deliveredStock.ts`'s `budgetPath` GLBs, so it is never warmed by
+ * that module's own (already-awaited, already-attached) load. The clone
+ * itself shares the cached scene's materials (no per-clone `.clone()` on
+ * them), so only the FIRST milk/cheese/egg unit anywhere pays the compile
+ * cost — every later one reuses the already-linked program, same as the
+ * source's `deliveredSceneCache`. */
+function attachDeliveredClone(renderer: THREE.WebGLRenderer, camera: THREE.Camera, scene: THREE.Scene, parent: THREE.Group, id: DeliveredGlbId) {
   loadDeliveredScene(id)
-    .then((scene) => {
-      const clone = scene.clone(true);
+    .then(async (loaded) => {
+      const clone = loaded.clone(true);
       clone.traverse((node) => {
         if (node instanceof THREE.Mesh) {
           node.castShadow = true;
           node.receiveShadow = true;
         }
       });
+      await warmUpShadersBeforeAttach(renderer, clone, camera, scene);
       parent.add(clone);
+      warmUpTexturesIdle(renderer, clone);
     })
     .catch(() => {});
 }
 
 /** One product unit, positioned/scaled exactly like a single
  * `<RetailProduct productId position scale />` call in the source. */
-export function buildRetailProductUnit(productId: ProductId, position: Position, scale = 1): THREE.Object3D {
+export function buildRetailProductUnit(renderer: THREE.WebGLRenderer, camera: THREE.Camera, scene: THREE.Scene, productId: ProductId, position: Position, scale = 1): THREE.Object3D {
   if (productId === "cannedCorn") {
     const group = new THREE.Group();
     group.name = `retail-product:${productId}`;
@@ -122,7 +141,7 @@ export function buildRetailProductUnit(productId: ProductId, position: Position,
     group.name = `retail-product:${productId}`;
     group.position.set(...position);
     group.scale.setScalar(scale);
-    attachDeliveredClone(group, delivered);
+    attachDeliveredClone(renderer, camera, scene, group, delivered);
     return group;
   }
 

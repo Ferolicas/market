@@ -3,6 +3,7 @@ import { STORE_REAR_DOOR } from "@/game/stations/storefront-layout";
 import { budgetPath, loadGltf } from "../../WorldAssets";
 import { makeBox, makeText, mergeStaticMeshes, palette } from "../primitives";
 import { makeStoreElement } from "../storeElement";
+import { warmUpShadersBeforeAttach, warmUpTexturesIdle } from "../gpuWarmup";
 
 /**
  * Faithful port of `StoreUtilities`, `WallClock`, `SecurityCamera`,
@@ -62,7 +63,11 @@ function buildHangingSign(label: string): THREE.Group {
   return group;
 }
 
-function buildCeilingLamp(): CeilingLampHandle {
+/** 2026-09-27 tail-latency follow-up: same real, unfixed instance of the
+ * shader-warm-up bug as `production/machines.ts`'s `attachModel` — four of
+ * these load the same GLB right after `onReady()`, never awaiting shader
+ * compile before attach. Fixed the same way. */
+function buildCeilingLamp(renderer: THREE.WebGLRenderer, camera: THREE.Camera, scene: THREE.Scene): CeilingLampHandle {
   const group = new THREE.Group();
   group.name = "dynamic:ceiling-lamp";
   const modelAnchor = new THREE.Group();
@@ -91,7 +96,7 @@ function buildCeilingLamp(): CeilingLampHandle {
     }
   }
 
-  loadGltf(budgetPath("environment", "equipment_ceiling_light")).then((gltf) => {
+  loadGltf(budgetPath("environment", "equipment_ceiling_light")).then(async (gltf) => {
     const model = gltf.scene.clone(true);
     model.traverse((node) => {
       if (!(node instanceof THREE.Mesh)) return;
@@ -105,7 +110,9 @@ function buildCeilingLamp(): CeilingLampHandle {
         if (material instanceof THREE.MeshStandardMaterial) clonedMaterials.push(material);
       }
     });
+    await warmUpShadersBeforeAttach(renderer, model, camera, scene);
     modelAnchor.add(model);
+    warmUpTexturesIdle(renderer, model);
     applyEmissive(currentOn);
   }).catch(() => {});
 
@@ -122,7 +129,7 @@ export interface StoreUtilitiesHandle {
   update(lightsOn: boolean, dynamicCeilingLights: boolean): void;
 }
 
-export function buildStoreUtilities(lightsOn: boolean, dynamicCeilingLights: boolean): StoreUtilitiesHandle {
+export function buildStoreUtilities(renderer: THREE.WebGLRenderer, camera: THREE.Camera, scene: THREE.Scene, lightsOn: boolean, dynamicCeilingLights: boolean): StoreUtilitiesHandle {
   const group = new THREE.Group();
 
   const clockElement = makeStoreElement([STORE_REAR_DOOR.adjacentRackPosition[0], 2.2, -8.34]);
@@ -147,7 +154,7 @@ export function buildStoreUtilities(lightsOn: boolean, dynamicCeilingLights: boo
 
   const lamps: CeilingLampHandle[] = [-7.2, -2.4, 2.4, 7.2].map((x) => {
     const element = makeStoreElement([x, 2.85, -0.6]);
-    const lamp = buildCeilingLamp();
+    const lamp = buildCeilingLamp(renderer, camera, scene);
     element.add(lamp.group);
     group.add(element);
     return lamp;

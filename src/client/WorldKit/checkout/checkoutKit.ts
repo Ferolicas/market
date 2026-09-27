@@ -63,7 +63,7 @@ function computeUnits(transaction?: CheckoutTransaction): CheckoutUnit[] {
   );
 }
 
-export function buildCheckoutKit(lane: CheckoutLane): {
+export function buildCheckoutKit(renderer: THREE.WebGLRenderer, camera: THREE.Camera, scene: THREE.Scene, lane: CheckoutLane): {
   group: THREE.Group;
   update(transaction?: CheckoutTransaction, handoffTransaction?: CheckoutTransaction, handoffBagAtCounter?: boolean): void;
   animate(deltaSeconds: number): void;
@@ -183,7 +183,7 @@ export function buildCheckoutKit(lane: CheckoutLane): {
       } else {
         const wrapper = new THREE.Group();
         wrapper.position.set(-2.05, 1.45, 0.42);
-        wrapper.add(buildRetailProductUnit(unit.productId, [0, 0, 0], 1.18));
+        wrapper.add(buildRetailProductUnit(renderer, camera, scene, unit.productId, [0, 0, 0], 1.18));
         unitsGroup.add(wrapper);
         liveUnits.set(key, { group: wrapper, target: new THREE.Vector3(targetX, targetY, targetZ) });
       }

@@ -8,7 +8,7 @@ import { buildRetailProductUnit } from "./retailProductUnit";
  * static; the units shown on the shelf depend on `inventory` and are rebuilt
  * (cheap: at most 6 small meshes) whenever `update()` is called.
  */
-export function buildReturnsCubicle(): { group: THREE.Group; update(inventory: Inventory): void } {
+export function buildReturnsCubicle(renderer: THREE.WebGLRenderer, camera: THREE.Camera, scene: THREE.Scene): { group: THREE.Group; update(inventory: Inventory): void } {
   const group = new THREE.Group();
   group.name = "fixture:returns";
   group.rotation.set(0, Math.PI, 0);
@@ -33,7 +33,7 @@ export function buildReturnsCubicle(): { group: THREE.Group; update(inventory: I
       .slice(0, 6);
     units.forEach((productId, index) => {
       const position: Position = [((index % 3) - 1) * 0.24, 0.62 + Math.floor(index / 3) * 0.2, 0.48];
-      unitsGroup.add(buildRetailProductUnit(productId, position));
+      unitsGroup.add(buildRetailProductUnit(renderer, camera, scene, productId, position));
     });
   }
 

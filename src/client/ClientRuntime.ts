@@ -366,7 +366,7 @@ export class ClientRuntime {
       // everything else loads in the background right after the first
       // playable frame (`loadDeferredWorldKitAssets`).
       const [furniture] = await Promise.all([
-        buildFurniture(this.renderer, this.furnitureProps(initial)),
+        buildFurniture(this.renderer, this.rig.camera, this.scene, this.furnitureProps(initial)),
         this.player.load(initial.avatar, PLAYER_START[0], PLAYER_START[2]),
       ]);
       if (this.disposed) return;
