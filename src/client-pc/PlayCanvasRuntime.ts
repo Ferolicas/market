@@ -175,10 +175,30 @@ const OWNER_BODY_SCALE: Record<CharacterId, number> = { "adult-man": 1.264, "adu
 // if the source lod1 asset changes. This does not touch any file `/`,
 // `/play2` or `/runtime` reads.
 const OWNER_MODEL_ROOT = "/models/market/characters/playcanvas-lod1";
-// The clips this phase actually switches between (idle/walk by speed). Any
-// other named clip in the GLB (Run, checkout, farm work, ...) is not wired
-// up yet — see the report.
+// Phase 8 wires Idle/Walk/Run by presented speed, plus one real work pose
+// while `WorkstationController` reports the player locked onto a
+// movement-locking workstation (checkout/farm animal stations — see that
+// controller's doc comment). Every other named clip in the GLB (Browse,
+// Harvest*, Plant*, checkout-scan sub-poses, ...) is still not wired — those
+// are per-crop/per-fixture presentation states with no dispatch hook in this
+// port yet.
 const WALK_TRANSITION_SECONDS = 0.15;
+// Mirrors `LocomotionController.ts`'s `select()` thresholds and
+// `CLIP_NATURAL_SPEED.Walk` (copied verbatim, not imported — that module
+// pulls in Three.js for its `transition()` method, which this PlayCanvas-only
+// file must not depend on). Same calibration production's own
+// `PlayerActor.ts` feeds its `LocomotionController` instance.
+const LOCOMOTION_MOVING_START = 0.12;
+const LOCOMOTION_MOVING_STOP = 0.07;
+const LOCOMOTION_WALK_NATURAL_SPEED = 0.35;
+const LOCOMOTION_RUN_GAIT_RATIO = { start: 2.4, stop: 2.12 };
+type PlayerAnimClip = "Idle" | "Walk" | "Run" | "ScanItem" | "PickupLow";
+// Mirrors `PlayerActor.ts`'s `WORKSTATION_CLIP` table, restricted to the ids
+// `WorkstationController` can ever report as `performingZoneId()` in this
+// port (checkout + the two chicken stations + cow — see `fixedStepPlayer()`'s
+// `activeWorkstation` computation). `chicken2` has no entry in the real table
+// either, so it deliberately falls back to "Idle", matching production.
+const PLAYER_WORKSTATION_CLIP: Partial<Record<string, PlayerAnimClip>> = { checkout: "ScanItem", chicken: "PickupLow", cow: "PickupLow" };
 
 // Same "meshopt is EXT_meshopt_compression, PlayCanvas's own GLB parser
 // doesn't implement it" problem as `OWNER_MODEL_ROOT`'s doc comment
@@ -191,6 +211,36 @@ const WALK_TRANSITION_SECONDS = 0.15;
 // Regenerate the same way if the source budget assets change. This does not
 // touch any file `/`, `/play2` or `/runtime` reads.
 const ACCESSORY_ROOT = "/models/market/playcanvas-accessories";
+
+// Real static fixture GLBs `/runtime`'s own WorldKit modules load for these
+// exact fixtures — not every filename under `public/models/market/environment`
+// is actually wired into the live renderer (e.g. `equipment_checkout_counter`
+// is catalogued in `AssetRegistry.ts` but `checkout/checkoutKit.ts` builds the
+// real checkout counter procedurally, no GLB), so only fixtures confirmed
+// real-GLB-driven in `/runtime` are ported here:
+//  - `chicken_coop`/`cow_station`: `animalStation.ts`'s `loadEnvironmentProp()`
+//    (the coop/station shell, loaded at the "budget" tier — matching that,
+//    not the full/lod tier, since this is a static background prop).
+//  - `equipment_cheese_maker`: `machines.ts`'s `buildProcessMachine("cheese")`.
+// None of these three require `EXT_meshopt_compression` (confirmed via
+// `gltf-transform inspect`: `extensionsRequired: none`), so they load as-is,
+// unlike `OWNER_MODEL_ROOT`'s owner GLBs.
+const ENVIRONMENT_MODEL_ROOT = "/models/market/environment";
+// Real machine GLBs `machines.ts` loads via `attachModel("delivered", ...)`
+// for the flour mill / bread oven / juice machine (`delivered/mill.glb`,
+// `oven.glb`, `juicer.glb`). Every one requires `EXT_meshopt_compression`
+// (PlayCanvas's GLB parser doesn't implement it — same problem
+// `OWNER_MODEL_ROOT`'s doc comment describes) AND `KHR_mesh_quantization`
+// (not referenced anywhere in this engine build's own source, unlike
+// `EXT_texture_webp`/`KHR_materials_specular`, which every already-working
+// owner GLB requires — dequantizing rather than trusting unconfirmed support
+// is the same conservative call `OWNER_MODEL_ROOT` made), so both are
+// stripped with:
+//   npx gltf-transform copy delivered/<file>.glb playcanvas-production/<file>.glb
+//   npx gltf-transform dequantize playcanvas-production/<file>.glb playcanvas-production/<file>.glb
+// Regenerate the same way if the source `delivered` assets change. This does
+// not touch any file `/`, `/play2` or `/runtime` reads.
+const PRODUCTION_MODEL_ROOT = "/models/market/playcanvas-production";
 // Mirrors `CrowdSystems.ts`'s `HAT_FIT_SCALE` (copied verbatim — that module
 // pulls in Three.js).
 const HAT_FIT_SCALE: Record<CharacterId, number> = { "adult-man": 0.49, "adult-woman": 0.49, boy: 0.64, girl: 0.68 };
@@ -219,7 +269,16 @@ export class PlayCanvasRuntime {
   private playerCapsule: pc.Entity | null = null;
   private playerHatEntity: pc.Entity | null = null;
   private playerHairEntity: pc.Entity | null = null;
-  private playerAnimTarget: "Idle" | "Walk" = "Idle";
+  private playerAnimTarget: PlayerAnimClip = "Idle";
+  private readonly playerAnimAvailable = new Set<PlayerAnimClip>();
+  // Real per-body root scale (`characterSceneScale(body) * OWNER_BODY_SCALE[body]`,
+  // deliberately excluding `WORLD_SCALE` — see `loadPlayerCharacter()`'s
+  // assignment) used to convert the walk clip's authored floor speed into the
+  // same "layout units × STORE_LAYOUT_SCALE" space `this.velocity` is in,
+  // exactly like `PlayerActor.ts`'s own `rootScale`/`walkFloor`.
+  private playerAnimRootScale = 1;
+  private playerAnimMoving = false;
+  private playerAnimRunning = false;
   private physics: PlayerPhysicsHandle | null = null;
   private readonly playerPosition = { x: PLAYER_START[0], z: PLAYER_START[2] };
   private readonly velocity = { x: 0, y: 0 };
@@ -535,23 +594,38 @@ export class PlayCanvasRuntime {
     // already carries `PLAYER_START * WORLD_SCALE` as an explicit literal
     // (not a parent scale), so WORLD_SCALE has to be baked into this child's
     // own scale too, exactly like the capsule placeholder's dimensions were.
-    const rootScale = characterSceneScale(body) * OWNER_BODY_SCALE[body] * WORLD_SCALE;
+    const bodyRootScale = characterSceneScale(body) * OWNER_BODY_SCALE[body];
+    const rootScale = bodyRootScale * WORLD_SCALE;
     characterEntity.setLocalScale(rootScale, rootScale, rootScale);
     this.playerEntity.addChild(characterEntity);
     this.playerAnimEntity = characterEntity;
+    this.playerAnimRootScale = bodyRootScale;
 
     const animAssets = resource.animations;
     const findClip = (name: string) => animAssets.find((clipAsset) => (clipAsset.resource as pc.AnimTrack | undefined)?.name === name)?.resource as pc.AnimTrack | undefined;
     const idle = findClip("Idle");
     const walk = findClip("Walk");
+    const run = findClip("Run");
+    const scanItem = findClip("ScanItem");
+    const pickupLow = findClip("PickupLow");
     const anim = characterEntity.anim;
+    this.playerAnimAvailable.clear();
     if (anim && idle) {
+      const states: Array<{ name: string; speed?: number; loop?: boolean }> = [{ name: "START" }, { name: "Idle", speed: 1, loop: true }];
+      this.playerAnimAvailable.add("Idle");
+      if (walk) { states.push({ name: "Walk", speed: 1, loop: true }); this.playerAnimAvailable.add("Walk"); }
+      if (run) { states.push({ name: "Run", speed: 1, loop: true }); this.playerAnimAvailable.add("Run"); }
+      if (scanItem) { states.push({ name: "ScanItem", speed: 1, loop: true }); this.playerAnimAvailable.add("ScanItem"); }
+      if (pickupLow) { states.push({ name: "PickupLow", speed: 1, loop: true }); this.playerAnimAvailable.add("PickupLow"); }
       anim.loadStateGraph({
-        layers: [{ name: "locomotion", states: [{ name: "START" }, { name: "Idle", speed: 1, loop: true }, { name: "Walk", speed: 1, loop: true }], transitions: [{ from: "START", to: "Idle" }] }],
+        layers: [{ name: "locomotion", states, transitions: [{ from: "START", to: "Idle" }] }],
         parameters: {},
       });
       anim.assignAnimation("Idle", idle, "locomotion");
       if (walk) anim.assignAnimation("Walk", walk, "locomotion");
+      if (run) anim.assignAnimation("Run", run, "locomotion");
+      if (scanItem) anim.assignAnimation("ScanItem", scanItem, "locomotion");
+      if (pickupLow) anim.assignAnimation("PickupLow", pickupLow, "locomotion");
     }
 
     if (this.playerCapsule) {
@@ -617,6 +691,29 @@ export class PlayCanvasRuntime {
     return resource.instantiateRenderEntity();
   }
 
+  /** Attaches a real static fixture GLB under `parent` at local origin,
+   * scaled by `scale` (`STORE_ELEMENT_SCALE`, matching `makeStoreElement()`'s
+   * own uniform scale in `/runtime` — see `ENVIRONMENT_MODEL_ROOT`'s doc
+   * comment for why this file's own `element` entities don't carry that
+   * scale themselves the way `/runtime`'s groups do). Fire-and-forget (like
+   * `attachModel()`/`loadEnvironmentProp()` in `/runtime`'s own WorldKit): an
+   * immediately-returned empty anchor entity that fills in once the GLB
+   * loads, guarded against a furniture rebuild (`buildFurniture()`'s
+   * destroy-and-recreate on a real state-signature change) or dispose()
+   * racing ahead of the load — `ownerGroup` is the `furnitureGroup` this
+   * fixture belongs to at call time; if that's since been replaced, the
+   * loaded entity is simply dropped instead of attached to a torn-down tree. */
+  private attachFixtureModel(parent: pc.Entity, ownerGroup: pc.Entity, url: string, assetName: string, scale: number): pc.Entity {
+    const anchor = new pc.Entity(assetName);
+    anchor.setLocalScale(scale, scale, scale);
+    parent.addChild(anchor);
+    void this.loadAccessoryEntity(url, assetName).then((entity) => {
+      if (this.disposed || this.furnitureGroup !== ownerGroup || !entity) return;
+      anchor.addChild(entity);
+    });
+    return anchor;
+  }
+
   /** Tints every render mesh's diffuse colour — mirrors `PlayerActor.ts`'s
    * hair tint, which clones and recolors every part of the accessory
    * uniformly (both the "Hair" and "HairScalp" materials in the real asset),
@@ -632,16 +729,39 @@ export class PlayCanvasRuntime {
     }
   }
 
-  /** Switches the real character's Idle/Walk state by presented speed (the
-   * same floor `LocomotionController.select()` uses in production — see
-   * that file's doc comment — collapsed to a plain threshold since this
-   * phase only wires two clips). No-ops until the GLB/anim graph is ready. */
+  /** Real Idle/Walk/Run selection — same hysteresis thresholds and floor-speed
+   * ratio `LocomotionController.select()` uses in `PlayerActor.ts`'s own
+   * `present()` (see `LOCOMOTION_MOVING_START`'s doc comment for why the
+   * logic is copied rather than imported), with carrying always `false` (this
+   * port tracks no carry state) — so this never selects a Carry* clip, only
+   * plain Idle/Walk/Run. */
+  private selectLocomotionClip(speed: number): PlayerAnimClip {
+    this.playerAnimMoving = this.playerAnimMoving ? speed >= LOCOMOTION_MOVING_STOP : speed > LOCOMOTION_MOVING_START;
+    if (!this.playerAnimMoving) return "Idle";
+    const floor = Math.max(1e-5, LOCOMOTION_WALK_NATURAL_SPEED * this.playerAnimRootScale);
+    this.playerAnimRunning = this.playerAnimRunning
+      ? speed >= LOCOMOTION_RUN_GAIT_RATIO.stop * floor
+      : speed > LOCOMOTION_RUN_GAIT_RATIO.start * floor;
+    return this.playerAnimRunning ? "Run" : "Walk";
+  }
+
+  /** Switches the real character's Idle/Walk/Run/work-pose state. While
+   * `WorkstationController` reports the player locked onto a real
+   * movement-locking workstation (checkout or a farm animal station), plays
+   * the same real work pose `PlayerActor.ts`'s `WORKSTATION_CLIP` table maps
+   * for that id (see `PLAYER_WORKSTATION_CLIP`'s doc comment); otherwise
+   * falls back to real speed-based locomotion. Skips to "Idle" for any target
+   * clip this body's GLB didn't actually have (defensive — every current
+   * owner GLB has every clip this file uses). No-ops until the GLB/anim graph
+   * is ready. */
   private updatePlayerAnimation(presentedSpeed: number) {
     const anim = this.playerAnimEntity?.anim;
     const layer = anim?.baseLayer;
     if (!anim || !layer) return;
-    const target: "Idle" | "Walk" = presentedSpeed > 0.12 ? "Walk" : "Idle";
-    if (target !== this.playerAnimTarget) {
+    const workstationId = this.workstation.performingZoneId();
+    let target: PlayerAnimClip = workstationId ? (PLAYER_WORKSTATION_CLIP[workstationId] ?? "Idle") : this.selectLocomotionClip(presentedSpeed);
+    if (!this.playerAnimAvailable.has(target)) target = "Idle";
+    if (target !== this.playerAnimTarget && this.playerAnimAvailable.has(target)) {
       this.playerAnimTarget = target;
       layer.transition(target, WALK_TRANSITION_SECONDS);
     }
@@ -1191,10 +1311,16 @@ export class PlayCanvasRuntime {
     }
   }
 
-  /** Box-volume port of `kitFurniture.ts`'s production machines (real
-   * positions from `STORE_PRODUCTION_FIXTURES`, real per-machine gating via
-   * `fixtureAvailable(fixture.obstacleId, unlockedAreas)`). Machine
-   * status/queue visuals are deferred. */
+  /** Port of `kitFurniture.ts`'s production machines (real positions from
+   * `STORE_PRODUCTION_FIXTURES`, real per-machine gating via
+   * `fixtureAvailable(fixture.obstacleId, unlockedAreas)`). Four of the five
+   * fixtures now load the same real static GLB `machines.ts`'s
+   * `buildBakeryKit()`/`buildMillMachine()`/`buildProcessMachine()` attach for
+   * that exact machine (see `PRODUCTION_MODEL_ROOT`/`ENVIRONMENT_MODEL_ROOT`'s
+   * doc comments); the corn canner stays a box volume because `machines.ts`'s
+   * own `buildCornCanner()` is built entirely from primitives too — there is
+   * no real canner GLB to port. Machine status/queue text overlays (the
+   * illuminated board `buildMachineIdentity()` draws) are still deferred. */
   private buildProductionMachines(parent: pc.Entity, unlockedAreas: string[]) {
     if (fixtureAvailable("fixture:production-cubicle-shell", unlockedAreas)) {
       const shell = new pc.Entity("production-cubicle-shell");
@@ -1207,6 +1333,16 @@ export class PlayCanvasRuntime {
       floor.setLocalPosition(0, 0.02 * STORE_ELEMENT_SCALE, 0);
       shell.addChild(floor);
     }
+    // Mirrors `machines.ts`'s own real per-machine model + vertical offset
+    // (`attachModel("delivered", "mill"|"oven"|"juicer", [0, 0.175, centerZ])`
+    // / `attachModel("environment", "equipment_cheese_maker", [0, 0, 0])`).
+    const MODEL_BY_WORKSTATION: Partial<Record<string, { root: string; file: string; y: number }>> = {
+      mill: { root: PRODUCTION_MODEL_ROOT, file: "mill", y: 0.175 },
+      bakery: { root: PRODUCTION_MODEL_ROOT, file: "oven", y: 0.175 },
+      juice: { root: PRODUCTION_MODEL_ROOT, file: "juicer", y: 0.175 },
+      cheese: { root: ENVIRONMENT_MODEL_ROOT, file: "equipment_cheese_maker", y: 0 },
+    };
+    const ownerGroup = parent;
     for (const id of PRODUCTION_FIXTURE_IDS as ProductionFixtureId[]) {
       const fixture = STORE_PRODUCTION_FIXTURES[id];
       if (!fixtureAvailable(fixture.obstacleId, unlockedAreas)) continue;
@@ -1216,6 +1352,12 @@ export class PlayCanvasRuntime {
       element.setEulerAngles(0, fixture.yaw ?? 0, 0);
       parent.addChild(element);
       const { halfX, halfZ, centerX, centerZ } = fixture.localFootprint;
+      const model = MODEL_BY_WORKSTATION[fixture.workstationId];
+      if (model) {
+        const anchor = this.attachFixtureModel(element, ownerGroup, `${model.root}/${model.file}.glb`, `fixture-model:${fixture.obstacleId}`, STORE_ELEMENT_SCALE);
+        anchor.setLocalPosition(centerX * STORE_ELEMENT_SCALE, model.y * STORE_ELEMENT_SCALE, centerZ * STORE_ELEMENT_SCALE);
+        continue;
+      }
       const body = new pc.Entity("machine");
       body.addComponent("render", { type: "box", material: this.material(fixture.accent) });
       body.setLocalScale(halfX * 2 * STORE_ELEMENT_SCALE, 1.1 * STORE_ELEMENT_SCALE, halfZ * 2 * STORE_ELEMENT_SCALE);
@@ -1317,13 +1459,21 @@ export class PlayCanvasRuntime {
       }
     }
 
-    // Three animal paddocks — real position/footprint, real gating.
+    // Three animal paddocks — real position/footprint, real gating. The
+    // procedural fence stays a box volume (`animalStation.ts`'s own
+    // `buildAnimalPaddock()` is primitives too — posts/rails/trough, no GLB);
+    // the plain "animal" box is replaced with the real coop/station shell GLB
+    // `animalStation.ts`'s `loadEnvironmentProp()` loads for this exact
+    // fixture (see `ENVIRONMENT_MODEL_ROOT`'s doc comment). The live skinned
+    // chicken/cow character itself (`FarmAnimal`'s `AnimationMixer`) is a
+    // separate, still-deferred piece — this only ports the static shell.
     const stations: Array<[keyof typeof FARM_ANIMAL_FOOTPRINTS, readonly [number, number, number], string, string]> = [
-      ["chicken", FARM_ANIMAL_STATIONS.chicken.position, "fixture:chicken-coop", "#d9c26a"],
-      ["cow", FARM_ANIMAL_STATIONS.cow.position, "fixture:cow-station", "#e8e2d5"],
-      ["chicken2", FARM_ANIMAL_STATIONS.chicken2.position, "fixture:chicken-coop-2", "#d9c26a"],
+      ["chicken", FARM_ANIMAL_STATIONS.chicken.position, "fixture:chicken-coop", "chicken_coop"],
+      ["cow", FARM_ANIMAL_STATIONS.cow.position, "fixture:cow-station", "cow_station"],
+      ["chicken2", FARM_ANIMAL_STATIONS.chicken2.position, "fixture:chicken-coop-2", "chicken_coop"],
     ];
-    for (const [footprintId, position, obstacleId, color] of stations) {
+    const ownerGroup = parent;
+    for (const [footprintId, position, obstacleId, glbFile] of stations) {
       if (!fixtureAvailable(obstacleId, unlockedAreas)) continue;
       const footprint = FARM_ANIMAL_FOOTPRINTS[footprintId];
       const scaled = scaleStorePosition([...position] as [number, number, number]);
@@ -1335,11 +1485,11 @@ export class PlayCanvasRuntime {
       fence.setLocalScale(footprint.halfX * 2 * STORE_ELEMENT_SCALE, 0.5 * STORE_ELEMENT_SCALE, footprint.halfZ * 2 * STORE_ELEMENT_SCALE);
       fence.setLocalPosition(0, 0.25 * STORE_ELEMENT_SCALE, 0);
       element.addChild(fence);
-      const animal = new pc.Entity("animal");
-      animal.addComponent("render", { type: "box", material: this.material(color) });
-      animal.setLocalScale(footprint.halfX * STORE_ELEMENT_SCALE, 0.32 * STORE_ELEMENT_SCALE, footprint.halfZ * STORE_ELEMENT_SCALE);
-      animal.setLocalPosition(0, 0.35 * STORE_ELEMENT_SCALE, 0);
-      element.addChild(animal);
+      // Sits at the element's own local origin — `animalStation.ts`'s
+      // `buildAnimalStation()` adds its coop/station `shell` group with no
+      // offset, inside a `group` also positioned at `[0, 0, 0]` relative to
+      // the real `makeStoreElement()` anchor this fixture's `element` mirrors.
+      this.attachFixtureModel(element, ownerGroup, `${ENVIRONMENT_MODEL_ROOT}/${glbFile}.glb`, `fixture-model:${obstacleId}`, STORE_ELEMENT_SCALE);
     }
   }
 
