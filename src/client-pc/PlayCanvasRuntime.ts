@@ -39,6 +39,7 @@ import { CHECKOUT_LANE_IDS, CHECKOUT_LANES, checkoutAreaForLane, activeCheckoutF
 import { STORE_PRODUCTION_FIXTURES, PRODUCTION_FIXTURE_IDS, isProductionWorkstationId, type ProductionFixtureId, type ProductionFixtureLayout } from "@/game/stations/production-layout";
 import { machineInputCapacity } from "@/game/stations/StationSystem";
 import { PRODUCT_CONFIG } from "@/game/economy/products";
+import { shelfCapacityForTier } from "@/game/engine";
 import { PRODUCTS } from "@/game/catalog";
 import { STORE_SERVICE_FIXTURES, type StoreServiceFixture } from "@/game/stations/store-service-layout";
 import { WAREHOUSE_RETURN_STATION } from "@/game/stations/warehouse-layout";
@@ -162,6 +163,26 @@ const RETAIL_PRODUCT_VISUAL: Record<ProductId, RetailProductVisualSpec> = {
   cheese: { shape: "cylinder", size: [0.17, 0.105, 0.17], color: "#efbd3d" },
 };
 
+/** Mirrors `retail/stockScreen.ts`'s own `PRODUCTS_LABELS` (copied verbatim
+ * — that module also builds a permanent `THREE.Scene`/camera at module scope
+ * for its one-shot product-photo render, which this file has no reason to
+ * import just for a label string map). */
+const STOCK_SCREEN_PRODUCT_LABELS: Record<ProductId, string> = {
+  cannedCorn: "MAÍZ EN LATA",
+  tomatoes: "TOMATES",
+  apples: "MANZANAS",
+  oranges: "NARANJAS",
+  corn: "MAÍZ",
+  eggs: "HUEVOS",
+  milk: "LECHE",
+  cheese: "QUESO",
+  juice: "ZUMOS",
+  bread: "PAN",
+  flour: "HARINA",
+  wheat: "TRIGO",
+  coffee: "CAFÉ",
+};
+
 // ─── Transfer-effect magnet bursts (phase 12 port of `/runtime`'s
 // `src/client/WorldKit/transferEffects/bursts.ts` +
 // `transferEffects/productParticle.ts`) ─────────────────────────────────────
@@ -271,6 +292,10 @@ interface RetailStockActor {
   fixtureCount: number;
   group: pc.Entity;
   units: pc.Entity[];
+  /** Real per-SKU stock-screen readout (port of `stockScreen.ts`'s dynamic
+   * `count`/`status` text — see `buildStockScreenFace()`'s own doc comment).
+   * Not every actor gets one (produce has no screen, matching the source). */
+  screen?: { countText: pc.Entity; statusText: pc.Entity };
 }
 
 /** One checkout bag (`buildCheckoutBag()` in `checkout/checkoutKit.ts`):
@@ -720,7 +745,7 @@ export class PlayCanvasRuntime {
   // Rebuilt with the rest of `furnitureGroup` on a signature change; driven
   // every render frame from `stepCeilingLamps()` reading `franchise.lightsOn`
   // directly, like `stepFarmAnimals()`/`stepRetailStock()` above.
-  private readonly ceilingLampActors: { bulbMaterial: pc.StandardMaterial; light: pc.Entity }[] = [];
+  private readonly ceilingLampActors: { light: pc.Entity; modelMaterials: pc.StandardMaterial[] }[] = [];
 
   // ---- checkout lane / production machine dynamic detail (phase 15) ----
   // Rebuilt with the rest of `furnitureGroup` on a signature change; driven
@@ -1032,19 +1057,39 @@ export class PlayCanvasRuntime {
     return this.dynamicFontAsset;
   }
 
-  /** Rebuilds the shared dynamic-label font's glyph atlas to cover every
-   * character currently in use across every live purchase-marker sign.
-   * `CanvasFont.createTextures()` (see `canvas-font.js`) does its own cheap
-   * charset diff internally and only re-renders the atlas when the sorted
-   * character set actually changed, so calling this on every text-dirty sync
-   * pass — rather than only when literally necessary — is safe and matches
-   * the handoff's "cheap once the charset stabilizes" note. */
-  private refreshDynamicFontCharset() {
+  /** Grows the shared dynamic-label font's glyph atlas to also cover `text`,
+   * without dropping any character already in use by another live dynamic
+   * text entity. `CanvasFont.createTextures()` (see `canvas-font.js`)
+   * replaces the ENTIRE atlas with only the given text's own character set —
+   * it is not additive — so calling it per-entity (as this codebase's own
+   * checkout/machine-board/stock-screen/purchase-marker update sites all
+   * used to) races every other simultaneously-displayed dynamic text over
+   * one shared atlas: whichever text last called `createTextures()` wins,
+   * and every other live text glyph outside that one string's own charset
+   * goes missing until IT happens to update too. `CanvasFont.updateTextures()`
+   * is the real additive form (diffs against `this.data.chars`, only
+   * re-renders when new characters actually appear), so every call site
+   * routes through this helper instead — except the very first text this
+   * font ever sees in the session, before `this.data.chars` exists at all
+   * (a fresh `CanvasFont`'s `this.data = {}`), which still needs the
+   * one-time `createTextures()` bootstrap. */
+  private growDynamicFontCharset(text: string) {
     const font = this.dynamicFont;
     if (!font) return;
+    // `CanvasFont.data` is typed as `{}` (its real shape is only known once
+    // `_createJson()` has run at least once) — cast to check the field
+    // `updateTextures()` itself depends on before ever calling it.
+    if ((font.data as { chars?: unknown }).chars) font.updateTextures(text);
+    else font.createTextures(text);
+  }
+
+  /** Purchase-marker-specific corpus refresh — folds every live marker's
+   * label/remaining-label characters into the shared atlas via the same
+   * additive `growDynamicFontCharset()` every other dynamic text uses. */
+  private refreshDynamicFontCharset() {
     let corpus = "";
     for (const entry of this.purchaseMarkerEntries.values()) corpus += entry.label + entry.remainingLabel;
-    font.createTextures(corpus);
+    this.growDynamicFontCharset(corpus);
   }
 
   /** Builds one dynamic (font-shared, dirty-checked) text entity — the
@@ -1063,13 +1108,14 @@ export class PlayCanvasRuntime {
     const fontAsset = this.ensureDynamicFont();
     // A freshly constructed `CanvasFont` has no glyph atlas at all yet
     // (`this.data = {}` in its constructor) — attaching an `element`
-    // component whose `fontAsset` resolves to it before `createTextures()`
-    // has ever run throws deep inside `ElementComponent`'s text layout
-    // (`data.chars` is undefined). Seeding the atlas with at least this
-    // entity's own text before the element is created keeps that first
-    // frame valid; `syncPurchaseMarkers()`'s `refreshDynamicFontCharset()`
-    // then folds in every other live marker's characters right after.
-    this.dynamicFont!.createTextures(text);
+    // component whose `fontAsset` resolves to it before the atlas exists at
+    // all throws deep inside `ElementComponent`'s text layout (`data.chars`
+    // is undefined). Seeding via the additive `growDynamicFontCharset()`
+    // keeps that first frame valid without dropping any character every
+    // OTHER already-live dynamic text on screen still needs (see that
+    // method's own doc comment for why the raw, per-entity
+    // `CanvasFont.createTextures()` call this used to make here was unsafe).
+    this.growDynamicFontCharset(text);
     const anchorValue = anchorX === "left" ? 0 : anchorX === "right" ? 1 : 0.5;
     const entity = new pc.Entity(name);
     entity.addComponent("element", {
@@ -2419,13 +2465,13 @@ export class PlayCanvasRuntime {
       if (id === "produce" || id === "pantry") {
         const positions = retailFixtureDisplayPositions(id, unlockedAreas);
         positions.forEach((position, fixtureIndex) => {
-          const element = this.buildDepartmentFixture(group, department, [...position] as [number, number, number], department.yaw ?? 0);
-          this.attachRetailStockPools(element, department, fixtureIndex, positions.length);
+          const { element, screens } = this.buildDepartmentFixture(group, department, [...position] as [number, number, number], department.yaw ?? 0);
+          this.attachRetailStockPools(element, department, fixtureIndex, positions.length, screens);
         });
         continue;
       }
-      const element = this.buildDepartmentFixture(group, department, [...department.display] as [number, number, number], department.yaw ?? 0);
-      this.attachRetailStockPools(element, department, 0, 1);
+      const { element, screens } = this.buildDepartmentFixture(group, department, [...department.display] as [number, number, number], department.yaw ?? 0);
+      this.attachRetailStockPools(element, department, 0, 1, screens);
     }
 
     this.buildCheckoutLanes(group, unlockedAreas);
@@ -2443,12 +2489,11 @@ export class PlayCanvasRuntime {
    * PlayCanvas equivalent before this pass. The ceiling lamps get a real
    * `pc.Entity` point light (toggled by `stepCeilingLamps()`, reading
    * `franchise.lightsOn` every frame exactly like `stepFarmAnimals()`/
-   * `stepRetailStock()` read their own store fields) plus a real emissive
-   * bulb material — same on/off behavior as the source's
-   * `applyEmissive`/`syncLight`, minus the source's real
-   * `equipment_ceiling_light` GLB (no PlayCanvas conversion of that asset
-   * exists yet, so a primitive shade+bulb housing stands in for it; tracked
-   * separately in the phase punch list). Every position/dimension below is
+   * `stepRetailStock()` read their own store fields) plus the real
+   * `equipment_ceiling_light` GLB with every one of its materials' emissive
+   * toggled — same on/off behavior as the source's
+   * `applyEmissive`/`syncLight` (see the ceiling-lamp loop's own doc comment
+   * below for the GLB conversion pipeline). Every position/dimension below is
    * copied verbatim from the source (`storeUtilities.ts` lines ~22-64,
    * ~150-176), via the same scaleStorePosition + STORE_ELEMENT_SCALE
    * `makeStoreElement()` convention every other fixture in this file uses.
@@ -2527,31 +2572,44 @@ export class PlayCanvasRuntime {
     buildHangingSign("hanging-sign-checkout", "CAJAS", [7.25, 2.45, 1.65]);
     buildHangingSign("hanging-sign-pantry", "DESPENSA", [-3.8, 2.45, -3.35]);
 
-    // Ceiling lamps — real point light + primitive shade/bulb housing.
+    // Ceiling lamps — real point light + real `equipment_ceiling_light` GLB
+    // (port of `storeUtilities.ts`'s `buildCeilingLamp`: the source clones
+    // the loaded GLB per lamp and toggles EVERY MeshStandardMaterial's
+    // emissive, not a single named bulb mesh — `stepCeilingLamps()` mirrors
+    // that over `modelMaterials`). The source's GLB requires
+    // `EXT_meshopt_compression` + `KHR_mesh_quantization` (confirmed via
+    // `gltf-transform inspect`, same problem `PRODUCTION_MODEL_ROOT`'s doc
+    // comment describes), so it's stripped the identical way into this
+    // repo's own `playcanvas-production/` directory (co-located with the
+    // other converted GLBs, not a separate `environment` directory, matching
+    // `ANIMAL_MODEL_ROOT`'s own precedent for a budget-tier asset moved
+    // there for the same reason):
+    //   npx gltf-transform copy budget/environment/equipment_ceiling_light.glb playcanvas-production/equipment_ceiling_light.glb
+    //   npx gltf-transform dequantize playcanvas-production/equipment_ceiling_light.glb playcanvas-production/equipment_ceiling_light.glb
+    // `loadAccessoryEntity()` creates a fresh `pc.Asset`/container per call
+    // (no cross-lamp caching), so each lamp's instantiated materials are
+    // already isolated from every other lamp's — no explicit per-instance
+    // material clone needed the way the source's Three.js path requires one.
     for (const x of [-7.2, -2.4, 2.4, 7.2]) {
       const lampElement = element(`ceiling-lamp:${x}`, [x, 2.85, -0.6]);
-      const shadeMaterial = new pc.StandardMaterial();
-      shadeMaterial.diffuse = hexToColor("#2c2c2c");
-      shadeMaterial.update();
-      const shade = new pc.Entity("lamp-shade");
-      shade.addComponent("render", { type: "cylinder", material: shadeMaterial });
-      shade.setLocalScale(0.5, 0.12, 0.5);
-      lampElement.addChild(shade);
-      const bulbMaterial = new pc.StandardMaterial();
-      bulbMaterial.diffuse = hexToColor("#fff0b8");
-      bulbMaterial.emissive = hexToColor("#000000");
-      bulbMaterial.emissiveIntensity = 0;
-      bulbMaterial.update();
-      const bulb = new pc.Entity("lamp-bulb");
-      bulb.addComponent("render", { type: "cylinder", material: bulbMaterial });
-      bulb.setLocalScale(0.32, 0.05, 0.32);
-      bulb.setLocalPosition(0, -0.08, 0);
-      lampElement.addChild(bulb);
+      const modelAnchor = new pc.Entity("lamp-model");
+      lampElement.addChild(modelAnchor);
+      const modelMaterials: pc.StandardMaterial[] = [];
+      void this.loadAccessoryEntity(`${PRODUCTION_MODEL_ROOT}/equipment_ceiling_light.glb`, `fixture-model:ceiling-lamp:${x}`).then((entity) => {
+        if (this.disposed || this.furnitureGroup !== parent || !entity) return;
+        modelAnchor.addChild(entity);
+        for (const render of entity.findComponents("render") as pc.RenderComponent[]) {
+          for (const meshInstance of render.meshInstances) {
+            const material = meshInstance.material as pc.StandardMaterial;
+            modelMaterials.push(material);
+          }
+        }
+      });
       const light = new pc.Entity("lamp-light");
       light.addComponent("light", { type: "point", color: hexToColor("#fff2c9"), intensity: 0, range: 4 });
       light.setLocalPosition(0, -0.15, 0);
       lampElement.addChild(light);
-      this.ceilingLampActors.push({ bulbMaterial, light });
+      this.ceilingLampActors.push({ light, modelMaterials });
     }
   }
 
@@ -2565,9 +2623,11 @@ export class PlayCanvasRuntime {
     const franchise = game?.franchises.find((item) => item.id === game.currentFranchiseId) ?? game?.franchises[0];
     const on = franchise?.lightsOn ?? false;
     for (const actor of this.ceilingLampActors) {
-      actor.bulbMaterial.emissive = hexToColor(on ? "#fff0b8" : "#000000");
-      actor.bulbMaterial.emissiveIntensity = on ? 1.1 : 0;
-      actor.bulbMaterial.update();
+      for (const material of actor.modelMaterials) {
+        material.emissive = hexToColor(on ? "#fff0b8" : "#000000");
+        material.emissiveIntensity = on ? 1.1 : 0;
+        material.update();
+      }
       if (actor.light.light) actor.light.light.intensity = on ? 0.18 : 0;
     }
   }
@@ -3537,13 +3597,13 @@ export class PlayCanvasRuntime {
    * the literal source still gets proportional geometry; z dimensions are
    * used literally since the source shelf/back-panel depths are already
    * much shallower than the fixture footprint by design. Per-SKU dynamic
-   * stock screens (`buildStockScreen` in the source) and the dairy cooler's
-   * animated GLB doors are intentionally out of this pass — this only ports
-   * the STATIC shelf/upright/back-panel/sign geometry that gives each
-   * department its visual identity; `dairy`/`eggs` get a simplified chiller
-   * cabinet silhouette (back panel + uprights + canopy + glass hint) rather
-   * than the source's real GLB case, tracked separately. */
-  private buildDepartmentFixture(parent: pc.Entity, department: (typeof RETAIL_DEPARTMENTS)[RetailDepartmentId], position: [number, number, number], yawDeg: number): pc.Entity {
+   * stock screens (`buildStockScreen` in the source, ported separately — see
+   * `buildStockScreen()` below) and the dairy cooler's animated door swing
+   * (see `buildChillerFixtureShell()`'s own doc comment) are the only
+   * pieces still not 1:1; `dairy`/`eggs` now use the real GLB cooler case
+   * (`buildChillerFixtureShell()`), same as every other department's real
+   * static shelf/upright/back-panel/sign geometry. */
+  private buildDepartmentFixture(parent: pc.Entity, department: (typeof RETAIL_DEPARTMENTS)[RetailDepartmentId], position: [number, number, number], yawDeg: number): { element: pc.Entity; screens: Map<ProductId, { countText: pc.Entity; statusText: pc.Entity }> } {
     // Mirrors `makeStoreElement`: scaleStorePosition (bakes STORE_LAYOUT_SCALE
     // — this group already lives under `worldRoot`, WORLD_SCALE only), yaw,
     // then a uniform STORE_ELEMENT_SCALE on the fixture itself.
@@ -3563,26 +3623,27 @@ export class PlayCanvasRuntime {
     base.setLocalPosition(0, 0.04 * STORE_ELEMENT_SCALE, 0);
     element.addChild(base);
 
+    const screens = new Map<ProductId, { countText: pc.Entity; statusText: pc.Entity }>();
     switch (department.id) {
       case "pantry":
       case "preserves":
-        this.buildGondolaFixtureShell(element, department, width);
+        this.buildGondolaFixtureShell(element, department, width, screens);
         break;
       case "bakery":
-        this.buildBakeryFixtureShell(element, department, width);
+        this.buildBakeryFixtureShell(element, department, width, screens);
         break;
       case "drinks":
-        this.buildDrinksFixtureShell(element, department, width);
+        this.buildDrinksFixtureShell(element, department, width, screens);
         break;
       case "produce":
         this.buildProduceFixtureShell(element, department);
         break;
       case "dairy":
       case "eggs":
-        this.buildChillerFixtureShell(element, department, width, depth);
+        this.buildChillerFixtureShell(element, parent, department, width, depth, screens);
         break;
     }
-    return element;
+    return { element, screens };
   }
 
   /** Real port of `fixtureShell.ts`'s `FixtureUprights`: two steel posts per
@@ -3660,8 +3721,9 @@ export class PlayCanvasRuntime {
     }
   }
 
-  /** Real port of `fixtureShell.ts`'s `ScreenRail` (structural rail only —
-   * the dynamic stock screen itself is out of scope for this pass). */
+  /** Real port of `fixtureShell.ts`'s `ScreenRail` — the structural mounting
+   * rail every per-SKU stock screen (`buildStockScreenFace()`, below) sits
+   * on. */
   private buildScreenRail(parent: pc.Entity, barY: number, railY: number, halfWidth: number, z: number) {
     const S = STORE_ELEMENT_SCALE;
     const steel = this.material("#222a2b");
@@ -3677,6 +3739,105 @@ export class PlayCanvasRuntime {
     bar.setLocalScale((halfWidth * 2 + 0.05) * S, 0.05 * S, 0.05 * S);
     bar.setLocalPosition(0, railY * S, z * S);
     parent.addChild(bar);
+  }
+
+  /**
+   * Real port of `retail/stockScreen.ts`'s `buildStockScreen` — the live
+   * per-SKU illuminated readout mounted on the `ScreenRail` above every
+   * non-produce retail fixture. `stepRetailStock()` drives the two dynamic
+   * texts (`countText`/`statusText`, the returned handles) every frame,
+   * exactly mirroring the source's own `update(count, capacity)` (missing
+   * units / "LLENO" logic copied verbatim).
+   *
+   * One intentional, documented simplification: the source's `photo` plane
+   * is a ONE-SHOT `THREE.WebGLRenderTarget` render of a tiny lit
+   * `BasketProductMesh` scene (`renderProductPhoto()`), rendered once per
+   * screen and never updated again. Reproducing that exact render-to-texture
+   * technique in PlayCanvas (a second offscreen camera/layer per screen,
+   * rendered once at construction) is a real, doable feature — but for a
+   * photo that never animates and is already redundant with the real
+   * `RETAIL_PRODUCT_VISUAL` unit sitting physically on the shelf a few
+   * centimeters below it, the juice isn't worth the extra camera/layer/
+   * render-target bookkeeping per screen (same cost/benefit call this file
+   * already made for milk/cheese/egg pooled units staying primitives). This
+   * pass ports the actually-dynamic, actually-informative part — the live
+   * count/capacity text — with a static accent-colored swatch (the same
+   * `RETAIL_PRODUCT_VISUAL` color the shelf unit uses) standing in for the
+   * one-shot photo.
+   */
+  private buildStockScreenFace(parent: pc.Entity, productId: ProductId, accentColor: string, position: [number, number, number], fixtureYawDeg: number): { countText: pc.Entity; statusText: pc.Entity } {
+    const S = STORE_ELEMENT_SCALE;
+    const anchor = new pc.Entity(`stock-screen:${productId}`);
+    anchor.setLocalPosition(position[0] * S, position[1] * S, position[2] * S);
+    const tiltDeg = (-0.35 * 180) / Math.PI;
+    const yawDeg = (FLOOR_LABEL_YAW * 180) / Math.PI - fixtureYawDeg;
+    anchor.setLocalEulerAngles(tiltDeg, yawDeg, 0);
+    parent.addChild(anchor);
+
+    const post = new pc.Entity("screen-post");
+    post.addComponent("render", { type: "box", material: this.material("#3a4a4d") });
+    post.setLocalScale(0.06 * S, 0.16 * S, 0.06 * S);
+    post.setLocalPosition(0, -0.5 * S, -0.03 * S);
+    anchor.addChild(post);
+
+    const frame = new pc.Entity("screen-frame");
+    frame.addComponent("render", { type: "box", material: this.material("#1a2325") });
+    frame.setLocalScale(0.76 * S, 0.86 * S, 0.06 * S);
+    frame.setLocalPosition(0, 0, -0.03 * S);
+    anchor.addChild(frame);
+
+    const backgroundMaterial = new pc.StandardMaterial();
+    backgroundMaterial.diffuse = hexToColor("#0f1e23");
+    backgroundMaterial.emissive = hexToColor("#12303a");
+    backgroundMaterial.emissiveIntensity = 0.55;
+    backgroundMaterial.update();
+    const background = new pc.Entity("screen-background");
+    background.addComponent("render", { type: "plane", material: backgroundMaterial });
+    background.setLocalScale(0.68 * S, 1, 0.78 * S);
+    background.setLocalPosition(0, 0, 0.004 * S);
+    background.setLocalEulerAngles(90, 0, 0);
+    anchor.addChild(background);
+
+    const accentMaterial = new pc.StandardMaterial();
+    accentMaterial.diffuse = hexToColor(accentColor);
+    accentMaterial.emissive = hexToColor(accentColor);
+    accentMaterial.emissiveIntensity = 0.35;
+    accentMaterial.update();
+    const accentBar = new pc.Entity("screen-accent");
+    accentBar.addComponent("render", { type: "plane", material: accentMaterial });
+    accentBar.setLocalScale(0.68 * S, 1, 0.06 * S);
+    accentBar.setLocalPosition(0, 0.405 * S, 0.006 * S);
+    accentBar.setLocalEulerAngles(90, 0, 0);
+    anchor.addChild(accentBar);
+
+    // Real per-SKU color swatch standing in for the source's one-shot
+    // product-photo render — see this method's own doc comment above.
+    const swatch = new pc.Entity("screen-photo-swatch");
+    const swatchSpec = RETAIL_PRODUCT_VISUAL[productId];
+    swatch.addComponent("render", { type: swatchSpec.shape, material: this.material(swatchSpec.color) });
+    const swatchScale = 0.34 / Math.max(swatchSpec.size[0], swatchSpec.size[1], swatchSpec.size[2]);
+    swatch.setLocalScale(swatchSpec.size[0] * swatchScale * S, swatchSpec.size[1] * swatchScale * S, swatchSpec.size[2] * swatchScale * S);
+    swatch.setLocalPosition(0, 0.13 * S, 0.05 * S);
+    anchor.addChild(swatch);
+
+    this.buildText(anchor, "screen-label", STOCK_SCREEN_PRODUCT_LABELS[productId], 0.07 * S, [0, 0.34 * S, 0.01 * S], "#e9f6f2");
+
+    const dynamic = new pc.Entity("dynamic:stock-screen");
+    anchor.addChild(dynamic);
+    const countText = this.buildDynamicText(dynamic, "stock-screen-count", "0/0", 0.15 * S, [0, -0.16 * S, 0.01 * S], "#ffffff");
+    const statusText = this.buildDynamicText(dynamic, "stock-screen-status", "faltan 0", 0.082 * S, [0, -0.325 * S, 0.01 * S], "#ffcf6b");
+
+    const indicatorMaterial = new pc.StandardMaterial();
+    indicatorMaterial.emissive = hexToColor("#5bf08a");
+    indicatorMaterial.emissiveIntensity = 1;
+    indicatorMaterial.update();
+    const indicator = new pc.Entity("screen-indicator");
+    indicator.addComponent("render", { type: "sphere", material: indicatorMaterial });
+    indicator.setLocalScale(0.028 * S, 0.028 * S, 0.028 * S);
+    indicator.setLocalPosition(0.29 * S, 0.405 * S, 0.012 * S);
+    anchor.addChild(indicator);
+
+    return { countText, statusText };
   }
 
   /** Real port of `fixtureShell.ts`'s `DepartmentSign`: frame + colored panel
@@ -3703,7 +3864,7 @@ export class PlayCanvasRuntime {
    * panel, uprights, a double-sided shelf bank (service-facing side first,
    * matching the source's comment on stocking-magnet proximity), steel cap,
    * screen rail and department sign. */
-  private buildGondolaFixtureShell(element: pc.Entity, department: (typeof RETAIL_DEPARTMENTS)[RetailDepartmentId], width: number) {
+  private buildGondolaFixtureShell(element: pc.Entity, department: (typeof RETAIL_DEPARTMENTS)[RetailDepartmentId], width: number, screens: Map<ProductId, { countText: pc.Entity; statusText: pc.Entity }>) {
     const S = STORE_ELEMENT_SCALE;
     const kx = width / 2.24;
     this.buildCommercialBackPanel(element, 2.08 * kx, 1.82, 0, "#b69a77");
@@ -3717,11 +3878,13 @@ export class PlayCanvasRuntime {
     cap.setLocalPosition(0, 1.88 * S, 0);
     element.addChild(cap);
     this.buildScreenRail(element, 1.95, 2.43, 1.1 * kx, 0.12);
+    const productId = department.products[0];
+    if (productId) screens.set(productId, this.buildStockScreenFace(element, productId, department.color, [0, 2.9, 0.12], department.yaw ?? 0));
     this.buildDepartmentSignBoard(element, department.label, department.color, [0, 2.15, 0], 2.02 * kx);
   }
 
   /** Real port of `departments.ts`'s `BakeryDisplay`. */
-  private buildBakeryFixtureShell(element: pc.Entity, department: (typeof RETAIL_DEPARTMENTS)[RetailDepartmentId], width: number) {
+  private buildBakeryFixtureShell(element: pc.Entity, department: (typeof RETAIL_DEPARTMENTS)[RetailDepartmentId], width: number, screens: Map<ProductId, { countText: pc.Entity; statusText: pc.Entity }>) {
     const S = STORE_ELEMENT_SCALE;
     const kx = width / 2.24;
     this.buildCommercialBackPanel(element, 2.08 * kx, 1.9, -0.34, "#d8c3a2");
@@ -3733,11 +3896,15 @@ export class PlayCanvasRuntime {
     cap.setLocalPosition(0, 1.98 * S, -0.1 * S);
     element.addChild(cap);
     this.buildScreenRail(element, 2.05, 2.52, 1.12 * kx, 0.1);
+    const yaw = department.yaw ?? 0;
+    screens.set("bread", this.buildStockScreenFace(element, "bread", department.color, [-0.78 * kx, 2.99, 0.1], yaw));
+    screens.set("flour", this.buildStockScreenFace(element, "flour", department.color, [0, 2.99, 0.1], yaw));
+    screens.set("wheat", this.buildStockScreenFace(element, "wheat", department.color, [0.78 * kx, 2.99, 0.1], yaw));
     this.buildDepartmentSignBoard(element, department.label, department.color, [0, 2.25, 0.08], 2.02 * kx);
   }
 
   /** Real port of `departments.ts`'s `DrinksDisplay`. */
-  private buildDrinksFixtureShell(element: pc.Entity, department: (typeof RETAIL_DEPARTMENTS)[RetailDepartmentId], width: number) {
+  private buildDrinksFixtureShell(element: pc.Entity, department: (typeof RETAIL_DEPARTMENTS)[RetailDepartmentId], width: number, screens: Map<ProductId, { countText: pc.Entity; statusText: pc.Entity }>) {
     const S = STORE_ELEMENT_SCALE;
     const kx = width / 2.3;
     this.buildCommercialBackPanel(element, 2.2 * kx, 2.08, -0.36, "#d8d3c6");
@@ -3749,6 +3916,8 @@ export class PlayCanvasRuntime {
     cap.setLocalPosition(0, 2.18 * S, 0);
     element.addChild(cap);
     this.buildScreenRail(element, 2.27, 2.7, 1.12 * kx, 0.1);
+    const productId = department.products[0];
+    if (productId) screens.set(productId, this.buildStockScreenFace(element, productId, department.color, [0, 3.14, 0.1], department.yaw ?? 0));
     this.buildDepartmentSignBoard(element, department.label, department.color, [0, 2.42, 0.07], 2 * kx);
   }
 
@@ -3846,32 +4015,46 @@ export class PlayCanvasRuntime {
   }
 
   /**
-   * Simplified chiller-cabinet silhouette for `dairy`/`eggs`: back panel +
-   * uprights + dark canopy + a translucent glass-front hint + department
-   * sign. NOT a port of the source's real GLB cooler case (`ChilledDisplay`/
-   * `EggDisplay` load `DairyDoor1..3`-rigged and `egg-display` GLB scenes,
-   * with animated door leaves) — that swap is tracked separately as a
-   * distinct, larger-scope item (real GLB integration + door animation).
-   * This pass only replaces the flat single-color box with a real cabinet
-   * shape so the department reads as chilled retail rather than a placeholder.
+   * Real GLB cooler case for `dairy`/`eggs` — port of `departments.ts`'s
+   * `ChilledDisplay`/`EggDisplay`, which clone the real `dairy.glb`/
+   * `egg-display.glb` scenes (`deliveredStock.ts`'s `cloneDeliveredScene`)
+   * rather than build a primitive cabinet. Both source GLBs require
+   * `EXT_meshopt_compression` + `KHR_mesh_quantization` (confirmed via
+   * `gltf-transform inspect`, same problem `PRODUCTION_MODEL_ROOT`'s doc
+   * comment describes for the mill/oven/juicer/chicken/cow GLBs), so both
+   * are stripped the identical way into this repo's own
+   * `playcanvas-production/` directory:
+   *   npx gltf-transform copy delivered/dairy.glb playcanvas-production/dairy.glb
+   *   npx gltf-transform dequantize playcanvas-production/dairy.glb playcanvas-production/dairy.glb
+   *   npx gltf-transform copy delivered/egg-display.glb playcanvas-production/egg-display.glb
+   *   npx gltf-transform dequantize playcanvas-production/egg-display.glb playcanvas-production/egg-display.glb
+   * Regenerate the same way if either source asset changes. This does not
+   * touch any file `/`, `/play2` or `/runtime` reads.
+   *
+   * Known deviation: the source's three `DairyDoor1..3` leaves swing open
+   * while a customer is mid-`WAIT_FOR_ACCESS`/`PICK_PRODUCT` on a milk/cheese
+   * line (`kitFurniture.ts`'s `coldDoorActiveOf()`), driven by
+   * `customer.shoppingList[customer.currentLine]?.productId` — a field this
+   * engine's own `PlayCanvasSceneProps.customers` doesn't carry (it only
+   * carries `id`/`x`/`z`/`state`). Piping that per-customer product id
+   * through every scene-prop call site solely to open/close a cooler door is
+   * out of scope for this cosmetic GLB swap, so the doors here render at
+   * their real authored rest pose (closed) rather than animating. The case
+   * geometry itself — the actual ask of this pass — is the real asset.
    */
-  private buildChillerFixtureShell(element: pc.Entity, department: (typeof RETAIL_DEPARTMENTS)[RetailDepartmentId], width: number, depth: number) {
-    const S = STORE_ELEMENT_SCALE;
+  private buildChillerFixtureShell(element: pc.Entity, ownerGroup: pc.Entity, department: (typeof RETAIL_DEPARTMENTS)[RetailDepartmentId], width: number, depth: number, screens: Map<ProductId, { countText: pc.Entity; statusText: pc.Entity }>) {
     const isDairy = department.id === "dairy";
-    const caseHeight = isDairy ? 2.05 : 1.9;
-    const backZ = -depth * 0.42;
-    this.buildCommercialBackPanel(element, width * 0.9, caseHeight, backZ, isDairy ? "#dcecef" : "#eef2ee");
-    this.buildFixtureUprights(element, width * 0.95, caseHeight + 0.1, backZ);
-    const canopy = new pc.Entity("canopy");
-    canopy.addComponent("render", { type: "box", material: this.material("#222a2b") });
-    canopy.setLocalScale(width * 0.97 * S, 0.12 * S, depth * 0.9 * S);
-    canopy.setLocalPosition(0, caseHeight * S, backZ * 0.3 * S);
-    element.addChild(canopy);
-    const glass = new pc.Entity("glass-front");
-    glass.addComponent("render", { type: "box", material: this.material("#dcecef", 0.28) });
-    glass.setLocalScale(width * 0.9 * S, caseHeight * 0.75 * S, 0.03 * S);
-    glass.setLocalPosition(0, caseHeight * 0.42 * S, depth * 0.42 * S);
-    element.addChild(glass);
+    const file = isDairy ? "dairy" : "egg-display";
+    this.attachFixtureModel(element, ownerGroup, `${PRODUCTION_MODEL_ROOT}/${file}.glb`, `fixture-model:retail-${department.id}`, STORE_ELEMENT_SCALE);
+    const yaw = department.yaw ?? 0;
+    if (isDairy) {
+      this.buildScreenRail(element, 1.58, 2.12, 1.12, 0.1);
+      screens.set("milk", this.buildStockScreenFace(element, "milk", department.color, [-0.55, 2.58, 0.1], yaw));
+      screens.set("cheese", this.buildStockScreenFace(element, "cheese", department.color, [0.55, 2.58, 0.1], yaw));
+    } else {
+      this.buildScreenRail(element, 2.1, 2.36, 0.73, 0.1);
+      screens.set("eggs", this.buildStockScreenFace(element, "eggs", department.color, [0, 2.83, 0.1], yaw));
+    }
     const signY = isDairy ? 1.86 : 2.62;
     this.buildDepartmentSignBoard(element, department.label, department.color, [0, signY, depth * 0.44], width * 0.9);
   }
@@ -3885,11 +4068,11 @@ export class PlayCanvasRuntime {
    * needed), so an empty/never-stocked SKU costs nothing beyond one empty
    * `pc.Entity`.
    */
-  private attachRetailStockPools(element: pc.Entity, department: (typeof RETAIL_DEPARTMENTS)[RetailDepartmentId], fixtureIndex: number, fixtureCount: number) {
+  private attachRetailStockPools(element: pc.Entity, department: (typeof RETAIL_DEPARTMENTS)[RetailDepartmentId], fixtureIndex: number, fixtureCount: number, screens: Map<ProductId, { countText: pc.Entity; statusText: pc.Entity }>) {
     for (const productId of department.products) {
       const group = new pc.Entity(`retail-stock:${productId}:${fixtureIndex}`);
       element.addChild(group);
-      this.retailStockActors.push({ productId, fixtureIndex, fixtureCount, group, units: [] });
+      this.retailStockActors.push({ productId, fixtureIndex, fixtureCount, group, units: [], screen: screens.get(productId) });
     }
   }
 
@@ -3915,6 +4098,10 @@ export class PlayCanvasRuntime {
     const game = useMarketStore.getState().game;
     const franchise = game?.franchises.find((item) => item.id === game.currentFranchiseId) ?? game?.franchises[0];
     if (!franchise) return;
+    // Mirrors `kitFurniture.ts`'s `fixtureCapacityOf()`/`GameShell.tsx`'s own
+    // `shelfTier` derivation exactly — the franchise has no plain
+    // `shelfTier` field of its own.
+    const shelfTier = franchise.stationTiers["shelves-1"] ?? franchise.shelvesLevel;
     for (const actor of this.retailStockActors) {
       const total = franchise.shelves[actor.productId] ?? 0;
       const rawCount = distributedFixtureQuantity(total, actor.fixtureIndex, actor.fixtureCount);
@@ -3928,6 +4115,22 @@ export class PlayCanvasRuntime {
         if (!visible) continue;
         const [x, y, z] = retailStockLandingLocalPosition(actor.productId, index, visualCount);
         unit.setLocalPosition(x * STORE_ELEMENT_SCALE, y * STORE_ELEMENT_SCALE, z * STORE_ELEMENT_SCALE);
+      }
+      if (actor.screen) {
+        const capacity = distributedFixtureQuantity(shelfCapacityForTier(shelfTier, actor.productId, franchise.unlockedAreas), actor.fixtureIndex, actor.fixtureCount);
+        const missing = Math.max(0, capacity - rawCount);
+        const full = capacity > 0 && missing === 0;
+        const countLabel = `${rawCount}/${capacity}`;
+        if (actor.screen.countText.element!.text !== countLabel) {
+          actor.screen.countText.element!.text = countLabel;
+          this.growDynamicFontCharset(countLabel);
+        }
+        const statusLabel = full ? "LLENO" : `faltan ${missing}`;
+        if (actor.screen.statusText.element!.text !== statusLabel) {
+          actor.screen.statusText.element!.text = statusLabel;
+          this.growDynamicFontCharset(statusLabel);
+        }
+        actor.screen.statusText.element!.color = hexToColor(full ? "#8ce6a1" : "#ffcf6b");
       }
     }
   }
@@ -3986,7 +4189,7 @@ export class PlayCanvasRuntime {
       const screenLabel = transaction ? `${bagged}/${total}` : "LISTA";
       if (entry.screenText.element!.text !== screenLabel) {
         entry.screenText.element!.text = screenLabel;
-        this.dynamicFont?.createTextures(screenLabel);
+        this.growDynamicFontCharset(screenLabel);
       }
 
       const payment = transaction?.state === "PAYMENT";
@@ -4060,26 +4263,26 @@ export class PlayCanvasRuntime {
       const outputLabel = `${machine?.output ?? 0}/${machine?.outputCapacity ?? 0}`;
       if (entry.outputText.element!.text !== outputLabel) {
         entry.outputText.element!.text = outputLabel;
-        this.dynamicFont?.createTextures(outputLabel);
+        this.growDynamicFontCharset(outputLabel);
       }
       entry.outputText.element!.color = hexToColor(machine && machine.output > 0 ? "#8ce6a1" : "#ffffff");
 
       const ingredientLabel = ingredient ? PRODUCTS[ingredient].name.toUpperCase() : "COLA";
       if (entry.ingredientText.element!.text !== ingredientLabel) {
         entry.ingredientText.element!.text = ingredientLabel;
-        this.dynamicFont?.createTextures(ingredientLabel);
+        this.growDynamicFontCharset(ingredientLabel);
       }
 
       const queuedLabel = `${queued}/${queueCapacity}`;
       if (entry.queuedText.element!.text !== queuedLabel) {
         entry.queuedText.element!.text = queuedLabel;
-        this.dynamicFont?.createTextures(queuedLabel);
+        this.growDynamicFontCharset(queuedLabel);
       }
       entry.queuedText.element!.color = hexToColor(queued > 0 ? "#ffd98a" : "#ffffff");
 
       if (entry.statusLabelText.element!.text !== status.label) {
         entry.statusLabelText.element!.text = status.label;
-        this.dynamicFont?.createTextures(status.label);
+        this.growDynamicFontCharset(status.label);
       }
       entry.statusLabelText.element!.color = hexToColor(status.color);
       entry.statusDotMaterial.diffuse = hexToColor(status.color);
