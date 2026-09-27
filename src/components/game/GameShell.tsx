@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { authClient } from "@/lib/auth-client";
 import { COUNTRIES, HATS, PRODUCTS, SUPPLIERS } from "@/game/catalog";
 import { canOperateMachine, canProcessCheckoutUnit, countryMoneyScale, formatMoney, isCampaignGame } from "@/game/engine";
@@ -10,13 +10,9 @@ import { campaignLocation } from "@/game/progression/CampaignLocations";
 import { campaignLevel } from "@/game/progression/CampaignLevels";
 import { campaignContracts } from "@/game/progression/CampaignContracts";
 
-import { setExternalWorldTickDriver, useMarketStore } from "@/game/store";
+import { useMarketStore } from "@/game/store";
 import type { AvatarConfig, CountryCode, FranchiseState, GameState, ProductId } from "@/game/types";
 import { MarketScene, type InteractionId, type InteractionVisualEvent, type MarketSceneProps, type PurchaseMarker } from "./MarketScene";
-import { ClientCanvas } from "@/client/ClientCanvas";
-import type { ClientRuntimeOptions } from "@/client/ClientRuntime";
-import { PlayCanvasCanvas } from "@/client-pc/PlayCanvasCanvas";
-import type { PlayCanvasSceneProps } from "@/client-pc/PlayCanvasRuntime";
 import { GameRuntime } from "./GameRuntime";
 import { AvatarCustomizer } from "./AvatarCustomizer";
 import { GameInputSurface } from "./GameInputSurface";
@@ -48,7 +44,7 @@ import { cashBundleCount, cashBundleMinor } from "@/game/economy/cash-bundles";
 
 type Panel = "stock" | "orders" | "team" | "map" | "finance" | "avatar" | "help" | "settings" | null;
 
-export function GameShell({ playerName, onFrameSample, onInteractiveVerified, levelName, worldKit }: { playerName: string; onFrameSample?: ClientRuntimeOptions["onFrameSample"]; onInteractiveVerified?: ClientRuntimeOptions["onInteractiveVerified"]; levelName?: string; worldKit?: boolean }) {
+export function GameShell({ playerName }: { playerName: string }) {
   const game = useMarketStore((state) => state.game);
   const status = useMarketStore((state) => state.saveStatus);
   const saveRevision = useMarketStore((state) => state.saveRevision);
@@ -73,36 +69,6 @@ export function GameShell({ playerName, onFrameSample, onInteractiveVerified, le
   const [metrics, setMetrics] = useState<RendererMetrics | null>(null);
   const [worldReady, setWorldReady] = useState(false);
   const [sceneReady, setSceneReady] = useState(false);
-  // /play2 mounts the plain-three client instead of the React scene.
-  // /runtime mounts the same plain-three client for its integral level-30 test.
-  const [plainClient] = useState(() => typeof window !== "undefined" && (window.location.pathname.startsWith("/play2") || window.location.pathname.startsWith("/runtime")));
-  // /playcanvas mounts the parallel PlayCanvas-engine port instead of either
-  // three.js client. The HUD (this whole component below the `world` div) is
-  // engine-agnostic React reading `useMarketStore`, so it is reused as-is —
-  // only the 3D child and the minimal state slice it actually consumes differ.
-  const [playCanvasClient] = useState(() => typeof window !== "undefined" && window.location.pathname.startsWith("/playcanvas"));
-  // Root cause fixed 2026-09-27: which side ticks the world (this component's
-  // own `setInterval`, or the engine client's own frame loop) must be decided
-  // synchronously, before any effect runs — `plainClient`/`playCanvasClient`
-  // are already known synchronously above. The previous design let
-  // `ClientRuntime`/`PlayCanvasRuntime` flip this flag themselves, but only
-  // after their own async `load()` (baked world + GLBs) resolved, while this
-  // component's own mount effect (below) had already fired and — finding the
-  // flag still false — started its OWN `setInterval` world-tick driver in the
-  // meantime. Both drivers then ran forever afterward, each ticking the world
-  // every ~200ms out of phase with the other: the world advanced at roughly
-  // double rate on two staggered clocks, which is exactly what fed the crowd's
-  // dead-reckoning interpolator (`CrowdSystems.ts`/`CustomerVisualMotion.ts`)
-  // an irregular, doubled cadence — the root cause of the 2026-09-27 iPhone
-  // playtest's customer "teleport in steps" regression on `/runtime`. A
-  // `useLayoutEffect` here runs before ANY passive effect in the tree
-  // (React flushes every layout effect before any `useEffect`), so this is
-  // now set deterministically before `GameRuntime`'s own effect can read it —
-  // no race, no dependency on how long the 3D client takes to load.
-  useLayoutEffect(() => {
-    setExternalWorldTickDriver(plainClient || playCanvasClient);
-    return () => setExternalWorldTickDriver(false);
-  }, [plainClient, playCanvasClient]);
   const tutorialStep = game?.tutorialStep ?? 0;
   const interactionSequence = useRef(0);
   const activeInteractionId = useRef<InteractionId | null>(null);
@@ -406,15 +372,6 @@ export function GameShell({ playerName, onFrameSample, onInteractiveVerified, le
   }, []);
   const recordDistance = useCallback((meters: number) => { recordPlayerDistance(meters); }, [recordPlayerDistance]);
   const revealScene = useCallback(() => setSceneReady(true), []);
-  // PlayCanvasCanvas mounts its own engine synchronously and has no
-  // `onSceneReady` callback yet (that seam is MarketScene/ClientCanvas-only —
-  // see below), so it reveals as soon as the world is otherwise ready instead
-  // of waiting for a signal from the 3D layer.
-  useEffect(() => {
-    if (!playCanvasClient || !worldReady) return;
-    const frame = requestAnimationFrame(() => revealScene());
-    return () => cancelAnimationFrame(frame);
-  }, [playCanvasClient, worldReady, revealScene]);
   const setDoorPresence = useCallback((active: boolean) => {
     // Persistence QA reloads with the simulation frozen so the restored
     // snapshot can be inspected before any live-world input mutates it.  The
@@ -448,20 +405,10 @@ export function GameShell({ playerName, onFrameSample, onInteractiveVerified, le
   const nextStep = campaignNextStep(game, franchise);
 
   const sceneProps: MarketSceneProps = { purchaseMarkers, registerCashMinor: franchise.registerCashMinor, cashBundleMinor: cashBundleMinor(countryMoneyScale(game.countryCode)), avatar: game.avatar, carry: franchise.carry, visualCarry: visualTransfer.carry, checkoutLevel: franchise.checkoutLevel, playerSpeedTier: franchise.playerSpeedTier, customers: franchise.customers, checkoutTransactions: franchise.checkoutTransactions, returnsBin: franchise.returnsBin, returnedCartCount: franchise.returnedCartCount, crops: franchise.crops, visualCrops: visualTransfer.crops, productionMachines: franchise.productionMachines, shelves: franchise.shelves, visualShelves: visualTransfer.shelves, shelfTier: franchise.stationTiers["shelves-1"] ?? franchise.shelvesLevel, unlockedAreas: franchise.unlockedAreas, lightsOn: franchise.lightsOn, minuteOfDay: game.minuteOfDay, simulationTimeMs: game.simulationTimeMs, employees: franchise.employees, open: franchise.open, doorState: franchise.doorState, doorProgress: franchise.doorProgress, onInteract: interact, onDistance: recordDistance, onDoorPresence: setDoorPresence, onSceneReady: revealScene, lastInteraction, transferEvents, onTransferProgress: updateTransferProgress, debug };
-  // Phase 6: `PlayCanvasRuntime` now has real interaction-zone detection
-  // (`InteractionDirector` + the pure `interactionZoneConfigsPure` re-
-  // derivation), so it gets the same real `onInteract`/`onDistance`/
-  // `onDoorPresence` dispatch `sceneProps` wires for `/`/`/runtime` — `interact`
-  // is cast through `id as InteractionId` at the boundary since
-  // `PlayCanvasSceneProps.onInteract` intentionally types its id as a plain
-  // `string` (this file is the only caller, and keeping `InteractionId` out
-  // of `PlayCanvasRuntime.ts`'s own signature avoids importing anything from
-  // `MarketScene.tsx`, which pulls in Three.js at module scope).
-  const playCanvasSceneProps: PlayCanvasSceneProps = { avatarBody: game.avatar.body, avatarHair: game.avatar.hair, avatarHairColor: game.avatar.hairColor, avatarHat: game.avatar.hat, unlockedAreas: franchise.unlockedAreas, doorState: franchise.doorState, doorProgress: franchise.doorProgress, open: franchise.open, playerSpeedTier: franchise.playerSpeedTier, checkoutLevel: franchise.checkoutLevel, availablePurchaseIds: purchaseMarkers.map((marker) => marker.id), crops: franchise.crops.map((crop) => ({ id: crop.id, status: crop.status })), customers: franchise.customers.map((customer) => ({ id: customer.id, x: customer.x, z: customer.z, state: customer.state })), employees: franchise.employees.filter((employee) => employee.runtime).map((employee) => ({ id: employee.id, x: employee.runtime!.x, z: employee.runtime!.z, role: employee.role })), purchaseMarkers: purchaseMarkers.map((marker) => ({ id: marker.id, funded: marker.funded, highlighted: marker.highlighted, label: marker.label, remainingLabel: marker.remainingLabel })), registerCashMinor: franchise.registerCashMinor, cashBundleMinor: cashBundleMinor(countryMoneyScale(game.countryCode)), transferEvents, onTransferProgress: updateTransferProgress, onInteract: (id) => interact(id as InteractionId), onDistance: recordDistance, onDoorPresence: setDoorPresence, carry: franchise.carry };
   return (<>
     <GameRuntime />
     <main className="game-shell">
-      {worldReady && <div className={`world${sceneReady ? " scene-ready" : " scene-preparing"}`} aria-hidden={!sceneReady}>{playCanvasClient ? <PlayCanvasCanvas initialProps={playCanvasSceneProps} /> : plainClient ? <ClientCanvas {...sceneProps} onFrameSample={onFrameSample} onInteractiveVerified={onInteractiveVerified} levelName={levelName} worldKit={worldKit} /> : <MarketScene {...sceneProps} />}{sceneReady && !playCanvasClient && <GameInputSurface />}</div>}
+      {worldReady && <div className={`world${sceneReady ? " scene-ready" : " scene-preparing"}`} aria-hidden={!sceneReady}><MarketScene {...sceneProps} />{sceneReady && <GameInputSurface />}</div>}
       {worldReady && !sceneReady && <LoadingCurtain title="Preparando la tienda…" detail="Cargando personajes y maquinaria sin interrupciones" />}
       <header className="hud-top glass-panel" data-game-ui-interactive="true" aria-label="Estado de la tienda">
         <div className="hud-brand"><span><GameIcon name="store" /></span><div><strong>{franchise.name}</strong><small>{franchise.city}</small></div></div>

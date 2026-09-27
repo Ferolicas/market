@@ -1,5 +1,25 @@
 # Mini Market — mapa vivo
 
+## Decisión: se retiran `/runtime`, `/playcanvas`, `/play2` y `/play3` — 27-09-2026
+
+El propietario decidió abandonar el enfoque de arquitecturas paralelas (Three.js imperativo en `/runtime`, PlayCanvas en `/playcanvas`, el cliente plano compartido en `/play2`, y la versión web de Godot embebida en `/play3`) y volver a un único camino: la ruta original `/` (React Three Fiber, tal como está) más el juego nativo de Godot (la app iOS, no una versión web). Todo lo demás documentado más abajo sobre esas tres arquitecturas paralelas queda como registro histórico de lo investigado y aprendido — sigue siendo información real y verificada de su momento — pero ninguno de esos sistemas existe ya en el repositorio.
+
+Eliminado de raíz (vía `git rm`, recuperable del historial de git si hiciera falta, no reescritura de historia):
+- `src/app/runtime/`, `src/app/playcanvas/`, `src/app/play2/` (las tres rutas) y `src/runtime/` (el harness de telemetría de `/runtime`).
+- `src/client/` (motor plain-Three.js completo: `ClientRuntime.ts`, `PlayerActor.ts`, `WorldKit/`, etc. — usado por `/play2` y `/runtime`).
+- `src/client-pc/` (motor PlayCanvas completo: `PlayCanvasRuntime.ts`, `PlayCanvasCanvas.tsx`).
+- `src/game/interaction/interactionZoneConfigsPure.ts` (re-derivación agnóstica de motor, solo usada por PlayCanvas).
+- Todos los scripts `scripts/qa-runtime-*`/`scripts/qa-pc-*` y sus entradas en `package.json`.
+- Activos exclusivos de PlayCanvas bajo `public/models/market/playcanvas-*` y `public/models/market/characters/playcanvas-lod1`, y el fixture `public/fixtures/runtime-level30-seed.json`.
+- `docs/RUNTIME-PARITY-INVENTORY.md` y `docs/RUNTIME-IPHONE-FRAME-PACING-AUDIT.md` (documentaban sistemas que ya no existen).
+- En `src/components/game/GameShell.tsx`: toda la detección de ruta (`plainClient`/`playCanvasClient`), las props `onFrameSample`/`onInteractiveVerified`/`levelName`/`worldKit`, y la construcción de `playCanvasSceneProps` — el componente vuelve a renderizar siempre `MarketScene`, sin ramas.
+- En `src/game/store.ts`: el seam de prueba integral (`configureRuntimeIntegral`/`clearRuntimeIntegral`), `setInPlaceWorldTicks`/`inPlaceWorldTicks`, y `setExternalWorldTickDriver`/`hasExternalWorldTickDriver` — `advanceWorld` vuelve a clonar el estado en cada tick como antes de `/runtime`, y `GameRuntime.tsx` vuelve a ser el único que llama `tickWorld` (su propio `setInterval`, sin condicional).
+- En el VPS (Caddy): el bloque `handle_path /play3/*` que servía la exportación Web de Godot bajo el mismo origen. La app nativa (`/app.ipa`, generada por el mismo pipeline de CI `build-ios.yml`) sigue intacta y se sirve igual que antes — esto solo retira la versión jugable desde el navegador, no el proyecto Godot ni su compilación nativa.
+
+No se tocó: el proyecto Godot (`godot/`), el pipeline de exportación nativa (`build-ios.yml`, `scripts/export-godot*.mjs`), ni ninguna cuenta/partida/base de datos.
+
+Puerta de calidad limpia tras la eliminación completa (`typecheck && lint && test && build`): 925 pruebas (menos que antes porque las pruebas propias de los módulos eliminados desaparecieron con ellos), build de producción con únicamente `/`, `/api/*`, `/manifest.webmanifest`, `/reset-password`.
+
 ## `/runtime`: regresión de multitud/calor corregida tras la 3ª prueba en iPhone — 27-09-2026
 
 Tercera prueba real en iPhone del propietario (sobre la candidata que había cerrado tirones/calor/calidad): rendimiento excelente en general (60 FPS, carga 2-3 s) pero dos regresiones reales frente al deploy anterior — la fluidez empeoraba claramente cerca/dentro de multitudes, y el calentamiento aumentó. Diff causal dirigido (no una investigación general nueva) entre el build que se sentía mejor y el actual: `prepareCharacterModel()` (el pase "premium" de materiales) empezó a aplicarse a cada personaje de la multitud, fijando `clearcoat`/`sheen` y anisotropía 8x sin condición. Verificado con `gltf-transform inspect` sobre los GLB reales: **nunca** llevan `KHR_materials_clearcoat`/`sheen` — era un coste de shader inventado, sin base en el asset, que fuerza a Three.js a compilar los fragmentos `USE_CLEARCOAT`/`USE_SHEEN` en cada instancia de la multitud, un coste real por píxel que escala con cuánta pantalla ocupa la multitud (coincide exacto con "empeora cerca de la multitud"). Corregido quitando `clearcoat`/`sheen` de los cuerpos de la multitud y bajando a 4x de anisotropía (el jugador conserva el material completo) — esto no es bajar calidad, es quitar algo que nunca estuvo en el asset real. Una revisión acotada confirmó que el arreglo está completo (todos los sitios de la multitud pasan `crowd: true`) y que `/` recibe la misma mejora gratis, al compartir la función. Prueba sintética en GPU de escritorio inconclusa (esperado: un GPU de escritorio tiene mucho más margen de relleno que un iPhone real) — la justificación es estructural (quitar un coste inventado), no una victoria sintética; confirmación real pendiente de la siguiente prueba del propietario.

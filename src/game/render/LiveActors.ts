@@ -71,10 +71,10 @@ export function employeePresentationKey(employee: { id: string; role: string; le
 }
 
 /** True when any published customer/employee is currently walking fast enough
- * to read as motion on screen. Shared by both mobile idle-cadence gates
- * (MarketScene's `CappedFrameScheduler` for `/` and `/play2`, ClientRuntime's
- * own gate for `/runtime`) so a busy crowd — not just the player — is enough
- * to justify presenting at the full motion cadence instead of the idle one. */
+ * to read as motion on screen. Used by `MarketScene`'s mobile idle-cadence
+ * gate (`CappedFrameScheduler`) so a busy crowd — not just the player — is
+ * enough to justify presenting at the full motion cadence instead of the
+ * idle one. */
 export function visibleActorMotionActive() {
   for (const actor of liveActors.customers.values()) if ((actor.currentSpeed ?? 0) > 0.05) return true;
   for (const actor of liveActors.employees.values()) if ((actor.currentSpeed ?? 0) > 0.05) return true;
