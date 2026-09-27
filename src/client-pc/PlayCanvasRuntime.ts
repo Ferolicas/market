@@ -25,7 +25,9 @@ import {
   retailFixtureDisplayPositions,
   distributedFixtureQuantity,
   retailStockLandingLocalPosition,
+  retailStockFixtureSlot,
   RETAIL_VISUAL_CAPACITY,
+  PRODUCT_RETAIL_DEPARTMENT,
   type RetailDepartmentId,
 } from "@/game/stations/retail-layout";
 import { CHECKOUT_LANE_IDS, CHECKOUT_LANES, checkoutAreaForLane, type CheckoutLane } from "@/game/stations/checkout-layout";
@@ -36,7 +38,7 @@ import { PURCHASE_MARKER } from "@/game/stations/purchase-marker";
 import { PURCHASE_POSITIONS } from "@/game/stations/purchase-layout";
 import { REGISTER_INTERACTION_IDS, registerLane, registerPickupPosition, type RegisterInteractionId } from "@/game/stations/register-layout";
 import { CASH_BUNDLE_RENDER_CAP, cashBundleCount } from "@/game/economy/cash-bundles";
-import { FARM_PLOTS, FARM_BARN, FARM_ANIMAL_STATIONS, FARM_FIELD, FARM_ANIMAL_FOOTPRINTS, type FarmPlotLayout } from "@/game/stations/farm-layout";
+import { FARM_PLOTS, FARM_BARN, FARM_ANIMAL_STATIONS, FARM_FIELD, FARM_ANIMAL_FOOTPRINTS, farmPlotById, type FarmPlotLayout } from "@/game/stations/farm-layout";
 import { animalMotion, type FarmAnimalClip, type FarmAnimalKind } from "@/game/animation/AnimalMotion";
 import { isWorkstationId, WORKSTATION_IDS } from "@/game/stations/workstation-layout";
 import { InteractionDirector } from "@/game/interaction/InteractionDirector";
@@ -47,6 +49,7 @@ import { useMarketStore } from "@/game/store";
 import { WORLD_TICK_INTERVAL_MS } from "@/game/core/timing";
 import type { AvatarHatId, CharacterId, HairId, ProductId } from "@/game/types";
 import { characterSceneScale } from "@/game/animation/CharacterScale";
+import type { OpeningPurchaseId } from "@/game/progression/MartCampaign";
 
 /**
  * Phase 2 of the PlayCanvas port: a controllable player capsule with real
@@ -151,6 +154,103 @@ const RETAIL_PRODUCT_VISUAL: Record<ProductId, RetailProductVisualSpec> = {
   cheese: { shape: "cylinder", size: [0.17, 0.105, 0.17], color: "#efbd3d" },
 };
 
+// ─── Transfer-effect magnet bursts (phase 12 port of `/runtime`'s
+// `src/client/WorldKit/transferEffects/bursts.ts` +
+// `transferEffects/productParticle.ts`) ─────────────────────────────────────
+// Every stagger, duration, easing curve and per-particle offset/spin number
+// below is copied verbatim from that source (`HarvestMagnetBurst`/
+// `StockMagnetBurst`/`ReturnMagnetBurst`/`PayMagnetBurst` in the real
+// `MarketScene.tsx`), not re-derived. Two intentional, documented
+// simplifications from the source's Three.js geometry, both reusing
+// approximations this file already makes elsewhere:
+//  - Carried product bodies reuse `RETAIL_PRODUCT_VISUAL` (one primitive per
+//    unit, already the real per-SKU dimensions — several entries are an exact
+//    match to `basketProduct.ts`'s own carried-scale numbers, e.g. eggs'
+//    0.1037×0.1469×0.1037 sphere) instead of the source's multi-part carried
+//    mesh, the same "one faithful-color/size/position primitive" trade
+//    `growRetailStockPool`'s own doc comment documents for shelf stock.
+//  - The small tumbling "sparkle" octahedron each unit wears becomes a small
+//    diamond-oriented box at the exact same position/rotation/color/opacity —
+//    this engine has no octahedron primitive and this file never builds
+//    custom vertex-buffer geometry (every render entity in it is box/sphere/
+//    cylinder/capsule/plane), so a box is the faithful-parameters substitute.
+// `basketWorld` (the flight source/destination for stock/return/pay bursts,
+// and the harvest burst's landing point) has no real basket-carry rig in this
+// port yet (no PlayCanvas equivalent to `PlayerActor.ts`'s `baskets` prop
+// instancer) — `stepTransferBursts()` uses the exact same fallback the real
+// source itself falls back to while not holding a basket prop:
+// `this.position.x, this.position.y + 1.05, this.position.z` (`PlayerActor.ts`
+// line 368), not an invented number.
+const MAX_VISUAL_TRANSFER_DELTA = 0.25;
+function visualTransferDelta(delta: number): number {
+  return Math.min(MAX_VISUAL_TRANSFER_DELTA, Math.max(0, Number.isFinite(delta) ? delta : 0));
+}
+function clampTransferParticleCount(quantity: number, cap: number): number {
+  return Math.min(cap, Math.max(1, Math.floor(quantity)));
+}
+function lerp(a: number, b: number, t: number): number {
+  return a + (b - a) * t;
+}
+
+type TransferBurstKind = "harvest" | "stock" | "return" | "pay";
+
+/** Structural subset of `InteractionVisualEvent` (`MarketScene.tsx`) this
+ * port's burst renderer reads — see `PlayCanvasSceneProps.transferEvents`'s
+ * doc comment for why this is a local type, not an import. `kind` includes
+ * the source type's non-transfer `"work"` variant too (structural
+ * compatibility with the real `InteractionVisualEvent[]` array `GameShell`
+ * passes in unfiltered) even though `spawnTransferBurst` never produces a
+ * burst for it. */
+export interface TransferVisualEvent {
+  sequence: number;
+  kind: "work" | TransferBurstKind;
+  cropId?: string;
+  purchaseId?: OpeningPurchaseId;
+  productId?: ProductId;
+  quantity?: number;
+  shelfStart?: number;
+}
+
+/** One flying unit. `sourceX/Y/Z` are only used by stock/return/pay (captured
+ * from the live basket anchor the instant the unit's stagger delay elapses,
+ * exactly like the source's own `sources[index] ??= basketWorld.clone()`);
+ * harvest instead flies FROM a fixed crop-plot source TO the live basket
+ * anchor, so it never populates them. `spinA`/`spinB` are the two
+ * accumulating rotation channels each burst kind drives (harvest: y then a
+ * per-frame-recomputed z; stock/return: x and y; pay: x and z) — kept generic
+ * because which Euler axis each represents differs by kind (see
+ * `tickTransferBurst`). */
+interface TransferParticle {
+  entity: pc.Entity;
+  offsetX: number;
+  offsetY: number;
+  offsetZ: number;
+  targetX: number;
+  targetY: number;
+  targetZ: number;
+  sourceX: number | null;
+  sourceY: number | null;
+  sourceZ: number | null;
+  spinA: number;
+  spinB: number;
+  landed: boolean;
+}
+
+interface TransferBurst {
+  sequence: number;
+  kind: TransferBurstKind;
+  group: pc.Entity;
+  particles: TransferParticle[];
+  particleCount: number;
+  elapsed: number;
+  publishedRemaining: number;
+  /** Harvest-only fixed flight source (the crop plot); unused by the other
+   * three kinds, which fly from the live basket anchor instead. */
+  sourceX: number;
+  sourceY: number;
+  sourceZ: number;
+}
+
 /** One product's pooled shelf-unit entities for one physical fixture
  * (a department may have several — produce/pantry — each getting its own
  * `distributedFixtureQuantity()` share of `franchise.shelves[productId]`,
@@ -230,9 +330,22 @@ export interface PlayCanvasSceneProps {
    * stack is deferred with the same text-pipeline gap as `purchaseMarkers`. */
   registerCashMinor: [number, number, number];
   cashBundleMinor: number;
+  /** Real presentation-side transfer flights (`GameShell.tsx`'s own
+   * `transferEvents` state, the same ledger `MarketScene.tsx`'s
+   * `HarvestMagnetBurst`/`StockMagnetBurst`/`ReturnMagnetBurst`/`PayMagnetBurst`
+   * read) — a structural subset of `InteractionVisualEvent` (that type lives
+   * in a Three.js-importing file this PlayCanvas-only module must not depend
+   * on, per this file's own convention — see `OWNER_BODY_SCALE`'s doc
+   * comment for the same rule applied elsewhere). `GameShell` passes its real
+   * `InteractionVisualEvent[]` array here unchanged; only the fields this
+   * port's burst renderer actually reads are declared. */
+  transferEvents: readonly TransferVisualEvent[];
+  /** Real `GameShell.updateTransferProgress` — retires the presentation
+   * ledger exactly like `/runtime`'s own `transferEffects.ts` calls it. */
+  onTransferProgress: (sequence: number, remainingQuantity: number) => void;
 }
 
-const DEFAULT_PROPS: PlayCanvasSceneProps = { avatarBody: "adult-man", avatarHair: "fade", avatarHairColor: "#3a2a1e", avatarHat: "none", unlockedAreas: [], doorState: "CLOSED", doorProgress: 0, open: false, playerSpeedTier: 0, checkoutLevel: 1, availablePurchaseIds: [], crops: [], customers: [], employees: [], purchaseMarkers: [], registerCashMinor: [0, 0, 0], cashBundleMinor: 1000, onInteract: () => {}, onDistance: () => {}, onDoorPresence: () => {} };
+const DEFAULT_PROPS: PlayCanvasSceneProps = { avatarBody: "adult-man", avatarHair: "fade", avatarHairColor: "#3a2a1e", avatarHat: "none", unlockedAreas: [], doorState: "CLOSED", doorProgress: 0, open: false, playerSpeedTier: 0, checkoutLevel: 1, availablePurchaseIds: [], crops: [], customers: [], employees: [], purchaseMarkers: [], registerCashMinor: [0, 0, 0], cashBundleMinor: 1000, onInteract: () => {}, onDistance: () => {}, onDoorPresence: () => {}, transferEvents: [], onTransferProgress: () => {} };
 
 // Mirrors `PlayerActor.ts`'s `OWNER_BODY_KEY` — the real owner GLB filenames.
 const OWNER_BODY_KEY: Record<CharacterId, string> = { "adult-man": "owner_man", "adult-woman": "owner_woman", boy: "owner_boy", girl: "owner_girl" };
@@ -500,6 +613,11 @@ export class PlayCanvasRuntime {
   private registerCashGroup: pc.Entity | null = null;
   private readonly registerCashEntries = new Map<CheckoutLane, RegisterCashEntry>();
 
+  // ---- transfer-effect magnet bursts (phase 12, see the table above `RETAIL_PRODUCT_VISUAL` for the full doc comment) ----
+  private transferEffectsGroup: pc.Entity | null = null;
+  private readonly transferBursts = new Map<number, TransferBurst>();
+  private transferOnProgress: (sequence: number, remainingQuantity: number) => void = () => {};
+
   // ---- world tick driver (mirrors ClientRuntime.tick's fixed 200ms accumulator) ----
   private tickAccumulatorMs = 0;
   private lastFrameMs = 0;
@@ -598,6 +716,9 @@ export class PlayCanvasRuntime {
     this.registerCashGroup = new pc.Entity("dynamic:register-cash");
     worldRoot.addChild(this.registerCashGroup);
     this.syncRegisterCash(this.props.registerCashMinor, this.props.cashBundleMinor);
+    this.transferEffectsGroup = new pc.Entity("dynamic:transfer-effects");
+    worldRoot.addChild(this.transferEffectsGroup);
+    this.syncTransferBursts(this.props.transferEvents, this.props.unlockedAreas, this.props.onTransferProgress);
 
     window.addEventListener("keydown", this.keydownHandler);
     window.addEventListener("keyup", this.keyupHandler);
@@ -638,6 +759,7 @@ export class PlayCanvasRuntime {
     this.syncCrowd(nextProps.customers, nextProps.employees);
     this.syncPurchaseMarkers(nextProps.purchaseMarkers);
     this.syncRegisterCash(nextProps.registerCashMinor, nextProps.cashBundleMinor);
+    this.syncTransferBursts(nextProps.transferEvents, nextProps.unlockedAreas, nextProps.onTransferProgress);
   }
 
   /** Rebuilds the real `InteractionDirector` (`interactionZoneConfigsPure`'s
@@ -860,6 +982,310 @@ export class PlayCanvasRuntime {
       entry.bundles.push(box);
     }
     entry.bundleCount = bundles;
+  }
+
+  /** Spawns/retires bursts for the current `transferEvents` snapshot — the
+   * "which bursts exist" half of the split, matching `/runtime`'s own
+   * `TransferEffectsHandle.sync()` (see that file's doc comment: React
+   * reconciling the `transferEvents` array drives which bursts exist; the
+   * render loop, in `stepTransferBursts()` below, drives how they move). */
+  private syncTransferBursts(events: readonly TransferVisualEvent[], unlockedAreas: readonly string[], onProgress: (sequence: number, remainingQuantity: number) => void) {
+    if (!this.transferEffectsGroup) return;
+    this.transferOnProgress = onProgress;
+    const seen = new Set<number>();
+    for (const event of events) {
+      seen.add(event.sequence);
+      if (this.transferBursts.has(event.sequence)) continue;
+      const burst = this.spawnTransferBurst(event, unlockedAreas);
+      if (!burst) continue;
+      this.transferBursts.set(event.sequence, burst);
+      this.transferEffectsGroup.addChild(burst.group);
+    }
+    for (const [sequence, burst] of this.transferBursts) {
+      if (seen.has(sequence)) continue;
+      burst.group.destroy();
+      this.transferBursts.delete(sequence);
+    }
+  }
+
+  private spawnTransferBurst(event: TransferVisualEvent, unlockedAreas: readonly string[]): TransferBurst | null {
+    if (event.kind === "harvest") return this.spawnHarvestBurst(event);
+    if (event.kind === "stock") return this.spawnStockBurst(event, unlockedAreas);
+    if (event.kind === "return") return this.spawnReturnBurst(event);
+    if (event.kind === "pay") return this.spawnPayBurst(event);
+    return null;
+  }
+
+  // ─── Harvest: crop plot → player basket (`createHarvestBurst`) ───────────
+  private spawnHarvestBurst(event: TransferVisualEvent): TransferBurst | null {
+    if (!event.cropId || !event.productId) return null;
+    const plot = farmPlotById(event.cropId);
+    if (!plot) return null;
+    const particleCount = clampTransferParticleCount(event.quantity ?? 1, 20);
+    const source = scaleStorePosition([...plot.position] as [number, number, number]);
+    const group = new pc.Entity(`transfer:harvest:${event.sequence}`);
+    const particles: TransferParticle[] = [];
+    for (let index = 0; index < particleCount; index += 1) {
+      const entity = new pc.Entity(`transfer-particle:${event.sequence}:${index}`);
+      entity.enabled = false;
+      this.addTransferParticleBody(entity, event.productId, 1.22);
+      this.addTransferParticleSparkle(entity, "harvest");
+      group.addChild(entity);
+      particles.push({
+        entity,
+        offsetX: ((index % 3) - 1) * 0.28,
+        offsetY: 0.06 + Math.floor(index / 3) * 0.025,
+        offsetZ: (Math.floor(index / 3) - (Math.ceil(particleCount / 3) - 1) / 2) * 0.22,
+        targetX: 0, targetY: 0, targetZ: 0,
+        sourceX: null, sourceY: null, sourceZ: null,
+        spinA: 0, spinB: 0, landed: false,
+      });
+    }
+    return { sequence: event.sequence, kind: "harvest", group, particles, particleCount, elapsed: 0, publishedRemaining: particleCount, sourceX: source[0], sourceY: source[1], sourceZ: source[2] };
+  }
+
+  // ─── Stock: player basket → shelf/department fixture (`createStockBurst`) ─
+  private spawnStockBurst(event: TransferVisualEvent, unlockedAreas: readonly string[]): TransferBurst | null {
+    if (!event.productId) return null;
+    const particleCount = clampTransferParticleCount(event.quantity ?? 1, 20);
+    const departmentId = PRODUCT_RETAIL_DEPARTMENT[event.productId];
+    const displayYaw = ((RETAIL_DEPARTMENTS[departmentId].yaw ?? 0) * Math.PI) / 180;
+    const shelfStart = event.shelfStart ?? 0;
+    const displayPositions = retailFixtureDisplayPositions(departmentId, unlockedAreas);
+    const group = new pc.Entity(`transfer:stock:${event.sequence}`);
+    const particles: TransferParticle[] = [];
+    for (let index = 0; index < particleCount; index += 1) {
+      const slot = retailStockFixtureSlot(departmentId, shelfStart + index, shelfStart + particleCount, unlockedAreas);
+      const displayPosition = displayPositions[slot.fixtureIndex];
+      const landing = retailStockLandingLocalPosition(event.productId, slot.localOrdinal, slot.localEnd);
+      const localX = landing[0] * Math.cos(displayYaw) + landing[2] * Math.sin(displayYaw);
+      const localZ = -landing[0] * Math.sin(displayYaw) + landing[2] * Math.cos(displayYaw);
+      const entity = new pc.Entity(`transfer-particle:${event.sequence}:${index}`);
+      entity.enabled = false;
+      this.addTransferParticleBody(entity, event.productId, 1.16);
+      this.addTransferParticleSparkle(entity, "stock");
+      group.addChild(entity);
+      particles.push({
+        entity,
+        offsetX: 0, offsetY: 0, offsetZ: 0,
+        targetX: displayPosition[0] * STORE_LAYOUT_SCALE + localX * STORE_ELEMENT_SCALE,
+        targetY: landing[1] * STORE_ELEMENT_SCALE,
+        targetZ: displayPosition[2] * STORE_LAYOUT_SCALE + localZ * STORE_ELEMENT_SCALE,
+        sourceX: null, sourceY: null, sourceZ: null,
+        spinA: 0, spinB: 0, landed: false,
+      });
+    }
+    return { sequence: event.sequence, kind: "stock", group, particles, particleCount, elapsed: 0, publishedRemaining: particleCount, sourceX: 0, sourceY: 0, sourceZ: 0 };
+  }
+
+  // ─── Return: player basket → warehouse return crate (`createReturnBurst`) ─
+  private spawnReturnBurst(event: TransferVisualEvent): TransferBurst | null {
+    if (!event.productId) return null;
+    const particleCount = clampTransferParticleCount(event.quantity ?? 1, 20);
+    const landingX = WAREHOUSE_RETURN_STATION.position[0] * STORE_LAYOUT_SCALE;
+    const landingY = 0.3 * STORE_ELEMENT_SCALE;
+    const landingZ = WAREHOUSE_RETURN_STATION.position[2] * STORE_LAYOUT_SCALE;
+    const group = new pc.Entity(`transfer:return:${event.sequence}`);
+    const particles: TransferParticle[] = [];
+    for (let index = 0; index < particleCount; index += 1) {
+      const entity = new pc.Entity(`transfer-particle:${event.sequence}:${index}`);
+      entity.enabled = false;
+      this.addTransferParticleBody(entity, event.productId, 1.16);
+      this.addTransferParticleSparkle(entity, "stock");
+      group.addChild(entity);
+      particles.push({
+        entity,
+        offsetX: 0, offsetY: 0, offsetZ: 0,
+        targetX: landingX + ((index % 4) - 1.5) * 0.09 * STORE_ELEMENT_SCALE,
+        targetY: landingY,
+        targetZ: landingZ,
+        sourceX: null, sourceY: null, sourceZ: null,
+        spinA: 0, spinB: 0, landed: false,
+      });
+    }
+    return { sequence: event.sequence, kind: "return", group, particles, particleCount, elapsed: 0, publishedRemaining: particleCount, sourceX: 0, sourceY: 0, sourceZ: 0 };
+  }
+
+  // ─── Pay: player hands → purchase marker square (`createPayBurst`) ───────
+  private spawnPayBurst(event: TransferVisualEvent): TransferBurst | null {
+    if (!event.purchaseId) return null;
+    const particleCount = clampTransferParticleCount(event.quantity ?? 1, 8);
+    const targetPosition = scaleStorePosition([...PURCHASE_POSITIONS[event.purchaseId]] as [number, number, number]);
+    const group = new pc.Entity(`transfer:pay:${event.sequence}`);
+    const particles: TransferParticle[] = [];
+    for (let index = 0; index < particleCount; index += 1) {
+      const entity = new pc.Entity(`transfer-particle:${event.sequence}:${index}`);
+      entity.enabled = false;
+      this.addTransferCashBundle(entity);
+      group.addChild(entity);
+      particles.push({
+        entity,
+        offsetX: 0, offsetY: 0, offsetZ: 0,
+        targetX: targetPosition[0] + ((index % 3) - 1) * 0.12 * STORE_ELEMENT_SCALE,
+        targetY: targetPosition[1] + 0.06,
+        targetZ: targetPosition[2] + ((index % 2) - 0.5) * 0.1 * STORE_ELEMENT_SCALE,
+        sourceX: null, sourceY: null, sourceZ: null,
+        spinA: 0, spinB: 0, landed: false,
+      });
+    }
+    return { sequence: event.sequence, kind: "pay", group, particles, particleCount, elapsed: 0, publishedRemaining: particleCount, sourceX: 0, sourceY: 0, sourceZ: 0 };
+  }
+
+  /** One carried-unit body: reuses `RETAIL_PRODUCT_VISUAL` (see the doc
+   * comment above that table for why) scaled by the source's own
+   * `attachProductParticle` scale argument (1.22 harvest, 1.16 stock/return —
+   * a real meters multiplier on top of the already-real primitive size, not a
+   * `STORE_ELEMENT_SCALE`-space quantity, matching `buildBasketProductMesh`'s
+   * own `mesh.scale.setScalar(scale)`). */
+  private addTransferParticleBody(host: pc.Entity, productId: ProductId, scale: number) {
+    const spec = RETAIL_PRODUCT_VISUAL[productId];
+    const body = new pc.Entity(`particle-body:${productId}`);
+    body.addComponent("render", { type: spec.shape, material: this.material(spec.color) });
+    body.setLocalScale(spec.size[0] * scale, spec.size[1] * scale, spec.size[2] * scale);
+    host.addChild(body);
+  }
+
+  /** The small tumbling "sparkle" every carried/stocked unit wears
+   * (`buildHarvestSparkle`/`buildStockSparkle`) — see the doc comment above
+   * `RETAIL_PRODUCT_VISUAL` for why this is a box, not an octahedron. Real
+   * position/rotation/color/opacity numbers, verbatim. */
+  private addTransferParticleSparkle(host: pc.Entity, kind: "harvest" | "stock") {
+    const half = kind === "harvest" ? 0.035 : 0.03;
+    const opacity = kind === "harvest" ? 0.9 : 0.82;
+    const sparkle = new pc.Entity(`particle-sparkle:${kind}`);
+    sparkle.addComponent("render", { type: "box", material: this.material("#fff1a6", opacity) });
+    sparkle.setLocalScale(half * 2, half * 2, half * 2);
+    if (kind === "harvest") {
+      sparkle.setLocalPosition(0.1, 0.1, 0);
+      sparkle.setLocalEulerAngles(0, 0, 45);
+    } else {
+      sparkle.setLocalPosition(0, 0.1, 0);
+    }
+    host.addChild(sparkle);
+  }
+
+  /** `PayMagnetBurst`'s flying unit (`buildCashBundleMesh`): a bundle box +
+   * its paper band, both scaled by `STORE_ELEMENT_SCALE` (baked directly into
+   * each child's own local scale here, equivalent to the source's group-level
+   * `scale.setScalar(STORE_ELEMENT_SCALE)` since no rotation sits between
+   * them). */
+  private addTransferCashBundle(host: pc.Entity) {
+    const bundle = new pc.Entity("cash-bundle");
+    bundle.addComponent("render", { type: "box", material: this.material("#79b063") });
+    bundle.setLocalScale(0.2 * STORE_ELEMENT_SCALE, 0.05 * STORE_ELEMENT_SCALE, 0.1 * STORE_ELEMENT_SCALE);
+    host.addChild(bundle);
+    const band = new pc.Entity("cash-band");
+    band.addComponent("render", { type: "box", material: this.material("#efe3b8") });
+    band.setLocalScale(0.07 * STORE_ELEMENT_SCALE, (0.05 + 0.006) * STORE_ELEMENT_SCALE, (0.1 + 0.006) * STORE_ELEMENT_SCALE);
+    host.addChild(band);
+  }
+
+  /** Advances every active burst by one rendered frame — the "how they move"
+   * half of the split (see `syncTransferBursts`'s doc comment). `basketWorld`
+   * is the no-basket-rig fallback described in the doc comment above
+   * `MAX_VISUAL_TRANSFER_DELTA`. */
+  private stepTransferBursts(dt: number) {
+    if (this.transferBursts.size === 0) return;
+    const rawDeltaSeconds = Number.isFinite(dt) ? Math.max(0, dt) : 0;
+    const basketWorld = { x: this.playerPosition.x, y: 1.05, z: this.playerPosition.z };
+    for (const burst of this.transferBursts.values()) this.tickTransferBurst(burst, rawDeltaSeconds, basketWorld);
+  }
+
+  private tickTransferBurst(burst: TransferBurst, rawDeltaSeconds: number, basketWorld: { x: number; y: number; z: number }) {
+    burst.elapsed += visualTransferDelta(rawDeltaSeconds);
+    const stagger = burst.kind === "harvest" ? 0.045 : burst.kind === "pay" ? 0.04 : 0.065;
+    const duration = burst.kind === "harvest" ? 0.52 : burst.kind === "pay" ? 0.32 : 0.5;
+    const RAD_TO_DEG = 180 / Math.PI;
+    for (let index = 0; index < burst.particleCount; index += 1) {
+      const particle = burst.particles[index];
+      const startAt = index * stagger;
+      const t = Math.min(1, Math.max(0, (burst.elapsed - startAt) / duration));
+      if (t >= 1) particle.landed = true;
+
+      if (burst.kind === "harvest") {
+        const visible = t < 1 && burst.elapsed >= startAt;
+        particle.entity.enabled = visible;
+        if (visible) {
+          const eased = 1 - Math.pow(1 - t, 3);
+          const x = lerp(burst.sourceX + particle.offsetX * STORE_ELEMENT_SCALE, basketWorld.x, eased);
+          const y = lerp(0.72 * STORE_ELEMENT_SCALE + particle.offsetY, basketWorld.y, eased) + Math.sin(Math.PI * t) * 1.35;
+          const z = lerp(burst.sourceZ + particle.offsetZ * STORE_ELEMENT_SCALE, basketWorld.z, eased);
+          particle.entity.setLocalPosition(x, y, z);
+          particle.spinA += rawDeltaSeconds * (5.5 + index);
+          const spinZ = Math.sin(t * Math.PI * 3 + index) * 0.28;
+          particle.entity.setEulerAngles(0, particle.spinA * RAD_TO_DEG, spinZ * RAD_TO_DEG);
+          const scale = (0.86 + Math.sin(Math.PI * t) * 0.24) * (1 - t * 0.18);
+          particle.entity.setLocalScale(scale, scale, scale);
+        }
+        continue;
+      }
+
+      const started = burst.elapsed >= startAt;
+      if (started && particle.sourceX === null) {
+        particle.sourceX = basketWorld.x;
+        particle.sourceY = basketWorld.y;
+        particle.sourceZ = basketWorld.z;
+      }
+      const visible = t < 1 && started;
+      particle.entity.enabled = visible;
+      if (!visible) continue;
+      const eased = t * t * (3 - 2 * t);
+      const sx = particle.sourceX ?? basketWorld.x;
+      const sy = particle.sourceY ?? basketWorld.y;
+      const sz = particle.sourceZ ?? basketWorld.z;
+
+      if (burst.kind === "pay") {
+        const x = lerp(sx, particle.targetX, eased);
+        const y = lerp(sy, particle.targetY, eased) + Math.sin(Math.PI * t) * 0.7;
+        const z = lerp(sz, particle.targetZ, eased);
+        particle.entity.setLocalPosition(x, y, z);
+        particle.spinA += rawDeltaSeconds * (6 + index);
+        particle.spinB += rawDeltaSeconds * 4;
+        particle.entity.setEulerAngles(particle.spinA * RAD_TO_DEG, 0, particle.spinB * RAD_TO_DEG);
+        continue;
+      }
+
+      // stock / return
+      const x = lerp(sx, particle.targetX, eased);
+      const y = lerp(sy, particle.targetY, eased) + Math.sin(Math.PI * t) * 0.82;
+      const z = lerp(sz, particle.targetZ, eased);
+      particle.entity.setLocalPosition(x, y, z);
+      particle.spinA += rawDeltaSeconds * (3.5 + index * 0.3);
+      particle.spinB += rawDeltaSeconds * (5.2 + index * 0.45);
+      particle.entity.setEulerAngles(particle.spinA * RAD_TO_DEG, particle.spinB * RAD_TO_DEG, 0);
+      const scale = 0.94 + Math.sin(Math.PI * t) * 0.18;
+      particle.entity.setLocalScale(scale, scale, scale);
+    }
+    this.settleTransferBurst(burst);
+  }
+
+  /** Only calls `onProgress` when the landed-unit count actually changed —
+   * exactly the source's own `createLandingTracker().settle()` gate. */
+  private settleTransferBurst(burst: TransferBurst) {
+    let landedCount = 0;
+    for (const particle of burst.particles) if (particle.landed) landedCount += 1;
+    const remaining = burst.particleCount - landedCount;
+    if (remaining === burst.publishedRemaining) return;
+    burst.publishedRemaining = remaining;
+    this.transferOnProgress(burst.sequence, remaining);
+  }
+
+  /** QA/debug-only accessor (phase 12): every currently-active burst's
+   * sequence/kind/particle count and remaining-in-flight count, plus the
+   * first particle's live position (enough to verify a burst is actually
+   * moving from source to destination without a screenshot). */
+  getTransferBurstDebug(): Array<{ sequence: number; kind: TransferBurstKind; particleCount: number; remaining: number; firstParticle: { enabled: boolean; x: number; y: number; z: number } | null }> {
+    return Array.from(this.transferBursts.values()).map((burst) => {
+      const first = burst.particles[0] ?? null;
+      const position = first?.entity.getLocalPosition();
+      return {
+        sequence: burst.sequence,
+        kind: burst.kind,
+        particleCount: burst.particleCount,
+        remaining: burst.publishedRemaining,
+        firstParticle: first && position ? { enabled: first.entity.enabled, x: position.x, y: position.y, z: position.z } : null,
+      };
+    });
   }
 
   private onKey(event: KeyboardEvent, down: boolean) {
@@ -1142,6 +1568,7 @@ export class PlayCanvasRuntime {
     this.stepFarmAnimals();
     this.stepRetailStock();
     this.stepPurchaseMarkersAnimation(dt);
+    this.stepTransferBursts(dt);
     this.updateCamera();
   }
 
@@ -1374,6 +1801,7 @@ export class PlayCanvasRuntime {
     inputManager.clearAll();
     this.resizeObserver?.disconnect();
     this.resizeObserver = null;
+    this.transferBursts.clear();
     this.physics?.dispose();
     this.app.destroy();
   }

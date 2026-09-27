@@ -26,6 +26,7 @@
     "qa:pc-purchase-marker": "tsx scripts/qa-pc-purchase-marker.mts",
     "qa:pc-farm-animal-gait": "tsx scripts/qa-pc-farm-animal-gait.mts",
     "qa:pc-purchase-register-visuals": "tsx scripts/qa-pc-purchase-and-register-visuals.mts",
+    "qa:pc-transfer-bursts": "tsx scripts/qa-pc-transfer-bursts.mts",
     "qa:runtime-first-visit-hitch": "tsx scripts/qa-runtime-first-visit-hitch.mts",
     "load:test:game": "node scripts/load-test-game-api.mjs",
     "art:manifest": "tsx scripts/write-reference-manifest.ts",
