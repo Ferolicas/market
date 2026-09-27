@@ -136,6 +136,31 @@ export class ClientRuntime {
     this.glassTransmission = profile.glassTransmission;
     this.renderer = new THREE.WebGLRenderer({ canvas: options.canvas, antialias: !profile.mobile, powerPreference: profile.powerPreference, alpha: false, stencil: false, depth: true });
     this.renderer.setPixelRatio(Math.min(profile.mobile ? 2 : 2, window.devicePixelRatio));
+    // `/runtime`'s worldKit path only (`/play2` keeps three.js's default,
+    // unchanged). Root-caused 2026-09-27 with a real CDP CPU profile taken
+    // WHILE steering into a section for the first time (not guessed from GL
+    // call counts): three.js's `WebGLProgram` calls `gl.getProgramInfoLog`/
+    // `getShaderInfoLog`/`getProgramParameter` — synchronous, driver-flushing
+    // calls — the FIRST TIME each compiled shader program is actually USED
+    // to render (`onFirstUse`, `WebGLProgram.js`), not when it is compiled.
+    // Neither `renderer.compile()` (`finishReady`) nor `compileAsync`/
+    // `initTexture` warm-up (`gpuWarmup.ts`) touches this path at all — both
+    // only get the program compiled/linked ahead of time, but the mandatory
+    // error-log check three.js's default `debug.checkShaderErrors = true`
+    // performs still fires at first real render regardless, which is exactly
+    // why attempt 1's warm-up measured byte-identical `maxFrameGapMs` with
+    // `?ablate=warmup` on or off — this cost was never touched by it. The
+    // profile showed `getProgramInfoLog` alone at 238-288ms of the ~3.5s
+    // first-visit window (dairy), a large fraction of the observed
+    // 550-650ms `maxFrameGapMs` longtask. Three.js's own doc comment for
+    // this flag: "It may be useful to disable this check in production for
+    // performance gain." Every WorldKit/crowd/prop material here is an
+    // already-shipped, already-vetted shader — never player- or
+    // save-authored — so there is nothing this check could ever catch here
+    // in production. `?ablate=shaderchecks` reverts to three.js's default
+    // for A/B comparison (see `ablation.ts`); `?debug=1` alone does NOT
+    // re-enable it, so the QA harness measures the real shipped behaviour.
+    this.renderer.debug.checkShaderErrors = !options.worldKit || ablation.forceShaderChecks;
     // `configureRendererPolicy()`'s real-source equivalent — mobile halves the
     // resolution of Three.js's internal transmission scene pass. Root-caused
     // 2026-09-26 (docs/RUNTIME-IPHONE-FRAME-PACING-AUDIT.md): the WorldKit
@@ -361,45 +386,90 @@ export class ClientRuntime {
    * never keeps the curtain up, and each system simply starts rendering the
    * moment its own registry gains an entry. */
   private async loadDeferredWorldKitAssets(initial: MarketSceneProps) {
-    await Promise.all([this.loadCrowdBodies(), this.loadDeliveredProducts(), this.loadEmployeeHats(initial)]);
+    // `stagger: true` here only — see `loadCrowdBodies`'s doc comment for why.
+    await Promise.all([this.loadCrowdBodies(true), this.loadDeliveredProducts(), this.loadEmployeeHats(initial)]);
     if (this.disposed) return;
     await ensureStoreNavigation(initial.unlockedAreas);
     if (this.disposed) return;
     this.player.snapToNavmesh();
   }
 
-  private async loadCrowdBodies() {
+  /** Runs `tasks` with at most `concurrency` in flight, yielding one rendered
+   * frame after each task finishes before starting the next on that worker —
+   * network fetches still overlap (`concurrency` of them at a time), but each
+   * task's own main-thread work (GLTF `parse()`, `createCrowdBody`, the scene
+   * mutation and `warmUpNewContent` dispatch it triggers) lands in its own
+   * frame instead of piling up in one continuous stretch. Root-caused
+   * 2026-09-27 with a real CDP CPU profile taken under 4x CPU throttling
+   * (approximating a real mobile SoC — real GPU driver work is invisible on
+   * Playwright's default SwiftShader software renderer, and a desktop GPU is
+   * fast enough to hide the same cost entirely; throttled CPU + real GPU is
+   * the one combination that reproduced the owner's iPhone-reported hitch at
+   * comparable severity, ~700-750ms `maxFrameGapMs`/longtask, in this
+   * harness): no single function dominated — GLTF parsing
+   * (`_getArrayFromAccessor`/`parse`/`loadAnimation`), three.js scene-graph
+   * matrix updates (`updateMatrixWorld`/`compose`/`multiplyMatrices`) and
+   * native GL calls (`texSubImage2D`/`getProgramParameter`/`shaderSource`)
+   * were all present in comparable amounts — because `loadCrowdBodies`'s own
+   * `Promise.all` of 8 independent GLTF+animation loads (6 customer bodies +
+   * 2 employee bodies) resolve in a tight cluster (same local network, same
+   * moment) and each one's parse + scene-attach + warm-up dispatch runs
+   * back-to-back with nothing yielding the main thread in between — exactly
+   * the same window the QA harness's closed-loop steering already reaches
+   * the first section in. */
+  private static async runStaggered(tasks: (() => Promise<void>)[], concurrency: number) {
+    let index = 0;
+    const nextFrame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+    const worker = async () => {
+      while (index < tasks.length) {
+        const task = tasks[index];
+        index += 1;
+        await task();
+        await nextFrame();
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(concurrency, tasks.length) }, worker));
+  }
+
+  /** `stagger` is `true` only from `loadDeferredWorldKitAssets` (`/runtime`'s
+   * post-ready background load — see `runStaggered`'s doc comment for why).
+   * `/play2`'s own call (`load()`'s non-`worldKit` branch, awaited inside the
+   * loading curtain, `stagger` left at its `false` default) is completely
+   * unaffected: same `Promise.all` of all 8 bodies at once as before this
+   * fix, byte-for-byte. */
+  private async loadCrowdBodies(stagger = false) {
     // `worldKit` (`/runtime` only) loads the same device-tiered GLBs `/`
     // renders instead of the fixed, more-reduced budget tier `/play2` still
     // loads unchanged — see `WorldAssets.characterPath`'s doc comment.
-    await Promise.all([
-      ...Object.entries(CUSTOMER_BODY_KEYS).map(async ([, key]) => {
-        const path = this.worldKit ? characterPath("customers", key) : budgetPath("customers", key);
-        const [gltf, animation] = await Promise.all([loadGltf(path), loadCrowdAnimation(key)]);
-        const skinned = firstSkinnedMesh(gltf.scene);
-        if (!skinned) return;
-        const body = createCrowdBody(skinned, animation, key);
-        this.layoutRoot.add(body.mesh);
-        this.customers.bodies.set(key, body);
-        // `/runtime` only — see `finishReady`'s doc comment and
-        // `gpuWarmup.ts`. This body streams in AFTER the first playable
-        // frame on purpose, so its shader/texture warm-up must not block
-        // anything: shader compile is dispatched right away (cheap, scoped
-        // to this one body), texture upload is spread across idle time.
-        if (this.worldKit && !ablation.skipWarmup) warmUpNewContent(this.renderer, body.mesh, this.rig.camera, this.scene);
-      }),
-      ...Object.values(EMPLOYEE_BODY_KEYS).map(async (key) => {
-        if (!key) return;
-        const path = this.worldKit ? characterPath("characters", key) : budgetPath("characters", key);
-        const [gltf, animation] = await Promise.all([loadGltf(path), loadCrowdAnimation(key)]);
-        const skinned = firstSkinnedMesh(gltf.scene);
-        if (!skinned) return;
-        const body = createCrowdBody(skinned, animation, key);
-        this.layoutRoot.add(body.mesh);
-        this.employees.bodies.set(key, body);
-        if (this.worldKit && !ablation.skipWarmup) warmUpNewContent(this.renderer, body.mesh, this.rig.camera, this.scene);
-      }),
-    ]);
+    const customerTasks = Object.entries(CUSTOMER_BODY_KEYS).map(([, key]) => async () => {
+      const path = this.worldKit ? characterPath("customers", key) : budgetPath("customers", key);
+      const [gltf, animation] = await Promise.all([loadGltf(path), loadCrowdAnimation(key)]);
+      const skinned = firstSkinnedMesh(gltf.scene);
+      if (!skinned) return;
+      const body = createCrowdBody(skinned, animation, key);
+      this.layoutRoot.add(body.mesh);
+      this.customers.bodies.set(key, body);
+      // `/runtime` only — see `finishReady`'s doc comment and
+      // `gpuWarmup.ts`. This body streams in AFTER the first playable
+      // frame on purpose, so its shader/texture warm-up must not block
+      // anything: shader compile is dispatched right away (cheap, scoped
+      // to this one body), texture upload is spread across idle time.
+      if (this.worldKit && !ablation.skipWarmup) warmUpNewContent(this.renderer, body.mesh, this.rig.camera, this.scene);
+    });
+    const employeeTasks = Object.values(EMPLOYEE_BODY_KEYS).map((key) => async () => {
+      if (!key) return;
+      const path = this.worldKit ? characterPath("characters", key) : budgetPath("characters", key);
+      const [gltf, animation] = await Promise.all([loadGltf(path), loadCrowdAnimation(key)]);
+      const skinned = firstSkinnedMesh(gltf.scene);
+      if (!skinned) return;
+      const body = createCrowdBody(skinned, animation, key);
+      this.layoutRoot.add(body.mesh);
+      this.employees.bodies.set(key, body);
+      if (this.worldKit && !ablation.skipWarmup) warmUpNewContent(this.renderer, body.mesh, this.rig.camera, this.scene);
+    });
+    const tasks = [...customerTasks, ...employeeTasks];
+    if (stagger) await ClientRuntime.runStaggered(tasks, 2);
+    else await Promise.all(tasks.map((task) => task()));
   }
 
   private async loadDeliveredProducts() {

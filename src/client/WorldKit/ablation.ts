@@ -33,12 +33,18 @@
  *   otherwise only pay shader-link/texture-upload cost the first time it's
  *   actually rendered). Reverts to the exact pre-fix behaviour (lazy
  *   first-render upload) for A/B comparison; never disabled by default.
+ * - `shaderchecks`: forces `renderer.debug.checkShaderErrors` back to
+ *   three.js's own default (`true`) for `/runtime`'s worldKit path — see
+ *   `ClientRuntime`'s constructor for the real fix this reverts (disabling
+ *   it there is the one that actually ships enabled). For A/B comparison
+ *   only; never enabled by default.
  */
 export interface AblationFlags {
   skipText: boolean;
   skipGlassTransmission: boolean;
   skipAnimals: boolean;
   skipWarmup: boolean;
+  forceShaderChecks: boolean;
 }
 
 export const ablation: AblationFlags = {
@@ -46,6 +52,7 @@ export const ablation: AblationFlags = {
   skipGlassTransmission: false,
   skipAnimals: false,
   skipWarmup: false,
+  forceShaderChecks: false,
 };
 
 /** Call once, before building any WorldKit content, from `ClientRuntime`'s constructor. */
@@ -55,4 +62,5 @@ export function configureAblation(search: string) {
   ablation.skipGlassTransmission = requested.has("glass");
   ablation.skipAnimals = requested.has("animals");
   ablation.skipWarmup = requested.has("warmup");
+  ablation.forceShaderChecks = requested.has("shaderchecks");
 }

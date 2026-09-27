@@ -254,9 +254,21 @@ function summarizeRange(events: GlEvent[], frames: FrameSample[], longtasks: Lon
   };
 }
 
+// CDP CPU throttling (`MARKET_QA_CPU_THROTTLE`, default 1 = off): a real GPU
+// (see `chromium.launch` below) has no software-rendering artifact to hide
+// behind, but a desktop GPU/CPU is still wildly faster than an iPhone's. A
+// throttled CPU + a real GPU driver is the one combination that reproduced
+// the owner's iPhone-reported hitch at comparable severity in this harness
+// (2026-09-27 investigation) — default 1 keeps today's exact behaviour.
+const cpuThrottle = Number(process.env.MARKET_QA_CPU_THROTTLE ?? "1");
+
 async function runOneSession(browser: Awaited<ReturnType<typeof chromium.launch>>, ablateWarmup: boolean) {
   const page = await browser.newPage({ viewport: { width: 430, height: 932 } }); // iPhone-class viewport
   await installInstrumentation(page);
+  if (cpuThrottle !== 1) {
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send("Emulation.setCPUThrottlingRate", { rate: cpuThrottle });
+  }
   const url = `${appUrl}/runtime?debug=1${ablateWarmup ? "&ablate=warmup" : ""}`;
   const navStart = Date.now();
   await page.goto(url, { waitUntil: "domcontentloaded" });
@@ -352,7 +364,19 @@ async function runOneSession(browser: Awaited<ReturnType<typeof chromium.launch>
   return results;
 }
 
-const browser = await chromium.launch();
+// Real GPU (NVIDIA/Vulkan via ANGLE), not Playwright's default SwiftShader
+// software rasterizer — the same convention every other `qa-*` script in
+// this repo already uses (`qa-mobile-performance.mjs` etc.). Confirmed by
+// direct extension probe (2026-09-27): the default headless launch reports
+// `ANGLE (Google, Vulkan ... SwiftShader Device ...)`, where EVERY shader
+// compile is synchronous CPU work with no async driver pipeline to measure
+// at all — invalidating any conclusion about `compileAsync`/shader-link
+// stalls drawn from it, real GPU or not.
+const browser = await chromium.launch({
+  headless: true,
+  executablePath: "/home/ferney_oliveros/.local/bin/google-chrome",
+  args: ["--no-sandbox", "--enable-gpu", "--ignore-gpu-blocklist", "--use-angle=vulkan", "--enable-features=Vulkan"],
+});
 try {
   console.log(`[qa] target: ${appUrl}/runtime — cold (warm-up OFF, ?ablate=warmup) run first`);
   const cold = await runOneSession(browser, true);
