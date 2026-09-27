@@ -1276,11 +1276,23 @@ export class PlayCanvasRuntime {
     this.buildFarmEstate(group, unlockedAreas, crops);
   }
 
-  /** Box-volume port of `kitFurniture.ts`'s checkout loop (real counter/
-   * cashier positions from `CHECKOUT_LANES`, real per-lane gating via
-   * `checkoutAreaForLane`, real closed-lane fallback while the campaign is
-   * unlocked but that lane isn't yet). Transaction/handoff visuals (the
-   * belt items, cashier animation) are deferred — see the phase 3 report. */
+  /** Procedural (real box/plate/roller-primitive assembly, not a box-volume
+   * placeholder) port of `checkout/checkoutKit.ts`'s real counter housing —
+   * `buildCheckoutKit()` for an open lane, `buildClosedCheckoutKit()` for a
+   * closed one. That Three.js source itself builds the counter entirely from
+   * primitives (no GLB exists for it), so this reproduces the same shapes —
+   * body, top plate, conveyor mat, belt rollers, bagging shelf, register
+   * housing + screen, card reader + glow plate, bagging counter, sign
+   * pole/board — at the same real local dimensions (`STORE_ELEMENT_SCALE`
+   * applied the same way every other fixture in this file applies it, since
+   * `checkoutKit.ts`'s own numbers are already in `makeStoreElement`'s
+   * pre-scale local-unit convention — confirmed against `BASE_STORE_OBSTACLES`'s
+   * checkout halfX/halfZ (2.25/0.65) in `world-scale.ts`, which match this
+   * body's 4.45×1.18 footprint exactly). What stays deferred: the belt point
+   * lights, the three checkout bags, the sliding belt product units, and the
+   * "LISTA"/"CAJA N" board text (transaction-reactive — real position/gating
+   * of the static housing itself, ported here, is the box/cylinder geometry
+   * item this phase targets). */
   private buildCheckoutLanes(parent: pc.Entity, unlockedAreas: string[]) {
     for (const lane of CHECKOUT_LANE_IDS as readonly CheckoutLane[]) {
       const open = lane === 0 || unlockedAreas.includes(checkoutAreaForLane(lane));
@@ -1289,25 +1301,45 @@ export class PlayCanvasRuntime {
       const counterScaled = scaleStorePosition([...layout.counter] as [number, number, number]);
       counter.setLocalPosition(counterScaled[0], counterScaled[1], counterScaled[2]);
       parent.addChild(counter);
-      const body = new pc.Entity("body");
-      body.addComponent("render", { type: "box", material: this.material(open ? "#d8d2c2" : "#8a8478") });
-      body.setLocalScale(1.05 * STORE_ELEMENT_SCALE, 0.92 * STORE_ELEMENT_SCALE, 0.55 * STORE_ELEMENT_SCALE);
-      body.setLocalPosition(0, 0.46 * STORE_ELEMENT_SCALE, 0);
-      counter.addChild(body);
-      const belt = new pc.Entity("belt");
-      belt.addComponent("render", { type: "box", material: this.material(open ? "#3f4a44" : "#5a564d") });
-      belt.setLocalScale(0.85 * STORE_ELEMENT_SCALE, 0.06 * STORE_ELEMENT_SCALE, 0.42 * STORE_ELEMENT_SCALE);
-      belt.setLocalPosition(0, 0.95 * STORE_ELEMENT_SCALE, 0);
-      counter.addChild(belt);
-      if (!open) continue;
+      const s = STORE_ELEMENT_SCALE;
+
+      this.box(counter, { size: [4.45 * s, 0.92 * s, 1.18 * s], pos: [0, 0.46 * s, 0], color: open ? "#344c3e" : "#8a8478", name: "body" });
+      this.box(counter, { size: [4.24 * s, 0.16 * s, 1.08 * s], pos: [0, 0.98 * s, 0], color: "#d8dedb", name: "top-plate" });
+
+      if (!open) {
+        // `buildClosedCheckoutKit()`: dark strip + blank sign backing, no belt/register/card-reader detail.
+        this.box(counter, { size: [3.72 * s, 0.13 * s, 0.42 * s], pos: [0, 1.1 * s, 0], color: "#26332f", name: "closed-strip" });
+        this.box(counter, { size: [1.74 * s, 0.46 * s, 0.08 * s], pos: [0, 1.48 * s, 0.04 * s], color: "#f1dfad", name: "closed-sign" });
+        continue;
+      }
+
+      this.box(counter, { size: [2.55 * s, 0.08 * s, 0.82 * s], pos: [-0.66 * s, 1.08 * s, 0], color: "#252d2b", name: "conveyor-mat" });
+      for (let index = 0; index < 9; index += 1) {
+        this.box(counter, { size: [0.025 * s, 0.018 * s, 0.78 * s], pos: [(-1.7 + index * 0.28) * s, 1.125 * s, 0], color: "#68726f", name: "belt-roller" });
+      }
+      this.box(counter, { size: [0.52 * s, 0.11 * s, 0.94 * s], pos: [0.64 * s, 1.1 * s, 0], color: "#1f2a27", name: "bagging-shelf" });
+      this.box(counter, { size: [0.27 * s, 0.018 * s, 0.57 * s], pos: [0.64 * s, 1.165 * s, 0], color: "#2d6553", name: "belt-light" });
+      this.box(counter, { size: [0.86 * s, 0.18 * s, 0.62 * s], pos: [1.28 * s, 1.13 * s, -0.18 * s], color: "#24302d", name: "register-housing" });
+
+      const screenBack = this.box(counter, { size: [0.72 * s, 0.62 * s, 0.1 * s], pos: [1.28 * s, 1.61 * s, -0.13 * s], color: "#25322f", name: "screen-back" });
+      screenBack.setEulerAngles((-0.23 * 180) / Math.PI, 0, 0);
+      const screenGlow = this.box(counter, { size: [0.56 * s, 0.42 * s, 0.02 * s], pos: [1.28 * s, 1.62 * s, -0.07 * s], color: "#bde9d8", name: "screen-glow" });
+      screenGlow.setEulerAngles((-0.23 * 180) / Math.PI, 0, 0);
+
+      this.box(counter, { size: [0.32 * s, 0.13 * s, 0.5 * s], pos: [1.78 * s, 1.16 * s, 0.24 * s], color: "#e8ece7", name: "card-reader" });
+      const cardGlow = this.box(counter, { size: [0.21 * s, 0.18 * s, 0.02 * s], pos: [1.78 * s, 1.26 * s, 0.26 * s], color: "#77948a", name: "card-glow" });
+      cardGlow.setEulerAngles((-0.42 * 180) / Math.PI, 0, 0);
+
+      this.box(counter, { size: [0.92 * s, 0.5 * s, 0.82 * s], pos: [1.67 * s, 0.48 * s, 0], color: "#eff1e8", name: "bag-counter" });
+
+      this.box(counter, { size: [0.06 * s, 2.35 * s, 0.06 * s], pos: [-1.55 * s, 2.32 * s, -0.48 * s], color: "#4b5b56", name: "sign-pole" });
+      this.box(counter, { size: [0.98 * s, 0.58 * s, 0.12 * s], pos: [-1.55 * s, 3.08 * s, -0.44 * s], color: "#f4e4ad", name: "sign-board" });
+
       const cashierScaled = scaleStorePosition([...layout.cashierWork] as [number, number, number]);
       const cashierSpot = new pc.Entity(`checkout-cashier-${lane}`);
       cashierSpot.setLocalPosition(cashierScaled[0], cashierScaled[1], cashierScaled[2]);
       parent.addChild(cashierSpot);
-      const mat = new pc.Entity("mat");
-      mat.addComponent("render", { type: "box", material: this.material("#4b6f5f") });
-      mat.setLocalScale(0.5 * STORE_ELEMENT_SCALE, 0.03 * STORE_ELEMENT_SCALE, 0.5 * STORE_ELEMENT_SCALE);
-      cashierSpot.addChild(mat);
+      this.box(cashierSpot, { size: [0.5 * s, 0.03 * s, 0.5 * s], pos: [0, 0, 0], color: "#4b6f5f", name: "mat" });
     }
   }
 
@@ -1317,10 +1349,12 @@ export class PlayCanvasRuntime {
    * fixtures now load the same real static GLB `machines.ts`'s
    * `buildBakeryKit()`/`buildMillMachine()`/`buildProcessMachine()` attach for
    * that exact machine (see `PRODUCTION_MODEL_ROOT`/`ENVIRONMENT_MODEL_ROOT`'s
-   * doc comments); the corn canner stays a box volume because `machines.ts`'s
-   * own `buildCornCanner()` is built entirely from primitives too — there is
-   * no real canner GLB to port. Machine status/queue text overlays (the
-   * illuminated board `buildMachineIdentity()` draws) are still deferred. */
+   * doc comments); the corn canner is now a real procedural primitive
+   * assembly too (see `buildCornCannerDetail()`), matching `machines.ts`'s own
+   * `buildCornCanner()` — there is still no real canner GLB to port, but the
+   * housing/hopper/pipe/indicator/can shapes are. Machine status/queue text
+   * overlays (the illuminated board `buildMachineIdentity()` draws) are still
+   * deferred. */
   private buildProductionMachines(parent: pc.Entity, unlockedAreas: string[]) {
     if (fixtureAvailable("fixture:production-cubicle-shell", unlockedAreas)) {
       const shell = new pc.Entity("production-cubicle-shell");
@@ -1358,12 +1392,63 @@ export class PlayCanvasRuntime {
         anchor.setLocalPosition(centerX * STORE_ELEMENT_SCALE, model.y * STORE_ELEMENT_SCALE, centerZ * STORE_ELEMENT_SCALE);
         continue;
       }
+      if (fixture.workstationId === "canner") {
+        this.buildCornCannerDetail(element);
+        continue;
+      }
       const body = new pc.Entity("machine");
       body.addComponent("render", { type: "box", material: this.material(fixture.accent) });
       body.setLocalScale(halfX * 2 * STORE_ELEMENT_SCALE, 1.1 * STORE_ELEMENT_SCALE, halfZ * 2 * STORE_ELEMENT_SCALE);
       body.setLocalPosition(centerX * STORE_ELEMENT_SCALE, 0.55 * STORE_ELEMENT_SCALE, centerZ * STORE_ELEMENT_SCALE);
       element.addChild(body);
     }
+  }
+
+  /** Procedural (real box/cylinder/sphere-primitive assembly, not a box-
+   * volume placeholder) port of `production/machines.ts`'s `buildCornCanner()`
+   * — that Three.js source builds the canner entirely from primitives too (no
+   * GLB exists for it), so this reproduces the same shapes at the same real
+   * local dimensions relative to the fixture element (`STORE_ELEMENT_SCALE`
+   * applied the same way every other production fixture in this file applies
+   * it): the housing, its top plate, the intake hopper (pipe stem + lid box),
+   * the vertical feed pipe (cylinder), the status indicator (sphere) and one
+   * static labelled can standing at the outfeed. The four dynamic output-slot
+   * cans (`machine.output`-gated) and the identity board's status text stay
+   * deferred — this only ports the static geometry. */
+  private buildCornCannerDetail(element: pc.Entity) {
+    const s = STORE_ELEMENT_SCALE;
+    this.box(element, { size: [1.2 * s, 0.85 * s, 1.1 * s], pos: [0, 0.6 * s, -0.55 * s], color: "#97aaa4", name: "canner-body" });
+    this.box(element, { size: [1.1 * s, 0.12 * s, 0.7 * s], pos: [0, 1.09 * s, -0.48 * s], color: "#334840", name: "canner-top-plate" });
+    this.box(element, { size: [0.14 * s, 0.65 * s, 0.14 * s], pos: [0.4 * s, 1.45 * s, -0.8 * s], color: "#65833d", name: "canner-hopper-stem" });
+    this.box(element, { size: [0.65 * s, 0.15 * s, 0.4 * s], pos: [0.12 * s, 1.74 * s, -0.65 * s], color: "#65833d", name: "canner-hopper-lid" });
+
+    const pipe = new pc.Entity("canner-feed-pipe");
+    pipe.addComponent("render", { type: "cylinder", material: this.material("#c2cdca") });
+    pipe.setLocalScale(0.2 * s, 0.35 * s, 0.2 * s);
+    pipe.setLocalPosition(-0.03 * s, 1.47 * s, -0.55 * s);
+    element.addChild(pipe);
+
+    const indicator = new pc.Entity("canner-indicator");
+    indicator.addComponent("render", { type: "sphere", material: this.material("#d1ae56") });
+    indicator.setLocalScale(0.09 * s, 0.09 * s, 0.09 * s);
+    indicator.setLocalPosition(0.44 * s, 0.85 * s, 0.012 * s);
+    element.addChild(indicator);
+
+    // `buildCannedCornGroup()`'s static can standing at the outfeed —
+    // approximated with a tin-colored cylinder + a paler label band, matching
+    // `CannedCornModel`'s real tin/label colors without importing its Three
+    // geometry (this file has no THREE dependency).
+    const can = new pc.Entity("canner-static-can");
+    can.setLocalPosition(-0.03 * s, 1.26 * s, -0.55 * s);
+    element.addChild(can);
+    const tin = new pc.Entity("tin");
+    tin.addComponent("render", { type: "cylinder", material: this.material("#c9cdd0") });
+    tin.setLocalScale(0.14 * s, 0.16 * s, 0.14 * s);
+    can.addChild(tin);
+    const label = new pc.Entity("label");
+    label.addComponent("render", { type: "cylinder", material: this.material("#e8c94a") });
+    label.setLocalScale(0.142 * s, 0.09 * s, 0.142 * s);
+    can.addChild(label);
   }
 
   /** Ungated service furniture (`STORE_SERVICE_FIXTURES` + the warehouse
