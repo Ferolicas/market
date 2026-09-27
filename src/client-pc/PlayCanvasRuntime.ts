@@ -19,7 +19,15 @@ import { inputManager } from "@/game/input/InputManager";
 import { cameraRelativeMovement, moveVelocity, playerMotionForTier, smoothYaw, type PlayerMotionConfig } from "@/game/player/PlayerController";
 import { buildPlayerPhysics, ensureRapierReady, type PlayerPhysicsHandle } from "@/client/PlayerPhysics";
 import { fixtureAvailable } from "@/game/stations/fixture-availability";
-import { RETAIL_DEPARTMENTS, RETAIL_DEPARTMENT_IDS, retailFixtureDisplayPositions, type RetailDepartmentId } from "@/game/stations/retail-layout";
+import {
+  RETAIL_DEPARTMENTS,
+  RETAIL_DEPARTMENT_IDS,
+  retailFixtureDisplayPositions,
+  distributedFixtureQuantity,
+  retailStockLandingLocalPosition,
+  RETAIL_VISUAL_CAPACITY,
+  type RetailDepartmentId,
+} from "@/game/stations/retail-layout";
 import { CHECKOUT_LANE_IDS, CHECKOUT_LANES, checkoutAreaForLane, type CheckoutLane } from "@/game/stations/checkout-layout";
 import { STORE_PRODUCTION_FIXTURES, PRODUCTION_FIXTURE_IDS, isProductionWorkstationId, type ProductionFixtureId } from "@/game/stations/production-layout";
 import { STORE_SERVICE_FIXTURES } from "@/game/stations/store-service-layout";
@@ -37,7 +45,7 @@ import { WorkstationController } from "@/game/interaction/WorkstationController"
 import { interactionZoneConfigs } from "@/game/interaction/interactionZoneConfigsPure";
 import { useMarketStore } from "@/game/store";
 import { WORLD_TICK_INTERVAL_MS } from "@/game/core/timing";
-import type { AvatarHatId, CharacterId, HairId } from "@/game/types";
+import type { AvatarHatId, CharacterId, HairId, ProductId } from "@/game/types";
 import { characterSceneScale } from "@/game/animation/CharacterScale";
 
 /**
@@ -99,6 +107,62 @@ interface BoxSpec {
   color: string;
   opacity?: number;
   name?: string;
+}
+
+/**
+ * Simplified per-SKU shelf-stock visual — one dominant primitive per unit
+ * (box/sphere/cylinder), sized/colored from the REAL numbers in
+ * `/runtime`'s `src/client/WorldKit/retailProducts.ts` (`retailStockParts()`)
+ * and `src/client/WorldKit/retail/basketProduct.ts` for the three delivered-
+ * GLB SKUs (milk/cheese/eggs, which have no procedural shelf geometry in the
+ * source — see that file's own doc comment). Secondary garnish parts (tomato
+ * crown, apple stem/leaf, corn husks, bread score marks, can label band,
+ * package label) are intentionally dropped: `RETAIL_VISUAL_CAPACITY` reaches
+ * up to 75 units for a single SKU (milk/cheese), so multiplying part count
+ * per unit would multiply live entity/draw-call count store-wide — a real
+ * mobile-perf risk (see `mobile-performance-profile` project memory: the
+ * ground alone was 90% of mobile draw cost). One faithful-color, faithful-
+ * size, faithful-position primitive per unit is the trade made here; see the
+ * phase-11 handoff for restoring full multi-part fidelity behind real GPU
+ * instancing if a future pass wants it.
+ */
+interface RetailProductVisualSpec {
+  shape: "box" | "sphere" | "cylinder";
+  /** Local scale applied to the unit primitive, pre-STORE_ELEMENT_SCALE
+   * (matches every other fixture-child transform in this file — see
+   * `buildDepartmentFixture`'s own doc comment). */
+  size: [number, number, number];
+  color: string;
+}
+
+const RETAIL_PRODUCT_VISUAL: Record<ProductId, RetailProductVisualSpec> = {
+  oranges: { shape: "sphere", size: [0.18, 0.18, 0.18], color: "#D58236" },
+  tomatoes: { shape: "sphere", size: [0.18, 0.1548, 0.18], color: "#d94838" },
+  apples: { shape: "sphere", size: [0.1564, 0.17, 0.1564], color: "#bd3432" },
+  corn: { shape: "sphere", size: [0.093, 0.183, 0.093], color: "#f0bf36" },
+  juice: { shape: "cylinder", size: [0.119, 0.22, 0.119], color: "#ee8643" },
+  bread: { shape: "box", size: [0.22, 0.16, 0.15], color: "#b97336" },
+  cannedCorn: { shape: "cylinder", size: [0.156, 0.2, 0.156], color: "#b9c3c0" },
+  coffee: { shape: "box", size: [0.17, 0.24, 0.12], color: "#6b3d2d" },
+  flour: { shape: "box", size: [0.17, 0.24, 0.12], color: "#eee4cc" },
+  wheat: { shape: "box", size: [0.17, 0.24, 0.12], color: "#d5ab42" },
+  eggs: { shape: "sphere", size: [0.1037, 0.1469, 0.1037], color: "#f5ead1" },
+  milk: { shape: "cylinder", size: [0.097, 0.18, 0.097], color: "#f7f3e9" },
+  cheese: { shape: "cylinder", size: [0.17, 0.105, 0.17], color: "#efbd3d" },
+};
+
+/** One product's pooled shelf-unit entities for one physical fixture
+ * (a department may have several — produce/pantry — each getting its own
+ * `distributedFixtureQuantity()` share of `franchise.shelves[productId]`,
+ * exactly like `kitFurniture.ts`'s own produce/pantry stock split). Pool
+ * grows lazily up to `RETAIL_VISUAL_CAPACITY[productId]` and never shrinks;
+ * `stepRetailStock()` just toggles `.enabled` and repositions. */
+interface RetailStockActor {
+  productId: ProductId;
+  fixtureIndex: number;
+  fixtureCount: number;
+  group: pc.Entity;
+  units: pc.Entity[];
 }
 
 export type DoorState = "CLOSED" | "OPENING" | "OPEN" | "CLOSING" | "BLOCKED";
@@ -420,6 +484,13 @@ export class PlayCanvasRuntime {
   // every render frame from `stepFarmAnimals()` (real `animalMotion()`, same
   // as `animalStation.ts`'s own `update()`).
   private readonly farmAnimalActors: FarmAnimalActor[] = [];
+
+  // ---- retail shelf-stock visuals (phase 11) ----
+  // Rebuilt with the rest of `furnitureGroup` on a signature change (each
+  // fixture gets one actor per SKU it stocks); driven every render frame
+  // from `stepRetailStock()` reading `franchise.shelves` directly, like
+  // `stepFarmAnimals()` reads `productionMachines`.
+  private readonly retailStockActors: RetailStockActor[] = [];
 
   // ---- purchase markers / register cash (phase 10 — real visuals, see
   // `purchaseMarkers.ts`/`registerCashMarkers.ts`'s doc comments) ----
@@ -1069,6 +1140,7 @@ export class PlayCanvasRuntime {
     this.stepPlayer(dt, performance.now());
     this.stepDoors(dt);
     this.stepFarmAnimals();
+    this.stepRetailStock();
     this.stepPurchaseMarkersAnimation(dt);
     this.updateCamera();
   }
@@ -1590,6 +1662,9 @@ export class PlayCanvasRuntime {
     // down above — drop the stale list so `stepFarmAnimals()` never touches
     // a destroyed entity while `buildFarmEstate()` below repopulates it.
     this.farmAnimalActors.length = 0;
+    // Same story for retail stock actors — every pooled unit entity lives
+    // under a fixture `element` inside the group being torn down above.
+    this.retailStockActors.length = 0;
     const group = new pc.Entity("worldkit:furniture");
     worldRoot.addChild(group);
     this.furnitureGroup = group;
@@ -1608,12 +1683,15 @@ export class PlayCanvasRuntime {
       // check `kitFurniture.ts` applies before rendering ANY of its fixtures.
       if (id !== "produce" && !fixtureAvailable(`fixture:retail-${id}-1`, unlockedAreas)) continue;
       if (id === "produce" || id === "pantry") {
-        retailFixtureDisplayPositions(id, unlockedAreas).forEach((position) => {
-          this.buildDepartmentFixture(group, department, [...position] as [number, number, number], department.yaw ?? 0);
+        const positions = retailFixtureDisplayPositions(id, unlockedAreas);
+        positions.forEach((position, fixtureIndex) => {
+          const element = this.buildDepartmentFixture(group, department, [...position] as [number, number, number], department.yaw ?? 0);
+          this.attachRetailStockPools(element, department, fixtureIndex, positions.length);
         });
         continue;
       }
-      this.buildDepartmentFixture(group, department, [...department.display] as [number, number, number], department.yaw ?? 0);
+      const element = this.buildDepartmentFixture(group, department, [...department.display] as [number, number, number], department.yaw ?? 0);
+      this.attachRetailStockPools(element, department, 0, 1);
     }
 
     this.buildCheckoutLanes(group, unlockedAreas);
@@ -2023,7 +2101,7 @@ export class PlayCanvasRuntime {
     }
   }
 
-  private buildDepartmentFixture(parent: pc.Entity, department: (typeof RETAIL_DEPARTMENTS)[RetailDepartmentId], position: [number, number, number], yawDeg: number) {
+  private buildDepartmentFixture(parent: pc.Entity, department: (typeof RETAIL_DEPARTMENTS)[RetailDepartmentId], position: [number, number, number], yawDeg: number): pc.Entity {
     // Mirrors `makeStoreElement`: scaleStorePosition (bakes STORE_LAYOUT_SCALE
     // — this group already lives under `worldRoot`, WORLD_SCALE only), yaw,
     // then a uniform STORE_ELEMENT_SCALE on the fixture itself.
@@ -2044,6 +2122,79 @@ export class PlayCanvasRuntime {
     base.setLocalScale(halfX * 2.05 * STORE_ELEMENT_SCALE, 0.08 * STORE_ELEMENT_SCALE, halfZ * 2.05 * STORE_ELEMENT_SCALE);
     base.setLocalPosition(0, 0.04 * STORE_ELEMENT_SCALE, 0);
     element.addChild(base);
+    return element;
+  }
+
+  /**
+   * One `retail-stock:<productId>` pool group per SKU this fixture stocks
+   * (`department.products`), attached under `element` — the parent
+   * `buildFurniture()` loop just built. Registers a `RetailStockActor` for
+   * `stepRetailStock()` to drive every frame; no units are created yet
+   * (`growRetailStockPool` creates them lazily the first time they're
+   * needed), so an empty/never-stocked SKU costs nothing beyond one empty
+   * `pc.Entity`.
+   */
+  private attachRetailStockPools(element: pc.Entity, department: (typeof RETAIL_DEPARTMENTS)[RetailDepartmentId], fixtureIndex: number, fixtureCount: number) {
+    for (const productId of department.products) {
+      const group = new pc.Entity(`retail-stock:${productId}:${fixtureIndex}`);
+      element.addChild(group);
+      this.retailStockActors.push({ productId, fixtureIndex, fixtureCount, group, units: [] });
+    }
+  }
+
+  /**
+   * Real per-frame retail shelf-stock visuals. Reads `franchise.shelves`
+   * directly off the store (like `stepFarmAnimals()` reads
+   * `productionMachines`) rather than through `PlayCanvasSceneProps`, splits
+   * each SKU's total across its fixture's own share via
+   * `distributedFixtureQuantity()` (the exact split `kitFurniture.ts`'s own
+   * `produceStock`/`produceCapacity` closures use for produce/pantry, and a
+   * no-op split — `distributedFixtureQuantity(total, 0, 1) === total` — for
+   * every single-fixture department), then lands each visible unit at the
+   * exact local position `retailStockLandingLocalPosition()` computes (the
+   * same pure function `/runtime`'s `AuthoritativeRetailStock` calls) —
+   * partial rows re-center exactly like the real shelf, because `shelfEnd`
+   * is the CURRENT visual count, not the SKU's tier capacity (mirrors
+   * `retailStockTransforms()`'s own `visualCount` — see this file's
+   * `RETAIL_PRODUCT_VISUAL` doc comment for why capacity numbers matter for
+   * pool growth, not for the on-shelf layout math). A unit beyond the
+   * current count is simply `enabled = false`, never destroyed. */
+  private stepRetailStock() {
+    if (this.retailStockActors.length === 0) return;
+    const game = useMarketStore.getState().game;
+    const franchise = game?.franchises.find((item) => item.id === game.currentFranchiseId) ?? game?.franchises[0];
+    if (!franchise) return;
+    for (const actor of this.retailStockActors) {
+      const total = franchise.shelves[actor.productId] ?? 0;
+      const rawCount = distributedFixtureQuantity(total, actor.fixtureIndex, actor.fixtureCount);
+      const visualCapacity = RETAIL_VISUAL_CAPACITY[actor.productId];
+      const visualCount = Math.min(visualCapacity, Math.max(0, rawCount));
+      if (actor.units.length < visualCount) this.growRetailStockPool(actor, visualCount);
+      for (let index = 0; index < actor.units.length; index += 1) {
+        const unit = actor.units[index];
+        const visible = index < visualCount;
+        unit.enabled = visible;
+        if (!visible) continue;
+        const [x, y, z] = retailStockLandingLocalPosition(actor.productId, index, visualCount);
+        unit.setLocalPosition(x * STORE_ELEMENT_SCALE, y * STORE_ELEMENT_SCALE, z * STORE_ELEMENT_SCALE);
+      }
+    }
+  }
+
+  /** Grows one actor's unit pool up to `targetSize` (never shrinks — see
+   * `stepRetailStock()`'s doc comment). Each unit is one primitive mesh from
+   * `RETAIL_PRODUCT_VISUAL`, scaled by `STORE_ELEMENT_SCALE` exactly like
+   * `buildDepartmentFixture`'s own body/base boxes. */
+  private growRetailStockPool(actor: RetailStockActor, targetSize: number) {
+    const spec = RETAIL_PRODUCT_VISUAL[actor.productId];
+    while (actor.units.length < targetSize) {
+      const unit = new pc.Entity(`retail-unit:${actor.productId}:${actor.units.length}`);
+      unit.addComponent("render", { type: spec.shape, material: this.material(spec.color) });
+      unit.setLocalScale(spec.size[0] * STORE_ELEMENT_SCALE, spec.size[1] * STORE_ELEMENT_SCALE, spec.size[2] * STORE_ELEMENT_SCALE);
+      unit.enabled = false;
+      actor.group.addChild(unit);
+      actor.units.push(unit);
+    }
   }
 
   // ---- CityPerimeter (src/components/game/CityPerimeter.tsx) ----
