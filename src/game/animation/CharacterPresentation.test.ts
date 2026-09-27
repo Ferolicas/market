@@ -109,6 +109,37 @@ describe("character presentation", () => {
     expect(model.getObjectByName("PremiumSole_R")).toBeUndefined();
   });
 
+  it("keeps clearcoat/sheen for the player's own body but strips them for crowd instances to bound per-fragment shader cost", () => {
+    const { root } = characterFixture();
+    const player = prepareCharacterModel(root, { crowd: false });
+    const crowdBody = prepareCharacterModel(root, { crowd: true });
+    const playerMaterial = (player.children.find((child): child is THREE.Mesh => child instanceof THREE.Mesh)?.material) as THREE.MeshPhysicalMaterial;
+    const crowdMaterial = (crowdBody.children.find((child): child is THREE.Mesh => child instanceof THREE.Mesh)?.material) as THREE.MeshPhysicalMaterial;
+
+    expect(playerMaterial.clearcoat).toBeCloseTo(0.1);
+    expect(playerMaterial.sheen).toBeCloseTo(0.08);
+    expect(crowdMaterial.clearcoat).toBe(0);
+    expect(crowdMaterial.sheen).toBe(0);
+    // Both still get the specular tint and the de-scanned roughness/emissive
+    // treatment — only the clearcoat/sheen shader chunks are crowd-gated.
+    expect(crowdMaterial.specularIntensity).toBeCloseTo(0.34);
+    expect(crowdMaterial.envMapIntensity).toBeCloseTo(0.68);
+  });
+
+  it("filters crowd character textures at 4x anisotropy instead of the player's 8x", () => {
+    const root = new THREE.Group();
+    const material = new THREE.MeshPhysicalMaterial({ roughness: 0.9, metalness: 0.3 });
+    material.name = "CrowdAtlas";
+    const atlas = new THREE.Texture({ width: 512, height: 512 });
+    atlas.anisotropy = 1;
+    material.map = atlas;
+    root.add(new THREE.Mesh(new THREE.BoxGeometry(), material));
+
+    const crowdBody = prepareCharacterModel(root, { crowd: true });
+    const crowdMaterial = (crowdBody.children[0] as THREE.Mesh).material as THREE.MeshPhysicalMaterial;
+    expect((crowdMaterial.map as THREE.Texture).anisotropy).toBe(4);
+  });
+
   it("prepares a shared atlas once for an oblique camera without cloning its texture", () => {
     const { root, material: sourceMaterial } = characterFixture();
     const atlas = new THREE.Texture({ width: 512, height: 512 });

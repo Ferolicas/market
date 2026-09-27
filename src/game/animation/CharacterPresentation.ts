@@ -245,7 +245,15 @@ export function disposeCharacterMaterials(model: THREE.Group) {
 
 function premiumMaterial(source: THREE.Material, crowd: boolean) {
   const material = source.clone();
-  prepareSharedCharacterMaps(material);
+  // Crowd bodies keep 4x anisotropic filtering instead of the player's 8x.
+  // Root-caused 2026-09-27 (iPhone crowd-density regression): every crowd
+  // instance drawn samples this texture at whatever anisotropy level is set
+  // here, so the cost scales with on-screen crowd fill-rate — the player's
+  // own single body pays this once per frame regardless. 4x is visually
+  // indistinguishable from 8x at typical crowd viewing distance (crowd
+  // bodies are smaller on screen and in near-constant motion) and still a
+  // real step up from the un-filtered GLB default (1x) this replaced.
+  prepareSharedCharacterMaps(material, crowd ? 4 : 8);
   if (!(material instanceof THREE.MeshStandardMaterial)) return material;
 
   const name = material.name.toLowerCase();
@@ -268,12 +276,27 @@ function premiumMaterial(source: THREE.Material, crowd: boolean) {
     material.emissiveIntensity = crowd ? 0.075 : 0.055;
   }
   if (material instanceof THREE.MeshPhysicalMaterial && !facialOverlay) {
-    material.clearcoat = 0.1;
-    material.clearcoatRoughness = 0.62;
-    material.sheen = 0.08;
-    material.sheenColor.set("#fff4e9");
-    material.sheenRoughness = 0.82;
+    // Root-caused 2026-09-27: the source GLBs only ship `KHR_materials_
+    // specular` (confirmed with `gltf-transform inspect` — no clearcoat/sheen
+    // extension on any market character atlas), so `specularIntensity` alone
+    // never adds a shader variant beyond what GLTFLoader already compiles for
+    // that extension. `clearcoat`/`sheen`, in contrast, force three.js to add
+    // the `USE_CLEARCOAT`/`USE_SHEEN` fragment chunks (their own fresnel and
+    // BRDF terms) to every crowd instance's fragment shader — real per-pixel
+    // cost that scales with how much screen space the crowd occupies, which
+    // is exactly the "fluidity gets worse near/inside the crowd" pattern the
+    // 2026-09-27 iPhone playtest reported. At the values used here (0.1/0.08)
+    // the effect is already documented above as "deliberately subtle"; kept
+    // only for the player's own closely-viewed body, where it is a single
+    // instance drawn once per frame regardless of crowd density.
     material.specularIntensity = 0.34;
+    if (!crowd) {
+      material.clearcoat = 0.1;
+      material.clearcoatRoughness = 0.62;
+      material.sheen = 0.08;
+      material.sheenColor.set("#fff4e9");
+      material.sheenRoughness = 0.82;
+    }
   }
   material.needsUpdate = true;
   return material;
@@ -334,12 +357,12 @@ function subscribeCharacterCapabilities(onStoreChange: () => void) {
   };
 }
 
-function prepareSharedCharacterMaps(material: THREE.Material) {
+function prepareSharedCharacterMaps(material: THREE.Material, anisotropy = 8) {
   const mappedMaterial = material as THREE.Material & Partial<Record<(typeof CHARACTER_MAP_SLOTS)[number], THREE.Texture | null>>;
   for (const slot of CHARACTER_MAP_SLOTS) {
     const texture = mappedMaterial[slot];
     if (!(texture instanceof THREE.Texture) || preparedCharacterMaps.has(texture)) continue;
-    texture.anisotropy = Math.max(8, texture.anisotropy);
+    texture.anisotropy = Math.max(anisotropy, texture.anisotropy);
     texture.magFilter = THREE.LinearFilter;
     const canGenerateMipmaps = !(texture instanceof THREE.CompressedTexture)
       && !(texture instanceof THREE.VideoTexture)
