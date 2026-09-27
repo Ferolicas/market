@@ -2841,26 +2841,16 @@ export class PlayCanvasRuntime {
   }
 
   /** Ungated service furniture (`STORE_SERVICE_FIXTURES` + the warehouse
-   * return crate) — always present in the base game. "orders" stays a
-   * box-volume placeholder (out of this phase's scope — no source file for
-   * it was part of the phase-15 handoff); "returns"/"cartBay" are now real
-   * procedural ports of `checkout/returnsCubicle.ts`/`checkout/cartBay.ts`
-   * (see `buildReturnsCubicleDetail()`/`buildCartBayDetail()` below), each
-   * with the real dynamic detail the source drives from
-   * `franchise.returnsBin`/`franchise.returnedCartCount`. */
+   * return crate) — always present in the base game. "orders"/"returns"/
+   * "cartBay" are now real procedural ports of
+   * `production/supplierAndWarehouse.ts`'s `SupplierCorner` /
+   * `checkout/returnsCubicle.ts` / `checkout/cartBay.ts` (see
+   * `buildSupplierCornerDetail()`/`buildReturnsCubicleDetail()`/
+   * `buildCartBayDetail()` below), each with the real dynamic detail (or, for
+   * "orders", the real static PEDIDOS terminal + delivery-dock GLB + pallet/
+   * parcels — the source itself gives it no live prop). */
   private buildServiceFixtures(parent: pc.Entity) {
-    {
-      const fixture = STORE_SERVICE_FIXTURES.orders;
-      const scaled = scaleStorePosition([...fixture.position] as [number, number, number]);
-      const element = new pc.Entity(`fixture:${fixture.obstacleId}`);
-      element.setLocalPosition(scaled[0], scaled[1], scaled[2]);
-      parent.addChild(element);
-      const body = new pc.Entity("body");
-      body.addComponent("render", { type: "box", material: this.material("#5c7ba0") });
-      body.setLocalScale(fixture.footprint.halfX * 2 * STORE_ELEMENT_SCALE, 1 * STORE_ELEMENT_SCALE, fixture.footprint.halfZ * 2 * STORE_ELEMENT_SCALE);
-      body.setLocalPosition(0, 0.5 * STORE_ELEMENT_SCALE, 0);
-      element.addChild(body);
-    }
+    this.buildSupplierCornerDetail(parent, STORE_SERVICE_FIXTURES.orders);
     this.buildReturnsCubicleDetail(parent, STORE_SERVICE_FIXTURES.returns);
     this.buildCartBayDetail(parent, STORE_SERVICE_FIXTURES.cartBay);
     {
@@ -2874,6 +2864,86 @@ export class PlayCanvasRuntime {
       body.setLocalPosition(0, 0.45 * STORE_ELEMENT_SCALE, 0);
       element.addChild(body);
     }
+  }
+
+  /** Procedural (real box/sphere/text-primitive assembly, + the real
+   * `equipment_delivery_dock` GLB) port of `production/supplierAndWarehouse
+   * .ts`'s `SupplierCorner` (`buildTerminalModel`/`buildPallet`/
+   * `buildParcel`): the PEDIDOS terminal facing the sales floor, with the
+   * delivery dock/pallet/parcels backing onto the rear wall behind it,
+   * matching the source's own layout comment verbatim. Fully static — the
+   * source gives `SupplierCorner` no live prop (`<MemoSupplierCorner
+   * position={[0, 0, 0]} />` in `kitFurniture.ts`), so this needs no
+   * `update()`. */
+  private buildSupplierCornerDetail(parent: pc.Entity, fixture: StoreServiceFixture) {
+    const s = STORE_ELEMENT_SCALE;
+    const scaled = scaleStorePosition([...fixture.position] as [number, number, number]);
+    const element = new pc.Entity(`fixture:${fixture.obstacleId}`);
+    element.setLocalPosition(scaled[0], scaled[1], scaled[2]);
+    parent.addChild(element);
+
+    const terminal = new pc.Entity("orders-terminal");
+    terminal.setLocalPosition(0, 0, 0.62 * s);
+    element.addChild(terminal);
+    this.box(terminal, { size: [1.18 * s, 0.82 * s, 0.62 * s], pos: [0, 0.41 * s, 0], color: "#173f35", name: "terminal-body" });
+    this.box(terminal, { size: [1.38 * s, 0.12 * s, 0.76 * s], pos: [0, 0.86 * s, 0.04 * s], color: "#f1e8cf", name: "terminal-top" });
+    this.box(terminal, { size: [0.76 * s, 0.1 * s, 0.48 * s], pos: [0, 0.96 * s, 0.08 * s], color: "#303b38", name: "terminal-slot" });
+    for (const x of [-0.24, -0.08, 0.08, 0.24]) {
+      const button = this.box(terminal, { size: [0.09 * s, 0.025 * s, 0.18 * s], pos: [x * s, 1.025 * s, 0.16 * s], color: "#85938d", name: "terminal-button" });
+      button.setLocalEulerAngles(-14.32, 0, 0);
+    }
+    const hood = this.box(terminal, { size: [0.76 * s, 0.64 * s, 0.1 * s], pos: [0, 1.38 * s, 0.03 * s], color: "#202b28", name: "terminal-hood" });
+    hood.setLocalEulerAngles(-8.02, 0, 0);
+    const screenMaterial = new pc.StandardMaterial();
+    screenMaterial.diffuse = hexToColor("#c7eadc");
+    screenMaterial.emissive = hexToColor("#40806a");
+    screenMaterial.emissiveIntensity = 0.34;
+    screenMaterial.update();
+    const screen = new pc.Entity("terminal-screen");
+    screen.addComponent("render", { type: "plane", material: screenMaterial });
+    screen.setLocalScale(0.62 * s, 1, 0.48 * s);
+    screen.setLocalPosition(0, 1.39 * s, 0.091 * s);
+    screen.setLocalEulerAngles(90 - 8.02, 0, 0);
+    terminal.addChild(screen);
+    const screenLabel = this.buildText(terminal, "terminal-screen-text", "PEDIDOS", 0.105 * s, [0, 1.42 * s, 0.101 * s], "#173f35");
+    screenLabel.setLocalEulerAngles(-8.02, 0, 0);
+    const indicatorMaterial = new pc.StandardMaterial();
+    indicatorMaterial.emissive = hexToColor("#8ce0a6");
+    indicatorMaterial.emissiveIntensity = 1;
+    indicatorMaterial.update();
+    const indicator = new pc.Entity("terminal-indicator");
+    indicator.addComponent("render", { type: "sphere", material: indicatorMaterial });
+    indicator.setLocalScale(0.07 * s, 0.07 * s, 0.07 * s);
+    indicator.setLocalPosition(-0.48 * s, 0.63 * s, 0.32 * s);
+    terminal.addChild(indicator);
+
+    const dock = new pc.Entity("orders-dock");
+    dock.setLocalPosition(0, 0.52 * s, -0.9 * s);
+    dock.setLocalScale(0.72 * s, 0.72 * s, 0.72 * s);
+    element.addChild(dock);
+    void this.loadAccessoryEntity(`${ENVIRONMENT_MODEL_ROOT}/equipment_delivery_dock.glb`, `fixture-model:${fixture.obstacleId}:dock`).then((model) => {
+      if (this.disposed || this.furnitureGroup !== parent) return;
+      if (model) dock.addChild(model);
+    });
+
+    const pallet = new pc.Entity("orders-pallet");
+    pallet.setLocalPosition(-0.05 * s, 0, -0.68 * s);
+    element.addChild(pallet);
+    for (const z of [-0.32, 0, 0.32]) this.box(pallet, { size: [1.1 * s, 0.09 * s, 0.18 * s], pos: [0, 0.09 * s, z * s], color: "#a9764a", name: "pallet-board" });
+    for (const x of [-0.43, 0, 0.43]) this.box(pallet, { size: [0.16 * s, 0.11 * s, 0.82 * s], pos: [x * s, 0.02 * s, 0], color: "#754c2f", name: "pallet-runner" });
+
+    const buildParcel = (pos: [number, number, number], small: boolean) => {
+      const parcel = new pc.Entity("orders-parcel");
+      parcel.setLocalPosition(pos[0] * s, pos[1] * s, pos[2] * s);
+      const scale = (small ? 0.72 : 1) * s;
+      parcel.setLocalScale(scale, scale, scale);
+      element.addChild(parcel);
+      this.box(parcel, { size: [0.52, 0.44, 0.46], pos: [0, 0.22, 0], color: "#ba8050", name: "parcel-box" });
+      this.box(parcel, { size: [0.08, 0.45, 0.47], pos: [0, 0.23, 0], color: "#d5ad70", name: "parcel-tape" });
+    };
+    buildParcel([-0.3, 0.34, -0.68], false);
+    buildParcel([0.25, 0.34, -0.68], true);
+    buildParcel([0.05, 0.73, -0.68], false);
   }
 
   /** Procedural (real box-primitive assembly) port of
@@ -2942,47 +3012,116 @@ export class PlayCanvasRuntime {
     this.syncCartBay(2);
   }
 
-  /** One shopping cart: a box basket + handle bar + four wheel/leg pairs.
-   * `checkout/cartBay.ts`'s real `ShoppingCart` is a tube-instanced wire
-   * lattice (`cartTubeTransform` spans a cylinder between two points for
-   * every frame member) — PlayCanvas has no equivalent instanced-tube helper
-   * in this file, so this reproduces the same real silhouette (basket box,
-   * handle height, four-wheel stance) with the box/cylinder primitive
-   * substitution this port already uses everywhere else (corn canner,
-   * transfer-burst "sparkle", retail/belt product units), at the source's own
-   * real per-part local dimensions where a direct equivalent exists. Geometry
-   * is authored in the SAME raw (pre-`STORE_ELEMENT_SCALE`) local units the
-   * source's `ShoppingCart` uses, so the caller's per-cart uniform
-   * `setLocalScale(STORE_ELEMENT_SCALE * shrink)` reproduces the source's own
-   * `cart.scale.setScalar(1 - index * 0.055)` composed with the fixture's
-   * usual element scale. */
+  /** Orients a unit cylinder entity to span `from`→`to` at the given radius —
+   * the PlayCanvas-entity equivalent of `checkout/cartBay.ts`'s
+   * `cartTubeTransform` (which returns a matrix for an instanced mesh; this
+   * returns a real child entity instead, since this file has no GPU-instanced
+   * mesh helper). Falls back to an identity/180°-flip rotation in the
+   * (unused by this cart, but kept for robustness) near-parallel-to-up case
+   * so `Vec3.cross` never normalizes a zero vector. */
+  private buildTubeSegment(parent: pc.Entity, from: [number, number, number], to: [number, number, number], radius: number, material: pc.StandardMaterial) {
+    const start = new pc.Vec3(from[0], from[1], from[2]);
+    const end = new pc.Vec3(to[0], to[1], to[2]);
+    const direction = new pc.Vec3().sub2(end, start);
+    const length = direction.length();
+    if (length < 1e-6) return;
+    direction.normalize();
+    const up = new pc.Vec3(0, 1, 0);
+    const dot = up.dot(direction);
+    const entity = new pc.Entity("cart-tube");
+    entity.addComponent("render", { type: "cylinder", material });
+    if (dot > 1 - 1e-6) {
+      entity.setLocalRotation(0, 0, 0, 1);
+    } else if (dot < -1 + 1e-6) {
+      entity.setLocalEulerAngles(180, 0, 0);
+    } else {
+      const axis = new pc.Vec3().cross(up, direction).normalize();
+      const angle = Math.acos(dot) * pc.math.RAD_TO_DEG;
+      entity.setLocalRotation(new pc.Quat().setFromAxisAngle(axis, angle));
+    }
+    const mid = new pc.Vec3().add2(start, end).mulScalar(0.5);
+    entity.setLocalPosition(mid);
+    entity.setLocalScale(radius, length, radius);
+    parent.addChild(entity);
+  }
+
+  /** Real tube-instanced wire-lattice `ShoppingCart` from `MarketKit.tsx`,
+   * ported via `checkout/cartBay.ts`'s own `buildShoppingCart()` — same
+   * frame-member endpoints/radii, same basket-shelf/backrest boxes, same
+   * wheel/fork transforms, just as real child entities (`buildTubeSegment()`
+   * above) instead of the source's GPU-instanced mesh, since this file has no
+   * instanced-mesh helper. Geometry is authored in the SAME raw (pre-
+   * `STORE_ELEMENT_SCALE`) local units `checkout/cartBay.ts` uses, so the
+   * caller's per-cart uniform `setLocalScale(STORE_ELEMENT_SCALE * shrink)`
+   * reproduces the source's own `cart.scale.setScalar(1 - index * 0.055)`
+   * composed with the fixture's usual element scale. */
   private buildSimplifiedCart(): pc.Entity {
     const cart = new pc.Entity("shopping-cart");
-    const basket = new pc.Entity("basket");
-    basket.addComponent("render", { type: "box", material: this.material("#9aa5a2", 0.6) });
-    basket.setLocalScale(0.88, 0.42, 0.7);
-    basket.setLocalPosition(0, 0.62, 0.05);
-    cart.addChild(basket);
 
-    const handle = new pc.Entity("handle");
-    handle.addComponent("render", { type: "box", material: this.material("#315f4d") });
-    handle.setLocalScale(1.04, 0.05, 0.05);
-    handle.setLocalPosition(0, 1.02, -0.43);
-    cart.addChild(handle);
+    const gripMaterial = this.material("#315f4d");
+    const metalMaterial = this.material("#9aa5a2");
+    const wheelOuterMaterial = this.material("#272d2c");
+    const wheelInnerMaterial = this.material("#adb7b4");
 
-    for (const [x, z] of [[-0.33, -0.23], [0.33, -0.23], [-0.33, 0.28], [0.33, 0.28]] as const) {
-      const wheel = new pc.Entity("wheel");
-      wheel.addComponent("render", { type: "cylinder", material: this.material("#272d2c") });
-      wheel.setLocalScale(0.15, 0.055, 0.15);
-      wheel.setLocalEulerAngles(0, 0, 90);
-      wheel.setLocalPosition(x, 0.085, z);
-      cart.addChild(wheel);
+    const topLeftBack: [number, number, number] = [-0.46, 0.88, -0.35];
+    const topRightBack: [number, number, number] = [0.46, 0.88, -0.35];
+    const topLeftFront: [number, number, number] = [-0.46, 0.88, 0.42];
+    const topRightFront: [number, number, number] = [0.46, 0.88, 0.42];
+    const bottomLeftBack: [number, number, number] = [-0.34, 0.43, -0.25];
+    const bottomRightBack: [number, number, number] = [0.34, 0.43, -0.25];
+    const bottomLeftFront: [number, number, number] = [-0.34, 0.43, 0.33];
+    const bottomRightFront: [number, number, number] = [0.34, 0.43, 0.33];
 
-      const leg = new pc.Entity("leg");
-      leg.addComponent("render", { type: "box", material: this.material("#6d7774") });
-      leg.setLocalScale(0.045, 0.3, 0.045);
-      leg.setLocalPosition(x, 0.24, z);
-      cart.addChild(leg);
+    this.buildTubeSegment(cart, [-0.52, 1.02, -0.43], [0.52, 1.02, -0.43], 0.035, gripMaterial);
+
+    this.buildTubeSegment(cart, [-0.44, 0.18, -0.28], topLeftBack, 0.022, metalMaterial);
+    this.buildTubeSegment(cart, [0.44, 0.18, -0.28], topRightBack, 0.022, metalMaterial);
+    const frame015: Array<[[number, number, number], [number, number, number]]> = [
+      [topLeftBack, topRightBack],
+      [topLeftFront, topRightFront],
+      [topLeftBack, topLeftFront],
+      [topRightBack, topRightFront],
+      [bottomLeftBack, bottomRightBack],
+      [bottomLeftFront, bottomRightFront],
+      [bottomLeftBack, bottomLeftFront],
+      [bottomRightBack, bottomRightFront],
+      [topLeftBack, bottomLeftBack],
+      [topRightBack, bottomRightBack],
+      [topLeftFront, bottomLeftFront],
+      [topRightFront, bottomRightFront],
+    ];
+    for (const [from, to] of frame015) this.buildTubeSegment(cart, from, to, 0.015, metalMaterial);
+    for (const x of [-0.27, -0.09, 0.09, 0.27]) {
+      this.buildTubeSegment(cart, [x, 0.43, -0.25], [x * 1.3, 0.88, 0.42], 0.009, metalMaterial);
+    }
+    for (const z of [-0.1, 0.08, 0.26]) {
+      for (const side of [-1, 1]) {
+        this.buildTubeSegment(cart, [side * 0.36, 0.48, z], [side * 0.45, 0.84, z + 0.05], 0.009, metalMaterial);
+      }
+    }
+    for (const x of [-0.34, 0.34]) {
+      this.buildTubeSegment(cart, [x, 0.13, -0.26], [x, 0.24, 0.32], 0.02, metalMaterial);
+    }
+
+    this.box(cart, { size: [0.72, 0.035, 0.58], pos: [0, 0.27, 0.04], color: "#9da8a5", name: "cart-shelf" });
+    this.box(cart, { size: [0.74, 0.27, 0.045], pos: [0, 0.7, -0.29], color: "#466f60", name: "cart-backrest" });
+
+    for (const x of [-0.33, 0.33]) {
+      for (const z of [-0.23, 0.28]) {
+        this.box(cart, { size: [0.045, 0.13, 0.045], pos: [x, 0.15, z], color: "#6d7774", name: "cart-fork" });
+        const wheelOuter = new pc.Entity("cart-wheel-outer");
+        wheelOuter.addComponent("render", { type: "cylinder", material: wheelOuterMaterial });
+        wheelOuter.setLocalScale(0.15, 0.055, 0.15);
+        wheelOuter.setLocalEulerAngles(0, 0, 90);
+        wheelOuter.setLocalPosition(x, 0.085, z);
+        cart.addChild(wheelOuter);
+        const wheelInner = new pc.Entity("cart-wheel-inner");
+        wheelInner.addComponent("render", { type: "cylinder", material: wheelInnerMaterial });
+        wheelInner.setLocalScale(0.068, 0.058, 0.068);
+        wheelInner.setLocalEulerAngles(0, 0, 90);
+        wheelInner.setLocalPosition(x, 0.085, z);
+        cart.addChild(wheelInner);
+      }
     }
     return cart;
   }
