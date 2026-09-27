@@ -6,6 +6,11 @@ import { replayChecksum, verifyReplay } from "./ServerReplay";
 import { serverPathfinderFor } from "../navigation/ServerNavigation";
 
 describe("command log replay", () => {
+  // Two full campaign-bot runs to level 9 plus a full replay are CPU-heavy
+  // enough to occasionally exceed vitest's default 5s timeout under CI
+  // runner load (observed: consistent 5000ms timeout failures on GitHub
+  // Actions while passing in ~3s locally) -- a longer explicit timeout,
+  // not a behavior change.
   it("reproduces a long command stream byte for byte, with ids included", () => {
     const first = runCampaignBot(createCampaignGame("ES"), { targetLevel: 9, maxTicks: 3_000 });
     const second = runCampaignBot(createCampaignGame("ES"), { targetLevel: 9, maxTicks: 3_000 });
@@ -18,7 +23,7 @@ describe("command log replay", () => {
     const replayed = replayCommands(createCampaignGame("ES"), first.commands);
     expect(replayed.applied).toBe(first.commands.length);
     expect(JSON.stringify(replayed.state)).toBe(JSON.stringify(first.state));
-  });
+  }, 20_000);
 
   it("matches the server's view: a JSON round trip and normalisation of the base change nothing", async () => {
     // A client always plays from the normalised load, so the bot does too.
