@@ -28,6 +28,11 @@ import {
   retailStockFixtureSlot,
   RETAIL_VISUAL_CAPACITY,
   PRODUCT_RETAIL_DEPARTMENT,
+  RETAIL_FIXTURE_LEVELS,
+  PRODUCE_BIN_COLUMNS,
+  PRODUCE_BIN_PITCH,
+  PRODUCE_DECK,
+  produceDeckLocalPoint,
   type RetailDepartmentId,
 } from "@/game/stations/retail-layout";
 import { CHECKOUT_LANE_IDS, CHECKOUT_LANES, checkoutAreaForLane, activeCheckoutForLane, checkoutHandoffForLane, checkoutBagLocation, type CheckoutLane } from "@/game/stations/checkout-layout";
@@ -710,6 +715,12 @@ export class PlayCanvasRuntime {
   // from `stepRetailStock()` reading `franchise.shelves` directly, like
   // `stepFarmAnimals()` reads `productionMachines`.
   private readonly retailStockActors: RetailStockActor[] = [];
+
+  // ---- decorative ceiling lamps (storeUtilities.ts port) ----
+  // Rebuilt with the rest of `furnitureGroup` on a signature change; driven
+  // every render frame from `stepCeilingLamps()` reading `franchise.lightsOn`
+  // directly, like `stepFarmAnimals()`/`stepRetailStock()` above.
+  private readonly ceilingLampActors: { bulbMaterial: pc.StandardMaterial; light: pc.Entity }[] = [];
 
   // ---- checkout lane / production machine dynamic detail (phase 15) ----
   // Rebuilt with the rest of `furnitureGroup` on a signature change; driven
@@ -1834,6 +1845,7 @@ export class PlayCanvasRuntime {
     this.stepDoors(dt);
     this.stepFarmAnimals();
     this.stepRetailStock();
+    this.stepCeilingLamps();
     this.stepCheckout(dt);
     this.stepProductionMachines();
     this.stepCartBay();
@@ -2384,6 +2396,9 @@ export class PlayCanvasRuntime {
     this.returnsUnitsGroup = null;
     this.returnsBinSignature = "";
     this.cartBayEntities.length = 0;
+    // Same story for the decorative ceiling-lamp actors — every lamp entity
+    // lives under the group being torn down above.
+    this.ceilingLampActors.length = 0;
     const group = new pc.Entity("worldkit:furniture");
     worldRoot.addChild(group);
     this.furnitureGroup = group;
@@ -2417,6 +2432,144 @@ export class PlayCanvasRuntime {
     this.buildProductionMachines(group, unlockedAreas);
     this.buildServiceFixtures(group);
     this.buildFarmEstate(group, unlockedAreas, crops);
+    this.buildDecorativeFixtures(group);
+  }
+
+  /**
+   * Real port of `WorldKit/production/storeUtilities.ts`'s `buildWallClock`,
+   * `buildSecurityCamera`, `buildHangingSign` and (structurally)
+   * `buildCeilingLamp` — the wall clock, two security cameras, "CAJAS"/
+   * "DESPENSA" hanging signs and four ceiling lamps, none of which had any
+   * PlayCanvas equivalent before this pass. The ceiling lamps get a real
+   * `pc.Entity` point light (toggled by `stepCeilingLamps()`, reading
+   * `franchise.lightsOn` every frame exactly like `stepFarmAnimals()`/
+   * `stepRetailStock()` read their own store fields) plus a real emissive
+   * bulb material — same on/off behavior as the source's
+   * `applyEmissive`/`syncLight`, minus the source's real
+   * `equipment_ceiling_light` GLB (no PlayCanvas conversion of that asset
+   * exists yet, so a primitive shade+bulb housing stands in for it; tracked
+   * separately in the phase punch list). Every position/dimension below is
+   * copied verbatim from the source (`storeUtilities.ts` lines ~22-64,
+   * ~150-176), via the same scaleStorePosition + STORE_ELEMENT_SCALE
+   * `makeStoreElement()` convention every other fixture in this file uses.
+   */
+  private buildDecorativeFixtures(parent: pc.Entity) {
+    const S = STORE_ELEMENT_SCALE;
+    const element = (name: string, position: [number, number, number], yawDeg = 0) => {
+      const scaled = scaleStorePosition(position);
+      const el = new pc.Entity(name);
+      el.setLocalPosition(scaled[0], scaled[1], scaled[2]);
+      el.setEulerAngles(0, yawDeg, 0);
+      el.setLocalScale(S, S, S);
+      parent.addChild(el);
+      return el;
+    };
+
+    // Wall clock.
+    const clock = element("wall-clock", [STORE_REAR_DOOR.adjacentRackPosition[0], 2.2, -8.34]);
+    const face = new pc.Entity("clock-face");
+    face.addComponent("render", { type: "cylinder", material: this.material("#f7f2e2") });
+    face.setLocalScale(0.68, 0.08, 0.68);
+    clock.addChild(face);
+    const minuteHand = new pc.Entity("clock-minute-hand");
+    minuteHand.addComponent("render", { type: "box", material: this.material("#303735") });
+    minuteHand.setLocalScale(0.025, 0.25, 0.025);
+    minuteHand.setLocalPosition(0, -0.045, 0.05);
+    minuteHand.setEulerAngles(90, 0, 0);
+    clock.addChild(minuteHand);
+    const hourHand = new pc.Entity("clock-hour-hand");
+    hourHand.addComponent("render", { type: "box", material: this.material("#303735") });
+    hourHand.setLocalScale(0.02, 0.18, 0.02);
+    hourHand.setLocalPosition(0.09, 0.02, 0.055);
+    hourHand.setEulerAngles(90, 0, (-0.85 * 180) / Math.PI);
+    clock.addChild(hourHand);
+
+    // Security cameras.
+    const buildCamera = (name: string, position: [number, number, number], yawDeg: number) => {
+      const cam = element(name, position, yawDeg);
+      const body = new pc.Entity("camera-body");
+      body.addComponent("render", { type: "box", material: this.material("#e6e9e3") });
+      body.setLocalScale(0.42, 0.22, 0.2);
+      cam.addChild(body);
+      const lens = new pc.Entity("camera-lens");
+      lens.addComponent("render", { type: "cylinder", material: this.material("#202725") });
+      lens.setLocalScale(0.12, 0.01, 0.12);
+      lens.setLocalPosition(0, 0, 0.12);
+      lens.setEulerAngles(90, 0, 0);
+      cam.addChild(lens);
+      const mount = new pc.Entity("camera-mount");
+      mount.addComponent("render", { type: "box", material: this.material("#303a36") });
+      mount.setLocalScale(0.06, 0.35, 0.06);
+      mount.setLocalPosition(0, 0.22, -0.05);
+      cam.addChild(mount);
+    };
+    buildCamera("security-camera-left", [-10.75, 2.55, -8.05], 0);
+    buildCamera("security-camera-right", [10.65, 2.55, 7.2], 180);
+
+    // Hanging signs.
+    const buildHangingSign = (name: string, label: string, position: [number, number, number]) => {
+      const sign = element(name, position);
+      const board = new pc.Entity("sign-board");
+      board.addComponent("render", { type: "box", material: this.material("#344c3e") });
+      board.setLocalScale(1.55, 0.46, 0.09);
+      sign.addChild(board);
+      this.buildText(sign, "sign-label-front", label, 0.175, [0, 0, 0.052], "#fff1cc");
+      const back = this.buildText(sign, "sign-label-back", label, 0.175, [0, 0, -0.052], "#fff1cc");
+      back.setEulerAngles(0, 180, 0);
+      for (const x of [-0.56, 0.56]) {
+        const post = new pc.Entity("sign-post");
+        post.addComponent("render", { type: "box", material: this.material("#303a36") });
+        post.setLocalScale(0.025, 0.55, 0.025);
+        post.setLocalPosition(x, 0.45, 0);
+        sign.addChild(post);
+      }
+    };
+    buildHangingSign("hanging-sign-checkout", "CAJAS", [7.25, 2.45, 1.65]);
+    buildHangingSign("hanging-sign-pantry", "DESPENSA", [-3.8, 2.45, -3.35]);
+
+    // Ceiling lamps — real point light + primitive shade/bulb housing.
+    for (const x of [-7.2, -2.4, 2.4, 7.2]) {
+      const lampElement = element(`ceiling-lamp:${x}`, [x, 2.85, -0.6]);
+      const shadeMaterial = new pc.StandardMaterial();
+      shadeMaterial.diffuse = hexToColor("#2c2c2c");
+      shadeMaterial.update();
+      const shade = new pc.Entity("lamp-shade");
+      shade.addComponent("render", { type: "cylinder", material: shadeMaterial });
+      shade.setLocalScale(0.5, 0.12, 0.5);
+      lampElement.addChild(shade);
+      const bulbMaterial = new pc.StandardMaterial();
+      bulbMaterial.diffuse = hexToColor("#fff0b8");
+      bulbMaterial.emissive = hexToColor("#000000");
+      bulbMaterial.emissiveIntensity = 0;
+      bulbMaterial.update();
+      const bulb = new pc.Entity("lamp-bulb");
+      bulb.addComponent("render", { type: "cylinder", material: bulbMaterial });
+      bulb.setLocalScale(0.32, 0.05, 0.32);
+      bulb.setLocalPosition(0, -0.08, 0);
+      lampElement.addChild(bulb);
+      const light = new pc.Entity("lamp-light");
+      light.addComponent("light", { type: "point", color: hexToColor("#fff2c9"), intensity: 0, range: 4 });
+      light.setLocalPosition(0, -0.15, 0);
+      lampElement.addChild(light);
+      this.ceilingLampActors.push({ bulbMaterial, light });
+    }
+  }
+
+  /** Real per-frame ceiling-lamp on/off — reads `franchise.lightsOn` directly
+   * off the store (like `stepFarmAnimals()` reads `productionMachines`),
+   * toggling each lamp's emissive bulb material and point-light intensity
+   * exactly like the source's `applyEmissive`/`syncLight`. */
+  private stepCeilingLamps() {
+    if (this.ceilingLampActors.length === 0) return;
+    const game = useMarketStore.getState().game;
+    const franchise = game?.franchises.find((item) => item.id === game.currentFranchiseId) ?? game?.franchises[0];
+    const on = franchise?.lightsOn ?? false;
+    for (const actor of this.ceilingLampActors) {
+      actor.bulbMaterial.emissive = hexToColor(on ? "#fff0b8" : "#000000");
+      actor.bulbMaterial.emissiveIntensity = on ? 1.1 : 0;
+      actor.bulbMaterial.update();
+      if (actor.light.light) actor.light.light.intensity = on ? 0.18 : 0;
+    }
   }
 
   /** Procedural (real box/plate/roller-primitive assembly, not a box-volume
@@ -3371,6 +3524,25 @@ export class PlayCanvasRuntime {
     }
   }
 
+  /**
+   * Real per-department fixture shell — ports `WorldKit/fixtureShell.ts`'s
+   * shared pieces (`FixtureUprights`, `CommercialShelfBank`,
+   * `CommercialBackPanel`, `DepartmentSign`, `ScreenRail`) plus
+   * `WorldKit/retail/departments.ts`'s per-type assembly
+   * (`Gondola`/`BakeryDisplay`/`DrinksDisplay`/`ProduceTable`), replacing the
+   * former flat body/base placeholder. Every dimension below is the real
+   * source's own number, x-scaled by this fixture's actual width vs. the
+   * source's reference width (2.24 for the gondola/bakery family, 2.3 for
+   * drinks) so a department whose `fixtureHalfExtents` differ slightly from
+   * the literal source still gets proportional geometry; z dimensions are
+   * used literally since the source shelf/back-panel depths are already
+   * much shallower than the fixture footprint by design. Per-SKU dynamic
+   * stock screens (`buildStockScreen` in the source) and the dairy cooler's
+   * animated GLB doors are intentionally out of this pass — this only ports
+   * the STATIC shelf/upright/back-panel/sign geometry that gives each
+   * department its visual identity; `dairy`/`eggs` get a simplified chiller
+   * cabinet silhouette (back panel + uprights + canopy + glass hint) rather
+   * than the source's real GLB case, tracked separately. */
   private buildDepartmentFixture(parent: pc.Entity, department: (typeof RETAIL_DEPARTMENTS)[RetailDepartmentId], position: [number, number, number], yawDeg: number): pc.Entity {
     // Mirrors `makeStoreElement`: scaleStorePosition (bakes STORE_LAYOUT_SCALE
     // — this group already lives under `worldRoot`, WORLD_SCALE only), yaw,
@@ -3382,17 +3554,326 @@ export class PlayCanvasRuntime {
     parent.addChild(element);
 
     const [halfX, halfZ] = department.fixtureHalfExtents;
-    const body = new pc.Entity("body");
-    body.addComponent("render", { type: "box", material: this.material(department.color) });
-    body.setLocalScale(halfX * 2 * STORE_ELEMENT_SCALE, 0.95 * STORE_ELEMENT_SCALE, halfZ * 2 * STORE_ELEMENT_SCALE);
-    body.setLocalPosition(0, 0.475 * STORE_ELEMENT_SCALE, 0);
-    element.addChild(body);
+    const width = halfX * 2;
+    const depth = halfZ * 2;
+
     const base = new pc.Entity("base");
     base.addComponent("render", { type: "box", material: this.material("#3a3f38") });
     base.setLocalScale(halfX * 2.05 * STORE_ELEMENT_SCALE, 0.08 * STORE_ELEMENT_SCALE, halfZ * 2.05 * STORE_ELEMENT_SCALE);
     base.setLocalPosition(0, 0.04 * STORE_ELEMENT_SCALE, 0);
     element.addChild(base);
+
+    switch (department.id) {
+      case "pantry":
+      case "preserves":
+        this.buildGondolaFixtureShell(element, department, width);
+        break;
+      case "bakery":
+        this.buildBakeryFixtureShell(element, department, width);
+        break;
+      case "drinks":
+        this.buildDrinksFixtureShell(element, department, width);
+        break;
+      case "produce":
+        this.buildProduceFixtureShell(element, department);
+        break;
+      case "dairy":
+      case "eggs":
+        this.buildChillerFixtureShell(element, department, width, depth);
+        break;
+    }
     return element;
+  }
+
+  /** Real port of `fixtureShell.ts`'s `FixtureUprights`: two steel posts per
+   * side (four total), spanning `height` centered on the fixture's own
+   * vertical axis. */
+  private buildFixtureUprights(parent: pc.Entity, width: number, height: number, z = -0.34) {
+    const S = STORE_ELEMENT_SCALE;
+    const steel = this.material("#222a2b");
+    for (const side of [-1, 1] as const) {
+      for (const postZ of [z - 0.03, z + 0.09]) {
+        const post = new pc.Entity("upright");
+        post.addComponent("render", { type: "box", material: steel });
+        post.setLocalScale(0.07 * S, height * S, 0.07 * S);
+        post.setLocalPosition(side * (width / 2 - 0.055) * S, (height / 2) * S, postZ * S);
+        parent.addChild(post);
+      }
+    }
+  }
+
+  /** Real port of `fixtureShell.ts`'s `CommercialShelfBank`: one deck + lip +
+   * color accent stripe + three price tags per level. */
+  private buildCommercialShelfBank(parent: pc.Entity, levels: readonly number[], width: number, depth: number, z: number, front: 1 | -1, accent: string) {
+    const S = STORE_ELEMENT_SCALE;
+    const shelfMat = this.material("#d9dcda");
+    const lipMat = this.material("#222a2b");
+    const accentMat = this.material(accent);
+    const tagMat = this.material("#fff8e7");
+    for (const y of levels) {
+      const deck = new pc.Entity("shelf-deck");
+      deck.addComponent("render", { type: "box", material: shelfMat });
+      deck.setLocalScale(width * S, 0.065 * S, depth * S);
+      deck.setLocalPosition(0, y * S, z * S);
+      parent.addChild(deck);
+
+      const lip = new pc.Entity("shelf-lip");
+      lip.addComponent("render", { type: "box", material: lipMat });
+      lip.setLocalScale((width + 0.035) * S, 0.105 * S, 0.035 * S);
+      lip.setLocalPosition(0, (y + 0.025) * S, (z + front * (depth / 2 - 0.006)) * S);
+      parent.addChild(lip);
+
+      const accentStripe = new pc.Entity("shelf-accent");
+      accentStripe.addComponent("render", { type: "box", material: accentMat });
+      accentStripe.setLocalScale(width * 0.92 * S, 0.062 * S, 0.018 * S);
+      accentStripe.setLocalPosition(0, (y + 0.075) * S, (z + front * (depth / 2 + 0.017)) * S);
+      parent.addChild(accentStripe);
+
+      for (const offset of [-0.31, 0, 0.31]) {
+        const tag = new pc.Entity("shelf-tag");
+        tag.addComponent("render", { type: "box", material: tagMat });
+        tag.setLocalScale(0.25 * S, 0.055 * S, 0.012 * S);
+        tag.setLocalPosition(offset * width * S, (y + 0.075) * S, (z + front * (depth / 2 + 0.029)) * S);
+        parent.addChild(tag);
+      }
+    }
+  }
+
+  /** Real port of `fixtureShell.ts`'s `CommercialBackPanel`: one panel plus
+   * seven horizontal slats. */
+  private buildCommercialBackPanel(parent: pc.Entity, width: number, height: number, z: number, color = "#c5cac7") {
+    const S = STORE_ELEMENT_SCALE;
+    const panel = new pc.Entity("back-panel");
+    panel.addComponent("render", { type: "box", material: this.material(color) });
+    panel.setLocalScale(width * S, height * S, 0.075 * S);
+    panel.setLocalPosition(0, (height / 2) * S, z * S);
+    parent.addChild(panel);
+
+    const slatMat = this.material("#747d79");
+    for (let index = 0; index < 7; index += 1) {
+      const slat = new pc.Entity("back-panel-slat");
+      slat.addComponent("render", { type: "box", material: slatMat });
+      slat.setLocalScale(width * 0.86 * S, 0.012 * S, 0.012 * S);
+      const y = 0.22 + index * Math.max(0.2, (height - 0.34) / 6);
+      slat.setLocalPosition(0, y * S, (z + 0.042) * S);
+      parent.addChild(slat);
+    }
+  }
+
+  /** Real port of `fixtureShell.ts`'s `ScreenRail` (structural rail only —
+   * the dynamic stock screen itself is out of scope for this pass). */
+  private buildScreenRail(parent: pc.Entity, barY: number, railY: number, halfWidth: number, z: number) {
+    const S = STORE_ELEMENT_SCALE;
+    const steel = this.material("#222a2b");
+    for (const x of [-halfWidth, halfWidth]) {
+      const post = new pc.Entity("rail-post");
+      post.addComponent("render", { type: "box", material: steel });
+      post.setLocalScale(0.05 * S, (railY - barY) * S, 0.05 * S);
+      post.setLocalPosition(x * S, ((barY + railY) / 2) * S, z * S);
+      parent.addChild(post);
+    }
+    const bar = new pc.Entity("rail-bar");
+    bar.addComponent("render", { type: "box", material: steel });
+    bar.setLocalScale((halfWidth * 2 + 0.05) * S, 0.05 * S, 0.05 * S);
+    bar.setLocalPosition(0, railY * S, z * S);
+    parent.addChild(bar);
+  }
+
+  /** Real port of `fixtureShell.ts`'s `DepartmentSign`: frame + colored panel
+   * + real text label (via `buildText()`, same as the "RECOGER"/"MINI
+   * MARKET" world-space text elsewhere in this file). */
+  private buildDepartmentSignBoard(parent: pc.Entity, label: string, color: string, position: [number, number, number], width = 1.72) {
+    const S = STORE_ELEMENT_SCALE;
+    const anchor = new pc.Entity("sign-anchor");
+    anchor.setLocalPosition(position[0] * S, position[1] * S, position[2] * S);
+    parent.addChild(anchor);
+    const frame = new pc.Entity("sign-frame");
+    frame.addComponent("render", { type: "box", material: this.material("#303a36") });
+    frame.setLocalScale((width + 0.1) * S, 0.42 * S, 0.07 * S);
+    frame.setLocalPosition(0, -0.025 * S, -0.035 * S);
+    anchor.addChild(frame);
+    const panel = new pc.Entity("sign-panel");
+    panel.addComponent("render", { type: "box", material: this.material(color) });
+    panel.setLocalScale(width * S, 0.31 * S, 0.09 * S);
+    anchor.addChild(panel);
+    this.buildText(anchor, "sign-label", label, 0.135 * S, [0, 0, 0.052 * S], "#fffaf0");
+  }
+
+  /** Real port of `departments.ts`'s `Gondola` (pantry/preserves): back
+   * panel, uprights, a double-sided shelf bank (service-facing side first,
+   * matching the source's comment on stocking-magnet proximity), steel cap,
+   * screen rail and department sign. */
+  private buildGondolaFixtureShell(element: pc.Entity, department: (typeof RETAIL_DEPARTMENTS)[RetailDepartmentId], width: number) {
+    const S = STORE_ELEMENT_SCALE;
+    const kx = width / 2.24;
+    this.buildCommercialBackPanel(element, 2.08 * kx, 1.82, 0, "#b69a77");
+    this.buildFixtureUprights(element, 2.18 * kx, 1.92, 0);
+    for (const side of [1, -1] as const) {
+      this.buildCommercialShelfBank(element, RETAIL_FIXTURE_LEVELS.pantry, 2.08 * kx, 0.52, side * 0.28, side, department.color);
+    }
+    const cap = new pc.Entity("cap");
+    cap.addComponent("render", { type: "box", material: this.material("#222a2b") });
+    cap.setLocalScale(2.3 * kx * S, 0.14 * S, 1.08 * S);
+    cap.setLocalPosition(0, 1.88 * S, 0);
+    element.addChild(cap);
+    this.buildScreenRail(element, 1.95, 2.43, 1.1 * kx, 0.12);
+    this.buildDepartmentSignBoard(element, department.label, department.color, [0, 2.15, 0], 2.02 * kx);
+  }
+
+  /** Real port of `departments.ts`'s `BakeryDisplay`. */
+  private buildBakeryFixtureShell(element: pc.Entity, department: (typeof RETAIL_DEPARTMENTS)[RetailDepartmentId], width: number) {
+    const S = STORE_ELEMENT_SCALE;
+    const kx = width / 2.24;
+    this.buildCommercialBackPanel(element, 2.08 * kx, 1.9, -0.34, "#d8c3a2");
+    this.buildFixtureUprights(element, 2.18 * kx, 2, -0.34);
+    this.buildCommercialShelfBank(element, RETAIL_FIXTURE_LEVELS.bakery, 2.08 * kx, 0.52, 0.02, 1, department.color);
+    const cap = new pc.Entity("cap");
+    cap.addComponent("render", { type: "box", material: this.material("#222a2b") });
+    cap.setLocalScale(2.3 * kx * S, 0.14 * S, 0.78 * S);
+    cap.setLocalPosition(0, 1.98 * S, -0.1 * S);
+    element.addChild(cap);
+    this.buildScreenRail(element, 2.05, 2.52, 1.12 * kx, 0.1);
+    this.buildDepartmentSignBoard(element, department.label, department.color, [0, 2.25, 0.08], 2.02 * kx);
+  }
+
+  /** Real port of `departments.ts`'s `DrinksDisplay`. */
+  private buildDrinksFixtureShell(element: pc.Entity, department: (typeof RETAIL_DEPARTMENTS)[RetailDepartmentId], width: number) {
+    const S = STORE_ELEMENT_SCALE;
+    const kx = width / 2.3;
+    this.buildCommercialBackPanel(element, 2.2 * kx, 2.08, -0.36, "#d8d3c6");
+    this.buildFixtureUprights(element, 2.28 * kx, 2.2, -0.31);
+    this.buildCommercialShelfBank(element, RETAIL_FIXTURE_LEVELS.drinks, 2.13 * kx, 0.67, 0, 1, department.color);
+    const cap = new pc.Entity("cap");
+    cap.addComponent("render", { type: "box", material: this.material("#222a2b") });
+    cap.setLocalScale(2.38 * kx * S, 0.18 * S, 0.92 * S);
+    cap.setLocalPosition(0, 2.18 * S, 0);
+    element.addChild(cap);
+    this.buildScreenRail(element, 2.27, 2.7, 1.12 * kx, 0.1);
+    this.buildDepartmentSignBoard(element, department.label, department.color, [0, 2.42, 0.07], 2 * kx);
+  }
+
+  /** Real port of `departments.ts`'s `ProduceTable`: four tilted bin decks
+   * (one per SKU, positions from `PRODUCE_BIN_COLUMNS`/`produceDeckLocalPoint`
+   * — the exact same pure geometry the authoritative stocking-flight math
+   * uses), dividers, legs, sign posts and header rail. Every unit is a real
+   * `pc.Entity` with its own tilt (`PRODUCE_DECK.tilt`, converted to
+   * degrees) rather than a flat box. */
+  private buildProduceFixtureShell(element: pc.Entity, department: (typeof RETAIL_DEPARTMENTS)[RetailDepartmentId]) {
+    const S = STORE_ELEMENT_SCALE;
+    const tiltDeg = (PRODUCE_DECK.tilt * 180) / Math.PI;
+    const steel = this.material("#222a2b");
+    const woodMat = this.material("#a46f3d");
+    const dividerMat = this.material("#6e482d");
+
+    const plinth = new pc.Entity("plinth");
+    plinth.addComponent("render", { type: "box", material: steel });
+    plinth.setLocalScale(2.42 * S, 0.12 * S, 1.5 * S);
+    plinth.setLocalPosition(0, 0.08 * S, 0);
+    element.addChild(plinth);
+
+    for (const x of [-1.08, 1.08]) {
+      for (const z of [-0.58, 0.58]) {
+        const leg = new pc.Entity("leg");
+        leg.addComponent("render", { type: "box", material: steel });
+        leg.setLocalScale(0.09 * S, 0.7 * S, 0.09 * S);
+        leg.setLocalPosition(x * S, 0.39 * S, z * S);
+        element.addChild(leg);
+      }
+    }
+
+    const body = new pc.Entity("body");
+    body.addComponent("render", { type: "box", material: woodMat });
+    body.setLocalScale(2.28 * S, 0.54 * S, 1.34 * S);
+    body.setLocalPosition(0, 0.43 * S, 0);
+    element.addChild(body);
+
+    for (const x of PRODUCE_BIN_COLUMNS) {
+      const deck = new pc.Entity("deck");
+      deck.addComponent("render", { type: "box", material: steel });
+      deck.setLocalScale(PRODUCE_DECK.width * S, PRODUCE_DECK.thickness * S, PRODUCE_DECK.depth * S);
+      deck.setLocalPosition(x * S, PRODUCE_DECK.center[1] * S, PRODUCE_DECK.center[2] * S);
+      deck.setEulerAngles(tiltDeg, 0, 0);
+      element.addChild(deck);
+    }
+
+    for (const slot of [-2, -1, 0, 1, 2]) {
+      const [dx, dy, dz] = produceDeckLocalPoint(slot * PRODUCE_BIN_PITCH, 0.1, 0);
+      const divider = new pc.Entity("divider");
+      divider.addComponent("render", { type: "box", material: dividerMat });
+      divider.setLocalScale(0.03 * S, 0.2 * S, (PRODUCE_DECK.depth + 0.04) * S);
+      divider.setLocalPosition(dx * S, dy * S, dz * S);
+      divider.setEulerAngles(tiltDeg, 0, 0);
+      element.addChild(divider);
+    }
+
+    const front = produceDeckLocalPoint(0, 0.055, 0.585);
+    const frontRail = new pc.Entity("front-rail");
+    frontRail.addComponent("render", { type: "box", material: dividerMat });
+    frontRail.setLocalScale(2.32 * S, 0.07 * S, 0.035 * S);
+    frontRail.setLocalPosition(front[0] * S, front[1] * S, front[2] * S);
+    frontRail.setEulerAngles(tiltDeg, 0, 0);
+    element.addChild(frontRail);
+
+    const back = produceDeckLocalPoint(0, 0.1, -0.6);
+    const backRail = new pc.Entity("back-rail");
+    backRail.addComponent("render", { type: "box", material: dividerMat });
+    backRail.setLocalScale(2.32 * S, 0.17 * S, 0.035 * S);
+    backRail.setLocalPosition(back[0] * S, back[1] * S, back[2] * S);
+    backRail.setEulerAngles(tiltDeg, 0, 0);
+    element.addChild(backRail);
+
+    for (const x of PRODUCE_BIN_COLUMNS) {
+      const post = new pc.Entity("sign-post");
+      post.addComponent("render", { type: "box", material: steel });
+      post.setLocalScale(0.045 * S, 0.54 * S, 0.045 * S);
+      post.setLocalPosition(x * S, 1.12 * S, -0.68 * S);
+      element.addChild(post);
+    }
+    for (const x of [-1.1, 1.1]) {
+      const post = new pc.Entity("header-post");
+      post.addComponent("render", { type: "box", material: steel });
+      post.setLocalScale(0.055 * S, 1.7 * S, 0.055 * S);
+      post.setLocalPosition(x * S, 1.52 * S, -0.7 * S);
+      element.addChild(post);
+    }
+    const headerBar = new pc.Entity("header-bar");
+    headerBar.addComponent("render", { type: "box", material: steel });
+    headerBar.setLocalScale(2.3 * S, 0.12 * S, 0.08 * S);
+    headerBar.setLocalPosition(0, 2.36 * S, -0.7 * S);
+    element.addChild(headerBar);
+
+    this.buildDepartmentSignBoard(element, department.label, department.color, [0, 2.33, -0.64], 2.2);
+  }
+
+  /**
+   * Simplified chiller-cabinet silhouette for `dairy`/`eggs`: back panel +
+   * uprights + dark canopy + a translucent glass-front hint + department
+   * sign. NOT a port of the source's real GLB cooler case (`ChilledDisplay`/
+   * `EggDisplay` load `DairyDoor1..3`-rigged and `egg-display` GLB scenes,
+   * with animated door leaves) — that swap is tracked separately as a
+   * distinct, larger-scope item (real GLB integration + door animation).
+   * This pass only replaces the flat single-color box with a real cabinet
+   * shape so the department reads as chilled retail rather than a placeholder.
+   */
+  private buildChillerFixtureShell(element: pc.Entity, department: (typeof RETAIL_DEPARTMENTS)[RetailDepartmentId], width: number, depth: number) {
+    const S = STORE_ELEMENT_SCALE;
+    const isDairy = department.id === "dairy";
+    const caseHeight = isDairy ? 2.05 : 1.9;
+    const backZ = -depth * 0.42;
+    this.buildCommercialBackPanel(element, width * 0.9, caseHeight, backZ, isDairy ? "#dcecef" : "#eef2ee");
+    this.buildFixtureUprights(element, width * 0.95, caseHeight + 0.1, backZ);
+    const canopy = new pc.Entity("canopy");
+    canopy.addComponent("render", { type: "box", material: this.material("#222a2b") });
+    canopy.setLocalScale(width * 0.97 * S, 0.12 * S, depth * 0.9 * S);
+    canopy.setLocalPosition(0, caseHeight * S, backZ * 0.3 * S);
+    element.addChild(canopy);
+    const glass = new pc.Entity("glass-front");
+    glass.addComponent("render", { type: "box", material: this.material("#dcecef", 0.28) });
+    glass.setLocalScale(width * 0.9 * S, caseHeight * 0.75 * S, 0.03 * S);
+    glass.setLocalPosition(0, caseHeight * 0.42 * S, depth * 0.42 * S);
+    element.addChild(glass);
+    const signY = isDairy ? 1.86 : 2.62;
+    this.buildDepartmentSignBoard(element, department.label, department.color, [0, signY, depth * 0.44], width * 0.9);
   }
 
   /**
