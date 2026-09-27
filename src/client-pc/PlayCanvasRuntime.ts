@@ -56,8 +56,9 @@ import { WorkstationController } from "@/game/interaction/WorkstationController"
 import { interactionZoneConfigs } from "@/game/interaction/interactionZoneConfigsPure";
 import { useMarketStore } from "@/game/store";
 import { WORLD_TICK_INTERVAL_MS } from "@/game/core/timing";
-import type { AvatarHatId, CharacterId, HairId, ProductId, CheckoutTransaction, ProductionMachineState } from "@/game/types";
+import type { AvatarHatId, CharacterId, HairId, ProductId, CheckoutTransaction, ProductionMachineState, CarryState } from "@/game/types";
 import { characterSceneScale } from "@/game/animation/CharacterScale";
+import { carriedProductIds, carryQuantity, carryTotal, MAX_WAREHOUSE_PICKUP_BATCH } from "@/game/player/CarrySystem";
 import type { OpeningPurchaseId } from "@/game/progression/MartCampaign";
 
 /**
@@ -204,12 +205,13 @@ const STOCK_SCREEN_PRODUCT_LABELS: Record<ProductId, string> = {
 //    custom vertex-buffer geometry (every render entity in it is box/sphere/
 //    cylinder/capsule/plane), so a box is the faithful-parameters substitute.
 // `basketWorld` (the flight source/destination for stock/return/pay bursts,
-// and the harvest burst's landing point) has no real basket-carry rig in this
-// port yet (no PlayCanvas equivalent to `PlayerActor.ts`'s `baskets` prop
-// instancer) — `stepTransferBursts()` uses the exact same fallback the real
-// source itself falls back to while not holding a basket prop:
-// `this.position.x, this.position.y + 1.05, this.position.z` (`PlayerActor.ts`
-// line 368), not an invented number.
+// and the harvest burst's landing point) now reads the real held-basket
+// visual's actual position while carrying (`applyPlayerCarry()`'s own doc
+// comment — a single-hand-attach standin for `PlayerActor.ts`'s real
+// `baskets` prop instancer/two-hand grip). `stepTransferBursts()` still falls
+// back to the exact same point the real source itself falls back to while not
+// holding a basket prop: `this.position.x, this.position.y + 1.05,
+// this.position.z` (`PlayerActor.ts` line 368), not an invented number.
 const MAX_VISUAL_TRANSFER_DELTA = 0.25;
 function visualTransferDelta(delta: number): number {
   return Math.min(MAX_VISUAL_TRANSFER_DELTA, Math.max(0, Number.isFinite(delta) ? delta : 0));
@@ -467,9 +469,14 @@ export interface PlayCanvasSceneProps {
   /** Real `GameShell.updateTransferProgress` — retires the presentation
    * ledger exactly like `/runtime`'s own `transferEffects.ts` calls it. */
   onTransferProgress: (sequence: number, remainingQuantity: number) => void;
+  /** Real `franchise.carry` (the player's held-items container) — drives the
+   * player's real held basket/carried-products visual (`applyPlayerCarry()`)
+   * the same way `PlayerActor.ts`'s own `present()` does, and the transfer
+   * burst source point while actually carrying (`stepTransferBursts()`). */
+  carry: CarryState;
 }
 
-const DEFAULT_PROPS: PlayCanvasSceneProps = { avatarBody: "adult-man", avatarHair: "fade", avatarHairColor: "#3a2a1e", avatarHat: "none", unlockedAreas: [], doorState: "CLOSED", doorProgress: 0, open: false, playerSpeedTier: 0, checkoutLevel: 1, availablePurchaseIds: [], crops: [], customers: [], employees: [], purchaseMarkers: [], registerCashMinor: [0, 0, 0], cashBundleMinor: 1000, onInteract: () => {}, onDistance: () => {}, onDoorPresence: () => {}, transferEvents: [], onTransferProgress: () => {} };
+const DEFAULT_PROPS: PlayCanvasSceneProps = { avatarBody: "adult-man", avatarHair: "fade", avatarHairColor: "#3a2a1e", avatarHat: "none", unlockedAreas: [], doorState: "CLOSED", doorProgress: 0, open: false, playerSpeedTier: 0, checkoutLevel: 1, availablePurchaseIds: [], crops: [], customers: [], employees: [], purchaseMarkers: [], registerCashMinor: [0, 0, 0], cashBundleMinor: 1000, onInteract: () => {}, onDistance: () => {}, onDoorPresence: () => {}, transferEvents: [], onTransferProgress: () => {}, carry: { capacity: 0, items: {} } };
 
 // Mirrors `PlayerActor.ts`'s `OWNER_BODY_KEY` — the real owner GLB filenames.
 const OWNER_BODY_KEY: Record<CharacterId, string> = { "adult-man": "owner_man", "adult-woman": "owner_woman", boy: "owner_boy", girl: "owner_girl" };
@@ -677,6 +684,20 @@ export class PlayCanvasRuntime {
   private playerCapsule: pc.Entity | null = null;
   private playerHatEntity: pc.Entity | null = null;
   private playerHairEntity: pc.Entity | null = null;
+  // ---- player carry visual (real held basket + carried products) ----
+  // Parented under the real `Hand_R` bone the moment the player GLB loads
+  // (same "reparent under a skinned bone, PlayCanvas follows automatically"
+  // trick `loadPlayerAccessories()` uses for the hat/hair). `applyPlayerCarry()`
+  // toggles `playerBasketEntity.enabled` and rebuilds the pooled product
+  // primitives whenever `props.carry`'s contents actually change (never every
+  // frame) — mirrors `PlayerActor.ts`'s own `carrying && baskets && this.carry`
+  // gate, with a single-hand attach point standing in for the source's real
+  // two-hand `CHARACTER_PALM_OFFSETS` grip (this port tracks no bone-socket
+  // matrix math elsewhere either — see `updatePlayerAnimation()`'s doc
+  // comment). Not loaded until the player GLB and its `Hand_R` bone resolve.
+  private playerBasketEntity: pc.Entity | null = null;
+  private playerHandWorldScale: pc.Vec3 | null = null;
+  private playerCarrySignature = "";
   private playerAnimTarget: PlayerAnimClip = "Idle";
   private readonly playerAnimAvailable = new Set<PlayerAnimClip>();
   // Real per-body root scale (`characterSceneScale(body) * OWNER_BODY_SCALE[body]`,
@@ -746,6 +767,17 @@ export class PlayCanvasRuntime {
   // every render frame from `stepCeilingLamps()` reading `franchise.lightsOn`
   // directly, like `stepFarmAnimals()`/`stepRetailStock()` above.
   private readonly ceilingLampActors: { light: pc.Entity; modelMaterials: pc.StandardMaterial[] }[] = [];
+
+  // ---- dairy cooler door swing (real GLB `DairyDoor1..3` leaves) ----
+  // Rebuilt with the rest of `furnitureGroup` on a signature change; driven
+  // every render frame from `stepDairyDoors()` reading `franchise.customers`
+  // directly off the store, exactly like `stepFarmAnimals()`/
+  // `stepRetailStock()` above — mirrors `kitFurniture.ts`'s `coldDoorActiveOf()`
+  // exactly (a customer mid-`WAIT_FOR_ACCESS`/`PICK_PRODUCT` on a milk/cheese
+  // line) and `departments.ts`'s `animate()` door-damp formula
+  // (`THREE.MathUtils.damp(rotationY, open ? -1.05 : 0, 8, dt)`).
+  private readonly dairyDoorLeaves: pc.Entity[] = [];
+  private dairyDoorAngle = 0;
 
   // ---- checkout lane / production machine dynamic detail (phase 15) ----
   // Rebuilt with the rest of `furnitureGroup` on a signature change; driven
@@ -910,6 +942,7 @@ export class PlayCanvasRuntime {
     this.props = nextProps;
     if (speedChanged) this.motion = playerMotionForTier(nextProps.playerSpeedTier, nextProps.unlockedAreas.includes("purchase-campaign"));
     if (unlockedChanged) this.physics?.setUnlockedAreas(nextProps.unlockedAreas);
+    this.applyPlayerCarry(nextProps.carry);
     this.rebuildInteractionZones(nextProps);
     const worldRoot = this.app.root.findByName("world-scale-root") as pc.Entity | null;
     // buildFurniture() itself dirty-checks the combined unlockedAreas+crops
@@ -1511,7 +1544,21 @@ export class PlayCanvasRuntime {
   private stepTransferBursts(dt: number) {
     if (this.transferBursts.size === 0) return;
     const rawDeltaSeconds = Number.isFinite(dt) ? Math.max(0, dt) : 0;
-    const basketWorld = { x: this.playerPosition.x, y: 1.05, z: this.playerPosition.z };
+    // While the real held basket is visible (`applyPlayerCarry()`), fly from
+    // its actual real-world position instead of the no-rig fallback — convert
+    // its absolute PlayCanvas world position back into this file's own
+    // "layout units × STORE_LAYOUT_SCALE" space (the space `playerPosition`/
+    // every burst target already live in) by undoing the one uniform
+    // `WORLD_SCALE` factor the whole world sits under (`worldRoot`'s own
+    // scale; the basket's ancestor chain carries no other scale/rotation
+    // above that). Falls back to the exact same `y=1.05` point the real
+    // source itself uses while not holding a basket prop (`PlayerActor.ts`
+    // line 368) whenever the basket hasn't loaded yet or is empty.
+    let basketWorld = { x: this.playerPosition.x, y: 1.05, z: this.playerPosition.z };
+    if (this.playerBasketEntity?.enabled) {
+      const p = this.playerBasketEntity.getPosition();
+      basketWorld = { x: p.x / WORLD_SCALE, y: p.y / WORLD_SCALE, z: p.z / WORLD_SCALE };
+    }
     for (const burst of this.transferBursts.values()) this.tickTransferBurst(burst, rawDeltaSeconds, basketWorld);
   }
 
@@ -1734,6 +1781,87 @@ export class PlayCanvasRuntime {
     }
 
     void this.loadPlayerAccessories(characterEntity, body, this.props.avatarHair, this.props.avatarHairColor, this.props.avatarHat);
+    this.setupPlayerCarryVisual(characterEntity);
+  }
+
+  /**
+   * Real held-basket visual — port of `PlayerActor.ts`'s `carrying && baskets
+   * && this.carry` branch (see this field's own doc comment for the "no
+   * multi-bone grip math" simplification). Parents one basket entity under
+   * the real `Hand_R` bone the moment it's found (same skinned-bone-reparent
+   * trick `loadPlayerAccessories()` uses for the hat/hair), computing the
+   * bone's actual world scale once so every child's local size/position can
+   * be expressed in real meters and divided back into the bone's own
+   * (heavily-scaled-by-ancestors) local frame — exactly what `HAT_FIT_SCALE`/
+   * `HAIR_FIT` do with a hand-measured constant instead of a runtime query,
+   * which works for this port too since it owns the geometry (a primitive
+   * box, not an asset authored at a fixed external scale). Starts disabled;
+   * `applyPlayerCarry()` (called once here and on every `update()`) turns it
+   * on/off and rebuilds its carried-product pool as `props.carry` changes.
+   */
+  private setupPlayerCarryVisual(characterEntity: pc.Entity) {
+    const handBone = characterEntity.findByName("Hand_R") as pc.Entity | null;
+    if (!handBone) return;
+    const worldScale = new pc.Vec3();
+    handBone.getWorldTransform().getScale(worldScale);
+    this.playerHandWorldScale = worldScale;
+    const inv = (value: number, axis: number) => value / Math.max(1e-4, axis);
+    const basket = new pc.Entity("player-basket");
+    basket.enabled = false;
+    basket.setLocalPosition(inv(0.02, worldScale.x), inv(0.04, worldScale.y), inv(0.07, worldScale.z));
+    const body = new pc.Entity("player-basket-body");
+    body.addComponent("render", { type: "box", material: this.material("#caa25a") });
+    body.setLocalScale(inv(0.28, worldScale.x), inv(0.16, worldScale.y), inv(0.2, worldScale.z));
+    basket.addChild(body);
+    const rim = new pc.Entity("player-basket-rim");
+    rim.addComponent("render", { type: "box", material: this.material("#8a6a35") });
+    rim.setLocalScale(inv(0.3, worldScale.x), inv(0.03, worldScale.y), inv(0.22, worldScale.z));
+    rim.setLocalPosition(0, inv(0.09, worldScale.y), 0);
+    basket.addChild(rim);
+    handBone.addChild(basket);
+    this.playerBasketEntity = basket;
+    this.playerCarrySignature = "";
+    this.applyPlayerCarry(this.props.carry);
+  }
+
+  /**
+   * Toggles the held basket on/off and reconciles its pooled carried-product
+   * primitives against `carry.items` — the real `carriedProductIds()`/
+   * `carryQuantity()`/`MAX_WAREHOUSE_PICKUP_BATCH` helpers `PlayerActor.ts`'s
+   * own `present()` uses, so the visible set/order/cap can never drift from
+   * the real one. Only rebuilds the pool when the actual visible product list
+   * changes (a pickup/stock/checkout event) — never every frame, matching
+   * every other "rebuild on signature change, not per tick" pool in this
+   * file (`stepRetailStock()`'s doc comment). No-ops until `Hand_R` resolved
+   * (`setupPlayerCarryVisual()`). */
+  private applyPlayerCarry(carry: CarryState) {
+    const basket = this.playerBasketEntity;
+    if (!basket) return;
+    const carrying = carryTotal(carry) > 0;
+    basket.enabled = carrying;
+    if (!carrying) {
+      this.playerCarrySignature = "";
+      return;
+    }
+    const visible = carriedProductIds(carry).flatMap((productId) => Array.from({ length: carryQuantity(carry, productId) }, () => productId)).slice(0, MAX_WAREHOUSE_PICKUP_BATCH);
+    const signature = visible.join(",");
+    if (signature === this.playerCarrySignature) return;
+    this.playerCarrySignature = signature;
+    for (const child of basket.children.slice() as pc.Entity[]) {
+      if (child.name === "player-basket-unit") child.destroy();
+    }
+    const scale = this.playerHandWorldScale ?? new pc.Vec3(1, 1, 1);
+    const inv = (value: number, axis: number) => value / Math.max(1e-4, axis);
+    visible.forEach((productId, index) => {
+      const spec = RETAIL_PRODUCT_VISUAL[productId];
+      const unit = new pc.Entity("player-basket-unit");
+      unit.addComponent("render", { type: spec.shape, material: this.material(spec.color) });
+      unit.setLocalScale(inv(spec.size[0] * 0.62, scale.x), inv(spec.size[1] * 0.62, scale.y), inv(spec.size[2] * 0.62, scale.z));
+      const col = index % 3;
+      const row = Math.floor(index / 3);
+      unit.setLocalPosition(inv((col - 1) * 0.09, scale.x), inv(0.1 + row * 0.055, scale.y), inv(0, scale.z));
+      basket.addChild(unit);
+    });
   }
 
   /**
@@ -1803,13 +1931,14 @@ export class PlayCanvasRuntime {
    * racing ahead of the load — `ownerGroup` is the `furnitureGroup` this
    * fixture belongs to at call time; if that's since been replaced, the
    * loaded entity is simply dropped instead of attached to a torn-down tree. */
-  private attachFixtureModel(parent: pc.Entity, ownerGroup: pc.Entity, url: string, assetName: string, scale: number): pc.Entity {
+  private attachFixtureModel(parent: pc.Entity, ownerGroup: pc.Entity, url: string, assetName: string, scale: number, onLoaded?: (entity: pc.Entity) => void): pc.Entity {
     const anchor = new pc.Entity(assetName);
     anchor.setLocalScale(scale, scale, scale);
     parent.addChild(anchor);
     void this.loadAccessoryEntity(url, assetName).then((entity) => {
       if (this.disposed || this.furnitureGroup !== ownerGroup || !entity) return;
       anchor.addChild(entity);
+      onLoaded?.(entity);
     });
     return anchor;
   }
@@ -1832,9 +1961,11 @@ export class PlayCanvasRuntime {
   /** Real Idle/Walk/Run selection — same hysteresis thresholds and floor-speed
    * ratio `LocomotionController.select()` uses in `PlayerActor.ts`'s own
    * `present()` (see `LOCOMOTION_MOVING_START`'s doc comment for why the
-   * logic is copied rather than imported), with carrying always `false` (this
-   * port tracks no carry state) — so this never selects a Carry* clip, only
-   * plain Idle/Walk/Run. */
+   * logic is copied rather than imported), with carrying always `false` for
+   * clip-selection purposes — `applyPlayerCarry()` does track real carry
+   * state for the held-basket visual (see its own doc comment), but this
+   * port's player GLB has no `CarryIdle`/`CarryWalk` clips to select, so
+   * locomotion always stays on plain Idle/Walk/Run regardless of carry. */
   private selectLocomotionClip(speed: number): PlayerAnimClip {
     this.playerAnimMoving = this.playerAnimMoving ? speed >= LOCOMOTION_MOVING_STOP : speed > LOCOMOTION_MOVING_START;
     if (!this.playerAnimMoving) return "Idle";
@@ -1893,6 +2024,7 @@ export class PlayCanvasRuntime {
     this.stepRetailStock();
     this.stepCeilingLamps();
     this.stepCheckout(dt);
+    this.stepDairyDoors(dt);
     this.stepProductionMachines();
     this.stepCartBay();
     this.stepReturnsCubicle();
@@ -2445,6 +2577,10 @@ export class PlayCanvasRuntime {
     // Same story for the decorative ceiling-lamp actors — every lamp entity
     // lives under the group being torn down above.
     this.ceilingLampActors.length = 0;
+    // Same story for the dairy cooler door leaves — they live inside the
+    // dairy fixture's loaded GLB, itself under the group being torn down.
+    this.dairyDoorLeaves.length = 0;
+    this.dairyDoorAngle = 0;
     const group = new pc.Entity("worldkit:furniture");
     worldRoot.addChild(group);
     this.furnitureGroup = group;
@@ -4031,21 +4167,28 @@ export class PlayCanvasRuntime {
    * Regenerate the same way if either source asset changes. This does not
    * touch any file `/`, `/play2` or `/runtime` reads.
    *
-   * Known deviation: the source's three `DairyDoor1..3` leaves swing open
-   * while a customer is mid-`WAIT_FOR_ACCESS`/`PICK_PRODUCT` on a milk/cheese
-   * line (`kitFurniture.ts`'s `coldDoorActiveOf()`), driven by
-   * `customer.shoppingList[customer.currentLine]?.productId` — a field this
-   * engine's own `PlayCanvasSceneProps.customers` doesn't carry (it only
-   * carries `id`/`x`/`z`/`state`). Piping that per-customer product id
-   * through every scene-prop call site solely to open/close a cooler door is
-   * out of scope for this cosmetic GLB swap, so the doors here render at
-   * their real authored rest pose (closed) rather than animating. The case
-   * geometry itself — the actual ask of this pass — is the real asset.
+   * The source's three `DairyDoor1..3` leaves swing open while a customer is
+   * mid-`WAIT_FOR_ACCESS`/`PICK_PRODUCT` on a milk/cheese line
+   * (`kitFurniture.ts`'s `coldDoorActiveOf()`, driven by
+   * `customer.shoppingList[customer.currentLine]?.productId`). This engine's
+   * `PlayCanvasSceneProps.customers` doesn't carry that field, but — exactly
+   * like `stepRetailStock()`/`stepCheckout()` above — `stepDairyDoors()`
+   * reads `franchise.customers` straight off `useMarketStore` instead of
+   * threading a new prop through, so the real trigger condition (and the
+   * real `THREE.MathUtils.damp(rotationY, open ? -1.05 : 0, 8, dt)` swing
+   * curve) both animate here too. `DairyDoor1..3` are located by name once
+   * the GLB loads and registered into `dairyDoorLeaves` for that step
+   * function to drive every frame.
    */
   private buildChillerFixtureShell(element: pc.Entity, ownerGroup: pc.Entity, department: (typeof RETAIL_DEPARTMENTS)[RetailDepartmentId], width: number, depth: number, screens: Map<ProductId, { countText: pc.Entity; statusText: pc.Entity }>) {
     const isDairy = department.id === "dairy";
     const file = isDairy ? "dairy" : "egg-display";
-    this.attachFixtureModel(element, ownerGroup, `${PRODUCTION_MODEL_ROOT}/${file}.glb`, `fixture-model:retail-${department.id}`, STORE_ELEMENT_SCALE);
+    this.attachFixtureModel(element, ownerGroup, `${PRODUCTION_MODEL_ROOT}/${file}.glb`, `fixture-model:retail-${department.id}`, STORE_ELEMENT_SCALE, isDairy ? (entity) => {
+      for (const index of [1, 2, 3]) {
+        const door = entity.findByName(`DairyDoor${index}`) as pc.Entity | null;
+        if (door) this.dairyDoorLeaves.push(door);
+      }
+    } : undefined);
     const yaw = department.yaw ?? 0;
     if (isDairy) {
       this.buildScreenRail(element, 1.58, 2.12, 1.12, 0.1);
@@ -4238,6 +4381,28 @@ export class PlayCanvasRuntime {
         );
       }
     }
+  }
+
+  /** Real per-frame dairy-cooler door swing — port of `departments.ts`'s
+   * `ChilledDisplay.animate()`. Reads `franchise.customers` directly off the
+   * store (like `stepFarmAnimals()`/`stepRetailStock()`/`stepCheckout()`
+   * above), reusing `kitFurniture.ts`'s exact `coldDoorActiveOf()` condition
+   * (a customer mid-`WAIT_FOR_ACCESS`/`PICK_PRODUCT` on a milk/cheese line)
+   * and the source's own exponential-damp curve
+   * (`THREE.MathUtils.damp(rotationY, target, 8, dt)`, target = -1.05 rad
+   * open / 0 closed) so the three real `DairyDoor1..3` leaves swing exactly
+   * like `/`/`/runtime`'s. No-ops until the dairy GLB has loaded and its
+   * door nodes were found (`buildChillerFixtureShell()`). */
+  private stepDairyDoors(dt: number) {
+    if (this.dairyDoorLeaves.length === 0) return;
+    const game = useMarketStore.getState().game;
+    const franchise = game?.franchises.find((item) => item.id === game.currentFranchiseId) ?? game?.franchises[0];
+    if (!franchise) return;
+    const open = franchise.customers.some((customer) => ["WAIT_FOR_ACCESS", "PICK_PRODUCT"].includes(customer.state) && ["milk", "cheese"].includes(customer.shoppingList[customer.currentLine]?.productId ?? ""));
+    const target = open ? -1.05 : 0;
+    this.dairyDoorAngle += (target - this.dairyDoorAngle) * (1 - Math.exp(-8 * Math.min(dt, 0.05)));
+    const degrees = (this.dairyDoorAngle * 180) / Math.PI;
+    for (const door of this.dairyDoorLeaves) door.setLocalEulerAngles(0, degrees, 0);
   }
 
   /** Real per-frame production-machine status (phase 15 port of
